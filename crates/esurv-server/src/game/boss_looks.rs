@@ -37,6 +37,8 @@ const GO_TYPE_GENERIC: u32 = 5;
 const GO_READY: u32 = 1;
 /// Nobody clicks it: a hero stands on it.
 const GO_FLAG_NO_INTERACT: u32 = 0x10;
+/// An aura slot's flags: it is on.
+const AURA_ON: u32 = 0x02;
 
 /// A mark as the clients were last told: its looks, its discs, and how far its fill has grown.
 pub(super) struct ShownMark {
@@ -283,17 +285,45 @@ fn object_create(guid: u64, entry: u32, display_id: u32, scale: f32, position: [
 }
 
 /// An object on the ground as the clients see it, with its guid: a game object of its model, or,
-/// for one shown as a creature model (the troll wards and totems), an unselectable unit.
+/// for one shown as a creature model (the troll wards and totems) or a planted item (Morbent's
+/// Bane), an unselectable unit, wearing its aura look if it has one.
 fn shown_object(spec: &esurv_content::GroundObject, id: u32, position: [f32; 3]) -> (u64, ObjectUpdate) {
-    match spec.creature_display {
+    let unit_look = spec.planted_item.as_ref().map(esurv_content::looks::planted_item_look).or(spec.creature_display);
+    match unit_look {
         Some(display) => {
             let guid = super::unit_guid(crate::entries::GROUND_UNIT, id);
-            (guid, super::bunnies::still_unit_create(guid, crate::entries::GROUND_UNIT, display, spec.scale, position))
+            let mut create = super::bunnies::still_unit_create(guid, crate::entries::GROUND_UNIT, display, spec.scale, position);
+            if let (Some(look), ObjectUpdate::Create { fields, .. }) = (spec.aura_look, &mut create) {
+                fields.u32(field::UNIT_AURA, look).u32(field::UNIT_AURAFLAGS, AURA_ON).u32(field::UNIT_AURALEVELS, 1);
+            }
+            (guid, create)
         }
         None => {
             let entry = object_entry(spec.display_id);
             let guid = gameobject_guid(entry, id);
             (guid, object_create(guid, entry, spec.display_id, spec.scale, position))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Morbent's Bane is the Torch of Holy Flame's model planted in an unseen unit, wearing Divine
+    /// Shield's golden bubble; a plain object stays a game object of its model.
+    #[test]
+    fn a_planted_item_is_a_unit_of_its_composed_look_wearing_its_aura() {
+        let content = esurv_content::Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+        let morbent = content.zones.iter().flat_map(|z| &z.bosses).find(|b| b.name == "Morbent Fel").unwrap();
+        let bane = morbent.ground_objects().into_iter().find(|o| o.name == "Morbent's Bane").unwrap();
+        let (guid, create) = shown_object(bane, 7, [0.0; 3]);
+        assert_eq!(guid, super::super::unit_guid(crate::entries::GROUND_UNIT, 7));
+        let ObjectUpdate::Create { fields, type_id: ObjectTypeId::Unit, .. } = create else { panic!("a unit create") };
+        assert_eq!(fields.get(field::UNIT_DISPLAYID), Some(esurv_content::looks::planted_item_look(bane.planted_item.as_ref().unwrap())));
+        assert_eq!(fields.get(field::UNIT_AURA), bane.aura_look);
+        assert_eq!(fields.get(field::UNIT_AURAFLAGS), Some(AURA_ON));
+        let plain = esurv_content::GroundObject { planted_item: None, aura_look: None, ..bane.clone() };
+        assert!(matches!(shown_object(&plain, 7, [0.0; 3]).1, ObjectUpdate::CreatePlaced { type_id: ObjectTypeId::GameObject, .. }));
     }
 }

@@ -39,7 +39,19 @@ The setup and the game only read your WoW client; neither changes any of its fil
 Update
 ------
 
-The setup is also the patcher. Copy the newer "Eternal Survivors Setup.exe" into your WoW folder
+The game offers its updates itself. When it starts, it asks the game's release page on GitHub
+whether a newer version is out (nothing about you is sent, only the game's name and version).
+If one is, the character screen shows "v0.5.0 is available" above Options, with an "Update"
+button. Update downloads the new version, checks that the file is exactly the one published,
+and closes the game; a small window opens, the setup updates the game as described below and
+starts it again. If anything goes wrong, the game says what and nothing is changed. Without an
+internet connection the game simply starts as always. Options > Interface > "Check for updates"
+turns the check off.
+
+If you have v0.4.0 or older, update by hand once, as below; from then on the game offers its
+updates itself.
+
+To update by hand: the setup is also the patcher. Copy the newer "Eternal Survivors Setup.exe" into your WoW folder
 (replace the old one) and run it there. It reads the version already installed and says what it
 does before it changes anything:
 

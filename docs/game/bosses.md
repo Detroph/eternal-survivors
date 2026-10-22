@@ -221,6 +221,18 @@ run))` makes it go after `seconds` and run its actions (Zevrim's sacrifice heals
 `on_all_taken: [..]` runs, besides `on_contact`, when it is the last of its name its boss has down
 (the Avatar of Hakkar's fourth blood fire drops his shield).
 
+Shown otherwise: `creature_display: Some(id)` shows it as a creature model instead (a
+`CreatureDisplayInfo.dbc` id: the troll wards and totems), an unselectable unit standing there;
+`planted_item: Some((display, sink))` shows a weapon's model planted head up in the ground, like a
+torch stuck in the floor (an `ItemDisplayInfo.dbc` display, in its own texture, its foot `sink`
+yards deep at scale 1): the client composes it from the player's own data in an unseen unit (the
+invisible stalker, `looks::PLANTED_ITEM_BASE`), at the object's `scale`, one composed look per item
+(`9 900 000 + display`). An object shown as a unit can wear a spell's lasting look as an aura,
+`aura_look: Some(spell)` (Morbent's Bane in Divine Shield's golden bubble). A planted item's
+`aura_lift` (yards at scale 1, default 0) moves the unseen unit's attachment points, which the aura's
+look hangs on: the Bane's -0.8 brings the bubble down round the torch, its bottom at the ground.
+`display_id` is unused then.
+
 ### Scripts (`script`)
 
 `script: [(on: .., run: [..], warn: .., soon: ..)]`: `on` is `Arrival`, `Health(percent)` (once,
@@ -318,7 +330,7 @@ hatchlings not counted):
 | Mor'Ladim | four marked 3.5 yd graves round the hero (Raise Dead's look); below 30 % he enrages (faster, the graves 30 % more often) | 1.0 D/s (×2) | 0.38 D/s |
 | Stitches | slow (4 yd/s: kite him); Aura of Rot round him (7 yd, 0.15 D a second); a marked 14 yd, 60° plague cone leaving poison puddles (0.2 D a second) | 1.0 D/s (×2) | 0.3 D/s, the aura 0.15 |
 | Lupos | each bite stacks a shadow wound (589, 0.05 D a stack a second, 10 s, 5 stacks); every 20 s he howls and four Starving Dire Wolves run in from the edges; he fades and pounces through a marked line (up to 28 × 5 yd), 1.8 s | 1.0 D/s (swing ×1.5, bites 0.25) | 0.27 D/s |
-| Morbent Fel | on arrival Raise Dead: every living enemy within 45 yd dies and rises as a Skeletal Raider, and only the undead spawn from then on; shielded (a tenth of each hit) until the hero walks over Morbent's Bane, then mortal 15 s, the relic dropping again 30 s later; Touch of Death (3108) a slow bolt at the hero's spot, its 4 yd mark 2.5 s; his ground burst as before | 0.89 D/s (×1.77) | 0.88 D/s |
+| Morbent Fel | on arrival Raise Dead: every living enemy within 45 yd dies and rises as a Skeletal Raider, and only the undead spawn from then on; shielded (a tenth of each hit) until the hero walks over Morbent's Bane (the Torch of Holy Flame's model planted upright in the ground, about 1.5 yd tall, in Divine Shield's golden bubble standing on the ground round it, over Consecration's glow), then mortal 15 s, the relic dropping again 30 s later; Touch of Death (3108) a slow bolt at the hero's spot, its 4 yd mark 2.5 s; his ground burst as before | 0.89 D/s (×1.77) | 0.88 D/s |
 
 Their Summon, Stomp, Charge and Volley went (unmarked); VanCleef's and Morbent's ground bursts
 stay. The shield's share (a tenth), the zones' and stacks' damage and the wind-ups are ours and

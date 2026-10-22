@@ -133,6 +133,11 @@ the lower left.
      run** (enters the world in the chosen zone).
    * the bottom-left corner of the window: **Options** over **Quit
      game**. Quit game closes the game as the Escape menu's Quit does, with no run to pay out.
+     When a newer version of the game is out, a small panel over them says so ("v0.5.0 is
+     available") with an **Update** button: it downloads the new version (its progress shown
+     under the line), checks it, and restarts the game into it; a failure says why in the same
+     panel and changes nothing ([server.md](server.md), "Updates"). The Interface tab's **Check
+     for updates** box (on by default) turns the check off.
      Options opens the game's own settings: the stock options frames (Video, Sound and Interface)
      exist only in the world session's Lua interface, which is built when a hero enters the world,
      so a panel of ours in this look stands in for them before a run, reading and writing the same

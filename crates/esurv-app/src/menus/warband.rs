@@ -6,7 +6,9 @@
 //!   switches camps (a badge with how many heroes the other camp holds; it follows the panel's
 //!   height, so it never covers it); and the buttons New character, Modify character and Delete
 //!   character (which asks first);
-//! * the bottom-left corner: Options (the game's settings, [`super::options`]) over Quit game;
+//! * the bottom-left corner: Options (the game's settings, [`super::options`]) over Quit game, and
+//!   over them, when a newer version is out, the update notice with its Update button
+//!   ([`crate::update`]);
 //! * the top-left panel: the picked hero's name, class and total wins, its starting spell, and
 //!   under it its class's weapon loadout (a row of three icons as the starting spell's, each
 //!   telling its weapons, strength and drawback in its tooltip; roadmap
@@ -44,6 +46,8 @@ const START_ICON: f32 = 40.0;
 const CAMP_SWITCH: f32 = 46.0;
 const CAMP_BUTTON: f32 = 150.0;
 const CORNER_BUTTON: f32 = 110.0;
+/// The update notice over the corner's buttons.
+const UPDATE_WIDTH: f32 = 200.0;
 /// The codex panel beside the zone column.
 pub(super) const CODEX_WIDTH: f32 = 210.0;
 
@@ -940,6 +944,9 @@ fn camp_parts(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Op
         solid(),
     ))
     .with_children(|corner| {
+        if let Some(view) = ctx.update.and_then(|u| u.view()) {
+            update_notice(corner, look, &view);
+        }
         look.button(
             corner,
             "Options",
@@ -956,6 +963,29 @@ fn camp_parts(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Op
             Some(CORNER_BUTTON),
         )
         .insert(MenuAction::QuitGame);
+    });
+}
+
+/// The update notice over Options ([`crate::update`]): a newer version and its Update button,
+/// the download's progress, a failure, or the restart.
+fn update_notice(corner: &mut ChildSpawnerCommands, look: &MenuLook, view: &crate::update::NoticeView) {
+    let mut node = look.panel_node();
+    node.width = look.px(UPDATE_WIDTH);
+    node.padding = UiRect::all(look.px(8.0));
+    node.margin = UiRect::bottom(look.px(4.0));
+    corner.spawn(look.panel(node)).with_children(|p| {
+        let colour = if view.failed { palette::RED } else { palette::HEADING };
+        p.spawn(look.text(Face::Plain, 11.0, colour, view.line.clone()));
+        if view.progress {
+            p.spawn((
+                look.text(Face::Narrow, 10.0, palette::VALUE, ""),
+                crate::update::UpdateProgressText,
+            ));
+        }
+        if let Some(enabled) = view.button {
+            look.button(p, "Update", ButtonStyle::Text, enabled, Some(CORNER_BUTTON))
+                .insert(MenuAction::UpdateGame);
+        }
     });
 }
 

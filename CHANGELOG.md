@@ -3,6 +3,29 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.4.1
+
+Updates come to you now: the game can update itself from GitHub.
+
+### Patch notes
+
+**Gameplay**
+- **Morbent Fel:** his shield is a purple shadow bubble, and Morbent's Bane is the Torch of Holy Flame planted in the ground inside a golden bubble, so it is easy to spot.
+
+**Quality of life**
+- **Updates in the game:** when a new version is out, the character screen offers it with an Update button that downloads it, checks it and installs it, then restarts the game; your heroes and settings stay. Turn it off in Options > Interface > Check for updates.
+- **Smart damage numbers hide more small hits:** every 30 seconds the game takes the average of your hits, each counted as much as it deals, and hides the numbers below 60% of it, so floods of small ticks no longer get through.
+
+### Changelog
+
+**Fixes**
+- Item and talent procs, such as the Choker of Enlightenment's extra hits, no longer make your hero play a casting animation; their missiles and hits still show.
+
+**Install and technical**
+- The update check asks GitHub's public release list once at start, sends no player data, and stays silent when offline. A download is installed only when it matches the release's checksum file.
+- Each release now comes with a `.sha256` checksum file next to the zip.
+- From v0.4.0 or older, update by hand once; later versions offer updates in the game.
+
 ## v0.4.0
 
 The Stratholme update: Alterac Valley gives way to Stratholme, and the game has a new name.

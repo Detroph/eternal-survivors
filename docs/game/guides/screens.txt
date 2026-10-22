@@ -483,7 +483,11 @@ version is screens.md in the folder above this one.
       says how many heroes wait there
     - under the campfire: "New character", "Modify character" and "Delete character".
       Deleting asks first ("No" is the default); after a delete the camp picks the next hero.
-    - bottom-left corner: "Options" above "Quit game". Quit game closes the game.
+    - bottom-left corner: "Options" above "Quit game". Quit game closes the game. When a newer
+      version of the game is out, a small panel above them says "v0.5.0 is available" with an
+      "Update" button: it downloads the new version, checks it and restarts the game into it,
+      your heroes and settings kept (server.txt, UPDATES). If it fails, the panel says why and
+      nothing changes; Update tries again.
 
   Options holds the game's own settings in three tabs, as WoW's own options windows do (those
   only exist once a hero is in the world), and a fourth for your save:
@@ -494,16 +498,19 @@ version is screens.md in the folder above this one.
     Sound       sound, music, ambience and their volumes; these change as you move them
     Interface   the mouse and camera settings, the names over heads, damage numbers, chat
                 bubbles and a few more the game reads itself. "Damage numbers"
-                is Smart or All: Smart, the default, hides your small hits. Once a
-                minute the game takes the average of your hits over that minute and, for the
-                whole next minute, hides the numbers below 60 % of it, so only your bigger hits
-                show (in the first minute every number shows). Crits must pass
+                is Smart or All: Smart, the default, hides your small hits. Every 30
+                seconds the game takes the average of your hits, each counted as much as it
+                deals, and for the next 30 seconds hides the numbers below 60 % of it, so only
+                your bigger hits show (in the first 30 seconds every number shows). Crits must pass
                 it too, but count in the average only when your crit chance is over 50 %.
                 Each number is one hit: each target of a spell that hits many, and each
                 tick of damage over time, so small ticks mostly hide.
                 All shows every number. The damage itself, the meter and the combat log never
                 change, and numbers over your own hero always show.
-    Saves       "Export save" writes a copy of your whole save (every hero, what each class
+                "Check for updates" (on at first): when the game starts it asks GitHub
+                whether a newer version is out, and the character screen offers it. Unticked,
+                the game never asks.
+    Saves      "Export save" writes a copy of your whole save (every hero, what each class
                 earned, the collection, the codex) to a folder named on the page, the file
                 named with the date and time. The saves in that folder are listed, newest
                 first. Pick one and press "Import save" to replace your save with it: the game

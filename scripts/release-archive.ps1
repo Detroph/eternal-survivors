@@ -3,6 +3,11 @@
 # the README and the licenses (ours, and the crates' in THIRD-PARTY-LICENSES.txt). The leak scan of the archive is its gate: an archive that fails it
 # is deleted, never handed out.
 #
+# Beside a passing archive it writes `dist\eternal-survivors-<version>.zip.sha256`: the archive's
+# SHA-256 in lower-case hex, two spaces and the archive's name, as `sha256sum` writes it. Each
+# GitHub release attaches both files; the game's updater offers a release only with both, and
+# checks the archive against the checksum before it hands over to the setup.
+#
 #   .\scripts\release-archive.ps1 [-Version v0.2.0] [-SkipBuild] [-Junction C:\esurv-build]
 #
 # -Version defaults to the workspace version (Cargo.toml's `[workspace.package] version`, the
@@ -72,7 +77,8 @@ if ($LASTEXITCODE -ne 0) { throw 'release-archive: the setup was not packed' }
 $dist = Join-Path $repo 'dist'
 New-Item -ItemType Directory -Force $dist | Out-Null
 $zip = Join-Path $dist "eternal-survivors-$Version.zip"
-if (Test-Path $zip) { Remove-Item -Force $zip }
+$sum = "$zip.sha256"
+foreach ($old in $zip, $sum) { if (Test-Path $old) { Remove-Item -Force $old } }
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 [IO.Compression.ZipFile]::CreateFromDirectory($box, $zip, [IO.Compression.CompressionLevel]::Optimal, $false)
 
@@ -82,6 +88,13 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "release-archive: FAIL, the leak scan found something; the archive was deleted"
     exit 1
 }
+
+# the checksum beside it, as `sha256sum` writes it (ASCII, one line, LF)
+$hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $zip).Hash.ToLowerInvariant()
+$line = "$hash  $([IO.Path]::GetFileName($zip))`n"
+[IO.File]::WriteAllText($sum, $line, (New-Object Text.ASCIIEncoding))
 $size = (Get-Item $zip).Length
 Write-Host ("release-archive: PASS, {0} ({1:N1} MB)" -f $zip, ($size / 1MB))
+Write-Host ("release-archive: {0} ({1})" -f $sum, $hash)
+Write-Host 'release-archive: attach both files to the GitHub release'
 exit 0

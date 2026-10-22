@@ -64,7 +64,15 @@ fn main() -> benilla_app::AppExit {
     // dev builds load the content again as its files change; kept until the game closes
     #[cfg(feature = "dev")]
     let _watcher = content.clone().and_then(watch_content);
-    benilla_app::run_with(build, move |app| esurv_app::extend(app, content, link))
+    // the updater: a player build checks the release feed; a dev build only a test feed
+    // (`ESURV_UPDATE_FEED`)
+    let update = std::env::current_exe().ok().and_then(|exe| {
+        esurv_app::update::UpdateConfig::for_launch(cfg!(not(feature = "dev")), &exe, env!("CARGO_PKG_VERSION"))
+    });
+    benilla_app::run_with(build, move |app| {
+        esurv_app::extend(app, content, link);
+        esurv_app::update::register(app, update);
+    })
 }
 
 /// The names the content points at (spells, zones, classes, races), read from the player's own

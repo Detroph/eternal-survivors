@@ -264,6 +264,7 @@ ticked every 50 ms.
 | In the run | Packets |
 |---|---|
 | A hero spell goes off | `SMSG_SPELL_GO` with the spell's look (its `look_spell`), from the hero, listing what it struck: a projectile at each target, a nova or cone around the hero, an area at its spot, a bounce or melee strike at its first enemy, a buff on the hero. Auto Shot, Multi-Shot and Aimed Shot fly an arrow. |
+| A proc shows its look (a milestone's extra targets, strike again, splash, line or pull; the extra strikes of an extra-strikes buff) | the same `SMSG_SPELL_GO`, marked triggered (cast flag `0x1`, benilla's `TRIGGERED_CAST_FLAG`): its missile and impact play on what it struck, but the hero plays no cast for it (no cast animation, hand glow or cast sound, no ranged weapon shot), as a triggered spell in WoW |
 | It hits | `SMSG_SPELLNONMELEEDAMAGELOG`: the damage number (crit marked) and the combat log line, under the spell's `pulse_spell` when it has one, else its look (Fan of Knives' hits go under a Throw, 10277, that is no ranged basic shot: the client shows a basic shot's numbers white like a swing, a spell's yellow) |
 | A damage-over-time tick | `SMSG_PERIODICAURALOG` |
 | The hero's weapon swing, a melee pet's attack | `SMSG_ATTACKERSTATEUPDATE` |
@@ -573,6 +574,42 @@ them: the local game's carrier calls `prerun::answer_local`, which answers them
 (`save::files`), and `prerun::answer`, the answer for any other client, refuses them. They go
 through one fixed folder, `exports` beside the save, as the game has no file dialog.
 
+## Updates
+
+The game checks for a newer version of itself and offers it in place (`esurv-app` `update`):
+
+1. **The check.** A player build whose folder holds the setup's `VERSION.txt` asks once per
+   start, as soon as the interface's settings are in and **Check for updates** reads on (the
+   CVar `esurvCheckForUpdates`, `1` by default, on the options' Interface tab;
+   [screens.md](screens.md)). A thread makes one anonymous GET of
+   `https://api.github.com/repos/Detroph/eternal-survivors/releases/latest` (GitHub's latest
+   release, drafts and pre-releases left out) and compares its tag (`esurv-v0.5.0`) with
+   `VERSION.txt`, part by part as numbers. The game never waits on it. Offline, rate-limited, a
+   release without both of its files (`eternal-survivors-<version>.zip` and
+   `eternal-survivors-<version>.zip.sha256`), or any other failure: nothing is shown and the game
+   starts as always (the log keeps why). The request carries a User-Agent of the game's name and
+   version (`Eternal Survivors/v0.4.0`) and nothing about the player. The client is ureq over
+   rustls (no OpenSSL), the server's certificate checked against the system's own store, HTTPS
+   only, redirects included. Dev builds never check, unless `ESURV_UPDATE_FEED` names a test feed.
+2. **The offer.** A newer release shows on the warband screen, over Options: "v0.5.0 is available"
+   and **Update** ([menus.md](menus.md), [screens.md](screens.md)).
+3. **The download.** Update downloads the zip (its progress shown) and its `.sha256`, checks the
+   zip's SHA-256 against it, reads `Eternal Survivors Setup.exe` out of the zip, checks the setup
+   carries the release's version (its payload's `VERSION.txt`), and writes it to
+   `update-download\` in the game folder. A failure at any step says so in the panel ("The update
+   failed: … Nothing was changed.") and leaves the game as it was; Update tries again. A game the
+   setup did not install (no `VERSION.txt`, or not in a folder named `Eternal Survivors`) is told
+   to update by hand.
+4. **The hand-off.** The game starts the setup in a console window of its own,
+   `--wow <the WoW folder> --no-pause --relaunch`, and quits. The setup waits up to 60 seconds for
+   the game to close, updates it in place as any update does (saves, logs, settings and the
+   player's own files kept), and starts `Eternal Survivors.exe` again
+   ([design.md](design.md), step 9, item 10). The next start removes `update-download\` (trying
+   again for half a minute while the setup that started it closes).
+
+Players on v0.4.0 or older update by hand once (their game has no updater); every later version
+offers its updates in the game.
+
 ## Not decided yet
 
 * The level enemies show: for now the highest hero level.
@@ -593,12 +630,13 @@ through one fixed folder, `exports` beside the save, as the game has no file dia
 | `ESURV_ESCAPE_AT` | `<s>[,<s>...]`: presses Escape inside the game at that run clock, then that many seconds later, to pause and resume a run unattended ([screens.md](screens.md)). |
 | `ESURV_MENU_PRESS` | `<button>@<s>[,...]` (`continue`, `reset`, `end`, `quit`): at that run clock presses Escape inside the game, then clicks that Escape menu button; each press waits for what the last led to. `ESURV_MENU_SHOTS=<png>` adds the game's own shots of the menu and of what each click led to ([screens.md](screens.md)). |
 | `ESURV_KEY_PRESS` | `<key>@<s>[,...]` (a letter, a digit or `escape`): presses that key inside the game that many real seconds after the hero entered the world, the whole stock way; `<key>@<s>:<hold>` keeps it down that many seconds (`W@4:7` runs forward for 7 s), one key down at a time. `ESURV_KEY_SHOTS=<png>` adds the game's own shot 1.5 s after each press ([screens.md](screens.md), "The stock frames in a run"). |
-| `ESURV_TOTEM_SHOTS` | `<png>`: once the hero has been in the world `ESURV_TOTEM_SHOTS_AFTER` seconds (default 12, past the loading screen) and a totem stands, holds the world camera close on the totem and writes `ESURV_TOTEM_SHOTS_COUNT` shots (default 2) `<stem>-000.png` ..., `ESURV_TOTEM_SHOTS_EVERY` seconds apart (default 0.4): a composed totem's look and how it moves, with nobody at the mouse (`esurv-app` `races`). |
+| `ESURV_TOTEM_SHOTS` | `<png>`: once the hero has been in the world `ESURV_TOTEM_SHOTS_AFTER` seconds (default 12, past the loading screen) and a totem stands, holds the world camera close on the totem and writes `ESURV_TOTEM_SHOTS_COUNT` shots (default 2) `<stem>-000.png` ..., `ESURV_TOTEM_SHOTS_EVERY` seconds apart (default 0.4): a composed totem's look and how it moves, with nobody at the mouse (`esurv-app` `races`). `ESURV_TOTEM_SHOTS_OF=object` frames the nearest boss's object shown as a unit instead (a planted item such as Morbent's Bane, a troll ward), and `ESURV_TOTEM_SHOTS_DISTANCE` sets how far off the camera stands (yards, default 5; its height and aim go with it). |
 | `ESURV_HERO_SHOTS` | `<png>`: once the hero has been in the world `ESURV_HERO_SHOTS_AFTER` seconds (default 12), holds the world camera close on the player's own hero and writes `ESURV_HERO_SHOTS_COUNT` shots (default 3) `<stem>-000.png` ..., each from a third of a turn further round, `ESURV_HERO_SHOTS_EVERY` seconds apart (default 0.6): what the hero wears, with nobody at the mouse (`esurv-app` `hero_shots`). |
 | `ESURV_GRANT` | `<name>[,<name>...]`: every hero wears these from the start of its run, as taking their cards does: a ring or trinket of `jewelry.ron` at its base value (`<id>@<rarity>`, 0 common to 4 legendary; common without), an amulet of `amulets.ron`, or `legendary:<spell>` for that spell's remade legendary amulet; or a rune laid on the ground, `speed_rune`, `berserker_rune` or `restoration_rune`, at the hero's feet or `:<yards>` ahead of it, where it faces (`speed_rune:20`); a name that is none of these is skipped (`Game::grant`). |
 | `ESURV_MOVE_LOG` | `<file>`: the server logs every hero's moves there, a line per move: real seconds since the hero entered, hero, x, y, and the run speed the server holds for it (yd/s), tab apart: how fast the hero really runs, measured. |
 | `WOW_DATA` | The 1.12.1 `Data` folder, if the client does not find it by itself (beside the game, or `..\Data` when the game folder sits inside the WoW folder, as the setup makes it). Data named here is checked for its archives only, and a wrong one is logged, not refused. |
 | `ESURV_ZONE` | `<zone id or name>`: every hero enters this zone, whatever was chosen for it (a dev switch; a zone its class has not opened is still refused). |
+| `ESURV_UPDATE_FEED` | `<url>`: the updater asks this feed instead of GitHub's, in any build, plain HTTP allowed: a URL answering as GitHub's latest release does, its assets' download addresses where the zip and its `.sha256` are served (a test of the whole update; [Updates](#updates)). The installed version is `VERSION.txt`'s, else the crate version. |
 | `WOW_CHAR` | benilla's: pick this hero without the screens. The launcher sets benilla's `WOW_REALM` to the one realm itself. |
 
 ## Built for multiplayer (roadmap R6)

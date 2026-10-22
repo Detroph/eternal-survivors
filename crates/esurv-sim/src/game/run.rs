@@ -512,8 +512,10 @@ pub enum Event {
     Sound(u32),
     /// A spell's look goes off: `spell` (a `Spell.dbc` id) from `caster`, striking `hits`,
     /// aimed at `aim`; `ammo` for a ranged shot that flies an arrow; `reach`: how many yards the
-    /// look covers when it is an area (its radius, a cone's length), else 0.
-    SpellGo { caster: Unit, spell: u32, hits: Vec<Unit>, aim: Aim, ammo: bool, reach: f32 },
+    /// look covers when it is an area (its radius, a cone's length), else 0; `triggered` for a
+    /// proc's look (`show_proc`), whose missile and impact play while the caster shows no cast,
+    /// as a triggered spell in WoW.
+    SpellGo { caster: Unit, spell: u32, hits: Vec<Unit>, aim: Aim, ammo: bool, reach: f32, triggered: bool },
     /// A hero spell was cast and waits `seconds` before the next (the action bar's sweep).
     SpellCooldown { hero: u32, spell: String, seconds: f32 },
     /// A card taught the hero a new spell.
@@ -1560,7 +1562,7 @@ impl Run {
                 }
                 let (spell, text) = if immune > 0.0 { (CHEAT_DEATH_IMMUNE_VISUAL, super::lines::CHEAT_DEATH_IMMUNE) } else { (CHEAT_DEATH_VISUAL, super::lines::CHEAT_DEATH) };
                 let me = Unit::Hero(hero);
-                self.events.push(Event::SpellGo { caster: me, spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+                self.events.push(Event::SpellGo { caster: me, spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                 self.events.push(Event::Emote { from: Speaker::Unit(me), text: text.into() });
                 self.events.push(Event::CheatedDeath { hero });
                 return;
@@ -1572,7 +1574,7 @@ impl Run {
             h.health = h.stats.max_health * EXTRA_LIFE_HEALTH;
             let (at, blast) = (h.pos, h.stats.damage * EXTRA_LIFE_BLAST.1);
             let me = Unit::Hero(hero);
-            self.events.push(Event::SpellGo { caster: me, spell: EXTRA_LIFE_VISUAL, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+            self.events.push(Event::SpellGo { caster: me, spell: EXTRA_LIFE_VISUAL, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
             self.events.push(Event::Emote { from: Speaker::Unit(me), text: super::lines::EXTRA_LIFE.into() });
             self.events.push(Event::ExtraLifeUsed { hero });
             // a boss a hero lost a life to (Mandokir's level-up)
@@ -1580,7 +1582,7 @@ impl Run {
             let near: Vec<u32> =
                 self.enemies.iter().filter(|e| dist(e.position(now), at) < EXTRA_LIFE_BLAST.0).map(|e| e.id).collect();
             let hits = near.iter().map(|&id| Unit::Enemy(id)).collect();
-            self.events.push(Event::SpellGo { caster: me, spell: EXTRA_LIFE_BLAST_VISUAL, hits, aim: Aim::Caster, ammo: false, reach: EXTRA_LIFE_BLAST.0 });
+            self.events.push(Event::SpellGo { caster: me, spell: EXTRA_LIFE_BLAST_VISUAL, hits, aim: Aim::Caster, ammo: false, reach: EXTRA_LIFE_BLAST.0, triggered: false });
             // a silent proc (no combat-log line, as before), on the meter under the Soulstone worn
             let origin = self.heroes[i]
                 .jewelry

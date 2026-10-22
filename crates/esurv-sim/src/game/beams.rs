@@ -99,7 +99,7 @@ impl Run {
                 self.push(Event::AreaChanged { id, at, radius });
             }
             if let Some((source, spell, end)) = look {
-                self.push(Event::SpellGo { caster: Unit::Enemy(source), spell, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: Unit::Enemy(source), spell, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: 0.0, triggered: false });
             }
             // it hurts the heroes in it only, as an area
             if let Some((shape, facing, damage)) = tick {

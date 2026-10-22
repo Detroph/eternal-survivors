@@ -794,6 +794,13 @@ fn spell_start(
     }
 }
 
+/// A triggered spell's go (cast flag `0x1`, `CAST_FLAG_PENDING`, which servers set on a
+/// triggered spell): a hook for a game built on top of benilla, whose procs ride it. Its missile and
+/// impact play on the targets as any go's, but the caster plays no cast kit (no cast animation,
+/// hand effects or cast sound) and its own running cast is left alone. How the 1.12.1 client reads
+/// the flag is untraced.
+pub const TRIGGERED_CAST_FLAG: u16 = 0x0001;
+
 /// `GAMEOBJECT_TYPE_ID` 3, `CHEST`: the only GameObject type whose `OPEN_LOCK` cast arms the
 /// loot-target latch (`0x6e830c`).
 const GO_TYPE_CHEST: i32 = 3;
@@ -901,14 +908,17 @@ fn spell_go(
             }
         }
     }
+    // A triggered go ([`TRIGGERED_CAST_FLAG`]) plays no cast on its caster and ends none.
+    let triggered = cast_flags & TRIGGERED_CAST_FLAG != 0;
     // Our own launch completes the bar and opens the in-flight guard, both keyed by spell id.
     if self_guid.0 == Some(caster) {
         // Only the cast the bar shows completes it: a proc landing mid-cast (Chilled, 6136) is our
         // own cast too, and must not finish the running bar.
-        let completes_our_cast = index
-            .0
-            .get(&caster)
-            .is_some_and(|&e| casting.get(e).is_ok_and(|c| c.spell_id == spell_id));
+        let completes_our_cast = !triggered
+            && index
+                .0
+                .get(&caster)
+                .is_some_and(|&e| casting.get(e).is_ok_and(|c| c.spell_id == spell_id));
         if *crate::net::CAST_TRACE {
             info!("cast-trace: RECV SPELL_GO — spell {spell_id} (self); completes_bar={completes_our_cast}");
         }
@@ -1057,7 +1067,7 @@ fn spell_go(
     // Keyed by spell id, like the reap `0x614150(spellId, 0)`: a proc's GO must not clear another
     // spell's precast state.
     if let Some(&e) = index.0.get(&caster) {
-        if casting.get(e).is_ok_and(|c| c.spell_id == spell_id) {
+        if !triggered && casting.get(e).is_ok_and(|c| c.spell_id == spell_id) {
             commands.entity(e).remove::<Casting>();
         }
         // The GO's chain-hop fill (`0x6e800d`), the producer for non-channelled chain spells. It
@@ -1066,13 +1076,18 @@ fn spell_go(
         // this fills unconditionally, harmless since consumption needs a chain proc and every fill
         // clears.
         fill_chain_hops(caster, e, &hits, commands, index);
-        cast_events.write(CastEvent {
-            look_scale: if dest.is_none() { look_scale } else { 1.0 },
-            entity: e,
-            spell_id,
-            kind: CastEventKind::Go,
-            seq,
-        });
+        // The caster's cast kit, unless the go is triggered.
+        if triggered {
+            debug!("net: spell go {spell_id} by {caster:#x} triggered: no cast kit on the caster");
+        } else {
+            cast_events.write(CastEvent {
+                look_scale: if dest.is_none() { look_scale } else { 1.0 },
+                entity: e,
+                spell_id,
+                kind: CastEventKind::Go,
+                seq,
+            });
+        }
         // Targets not streamed to us drop out. The miss code picks the victim's dodge or block
         // clip on the missile's arrival.
         let hits: Vec<Entity> = hits
@@ -1362,6 +1377,47 @@ fn spell_chain_targets(
 mod tests {
     use super::*;
     use benilla_protocol::messages::ACTION_KIND_SPELL;
+
+    /// A triggered go ([`TRIGGERED_CAST_FLAG`]) plays no cast kit on its caster, while a plain
+    /// one does; both fly to their target and impact there.
+    #[test]
+    fn a_triggered_go_plays_no_cast_on_its_caster_but_still_flies() {
+        use bevy::ecs::message::Messages;
+        const CASTER: u64 = 0x42;
+        const TARGET: u64 = 0x43;
+        let go = |cast_flags| SessionEvent::SpellGo {
+            caster: CASTER,
+            spell_id: 133,
+            cast_flags,
+            hits: vec![TARGET],
+            misses: vec![],
+            target: Some(TARGET),
+            go_target: None,
+            dest: None,
+            ammo_display_id: None,
+            item_caster: None,
+        };
+        for (cast_flags, casts) in [(0x100, 1), (0x100 | TRIGGERED_CAST_FLAG, 0)] {
+            let mut app = crate::game_plugins::schedule_tests::headless_client();
+            let world = app.world_mut();
+            let caster = world.spawn(crate::net::Guid(CASTER)).id();
+            let target = world.spawn(crate::net::Guid(TARGET)).id();
+            world.resource_mut::<GuidIndex>().0.extend([(CASTER, caster), (TARGET, target)]);
+            crate::net::handlers::dispatch(world, vec![go(cast_flags)]);
+            let cast_kits = world
+                .resource::<Messages<CastEvent>>()
+                .iter_current_update_messages()
+                .filter(|e| e.entity == caster && matches!(e.kind, CastEventKind::Go))
+                .count();
+            let flights: Vec<Vec<Entity>> = world
+                .resource::<Messages<SpellGoTargets>>()
+                .iter_current_update_messages()
+                .map(|g| g.hits.clone())
+                .collect();
+            assert_eq!(cast_kits, casts, "flags {cast_flags:#x}: the caster's cast kit");
+            assert_eq!(flights, vec![vec![target]], "flags {cast_flags:#x}: it flies to its target");
+        }
+    }
 
     /// A catalog holding one row, so the announce tests can name a real `Attributes` value.
     fn catalog_with(id: u32, display: benilla_formats::SpellDisplay) -> Spells {

@@ -197,7 +197,7 @@ impl Run {
                     let id = self.pets[k].id;
                     self.hits.push(PendingHit { hero: h, target, at: now + flight, damage, crit, spell: String::new(), dot: None, pet: Some(id), from_proc: false, cast: None, burn: None });
                     let enemy = super::run::Unit::Enemy(target);
-                    self.push(Event::SpellGo { caster: super::run::Unit::Pet(id), spell: ranged_spell, hits: vec![enemy], aim: super::run::Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                    self.push(Event::SpellGo { caster: super::run::Unit::Pet(id), spell: ranged_spell, hits: vec![enemy], aim: super::run::Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                 }
                 continue;
             }

@@ -410,7 +410,9 @@ give one boss its own number, add an override to its line.
 **The building blocks ([bosses.md](bosses.md) section 6):** marked
 attacks `Marked(shape, at, impact_spell, ...)` and `Rush(look_spell, ...)` (every area attack
 marked on the ground before it lands, hitting the hero only), objects the hero walks over
-`Lay(object, near, ...)` (broken or set off by half a second's contact, never by damage), lasting
+`Lay(object, near, ...)` (broken or set off by half a second's contact, never by damage; shown
+as a game object, a creature model or a weapon planted in the ground, `planted_item`, which may
+wear an `aura_look`), lasting
 zones, stacks (`on_hit`), a `script` (lines `on: Arrival | Health(%) | Every(s) | After(s) |
 Death | AddDied | HeroFell` with actions: yells with the original voice, waves, spawn rules,
 Raise Dead, shields, objects, phase kits, weapons, kneel, enrage, the scripted pause, actions

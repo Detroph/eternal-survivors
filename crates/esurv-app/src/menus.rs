@@ -174,6 +174,9 @@ pub enum MenuAction {
     /// The game's settings ([`options`]), and closing the game.
     OpenGameOptions,
     QuitGame,
+    /// The warband screen's update notice: download the newer version and hand over to its
+    /// setup ([`crate::update`], which answers it).
+    UpdateGame,
     /// The options panel: a tab, a setting flipped or stepped, Okay, Cancel.
     OptionsTab(options::OptionsTab),
     OptionsChange {
@@ -734,6 +737,8 @@ fn act(
                 info!("menus: Quit game");
                 quit.write(AppExit::Success);
             }
+            // the updater's own systems answer it
+            MenuAction::UpdateGame => {}
             MenuAction::OpenRunOptions => menus.run_options_open = true,
             MenuAction::CloseRunOptions => menus.run_options_open = false,
             MenuAction::OptionStep { slider, up } => {
@@ -1215,6 +1220,8 @@ pub(crate) struct Ctx<'a> {
     pub icons: &'a ItemIcons,
     /// The racial passives' icons.
     pub racials: &'a RacialIcons,
+    /// The update notice ([`crate::update`]), when the updater runs.
+    pub update: Option<&'a crate::update::UpdateNotice>,
 }
 
 /// A hash of what the menus show, to draw them anew when it changes.
@@ -1236,6 +1243,8 @@ fn view_key(menus: &Menus, ctx: &Ctx, scale: StockScale) -> u64 {
     (menus.run_options_open, menus.confirm_delete).hash(&mut h);
     format!("{:?}", menus.codex).hash(&mut h);
     format!("{:?}", menus.game_options).hash(&mut h);
+    // the notice's phase, not its progress (the progress line changes in place)
+    ctx.update.and_then(|u| u.view()).hash(&mut h);
     ctx.images.get(&ctx.art.class_icons).is_some().hash(&mut h);
     ctx.images.get(&ctx.art.race_icons).is_some().hash(&mut h);
     scale.unit.to_bits().hash(&mut h);
@@ -1253,11 +1262,12 @@ fn draw(
     images: Res<Assets<Image>>,
     art: Res<MenuArt>,
     choices: Res<CreateChoices>,
-    (camp, icons, model, racials): (
+    (camp, icons, model, racials, update): (
         Res<PickerState>,
         Res<ItemIcons>,
         Res<SelectModelImage>,
         Res<RacialIcons>,
+        Option<Res<crate::update::UpdateNotice>>,
     ),
     look: MenuLook,
     mut view: ResMut<MenuView>,
@@ -1275,6 +1285,7 @@ fn draw(
         camp: camp.faction,
         icons: &icons,
         racials: &racials,
+        update: update.as_deref(),
     };
     let key = view_key(&menus, &ctx, look.scale());
     if view.drawn_for == Some(key) {
@@ -1394,6 +1405,7 @@ pub(crate) fn script_action(words: &str) -> Option<MenuAction> {
         ("close-codex", None) => MenuAction::CloseCodex,
         ("game-options", None) => MenuAction::OpenGameOptions,
         ("quit-game", None) => MenuAction::QuitGame,
+        ("update", None) => MenuAction::UpdateGame,
         ("options-tab", Some(t)) => MenuAction::OptionsTab(match t {
             "video" => options::OptionsTab::Video,
             "sound" => options::OptionsTab::Sound,

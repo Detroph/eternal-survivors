@@ -66,7 +66,7 @@ impl Run {
         if look != 0 {
             let caster = Unit::Hero(self.heroes[h].id);
             let hits = struck.iter().map(|&(_, id)| Unit::Enemy(id)).collect();
-            self.push(Event::SpellGo { caster, spell: look, hits, aim: Aim::Ground(end), ammo: AMMO_SPELLS.contains(&look), reach: line.width });
+            self.push(Event::SpellGo { caster, spell: look, hits, aim: Aim::Ground(end), ammo: AMMO_SPELLS.contains(&look), reach: line.width, triggered: true });
         }
         for (_, t) in struck {
             self.hit_enemy(Some(h), t, hit, false, self.proc_source(look, school));
@@ -163,7 +163,7 @@ impl Run {
             st.counter = 0;
             if let Some(look) = look_spell {
                 let hits = near.iter().map(|&id| Unit::Enemy(id)).collect();
-                self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: look, hits, aim: Aim::Caster, ammo: false, reach: radius });
+                self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: look, hits, aim: Aim::Caster, ammo: false, reach: radius, triggered: true });
             }
             for id in near {
                 let Some(e) = self.enemies.iter_mut().find(|e| e.id == id) else { continue };

@@ -4,7 +4,10 @@
 #
 # It reads every file (a folder's, a zip's entries, and the files a setup executable carries in
 # its payload) and reports:
-#   * a user name of this machine (`$env:USERNAME`, and -UserNames) anywhere in the bytes;
+#   * a user name of this machine (`$env:USERNAME`, and -UserNames) anywhere in the bytes, but
+#     inside the game's public repository slug, `Detroph/eternal-survivors`, written exactly so
+#     (the updater's feed, `https://api.github.com/repos/Detroph/eternal-survivors/...`, and the
+#     repository's address): its owner's name may hold the user name;
 #   * an absolute path into a user folder (C:\Users\<name>\, /home/<name>/, /Users/<name>/);
 #   * an e-mail address not on the allow-list (noreply addresses, and -AllowEmails);
 #   * a Blizzard file: by type (MPQ, BLP, M2, WMO, ADT, WDT, DBC, WAV, MP3, OGG, TTF, and .xml or
@@ -34,9 +37,13 @@ $checks = @(
     @{ Kind = 'e-mail address'; Regex = [regex]::new('(?i)(?<![a-z0-9._%+-])[a-z0-9][a-z0-9._%+-]{1,63}@[a-z0-9-]{2,63}(\.[a-z0-9-]{1,63})*\.[a-z]{2,10}(?![a-z0-9])') }
 )
 # Third-party copyright lines compiled in, which must ship with the code they credit: bevy's SMAA
-# shader's license header (bevy_anti_alias, smaa.wgsl).
-$thirdPartyCredits = @('joseignacioechevarria@gmail.com', 'fernandn@microsoft.com', 'jorge@iryoku.com', 'diegog@unizar.es', 'bmasia@unizar.es')
+# shader's license header (bevy_anti_alias, smaa.wgsl), and the CRYPTOGAMS credit in ring's
+# assembly ("CRYPTOGAMS by <appro@openssl.org>", the updater's TLS).
+$thirdPartyCredits = @('joseignacioechevarria@gmail.com', 'fernandn@microsoft.com', 'jorge@iryoku.com', 'diegog@unizar.es', 'bmasia@unizar.es', 'appro@openssl.org')
 $allowEmail = @('noreply@', 'no-reply@') + $thirdPartyCredits + $AllowEmails
+# The game's public repository, whose slug the updater compiles in: a user-name hit wholly inside
+# it, written exactly so (case and all), is its owner's name, not a leak.
+$publicRepoSlugs = @('Detroph/eternal-survivors')
 $blizzardTypes = @('.mpq', '.blp', '.m2', '.mdx', '.wmo', '.adt', '.wdt', '.wdl', '.dbc', '.wav', '.mp3', '.ogg', '.ttf', '.otf', '.skin', '.anim')
 $latin1 = [Text.Encoding]::GetEncoding(28591)
 $utf16 = [Text.Encoding]::Unicode
@@ -88,9 +95,15 @@ function Test-Strings($item, [byte[]]$b) {
     if ($b.Length -gt 1) { $texts += $utf16.GetString($b, 1, $b.Length - 1) }
     $seen = @{}
     foreach ($text in $texts) {
+        # where the public repository's slug is written exactly (case-sensitive)
+        $slugs = @(foreach ($slug in $publicRepoSlugs) { [regex]::Matches($text, [regex]::Escape($slug)) })
         foreach ($c in $checks) {
             foreach ($m in $c.Regex.Matches($text)) {
                 $v = $m.Value
+                if ($c.Kind -eq 'user name') {
+                    $inSlug = $slugs | Where-Object { $_.Index -le $m.Index -and ($m.Index + $m.Length) -le ($_.Index + $_.Length) }
+                    if ($inSlug) { continue }
+                }
                 if ($c.Kind -eq 'e-mail address') {
                     $low = $v.ToLowerInvariant()
                     if ($allowEmail | Where-Object { $low.Contains($_.ToLowerInvariant()) }) { continue }

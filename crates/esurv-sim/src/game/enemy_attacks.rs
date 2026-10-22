@@ -65,7 +65,7 @@ impl Run {
         let target = super::run::Unit::Hero(hero);
         // a shot from a bow, gun or crossbow (a hunter's Auto Shot) flies an arrow
         let ammo = super::run::AMMO_SPELLS.contains(&spell);
-        self.push(Event::SpellGo { caster: super::run::Unit::Enemy(id), spell, hits: vec![target], aim: super::run::Aim::Unit(target), ammo, reach: 0.0 });
+        self.push(Event::SpellGo { caster: super::run::Unit::Enemy(id), spell, hits: vec![target], aim: super::run::Aim::Unit(target), ammo, reach: 0.0, triggered: false });
     }
 
     /// Counts down a boss's or rare's abilities and uses one that is ready on hero `h`: never
@@ -128,7 +128,7 @@ impl Run {
                             let linger = (g.lands_at - now).max(0.0) + super::telegraphs::BUNNY_LINGER;
                             self.push(Event::ImpactAtSpot { caster: boss, spell: g.impact_spell, at: g.at, linger });
                         } else {
-                            self.push(Event::SpellGo { caster: boss, spell: g.impact_spell, hits: vec![], aim: Aim::Ground(g.at), ammo: false, reach: g.radius });
+                            self.push(Event::SpellGo { caster: boss, spell: g.impact_spell, hits: vec![], aim: Aim::Ground(g.at), ammo: false, reach: g.radius, triggered: false });
                         }
                     }
                     self.ground_hits.extend(hits.into_iter().map(|g| (g, id)));
@@ -136,7 +136,7 @@ impl Run {
                 AbilityEffect::Instant { visual, damage, radius } => {
                     // a stomp: around the boss, listing the hero only when it is in reach
                     let hits = if damage.is_some() { vec![target] } else { vec![] };
-                    self.push(Event::SpellGo { caster: boss, spell: visual, hits, aim: Aim::Caster, ammo: false, reach: radius });
+                    self.push(Event::SpellGo { caster: boss, spell: visual, hits, aim: Aim::Caster, ammo: false, reach: radius, triggered: false });
                     if let Some(d) = damage {
                         self.damage_hero(h, d, Some(id), false);
                     }
@@ -152,7 +152,7 @@ impl Run {
                     }
                 }
                 AbilityEffect::Charge { visual, segment, landing, next_decision, swing_in } => {
-                    self.push(Event::SpellGo { caster: boss, spell: visual, hits: vec![target], aim: Aim::Unit(target), ammo: false, reach: 0.0 });
+                    self.push(Event::SpellGo { caster: boss, spell: visual, hits: vec![target], aim: Aim::Unit(target), ammo: false, reach: 0.0, triggered: false });
                     if let Some(e) = self.enemies.iter_mut().find(|e| e.id == id) {
                         e.segment = segment;
                         e.next_decision = next_decision;
@@ -179,7 +179,7 @@ impl Run {
         self.ground_hits = later;
         for (g, source) in due {
             if g.look_on_landing && g.impact_spell != 0 {
-                self.push(Event::SpellGo { caster: Unit::Enemy(source), spell: g.impact_spell, hits: vec![], aim: Aim::Ground(g.at), ammo: false, reach: g.radius });
+                self.push(Event::SpellGo { caster: Unit::Enemy(source), spell: g.impact_spell, hits: vec![], aim: Aim::Ground(g.at), ammo: false, reach: g.radius, triggered: false });
             }
             if let Some(mark) = g.marker {
                 self.push(Event::AreaGone { id: mark });

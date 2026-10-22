@@ -158,7 +158,7 @@ impl Run {
                             e.kit.worn_looks.retain(|(l, _)| l != look_spell);
                             e.kit.worn_looks.push((*look_spell, f32::INFINITY));
                             let me = Unit::Enemy(id);
-                            self.push(Event::SpellGo { caster: me, spell: *look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+                            self.push(Event::SpellGo { caster: me, spell: *look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                         }
                     }
                 }
@@ -269,7 +269,7 @@ impl Run {
         e.health = (e.health + share * e.max_health).min(e.max_health);
         if look_spell != 0 {
             let me = Unit::Enemy(id);
-            self.push(Event::SpellGo { caster: me, spell: look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+            self.push(Event::SpellGo { caster: me, spell: look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
         }
     }
 
@@ -329,7 +329,7 @@ impl Run {
         self.extras.revived.push(id);
         if look_spell != 0 {
             let me = Unit::Enemy(id);
-            self.push(Event::SpellGo { caster: me, spell: look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+            self.push(Event::SpellGo { caster: me, spell: look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
         }
     }
 

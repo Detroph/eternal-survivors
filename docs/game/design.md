@@ -278,7 +278,7 @@ Each step has a **goal**, **deliverables** and a **done when** test.
      `cargo run --release -p esurv-sim --example golden_run` plays every zone with every
      class and prints one hash; run it before and after a change that must not alter play;
      `-- --log <file>` also writes every event. The current hash, 6 minutes a run:
-     `341aecacee5d5eb3`. A change meant to alter how runs play records its new hash here.)
+     `fb128f077c669fea`. A change meant to alter how runs play records its new hash here.)
   3. **Rename:** named kinds in the RON instead of numbers (`delivery: Nova`,
      not `delivery: 2`), clear property names, an item-entry numbering (with room for
      three weapon sets of two slots per class, roadmap R3), a one-time
@@ -338,12 +338,21 @@ Each step has a **goal**, **deliverables** and a **done when** test.
       WoW folder's (`benilla_formats::wow_data`'s last rung; `WOW_DATA` still wins), and keeps its
       saves in `saves\`, its log in `logs\esurv.log` and its settings in `benilla-config\`, all in
       its own folder. `--wow <folder>` installs into another folder, `--no-pause` closes at once.
+      `--relaunch` is how the game's updater starts it (server.md, "Updates"): it waits up to 60
+      seconds for the game to close (`esurv_setup::wait_until_closed`; still running after that,
+      it says so and changes nothing, exit 5), and once the update is in it starts
+      `Eternal Survivors.exe` again; a failure then waits for Enter even with `--no-pause`, so the
+      reason can be read in the console window the game opened for it.
   11. **The release archive (done):** `scripts\release-archive.ps1 [-Version v0.2.0]` makes
       `dist\eternal-survivors-<version>.zip` (the version defaults to the workspace version in
       `Cargo.toml`, the one the game's build line shows; `-Junction` as `release-build.ps1`'s):
       the setup, the README, `NOTICE.txt` and the
       licenses. The leak scan of the archive is its gate: one that fails it is deleted, never
-      handed out.
+      handed out. Beside a passing archive it writes `eternal-survivors-<version>.zip.sha256`,
+      the archive's SHA-256 then its name, as `sha256sum` writes it
+      (`<hash>  eternal-survivors-v0.5.0.zip`), which the game's updater checks the download
+      against. The leak scan lets the user-name check pass only inside the public repository's
+      slug, `Detroph/eternal-survivors`, written exactly so: the updater's feed address holds it.
   12. **The local check (in place of CI):** `scripts\local-check.ps1 [-GoldenHash <hash>] [-Junction <path>]` runs the game crates' tests
       (`cargo test --release` for `esurv`, `esurv-app`, `esurv-content`, `esurv-protocol`,
       `esurv-server`, `esurv-sim`, `esurv-client-check`, `esurv-setup`; benilla-app's own tests do not
@@ -367,6 +376,9 @@ Each step has a **goal**, **deliverables** and a **done when** test.
      carrying the game executable, content, README and licenses (benilla's and ours), and beside
      it the player README with the "not affiliated with Blizzard Entertainment" note and the
      licenses, as `eternal-survivors-<version>.zip` (`v0.1.0` the first, `v0.2.0` the next).
+     The GitHub release, tagged `esurv-v<version>`, attaches both files the script writes: the
+     zip and its `eternal-survivors-<version>.zip.sha256`. The game's updater offers a release
+     only with both, under exactly those names.
   3. **Its scans:** the archive holds no Blizzard file and no machine-identifying strings (step 9,
      item 6), and the repository holds no WoW client text in its content, code and tests (step 9:
      names are pointers, a few exceptions aside). Docs stay readable and never ship.

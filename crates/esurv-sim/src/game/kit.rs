@@ -543,14 +543,14 @@ impl Run {
                 let damage = hit_damage(a, inst, stats.damage);
                 self.heroes[i].kit.block = Some(BlockBuff { until, stacks: max, max, chance: block_chance, damage, spell: a.id.clone() });
                 let me = Unit::Hero(self.heroes[i].id);
-                self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                 self.show_stacks(i, StackKind::HolyShield, max, max, Some(until));
                 self.show_resource(i, ResourceKind::HolyShieldStacks, max as f32, max as f32);
                 true
             }
             Mechanic::GainEnergy { .. } => {
                 let me = Unit::Hero(self.heroes[i].id);
-                self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                 true
             }
             Mechanic::StrikesAfflicted { spell } => {
@@ -583,7 +583,7 @@ impl Run {
                     let target = target.filter(|t| self.enemy(*t).is_some()).or_else(|| self.nearest_to(pos, a.range).first().copied());
                     let Some(t) = target else { continue };
                     let enemy = Unit::Enemy(t);
-                    self.push(Event::SpellGo { caster: Unit::Pet(id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                    self.push(Event::SpellGo { caster: Unit::Pet(id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                     let (h, crit) = self.roll_crit(i, hit);
                     self.hit_enemy(Some(i), t, h, crit, HitSource::Spell(a.id.clone()));
                     struck = true;
@@ -611,7 +611,7 @@ impl Run {
                 h.buffs.retain(|b| b.kind != BuffKind::ExtraStrikes);
                 h.buffs.push(Buff { kind: BuffKind::ExtraStrikes, value: more as f32, visual: a.look_spell, until });
                 let me = Unit::Hero(self.heroes[i].id);
-                self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                 true
             }
             Mechanic::FreshTargetFirst => {
@@ -680,7 +680,7 @@ impl Run {
         if !more.is_empty() {
             let hits = more.iter().map(|&id| Unit::Enemy(id)).collect();
             let aim = Aim::Unit(Unit::Enemy(more[0]));
-            self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: EXTRA_STRIKE_LOOK, hits, aim, ammo: false, reach: 0.0 });
+            self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: EXTRA_STRIKE_LOOK, hits, aim, ammo: false, reach: 0.0, triggered: true });
         }
         more
     }
@@ -709,7 +709,7 @@ impl Run {
                 (dist(p, closest) <= width).then_some((e.id, along))
             })
             .collect();
-        self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: a.look_spell, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: width });
+        self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: a.look_spell, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: width, triggered: false });
         let hit = hit_damage(a, inst, self.heroes[i].stats.damage);
         // it flies out, then back, at its look's missile speed (so its hits land as the star is
         // seen passing), else at `reach` yards a second
@@ -728,7 +728,7 @@ impl Run {
     /// A look on hero `i` itself.
     fn look_on_hero(&mut self, i: usize, spell: u32) {
         let me = Unit::Hero(self.heroes[i].id);
-        self.push(Event::SpellGo { caster: me, spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+        self.push(Event::SpellGo { caster: me, spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
     }
 
     // ---- the passive -----------------------------------------------------------------------
@@ -852,7 +852,7 @@ impl Run {
                     if let Some(a) = content.ability(&rod) {
                         let me = Unit::Hero(self.heroes[h].id);
                         let hits = others.iter().map(|x| Unit::Enemy(*x)).collect();
-                        self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits, aim: Aim::Unit(Unit::Enemy(id)), ammo: false, reach: radius });
+                        self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits, aim: Aim::Unit(Unit::Enemy(id)), ammo: false, reach: radius, triggered: false });
                     }
                     for x in others {
                         self.hit_enemy(Some(h), x, dealt * share, false, HitSource::Spell(rod.clone()));
@@ -935,7 +935,7 @@ impl Run {
             let next = self.kit_targets(h, a, at, a.range).into_iter().find(|id| *id != e.id);
             if let Some(t) = next {
                 let enemy = Unit::Enemy(t);
-                self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[h].id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[h].id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                 self.add_dot(t, d);
             }
         }
@@ -1405,7 +1405,7 @@ impl Run {
                         self.hit_enemy(Some(i), t, h, crit, HitSource::Pet(p.id));
                     } else {
                         let enemy = Unit::Enemy(t);
-                        self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                        self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                         self.hit_enemy(Some(i), t, h, crit, HitSource::Spell(a.id.clone()));
                     }
                 }
@@ -1418,7 +1418,7 @@ impl Run {
                 let Some(&t) = self.nearest_to(pos, a.range).first() else { return };
                 self.set_next_act(k, now + a.cooldown.max(0.1));
                 let enemy = Unit::Enemy(t);
-                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                 let (h, crit) = self.roll_crit(i, hit_damage(a, &s.inst, damage));
                 let flight = match (self.world.missile_speed(a.look_spell), self.enemy_pos(t)) {
                     (v, Some(tp)) if v > 0.0 => dist(pos, tp) / v,
@@ -1437,7 +1437,7 @@ impl Run {
                         let r = radius(a, &s.inst, 1.0);
                         let hits = self.enemies_within(centre, r);
                         let units = hits.iter().map(|x| Unit::Enemy(*x)).collect();
-                        self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: units, aim: Aim::Ground(centre), ammo: false, reach: r });
+                        self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: units, aim: Aim::Ground(centre), ammo: false, reach: r, triggered: false });
                         for t in hits {
                             let (h, crit) = self.roll_crit(i, hit_damage(a, &s.inst, damage));
                             if let Some(d) = self.hit_enemy(Some(i), t, h, crit, HitSource::Spell(a.id.clone())) {
@@ -1454,7 +1454,7 @@ impl Run {
                     // two little bolts, for the look only
                     if let Some(&t) = self.nearest_to(pos, SUMMON_REACH).first() {
                         let enemy = Unit::Enemy(t);
-                        self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: WATER_ELEMENTAL_BOLT, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                        self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: WATER_ELEMENTAL_BOLT, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                     }
                     self.set_step(k, s.step + 1, now + 0.8);
                 }
@@ -1529,7 +1529,7 @@ impl Run {
                 let r = radius(aura, &s.inst, 1.0);
                 let hits = self.area_targets(aura, pos, r);
                 let units = hits.iter().map(|x| Unit::Enemy(*x)).collect();
-                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: aura.look_spell, hits: units, aim: Aim::Caster, ammo: false, reach: r });
+                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: aura.look_spell, hits: units, aim: Aim::Caster, ammo: false, reach: r, triggered: false });
                 for t in hits {
                     let (h, crit) = self.roll_crit(i, hit_damage(aura, &s.inst, damage));
                     self.hit_enemy(Some(i), t, h, crit, HitSource::Spell(aura.id.clone()));
@@ -1545,7 +1545,7 @@ impl Run {
                 let r = radius(a, &s.inst, 1.0);
                 let hits = self.area_targets(a, pos, r);
                 let units = hits.iter().map(|x| Unit::Enemy(*x)).collect();
-                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: units, aim: Aim::Ground(pos), ammo: false, reach: r });
+                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: units, aim: Aim::Ground(pos), ammo: false, reach: r, triggered: false });
                 for x in hits {
                     let (h, crit) = self.roll_crit(i, hit_damage(a, &s.inst, damage));
                     self.hit_enemy(Some(i), x, h, crit, HitSource::Spell(a.id.clone()));
@@ -1590,7 +1590,7 @@ impl Run {
             self.set_next_act(k, now + interval);
             let enemy = Unit::Enemy(t);
             if a.look_spell != 0 {
-                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: Unit::Pet(p.id), spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
             }
             let (h, crit) = self.roll_crit(i, hit);
             self.hit_enemy(Some(i), t, h, crit, HitSource::Spell(a.id.clone()));
