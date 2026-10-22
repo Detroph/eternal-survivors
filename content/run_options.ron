@@ -1,0 +1,39 @@
+// Run options: difficulty sliders.
+([
+    (
+        id: "density",
+        name: "Enemy density",
+        tooltip: "More enemies, each worth less.",
+        min_pct: 100,
+        max_pct: 500,
+        step_pct: 25,
+        reward_weight: 0.1,
+    ),
+    (
+        id: "health",
+        name: "Enemy health",
+        tooltip: "Health of every enemy, elite, rare and boss.",
+        min_pct: 100,
+        max_pct: 500,
+        step_pct: 25,
+        reward_weight: 0.4,
+    ),
+    (
+        id: "damage",
+        name: "Enemy damage",
+        tooltip: "Damage every enemy deals.",
+        min_pct: 100,
+        max_pct: 300,
+        step_pct: 10,
+        reward_weight: 0.6,
+    ),
+    (
+        id: "speed",
+        name: "Enemy speed",
+        tooltip: "Movement speed of every enemy.",
+        min_pct: 100,
+        max_pct: 150,
+        step_pct: 5,
+        reward_weight: 2.0,
+    ),
+])

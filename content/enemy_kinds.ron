@@ -1,0 +1,52 @@
+// Shared numbers, defined once. A roster entry in a zone file names its
+// kind (`kind: Fodder`) and keeps only what is its own; a boss ability names its kind and its
+// looks (`Stomp(look_spell: 339)`). Both may override a number for themselves, for example
+// `move_speed: Some(7.0)` on a roster entry or `Stomp(look_spell: 339, radius: Some(12.0))`.
+// Everything is resolved when the game loads; edit and restart, no rebuild needed.
+(
+    // Roster kinds: yards per second, seconds between attacks, cost against the spawn budget
+    // (and what a kill adds to the kill pressure). A ranged kind's entries must name their
+    // spell's look (`look_spell`). Elites come on their own timer, so their spawn cost is not
+    // read in play. New kinds can be added here and named in a zone file.
+    enemies: {
+        Fodder: (move_speed: 6.0, attack_interval: 1.5, spawn_cost: 1.0),
+        FastFodder: (move_speed: 8.0, attack_interval: 1.5, spawn_cost: 1.0),
+        Mid: (move_speed: 5.0, attack_interval: 2.0, spawn_cost: 2.0),
+        ToughMid: (move_speed: 5.0, attack_interval: 2.0, spawn_cost: 3.0),
+        FastMid: (move_speed: 8.0, attack_interval: 2.0, spawn_cost: 2.0),
+        Ranged: (
+            move_speed: 5.0,
+            attack_interval: 3.0,
+            spawn_cost: 2.0,
+            // casts from 18 yd, standing still 1.5 s per cast
+            ranged: Some((range: 18.0, cast_time: 1.5)),
+        ),
+        Elite: (move_speed: 5.5, attack_interval: 2.0, spawn_cost: 12.0, elite: true),
+    },
+    // Boss abilities: each kind's numbers. Damage is a multiple of the boss's attack damage;
+    // cooldowns are seconds (×0.7 once the boss is enraged).
+    // Every boss moves at this many yards per second (× the speed run option), unless it sets
+    // its own `move_speed: Some(..)` in its zone file.
+    boss_move_speed: 6.0,
+
+    boss_abilities: (
+        charge: (cooldown: 8.0, damage_mult: 2.0),
+        // adds per cast for a zone's first to fifth boss
+        summon: (cooldown: 15.0, adds_by_position: [6, 7, 8, 10, 12]),
+        stomp: (cooldown: 8.0, radius: 10.0, damage_mult: 2.0),
+        volley: (cooldown: 6.0, count: 6, damage_mult: 0.5),
+        // `delay` is the warning in seconds before the burst lands
+        ground_burst: (cooldown: 6.0, radius: 10.0, delay: 2.0, damage_mult: 3.0),
+        // The building blocks (docs/game/bosses.md "Building blocks").
+        // A marked attack: its shape is marked on the ground with the warning look, the fill look
+        // growing inside it over the wind-up (seconds, long enough to walk out); then it lands.
+        // Its damage is a telegraphed hit's, as the ground burst's (a hero who stays in takes it).
+        marked: (cooldown: 8.0, wind_up: 1.5, damage_mult: 3.0, warning_spell: 20924, fill_spell: 20923),
+        // A marked rush along a line from the boss (length × width yards).
+        rush: (cooldown: 10.0, wind_up: 1.5, damage_mult: 3.0, length: 30.0, width: 5.0),
+        // Objects put down (egg sacs): how many each time.
+        lay: (cooldown: 15.0, count: 3),
+        // A lasting zone put down.
+        zone: (cooldown: 12.0),
+    ),
+)

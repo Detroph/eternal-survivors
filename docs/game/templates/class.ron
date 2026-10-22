@@ -1,0 +1,45 @@
+// Class template. A class is one record in the list in content/classes.ron.
+// The game already uses all nine classes the 1.12 client knows, and it tells classes apart by
+// `wow_class_id` (the create screen, the class icons, the gear item numbers, the save). So this
+// record is for reshaping one of the nine: keep that class's `wow_class_id` and replace its record
+// (a tenth class needs code; see docs/game/AUTHORING.md, "A class").
+// A class also needs exactly three talent trees in content/talents.ron (templates/talent.ron) and
+// exactly one gear set in content/gear.ron (templates/gear_set.ron), both naming its `id`.
+// Every field is explained in docs/game/classes.md, section 1.
+(
+    id: "my_class",                // unique, lowercase; talents, gear, races and saves use it
+    name: "My Class",              // shown in the menus: our own name as text, or the
+                                   // client's with a pointer, e.g. Class(8) (ChrClasses.dbc)
+    wow_class_id: 8,               // ChrClasses.dbc id of the class this one reshapes (8 = mage):
+                                   // 1 warrior, 2 paladin, 3 hunter, 4 rogue, 5 priest,
+                                   // 7 shaman, 8 mage, 9 warlock, 11 druid
+    power: Mana,                   // Mana, Rage or Energy: the bar the client shows
+    color: "#69CCF0",              // not used yet: the menus use the stock colour of the class id
+    icon: "INV_Staff_13",          // not used yet: the class picker uses the stock class icon
+    description: "One or two lines, in our own words, about how it plays.",
+                                   // shown under the class picker's grid
+    base_health: 180.0,            // level-1 max health before bonuses
+    base_damage_reduction: 0.08,   // 0.08 = 8 %, before bonuses (60 % at most with them)
+    base_lifesteal: 0.0,           // share of every hit that heals the hero, before bonuses
+    auto_attack: None,             // or a melee swing: Some((damage: 28.0, swing: 1.6, range: 6.0))
+    abilities: [                   // the spells level-up cards can offer: ids in abilities.ron
+        "frostbolt",
+        "arcane_missiles",
+        "frost_nova",
+        "blizzard",
+    ],
+    starting_options: [            // picked before a run (3; the Druid 4), the default first; see
+        (                          // AUTHORING.md "Starting options"
+            id: "my_fireball",     // unique among every class's options
+            name: Spell(133),      // a pointer to the client's name, or our own text
+            icon: "Spell_Fire_FlameBolt",
+            description: "A steady stream of fireballs.",
+            spells: ["fireball"],  // the level-1 spells, main first; tag them [Level1], and keep
+                                   // them out of every card pool
+            passive: (id: "none", name: "", icon: "", description: "", kind: None),
+        ),
+    ],
+    spell_damage_scale: 1.0,       // optional (1 if left out): multiplies this class's spell
+                                   // damage, heals and shields; never cooldowns or durations,
+                                   // never the race spell
+)

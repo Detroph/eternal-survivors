@@ -1,0 +1,31 @@
+[package]
+name = "esurv-content"
+description = "Data model and loader for Eternal Survivors's content: zones, enemies, bosses, classes, abilities, talents, jewelry and run options."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# `watch`: the content folder is watched and loaded again as it changes (dev builds; the launcher's
+# `dev` turns it on). Off, neither the watcher's thread nor `notify` is built in.
+watch = ["dep:notify"]
+# `client`: the client's name tables are read from the player's 1.12.1 data (`ClientNames::read`,
+# `ClientNames::from_install`), for the launcher and the tools.
+client = ["dep:benilla-formats"]
+
+[dependencies]
+anyhow.workspace = true
+serde = { version = "1", features = ["derive"] }
+ron = "0.12"
+notify = { version = "8.0.0", optional = true }
+# The buff kinds `words.ron` names (`BuffKind`), read by name.
+esurv-protocol = { path = "../esurv-protocol", features = ["serde"] }
+# Without default features: `dev` bakes the source path in; dependents forward it.
+benilla-formats = { path = "../benilla-formats", default-features = false, optional = true }
+
+[[example]]
+name = "scan_client_names"
+required-features = ["client"]

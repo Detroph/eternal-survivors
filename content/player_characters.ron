@@ -1,0 +1,929 @@
+// Hand-made player characters, one by one. Bosses played
+// by one (`played_by: Some(Any)` or `Some(Named("<id>"))`) take a character of the faction the
+// heroes fight, and later mechanics will draw from here too.
+//
+// Each character:
+//   (
+//       id: "grubgrub",                  // its own id
+//       name: "Grubgrub",
+//       race: "orc", class: "warrior",   // ids in races.ron and classes.ron (any pair our game allows)
+//       gender: Male,                    // or Female
+//       form: Some(Cat),                 // optional: shown in a druid's form (Cat, Bear or Moonkin)
+//       looks: Some((skin: 1, face: 2, hair_style: 3, hair_color: 4, facial_hair: 5)),
+//                                        // (left out: a face picked each time it shows)
+//       yell: "For the Horde!",          // what it yells as it arrives (as a boss, or assisting)
+//       death_yell: "Bye!",              // optional: what it yells as it dies (as a boss, or ending its assist)
+//       boss_spell: Some(133),           // optional: what it casts from range as a boss, in place of its class's
+//       boss_abilities: [Stomp(look_spell: 6572)], // optional: its boss abilities, in place of its class's (pvp_looks.ron)
+//       assist: "...",                   // how it assists a hero, described (the mechanic to come);
+//                                        // it lasts at most 10 sec unless the description gives a time
+//       gear: Random,                    // its class's PvP looks, or:
+//       // gear: Picked((
+//       //     armor: [(slot: Head, display: 12345), (slot: Chest, display: 23456, robe: true)],
+//       //     main_hand: Some((kind: TwoHandedAxe, display: 34567)),
+//       //     off_hand: None,
+//       //     ranged: Some((kind: Bow, display: 45678)),
+//       // )),                             // a slot left out takes its class's PvP looks
+//   ),
+([
+    (
+        id: "wayze",
+        name: "Wayze",
+        race: "dwarf",
+        class: "rogue",
+        gender: Male,
+        // create-screen dials 1, 9, 2, 8, 7, counted from 1
+        looks: Some((skin: 0, face: 8, hair_style: 1, hair_color: 7, facial_hair: 6)),
+        yell: "Stun, kick, bim bam POPPING OFF",
+        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and procs {Spell(21992)} on each of them, its debuff on them for 15 sec.",
+        // tier 1 (its 1.12 looks) but the head, engineer's goggles there; the
+        // legendary sword in the main hand, the legendary dagger in the off hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 19402),
+                (slot: Shoulders, display: 31504),
+                (slot: Chest, display: 31105),
+                (slot: Waist, display: 31339),
+                (slot: Legs, display: 31340),
+                (slot: Feet, display: 31109),
+                (slot: Wrists, display: 31106),
+                (slot: Hands, display: 31503),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 30606)),
+            off_hand: Some((kind: Dagger, display: 25613)),
+        )),
+    ),
+    (
+        id: "doogz",
+        name: "Doogz",
+        race: "orc",
+        class: "rogue",
+        gender: Male,
+        // a face picked within its race's dials each time it shows
+        yell: "fUgC eTärnEL",
+        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and garrotes them all.",
+        // tier 2; Blackwing Lair's swords in both hands and its crossbow
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 33743),
+                (slot: Shoulders, display: 33653),
+                (slot: Chest, display: 33650),
+                (slot: Waist, display: 31110),
+                (slot: Legs, display: 31115),
+                (slot: Feet, display: 31111),
+                (slot: Wrists, display: 31127),
+                (slot: Hands, display: 33651),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 31867)),
+            off_hand: Some((kind: OneHandedSword, display: 31866)),
+            ranged: Some((kind: Crossbow, display: 32763)),
+        )),
+    ),
+    (
+        id: "phigaro",
+        name: "Phigaro",
+        race: "undead",
+        class: "rogue",
+        gender: Male,
+        // a face picked within its race's dials each time it shows
+        yell: "5oNG F1oW3r g0ne",
+        assist: "Exposes the armor of every enemy, so they take 20% more damage for 15 sec.",
+        // tier 3; two Naxxramas daggers
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 35132),
+                (slot: Shoulders, display: 35064),
+                (slot: Chest, display: 35054),
+                (slot: Waist, display: 36349),
+                (slot: Legs, display: 35065),
+                (slot: Feet, display: 36351),
+                (slot: Wrists, display: 35053),
+                (slot: Hands, display: 35055),
+            ],
+            main_hand: Some((kind: Dagger, display: 35819)),
+            off_hand: Some((kind: Dagger, display: 35246)),
+        )),
+    ),
+    (
+        id: "dikkedop",
+        name: "Dikkedop",
+        race: "orc",
+        class: "rogue",
+        gender: Male,
+        // a face picked within its race's dials each time it shows
+        yell: "hehe HEHEHE",
+        assist: "Appears with Vanish's sound, then strikes enemies with {Spell(1752)}'s look, one every 2 sec, each hit 5% of its max health.",
+        // tier 1; Dal'Rend's pair, each sword in its own hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 31514),
+                (slot: Shoulders, display: 31504),
+                (slot: Chest, display: 31105),
+                (slot: Waist, display: 31339),
+                (slot: Legs, display: 31340),
+                (slot: Feet, display: 31109),
+                (slot: Wrists, display: 31106),
+                (slot: Hands, display: 31503),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 25648)),
+            off_hand: Some((kind: OneHandedSword, display: 25647)),
+        )),
+    ),
+    (
+        id: "cdevv",
+        name: "Cdevv",
+        // an enhancement shaman
+        race: "orc",
+        class: "shaman",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears with a crack of lightning, drops a {Spell(8512)} (the hero's swings 20% faster for 15 sec), then Stormstrikes the 3 nearest enemies, each hit 6% of its max health.",
+        // an enhancement shaman as a boss: Stormstrike, Chain Lightning, Fire Nova
+        boss_abilities: [Stomp(look_spell: 17364), Volley(look_spell: 421), Stomp(look_spell: 8349)],
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the shaman's rank 13 epic mail set and the rank 14 two-handed axe
+        // (waist and wrists its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32133),
+                (slot: Shoulders, display: 32128),
+                (slot: Chest, display: 32103),
+                (slot: Legs, display: 32127),
+                (slot: Feet, display: 32126),
+                (slot: Hands, display: 32100),
+            ],
+            main_hand: Some((kind: TwoHandedAxe, display: 31958)),
+        )),
+    ),
+    (
+        id: "cdew",
+        name: "Cdew",
+        // a Horde streamer; a healer (Liquipedia), a shaman in the classic beta (the forum list); a restoration shaman, race my guess
+        race: "troll",
+        class: "shaman",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears in a flash of {Spell(1064)}, heals the hero for 30% of their max health and drops a {Spell(5394)} that heals them 2% of their max health every 2 sec for 15 sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32133),
+                (slot: Shoulders, display: 32128),
+                (slot: Chest, display: 32103),
+                (slot: Legs, display: 32127),
+                (slot: Feet, display: 32126),
+                (slot: Hands, display: 32100),
+            ],
+            main_hand: Some((kind: OneHandedMace, display: 36078)),
+            off_hand: Some((kind: Shield, display: 31746)),
+        )),
+    ),
+    (
+        id: "snutz",
+        name: "Snutz",
+        // a Horde streamer; a warlock, destruction, rank 1 gladiator (his armory and videos); race my guess
+        race: "undead",
+        class: "warlock",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears through a summoning portal, Fears up to 5 enemies near the hero for 8 sec and rains fire on the biggest pack for 10 sec, 3% of each enemy's max health a sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 33071),
+                (slot: Shoulders, display: 33088),
+                (slot: Chest, display: 33079, robe: true),
+                (slot: Legs, display: 30380),
+                (slot: Feet, display: 33076),
+                (slot: Hands, display: 33077),
+            ],
+            main_hand: Some((kind: Staff, display: 31765)),
+        )),
+    ),
+    (
+        id: "mir",
+        name: "Mir",
+        // a Horde streamer; a rogue (his interview); race my guess
+        race: "orc",
+        class: "rogue",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, each hit 3% of its max health, then vanishes.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32132),
+                (slot: Shoulders, display: 32131),
+                (slot: Chest, display: 32115),
+                (slot: Legs, display: 32112),
+                (slot: Feet, display: 32114),
+                (slot: Hands, display: 32113),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 31997)),
+            off_hand: Some((kind: Dagger, display: 31381)),
+            ranged: Some((kind: Crossbow, display: 31749)),
+        )),
+    ),
+    (
+        id: "ahlaundoh",
+        name: "Ahlaundoh",
+        // a Horde streamer; an orc warrior on Nightslayer in classic (the classic armory)
+        race: "orc",
+        class: "warrior",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Charges into the nearest enemy, Intimidating Shouts every enemy around him into fleeing for 6 sec, then Whirlwinds through them for 6 sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 30374),
+                (slot: Shoulders, display: 30928),
+                (slot: Chest, display: 30373),
+                (slot: Legs, display: 30375),
+                (slot: Feet, display: 30370),
+                (slot: Hands, display: 30371),
+            ],
+            main_hand: Some((kind: TwoHandedSword, display: 31998)),
+            ranged: Some((kind: Gun, display: 31747)),
+        )),
+    ),
+    (
+        id: "pikaboo",
+        name: "Pikaboo",
+        // a Horde streamer; a gladiator rogue (his channel); race my guess
+        race: "undead",
+        class: "rogue",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears out of stealth, Cheap Shots then Kidney Shots the strongest enemy for 6 sec, Ambushes it for 10% of its max health and vanishes.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32132),
+                (slot: Shoulders, display: 32131),
+                (slot: Chest, display: 32115),
+                (slot: Legs, display: 32112),
+                (slot: Feet, display: 32114),
+                (slot: Hands, display: 32113),
+            ],
+            main_hand: Some((kind: Dagger, display: 31381)),
+            off_hand: Some((kind: Dagger, display: 31381)),
+            ranged: Some((kind: Crossbow, display: 31749)),
+        )),
+    ),
+    (
+        id: "xaryu",
+        name: "Xaryu",
+        // a Horde streamer; a mage (his channel); race my guess
+        race: "undead",
+        class: "mage",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Blinks in beside the hero, roots every enemy near them in a {Spell(122)} for 8 sec, then calls a {Spell(10)} on them for 8 sec, 3% of each one's max health a sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32999),
+                (slot: Shoulders, display: 33089),
+                (slot: Chest, display: 33085, robe: true),
+                (slot: Legs, display: 32998),
+                (slot: Feet, display: 32996),
+                (slot: Hands, display: 32997),
+            ],
+            main_hand: Some((kind: Staff, display: 31765)),
+        )),
+    ),
+    (
+        id: "venruki",
+        name: "Venruki",
+        // a Horde streamer; a mage, arcane (his armory, articles); race my guess
+        race: "troll",
+        class: "mage",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears in a flash of {Spell(12042)}, Polymorphs the strongest enemy that is not a boss for 10 sec and blasts every enemy near the hero with {Spell(1449)} three times, each 5% of its max health.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32999),
+                (slot: Shoulders, display: 33089),
+                (slot: Chest, display: 33085, robe: true),
+                (slot: Legs, display: 32998),
+                (slot: Feet, display: 32996),
+                (slot: Hands, display: 32997),
+            ],
+            main_hand: Some((kind: Staff, display: 31765)),
+        )),
+    ),
+    (
+        id: "sodapoppin",
+        name: "Sodapoppin",
+        // a Horde streamer; a druid in the classic beta (the forum list), a feral druid in retail; the Horde's druids are tauren
+        race: "tauren",
+        class: "druid",
+        gender: Male,
+        // in Cat Form
+        form: Some(Cat),
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding 2% of its max health a sec for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32134),
+                (slot: Shoulders, display: 32129),
+                (slot: Chest, display: 32110),
+                (slot: Legs, display: 32108),
+                (slot: Feet, display: 32106),
+                (slot: Hands, display: 32107),
+            ],
+            main_hand: Some((kind: Staff, display: 31765)),
+        )),
+    ),
+    (
+        id: "shroud",
+        name: "Shroud",
+        // a Horde streamer; a Horde shaman in classic, 2019 (Dexerto), questing at the orcs' shrine
+        race: "orc",
+        class: "shaman",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Drops a {Spell(8835)} (the hero moves 15% faster and dodges more for 15 sec) and casts {Spell(421)} at the 3 nearest enemies twice, each bolt 6% of its max health.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32133),
+                (slot: Shoulders, display: 32128),
+                (slot: Chest, display: 32103),
+                (slot: Legs, display: 32127),
+                (slot: Feet, display: 32126),
+                (slot: Hands, display: 32100),
+            ],
+            main_hand: Some((kind: OneHandedMace, display: 31751)),
+            off_hand: Some((kind: Shield, display: 31746)),
+        )),
+    ),
+    (
+        id: "summit1g",
+        name: "Summit1g",
+        // a Horde streamer; a warrior in classic hardcore (his videos); race my guess
+        race: "orc",
+        class: "warrior",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears with {Spell(6673)} (the hero deals 15% more damage for 15 sec), Charges the farthest enemy, Mortal Strikes it for 10% of its max health and Cleaves those around it.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 30374),
+                (slot: Shoulders, display: 30928),
+                (slot: Chest, display: 30373),
+                (slot: Legs, display: 30375),
+                (slot: Feet, display: 30370),
+                (slot: Hands, display: 30371),
+            ],
+            main_hand: Some((kind: TwoHandedAxe, display: 31958)),
+            ranged: Some((kind: Gun, display: 31747)),
+        )),
+    ),
+    (
+        id: "xqc",
+        name: "xQc",
+        // a Horde streamer; unconfirmed: an armory "Xqc" is a retribution paladin, not shown to be his; our Horde paladins are undead
+        race: "undead",
+        class: "paladin",
+        gender: Male,
+        // a generic assist for its class and spec (a first proposal; numbers to tune)
+        assist: "Appears with {Spell(19752)}'s look, puts {Spell(1022)} on the hero (no physical damage taken for 6 sec), then {Spell(20375)} strikes the nearest enemies for 8 sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
+        // its class's looks)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 30374),
+                (slot: Shoulders, display: 30928),
+                (slot: Chest, display: 30373),
+                (slot: Legs, display: 30375),
+                (slot: Feet, display: 30370),
+                (slot: Hands, display: 30371),
+            ],
+            main_hand: Some((kind: TwoHandedMace, display: 36079)),
+        )),
+    ),
+    (
+        id: "sodapoppin_alliance",
+        name: "Sodapoppin",
+        // the Alliance's Sodapoppin, a night elf druid in Cat Form
+        race: "night_elf",
+        class: "druid",
+        gender: Female,
+        form: Some(Cat),
+        assist: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding 2% of its max health a sec for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
+        // a face picked within its race's dials each time it shows; its yell to come
+        // the Grand Marshal look: the druid's rank 13 epic set and rank 14 staff (wrists and waist
+        // its class's looks), hidden while in Cat Form
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 30330),
+                (slot: Shoulders, display: 30328),
+                (slot: Chest, display: 30327),
+                (slot: Legs, display: 30329),
+                (slot: Feet, display: 30333),
+                (slot: Hands, display: 30334),
+            ],
+            main_hand: Some((kind: Staff, display: 31764)),
+        )),
+    ),
+    (
+        id: "moffel",
+        name: "Moffel",
+        race: "human",
+        class: "warrior",
+        gender: Female,
+        // a face picked within its race's dials each time it shows
+        yell: "Actually, fuck you!",
+        assist: "Charges in and attacks the enemies near the hero, her hits proccing {Spell(21992)}: its lightning leaps to up to 5 enemies, slowing them with its debuff for 15 sec.",
+        // Naxxramas fury warrior best in slot; the Naxxramas sword in the main hand,
+        // the legendary sword in the off hand, the Naxxramas crossbow
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 22920),
+                (slot: Shoulders, display: 34256),
+                (slot: Chest, display: 35398),
+                (slot: Waist, display: 30535),
+                (slot: Legs, display: 35508),
+                (slot: Feet, display: 31914),
+                (slot: Wrists, display: 34227),
+                (slot: Hands, display: 34165),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 36378)),
+            off_hand: Some((kind: OneHandedSword, display: 30606)),
+            ranged: Some((kind: Crossbow, display: 35253)),
+        )),
+    ),
+    (
+        id: "iberya",
+        name: "Iberya",
+        race: "human",
+        class: "paladin",
+        gender: Female,
+        // create-screen dials 9, 2, 15, 2, 7 (piercings in the facial hair's place), counted from 1,
+        // with hair colour 4, auburn
+        looks: Some((skin: 8, face: 1, hair_style: 14, hair_color: 3, facial_hair: 6)),
+        yell: "ups sorry",
+        assist: "Blesses the hero with {Spell(19740)} (15% more damage for 15 sec) and attacks the enemies near the hero with {Spell(20375)}.",
+        // a retribution paladin in tier 2.5, the Naxxramas Grand Crusader belt, the
+        // Molten Core gauntlets (wrists her class's looks); the corrupted Naxxramas two-hander
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 34487),
+                (slot: Shoulders, display: 34257),
+                (slot: Chest, display: 33705),
+                (slot: Waist, display: 36430),
+                (slot: Legs, display: 33706),
+                (slot: Feet, display: 33708),
+                (slot: Hands, display: 31660),
+            ],
+            main_hand: Some((kind: TwoHandedSword, display: 35097)),
+        )),
+    ),
+    (
+        id: "eggmike",
+        name: "Eggmike",
+        race: "human",
+        class: "mage",
+        gender: Female,
+        // create-screen dials 3, 3, 8, 7, 4 (piercings in the facial hair's place), counted from 1
+        looks: Some((skin: 2, face: 2, hair_style: 7, hair_color: 6, facial_hair: 3)),
+        yell: "Good night!",
+        assist: "Buffs the hero with {Spell(1459)} (faster cooldowns), casts a portal the players cannot click, then hearthstones away.",
+        // mage tier 3 (the robe and shoulderpads from a gear macro, the rest of
+        // the set in the slots whose macro items are newer than 1.12, no helmet) and
+        // the mage's Atiesh
+        gear: Picked((
+            armor: [
+                (slot: Shoulders, display: 35326),
+                (slot: Chest, display: 35523, robe: true),
+                (slot: Waist, display: 35519),
+                (slot: Legs, display: 35522),
+                (slot: Feet, display: 35525),
+                (slot: Wrists, display: 35677),
+                (slot: Hands, display: 35521),
+            ],
+            main_hand: Some((kind: Staff, display: 35632)),
+            // no helmet at all, not the PvP look under the picks
+            bare: [Head],
+        )),
+    ),
+    (
+        id: "nerf",
+        name: "Nerf",
+        race: "human",
+        class: "mage",
+        gender: Female,
+        // Eggmike's face with black hair (colour 1 on the create screen)
+        looks: Some((skin: 2, face: 2, hair_style: 7, hair_color: 0, facial_hair: 3)),
+        // her yell is three ellipses, always muted; written in plain dots for the 1.12 chat font
+        yell: "... ... ...",
+        // Fireball, not a mage's Frostbolt, as a boss
+        boss_spell: Some(133),
+        assist: "Freezes the enemies near the hero with {Spell(122)}, then casts {Spell(846)} and {Spell(10)} on them.",
+        // a fire mage as a boss: Pyroblast, Fire Blast, Flamestrike
+        boss_abilities: [Volley(look_spell: 11366), Volley(look_spell: 2136), GroundBurst(telegraph_spell: 2120, impact_spell: 2120)],
+        // Eggmike's tier 3 and Atiesh, no helmet
+        gear: Picked((
+            armor: [
+                (slot: Shoulders, display: 35326),
+                (slot: Chest, display: 35523, robe: true),
+                (slot: Waist, display: 35519),
+                (slot: Legs, display: 35522),
+                (slot: Feet, display: 35525),
+                (slot: Wrists, display: 35677),
+                (slot: Hands, display: 35521),
+            ],
+            main_hand: Some((kind: Staff, display: 35632)),
+            // no helmet at all, not the PvP look under the picks
+            bare: [Head],
+        )),
+    ),
+    (
+        id: "tebay",
+        name: "Tebay",
+        race: "night_elf",
+        class: "hunter",
+        gender: Female,
+        // create-screen dials 9, 4, 3, 8, 2 (markings in the facial hair's place), counted from 1
+        looks: Some((skin: 8, face: 3, hair_style: 2, hair_color: 7, facial_hair: 1)),
+        // as she dies, as a boss or ending her assist (she arrives with the boss's own yell)
+        death_yell: "what do you mean!?",
+        assist: "Runs in among the enemies near the hero, lays an {Spell(13813)} that blows up under them, Raptor Strikes, then dies.",
+        // the rank 14 hunter set as 1.12 has it (no belt or bracers), the Blackwing
+        // Lair crossbow and Ashkandi
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 32093),
+                (slot: Shoulders, display: 32092),
+                (slot: Chest, display: 32094),
+                (slot: Legs, display: 32097),
+                (slot: Feet, display: 32095),
+                (slot: Hands, display: 32098),
+            ],
+            main_hand: Some((kind: TwoHandedSword, display: 32000)),
+            ranged: Some((kind: Crossbow, display: 32763)),
+        )),
+    ),
+    (
+        id: "vodu",
+        name: "Vodu",
+        race: "dwarf",
+        class: "paladin",
+        gender: Male,
+        // brown hair and a large beard: hair colour 7 (a mid brown) and beard 2 (the longest
+        // reach of the dwarves' beards) on the create screen, counted from 1; the rest the first dials
+        looks: Some((skin: 0, face: 0, hair_style: 0, hair_color: 6, facial_hair: 1)),
+        yell: "Bonjour :3",
+        death_yell: "Merde",
+        assist: "Runs into the swarm and drinks a {Spell(17634)}; for 10 sec every enemy attacks him instead of the heroes, then he dies.",
+        // paladin tier 3, Death's Bargain and the Scepter of the False Prophet
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 36972),
+                (slot: Shoulders, display: 35617),
+                (slot: Chest, display: 35618),
+                (slot: Waist, display: 35614),
+                (slot: Legs, display: 35616),
+                (slot: Feet, display: 35613),
+                (slot: Wrists, display: 35619),
+                (slot: Hands, display: 35615),
+            ],
+            main_hand: Some((kind: OneHandedMace, display: 34485)),
+            off_hand: Some((kind: Shield, display: 35654)),
+        )),
+    ),
+    (
+        id: "pawsz",
+        name: "Pawsz",
+        race: "night_elf",
+        class: "druid",
+        gender: Female,
+        // in Cat Form; a face picked within its race's dials each time it shows
+        form: Some(Cat),
+        yell: "#showtooltip !Cat Form /cast !Cat Form",
+        assist: "Casts {Spell(2983)}, then focuses the healthiest enemy with {Spell(5221)} and {Spell(1079)} for 10 sec.",
+        // its class's PvP looks (no gear named; Cat Form hides it)
+        gear: Random,
+    ),
+    (
+        id: "politimann",
+        name: "Politimann",
+        race: "gnome",
+        class: "warrior",
+        gender: Male,
+        // bald (hair style 1 on the create screen, the one that shows the scalp), brown hair (colour 2)
+        // and a moustache (facial hair 3, the one whose ends hang below its middle);
+        // skin and face the first
+        looks: Some((skin: 0, face: 0, hair_style: 0, hair_color: 1, facial_hair: 2)),
+        yell: "did you know they do blackface in the netherlands?",
+        assist: "Charges in and Sunders the Armor of every enemy near the hero three times, hitting them all with it, then runs away and is gone.",
+        // Blackwing Lair fury warrior best in slot, but for the Miner's Hat of the
+        // Deep from Uldaman's rare (Digmaster Shovelphlange); Crul'shorukh in the main hand, Doom's
+        // Edge in the off hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 18376),
+                (slot: Shoulders, display: 31926),
+                (slot: Chest, display: 28724),
+                (slot: Waist, display: 31654),
+                (slot: Legs, display: 31933),
+                (slot: Feet, display: 31914),
+                (slot: Wrists, display: 6763),
+                (slot: Hands, display: 31660),
+            ],
+            main_hand: Some((kind: OneHandedAxe, display: 31870)),
+            off_hand: Some((kind: OneHandedAxe, display: 31869)),
+        )),
+    ),
+    (
+        id: "stormwall",
+        name: "Stormwall",
+        race: "human",
+        class: "warrior",
+        gender: Female,
+        // a face picked within its race's dials each time it shows; no yell of her own (a boss keeps its own)
+        assist: "Charges in, raises {Spell(871)}, then taunts every enemy near the hero into attacking her.",
+        // a tank as a boss: Charge, Revenge, Shield Slam
+        boss_abilities: [Charge(look_spell: 100), Stomp(look_spell: 6572), Stomp(look_spell: 23922)],
+        // Naxxramas tank warrior best in slot (the Dreadnaught set), Thunderfury
+        // in the main hand and The Hungering Cold in the off hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 35447),
+                (slot: Shoulders, display: 35177),
+                (slot: Chest, display: 35049),
+                (slot: Waist, display: 35058),
+                (slot: Legs, display: 35051),
+                (slot: Feet, display: 35067),
+                (slot: Wrists, display: 35044),
+                (slot: Hands, display: 35050),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 30606)),
+            off_hand: Some((kind: OneHandedSword, display: 36377)),
+        )),
+    ),
+    (
+        id: "edgar",
+        name: "Edgar",
+        race: "human",
+        class: "warrior",
+        gender: Male,
+        // a face picked within its race's dials each time it shows
+        yell: "Ok let's stack, I know it's not like it's the same as every week before",
+        assist: "Charges in, raises {Spell(871)}, then taunts every enemy near the hero into attacking him.",
+        // a tank as a boss: Charge, Revenge, Shield Slam
+        boss_abilities: [Charge(look_spell: 100), Stomp(look_spell: 6572), Stomp(look_spell: 23922)],
+        // Naxxramas tank warrior best in slot (the Dreadnaught set) but for the
+        // tier 2.5 (Conqueror's) spaulders and breastplate, Thunderfury in the main hand and The
+        // Hungering Cold in the off hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 35447),
+                (slot: Shoulders, display: 34256),
+                (slot: Chest, display: 33709),
+                (slot: Waist, display: 35058),
+                (slot: Legs, display: 35051),
+                (slot: Feet, display: 35067),
+                (slot: Wrists, display: 35044),
+                (slot: Hands, display: 35050),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 30606)),
+            off_hand: Some((kind: OneHandedSword, display: 36377)),
+        )),
+    ),
+    (
+        id: "pkr",
+        name: "Pkr",
+        race: "human",
+        class: "mage",
+        gender: Female,
+        // a copy of Nerf: Eggmike's face with black hair, Nerf's assist
+        looks: Some((skin: 2, face: 2, hair_style: 7, hair_color: 0, facial_hair: 3)),
+        yell: "*Fluent perfect english with no hint of an dutch accent",
+        assist: "Freezes the enemies near the hero with {Spell(122)}, then casts {Spell(846)} and {Spell(10)} on them.",
+        // Naxxramas mage best in slot with a sword and an off-hand item, not Atiesh,
+        // and no helmet
+        gear: Picked((
+            armor: [
+                (slot: Shoulders, display: 36424),
+                (slot: Chest, display: 35523, robe: true),
+                (slot: Waist, display: 35138),
+                (slot: Legs, display: 35514),
+                (slot: Feet, display: 35525),
+                (slot: Wrists, display: 33530),
+                (slot: Hands, display: 34183),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 36371)),
+            off_hand: Some((kind: HeldInOffHand, display: 35792)),
+            // no helmet at all, not the PvP look under the picks
+            bare: [Head],
+        )),
+    ),
+    (
+        id: "scarfex",
+        name: "Scarfex",
+        race: "human",
+        class: "rogue",
+        gender: Female,
+        // a face picked within its race's dials each time it shows
+        yell: " What the fuck man",
+        // Doogz's, a Horde rogue's
+        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and garrotes them all.",
+        // Naxxramas-phase PvP rogue best in slot: the rank 14 set, Naxxramas's
+        // tier 3 waistguard and bracers where the set has none, the rank 14 swords
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 30330),
+                (slot: Shoulders, display: 30328),
+                (slot: Chest, display: 30327),
+                (slot: Waist, display: 36349),
+                (slot: Legs, display: 30329),
+                (slot: Feet, display: 30333),
+                (slot: Wrists, display: 35053),
+                (slot: Hands, display: 30334),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 31966)),
+            off_hand: Some((kind: OneHandedSword, display: 36066)),
+        )),
+    ),
+    (
+        id: "regiss",
+        name: "Regiss",
+        race: "night_elf",
+        class: "druid",
+        gender: Female,
+        // in Moonkin Form; a face picked within its race's dials each time it shows
+        form: Some(Moonkin),
+        yell: "Account Action: Suspended until 2022/01/17",
+        assist: "Roots every enemy near the hero with {Spell(339)}, then casts {Spell(2912)} 5 times on the healthiest enemy.",
+        // Lok'amir il Romathis and an off-hand of the second phase (Dire Maul's
+        // Brightly Glowing Stone, our pick); the rest its class's PvP looks (Moonkin Form hides it all)
+        gear: Picked((
+            armor: [],
+            main_hand: Some((kind: OneHandedMace, display: 31863)),
+            off_hand: Some((kind: HeldInOffHand, display: 30855)),
+        )),
+    ),
+    (
+        id: "noami",
+        name: "Noami",
+        race: "human",
+        class: "paladin",
+        gender: Female,
+        // create-screen dials 2, 1, 15, 6, 6 (piercings in the facial hair's place), counted from 1
+        looks: Some((skin: 1, face: 0, hair_style: 14, hair_color: 5, facial_hair: 5)),
+        yell: "So you're going by \"Moonelf\" now nerd? Haha whats up douche bag, iRemember me? Me and the guys used to give you a hard time in school. Sorry you were just an easy target lol.",
+        assist: "Runs in among the enemies near the hero, Consecrates the ground under them, then sets off a {Spell(12760)} that blasts them all.",
+        // tier 2.5 (waist, wrists and hands her class's looks, the set has none)
+        // and Sulfuras, Hand of Ragnaros
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 34487),
+                (slot: Shoulders, display: 34257),
+                (slot: Chest, display: 33705),
+                (slot: Legs, display: 33706),
+                (slot: Feet, display: 33708),
+            ],
+            main_hand: Some((kind: TwoHandedMace, display: 29698)),
+        )),
+    ),
+    (
+        id: "banksey",
+        name: "Banksey",
+        race: "night_elf",
+        class: "priest",
+        gender: Male,
+        // white hair and beard and a top knot: hair colour 5 (the white one), hair style 5
+        // (the one gathered on the crown with a tail down the back) and facial hair 3 (the only full
+        // chin beard) on the create screen, counted from 1; skin and face the first
+        looks: Some((skin: 0, face: 0, hair_style: 4, hair_color: 4, facial_hair: 2)),
+        yell: "I wouldn't call it doxxing you know",
+        assist: "Runs in among the enemies near the hero and casts {Spell(15237)}.",
+        // tier 2, Lok'amir il Romathis and the Alterac Valley flower (Lei of the
+        // Lifegiver)
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 34233),
+                (slot: Shoulders, display: 34048),
+                (slot: Chest, display: 34047, robe: true),
+                (slot: Waist, display: 34053),
+                (slot: Legs, display: 34049),
+                (slot: Feet, display: 34055),
+                (slot: Wrists, display: 34052),
+                (slot: Hands, display: 34051),
+            ],
+            main_hand: Some((kind: OneHandedMace, display: 31863)),
+            off_hand: Some((kind: HeldInOffHand, display: 31807)),
+        )),
+    ),
+    (
+        id: "ghorktheorc",
+        name: "Ghorktheorc",
+        race: "gnome",
+        class: "warrior",
+        gender: Male,
+        // a face picked within its race's dials each time it shows
+        yell: "I'm supposed to be an UH DK",
+        assist: "Summons gargoyle pets that shoot poison bolts at the enemies near the hero.",
+        // tier 3 (the Dreadnaught set) and The Hungering Cold in each hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 35447),
+                (slot: Shoulders, display: 35177),
+                (slot: Chest, display: 35049),
+                (slot: Waist, display: 35058),
+                (slot: Legs, display: 35051),
+                (slot: Feet, display: 35067),
+                (slot: Wrists, display: 35044),
+                (slot: Hands, display: 35050),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 36377)),
+            off_hand: Some((kind: OneHandedSword, display: 36377)),
+        )),
+    ),
+    (
+        id: "quintys",
+        name: "Quintys",
+        race: "night_elf",
+        class: "warrior",
+        gender: Female,
+        // create-screen dials 1, 1, 1, 5, 5 (markings in the facial hair's place), counted from 1
+        looks: Some((skin: 0, face: 0, hair_style: 0, hair_color: 4, facial_hair: 4)),
+        yell: "If you even dream of beating me you'd better wake up and apologize",
+        // Edgar's, with Windfury, Thunder Clap and Sunder Armor after
+        assist: "Charges in, raises {Spell(871)}, taunts every enemy near the hero into attacking her, then, Windfury triggering on her hits, Thunder Claps them and Sunders their armor.",
+        // a tank as a boss: Charge, Revenge, Shield Slam
+        boss_abilities: [Charge(look_spell: 100), Stomp(look_spell: 6572), Stomp(look_spell: 23922)],
+        // a tank in tier 2 without the helm, Chromatic Boots and Edgemaster's
+        // Handguards in the set's feet and hands; Thunderfury and Blackwing Lair's tank shield
+        // (Elementium Reinforced Bulwark)
+        gear: Picked((
+            armor: [
+                (slot: Shoulders, display: 34253),
+                (slot: Chest, display: 33983),
+                (slot: Waist, display: 33990),
+                (slot: Legs, display: 33986),
+                (slot: Feet, display: 31914),
+                (slot: Wrists, display: 33982),
+                (slot: Hands, display: 28280),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 30606)),
+            off_hand: Some((kind: Shield, display: 31852)),
+            // no helm at all, not the PvP look under the picks
+            bare: [Head],
+        )),
+    ),
+    (
+        id: "rhys",
+        name: "Rhys",
+        race: "human",
+        class: "rogue",
+        gender: Female,
+        // a face picked within its race's dials each time it shows
+        yell: "150ms, I love NA",
+        assist: "Runs in among the enemies near the hero, stuns them all, then strikes them with {Spell(22482)}.",
+        // tier 3 (the Bonescythe set), the Chromatically Tempered Sword in the main
+        // hand and Maladath in the off hand
+        gear: Picked((
+            armor: [
+                (slot: Head, display: 35132),
+                (slot: Shoulders, display: 35064),
+                (slot: Chest, display: 35054),
+                (slot: Waist, display: 36349),
+                (slot: Legs, display: 35065),
+                (slot: Feet, display: 36351),
+                (slot: Wrists, display: 35053),
+                (slot: Hands, display: 35055),
+            ],
+            main_hand: Some((kind: OneHandedSword, display: 31867)),
+            off_hand: Some((kind: OneHandedSword, display: 31866)),
+        )),
+    ),
+])

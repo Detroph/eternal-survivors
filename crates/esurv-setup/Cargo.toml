@@ -1,0 +1,16 @@
+[package]
+name = "esurv-setup"
+description = "Eternal Survivors Setup.exe: dropped into a WoW 1.12.1 folder, it checks the client and installs or updates the game's folder inside it, never touching the saves."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+esurv-client-check = { path = "../esurv-client-check" }
+
+[[bin]]
+name = "esurv-setup"
+path = "src/main.rs"

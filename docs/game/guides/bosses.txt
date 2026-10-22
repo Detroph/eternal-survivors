@@ -1,0 +1,215 @@
+ESURV - MAKING A BOSS, EXPLAINED
+=====================================
+
+This file explains in plain words how to add a boss, and how to give it abilities or take
+them away. The technical version is bosses.md in the folder above this one. A ready-to-copy
+boss is in docs\game\templates\boss.ron. How to read the data files is explained at the top
+of zones.txt.
+
+
+1. THE SHORT VERSION
+--------------------
+
+  1. Open the zone's own file in content\zones (content\zones\elwynn.ron for Elwynn) and find
+     its list of bosses ("bosses: [").
+  2. Copy the block from docs\game\templates\boss.ron into that list, at the place where the
+     boss should arrive (bosses come in order of their spawn_minute).
+  3. Give it a name, a model (display_id) and its numbers.
+  4. Pick its abilities (section 3).
+  5. Exactly one boss per zone is the final one (is_final: true), and it must be last.
+  6. Save, then run "cargo test -p esurv-content -p esurv-sim" to check for mistakes.
+
+
+2. THE BOSS'S NUMBERS
+---------------------
+
+    spawn_minute   when it arrives
+    move_speed     optional: Some(..) for its own speed; every boss walks at 6 yards
+                   per second otherwise (boss_move_speed in enemy_kinds.ron)
+    scale          how big it is. Bigger also means it reaches further.
+    yell           what it shouts when it arrives
+    aggro_sound    optional: Some(..), the original boss's own voice line (a SoundEntries
+                   number) heard as it arrives; the words shown stay the yell (bosses.md,
+                   section 5, lists them)
+
+  A boss has no health or damage of its own in the file. The game works them out when it
+  arrives, from the zone's difficulty and the minute (see zones.txt, section 6): a boss gets
+  24 times a normal enemy's health and twice its damage, the final boss 28 times the health
+  and the same damage. It swings every 2 seconds, and all its abilities are worked out from
+  that damage.
+
+  Below 30% health a boss gets ANGRY for the rest of the fight: it moves faster, hits 40%
+  harder and uses its abilities 30% more often.
+
+
+3. ABILITIES - ADDING, CHANGING, REMOVING
+-----------------------------------------
+
+  The abilities list looks like this:
+
+      abilities: [
+          Charge(look_spell: 100),
+          Summon(),
+      ],
+
+  Each line is one ability: its kind and what it looks like. Its numbers (how often, how big,
+  how hard) are the same for every boss and are written ONCE, in content\enemy_kinds.ron
+  (the "boss_abilities" part). Change a number there and every boss with that ability follows.
+  "cooldown" there is the seconds between uses; the first use comes a bit earlier (after 60%
+  of the cooldown).
+
+    - To REMOVE an ability: delete its whole line.
+    - To ADD one: copy a line from the list below into the brackets.
+    - A boss with no abilities at all is fine too:  abilities: [],
+    - To give ONE boss its own number, add it to its line, for example
+          Stomp(look_spell: 6343, radius: Some(12.0), cooldown: Some(10.0)),
+      Every number the kind has can be set this way (cooldown, radius, delay, damage_mult,
+      count).
+
+  The five kinds (copy the line, then pick the looks):
+
+    Charge(look_spell: 100),
+        Rushes to where you stand and hits everything near that spot for double damage.
+        Every 8 seconds.
+
+    Stomp(look_spell: 6343),
+        Hits you for double damage if you are within 10 yards of the boss. Every 8 seconds.
+
+    GroundBurst(telegraph_spell: 10, impact_spell: 122),
+        Marks the ground where you stand. 2 seconds later it explodes there for three times
+        the boss's damage. Walk out of the circle in time! Every 6 seconds.
+
+    Volley(look_spell: 133),
+        Fires 6 missiles of that WoW spell: one where you stand, the others close around you.
+        Each one hurts a little (half its normal damage). Every 6 seconds.
+
+    Summon(),
+        the boss shouts for help and calls helpers in a ring around the boss: 6, 7, 8, 10 or 12
+        for a zone's first to fifth boss. They are the first enemies of the zone's list.
+        Every 15 seconds.
+
+  The look_spell numbers are WoW spell numbers: they decide what you see and hear
+  (100 = Charge, 6343 = Thunder Clap, 133 = Fireball, 122 = Frost Nova).
+
+
+4. A COMPLETELY NEW KIND OF ABILITY
+-----------------------------------
+
+  The five kinds can be mixed freely, and their numbers tuned in enemy_kinds.ron. Something
+  that works differently (pulling you in, a shield, a beam ...) needs a small piece of code
+  first; bosses.md explains where.
+  After that it can be used in any zone file like the others.
+
+5. THE BUILDING BLOCKS (MARKS, ZONES, OBJECTS, SCRIPTS, WARNINGS)
+-----------------------------------------------------------------
+
+  The rules: every boss attack that covers an area is MARKED on the ground first (a purple
+  Shadow Fissure marking that fills up), long enough to walk out of it (1 to 2.5 seconds). Boss attacks only
+  ever hit YOU, never the other enemies. Bosses never stun, fear, root or slow you. bosses.md,
+  section 6, has every field; here is what each block is for.
+
+    Marked(shape: Circle(radius: 10.0), at: Boss, impact_spell: 6304),
+        A marked attack. Shapes: Circle(radius), Ring(inner, outer) (safe in the middle),
+        Cone(length, angle), Line(length, width). at: Boss (round the boss; it stands still
+        while it winds up), Hero (where you stand), NearHero(count: 3, spread: 7.0) (several
+        round you). Optional: wind_up, damage_mult, cooldown, leaves (a lasting zone where it
+        lands), leaves_object (an egg or cocoon where it lands), missile: true (a slow bolt).
+
+    Rush(look_spell: 100),
+        A marked line from the boss to you; then the boss runs along it. fade_spell makes it
+        fade into shadow while it waits (Lupos).
+
+    Lay(object: (name: "Egg Sac", display_id: 6171, glow_spell: 20922, hatch: Some((after: 10.0,
+        enemy: "Mine Spider", count: 3))), near: Boss(5.0)),
+        Puts objects on the ground. YOU BREAK OR TAKE AN OBJECT BY STANDING ON IT for half a
+        second (brushing past does not count); its gold glow fills while you stand there.
+        Attacks never hit objects. Left alone, an egg hatches.
+
+    A lasting zone: (look_spell: 28158, radius: 3.5, seconds: 8.0, damage_mult: 0.0,
+        affliction: Some((look_spell: 744, damage_mult: 0.05, every: 1.0, seconds: 6.0,
+        max_stacks: 5)))
+        Stays on the ground and hurts you while you stand in it; an affliction is a stacking
+        damage effect it leaves on you. drift: 2.0 makes it creep towards you; follows: true
+        keeps it on its boss (an aura you must stay out of).
+
+  A SCRIPT is what a boss does at a health share, on a timer, as it arrives or as it dies:
+
+      script: [
+          (
+              on: Health(50.0),
+              warn: Some((text: "Lapdogs! Adds incoming!", colour: Orange)),
+              soon: Some("Lapdogs soon"),
+              run: [
+                  Yell(text: "Lapdogs, all of you!", sound: Some(5782)),
+                  Wave(enemy: "Defias Blackguard", count: 6, at: Ring(8.0)),
+              ],
+          ),
+      ],
+
+  on: Arrival, Health(50.0), Every(20.0), After(10.0) or Death. Things a script can do: Yell
+  (with the original voice: then the words must be what the voice says), Emote, Wave (adds,
+  in a ring or from the edges), StopSpawns / ResumeSpawns, Roster(only: Undead) (from then on
+  only that kind spawns), RaiseDead (Morbent Fel), Shield and Mortal (a shield that drops for a
+  while), Place (an object), LayZone, Kit (a new set of abilities: a new phase), Weapons, Look
+  (a new model), Kneel, Enrage, and Pause (a short cutscene, at most 5 seconds, where
+  everything freezes). Adds that only a boss brings are roster enemies with only_summoned: true.
+
+  More things a script can do (the Scarlet Monastery to Zul'Gurub bosses use them): Later
+  (seconds: 3.0, run: [...]) runs things a little later, even inside a Pause; On(boss: "...",
+  run: [...]) acts as another boss; Call(boss: "...") brings in a boss marked called: true
+  (Whitemane, who only comes when Mograine falls); Revive(boss: "...", health: 0.5, ...) brings a
+  fallen boss back where it fell; Unshield; Heal(on: Near(15.0) / Myself / Boss("..."),
+  share: 0.05, look_spell: ..., beam_spell: ...) heals the boss's side, from the boss, from adds
+  named in from: Some("..."), or from a totem; Cast(ability: Marked(...)) casts a marked attack at
+  once; ClearZones, Wear, Speed, Bolster (makes adds or the boss stronger), and Siphon (Hakkar's
+  Blood Siphon). on: AddDied with add: Some("...") runs each time that add dies, at its spot;
+  on: HeroFell each time you lose a life to the boss. until_health / from_health limit an Every
+  line to a phase. A wave can come at: Sides(4): four packs from four sides, their lanes marked
+  first; or at: Spot(x: ..., y: ..., spread: 5.0): round a spot of the map (Stratholme's undead
+  coming in at the square's gate). Door(name: "...", open: true) swings one of the zone's doors
+  open (false: shut again). An object can have pulse (a totem that acts every few seconds), left_alone (something
+  bad happens unless you stand on it in time) and on_all_taken (when the last one is taken).
+  A marked attack with from: Some("...") is laid from each of those adds (Immol'thar's Eyes).
+  swing_mult: Some(0.0) makes a boss that never swings (a caster).
+
+  More things a script can do (Stratholme, Blackrock Mountain and Ahn'Qiraj use them):
+    Waves(waves: [(run: [Wave(...)], warn: ...), ...], gap: 20.0, immune: true, aloof: true,
+        bar: Some("Next wave"), counter: Some("Qiraji left"), then: [Yell(...)])
+        A run of waves: each comes once the last one is dead (or after gap seconds). immune: the
+        boss takes no damage meanwhile; aloof: it stands apart doing nothing. A timer bar counts
+        to the next wave and a counter shows the adds left. then: what happens once they are all
+        done (Rajaxx joins, Rend mounts Gyth). Majordomo's eight guards are one such wave.
+    Gather(within: 40.0, ahead: 6.0, look_spell: 21147)
+        Pulls every enemy near the boss into one clump in front of it (never you).
+    SpellImmune(seconds: 10.0, look_spell: 22067)
+        For a while spells do nothing to the boss; weapon swings and pets still do.
+    Empower(look_spell: 29131, faster: 0.1, harder: 0.1, max_stacks: 5, seconds: 0.0)
+        A stack of rage: its marked attacks come sooner and hit harder, and it runs faster
+        (never its swing). seconds: 8.0 makes it wear off (a frenzy).
+    Mend(by: "Anvilrage Medic", share: 0.01, look_spell: 15586)
+        Each living add of that name heals the boss: kill them.
+    ClassCall(seconds: 10.0, calls: [(class: "warrior", weakens: 0.5, look_spell: 23397,
+        warn: (text: ...)), ...])
+        Twists your class for a while: you deal less damage (never a stun), or run: brings adds.
+    RaiseFallen(rise_as: "Bone Construct", look_spell: 17473, most: 16)
+        Where the boss's wave adds fell, these rise.
+    Cameo(enemy: "Ragnaros", at: Ring(0.0), delay: 4.0, seconds: 8.0, run: [Yell(...)],
+        abilities: [Marked(...)])
+        A figure rises for a moment, takes no damage, never moves, does its kit, then sinks.
+  A Marked attack may also have: at: Across(count, spread) (lines across the ground),
+  chain: Some(0.5) (each further mark lands a little later), brings: Some((enemy: "Eye
+  Tentacle", count: 1, rooted: true)) (adds burst from where it lands; rooted ones stay there),
+  sweep: Some((turn: 25.0, seconds: 8.0, damage_mult: 0.5, look_spell: 20924)) (a line that stays
+  and sweeps round the boss: a beam).
+
+  WARNINGS: warn: Some((text: ..., colour: Red)) on an ability, a script line or an object shows
+  the text big across the screen with its icon and the raid warning sound, and puts a timer bar
+  at the left that counts down to the next time (a bar moves up and flashes in its last 5
+  seconds). soon: on a health line warns 5 points before it. Colours: Red (move out), Orange
+  (adds), Yellow (do something), Purple (a phase), Green (poison), Blue. Options > Interface
+  turns the bars, the warnings and their sound on or off.
+
+  DAMAGE: a reworked boss must take from you, whatever you do, as much as it did before (its
+  swings once it catches you, its unmarked hits). swing_mult: Some(1.5) makes its swing carry
+  what its old unmarked abilities did. The marked attacks, zones and eggs only hurt a hero who
+  does not get out of the way, on top of that.

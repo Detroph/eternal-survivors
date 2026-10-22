@@ -1,0 +1,601 @@
+ESURV - THE GAME'S OWN WINDOWS, EXPLAINED
+==============================================
+
+This file explains in plain words the windows the game adds on top of WoW. The technical
+version is screens.md in the folder above this one.
+
+
+1. THE SHORT VERSION
+--------------------
+
+  Besides the normal WoW interface (action bar, character pane, chat ...), the game draws a
+  few windows of its own. They only show while your hero is in the world, except the menus
+  before a run (section 8), where you choose your hero. Clicking or
+  scrolling on one of them never moves the camera or clicks the world behind it. They never
+  take your keys, so you can keep moving while you use them, with two exceptions: the card
+  window (below) takes a few keys while it is open; and Escape during a run pauses the run
+  and opens the run's own menu when there is nothing else for it to close, instead of
+  opening the game menu (see THE ESCAPE MENU below).
+
+  Every window of a run except the damage meter, the card window and the Escape menu looks
+  like WoW's own windows: the same stone borders, gold titles, red buttons, icon frames and
+  letters, taken from your own WoW files, and the same size as WoW's windows next to them.
+  The card window, the Escape menu and the menus before a run have a look of their own
+  (section 8): dark panels with thin gold borders and rounded corners.
+
+
+2. THE CARD WINDOW (LEVEL-UP, TREASURE CACHE, RARE'S CACHE)
+---------------------------------------------------------------
+
+  Each time your hero gains a level, each time you open a treasure cache (bought with gold)
+  and each time you open a rare cache (free), the run stops, the world goes a little
+  darker and a window shows a few cards side by side. Pick one; the run goes on when you do.
+  Nothing can hurt you while it is open.
+
+  The window is dark with a thin gold border, like the menus before a run. Its gold title
+  says "Level 7" (your new level), "Treasure Cache" or "Rare Cache".
+
+  On the left, "Spells": the spells you know, with their rank, and how many of your 6 spell
+  slots are used ("3 / 6"); the empty slots show as empty frames. On the right, "Jewelry":
+  your rings (2 slots), trinkets (2 slots) and amulet (1 slot), each with its rank. Hold the
+  mouse over any of them to read what it does.
+
+  Each card shows:
+    - the number of the key that takes it, in its top left corner
+    - its icon, and its name in its rarity colour: white common, green uncommon, blue
+      rare, purple epic, orange legendary (the same colours as WoW's items); the card's
+      border and its glow have that colour too, the colour runs down from its top edge, it
+      glows brighter under the mouse and brightest once you took it
+    - a small label in its top right corner: NEW for a spell you do not have yet, RING,
+      TRINKET or AMULET for jewelry you do not wear yet, or RANK and the rank it reaches
+      for something you take again (a spell upgrade, an upgrade of a piece you wear, an
+      empowered amulet)
+    - its rarity above its name, and under the name "New spell", "Ring", "Trinket",
+      "Amulet", or "Rank 1 » 2" for something you take again
+    - what it does. Numbers it gives you are green (like the "Equip:" lines on WoW items),
+      the words white:
+        - a spell you do not have yet is written out in full with its real numbers (what
+          it hits, how far, how much damage, what it does to enemies, what bosses shake
+          off); a rarer card adds its head start under it, for example "-7% cooldown"
+        - an upgrade of a spell you know says only what gets better, for example
+          "+34% damage"
+        - a new ring or trinket says what it gives: "+19% critical strike"
+        - an upgrade of a ring or trinket you wear says the value now and after:
+          "+70% » +114% critical strike damage"
+        - an amulet says its special rule first, as a sentence, then its stats
+          ("+15% max health"). A legendary amulet says which of your spells it remakes and
+          everything it does to it.
+    - at the very bottom, in small grey letters, what it does to your slots: "Takes a spell
+      slot · 3/6", "Improves a spell you know", "Takes a ring slot · 1/2", "Upgrades a
+      ring you wear", "Takes the amulet slot". An amulet that would take the place of the
+      one you wear says "Replaces" and that amulet's name there instead: hold the mouse
+      over it to read what you would lose.
+  There is no button on a card: click anywhere on it to take it.
+
+  Under the cards:
+    - the Reroll button deals new cards. It says how many free rerolls you have left,
+      or what the next reroll costs in gold once they are used up; it is greyed out when
+      you can do neither.
+    - how much gold you have
+    - a reminder of the keys
+
+  Picking:
+    1, 2, 3, 4            take that card (the number keys or the keypad's)
+    R                     reroll
+    a click               anywhere on a card takes it; on Reroll, rerolls
+  Right after the window opens or the cards change, it waits a moment (less than half a
+  second) before it listens, so a key you were already pressing for a spell does not pick
+  a card by accident. While the window is open those keys do not cast your spells, and
+  Escape does nothing (it does not pause or open the game menu). If you are typing in
+  the chat box, your keys go to the chat as usual.
+
+
+3. THE DAMAGE METER
+-------------------
+
+  The small dark window on the right side, high enough to leave the tooltips below it free. It works like the
+  "Recount" add-on many WoW players know.
+
+  What it shows:
+    - "Damage Done": how much damage each hero, pet or spell has dealt this run.
+    - "Damage Taken": how much damage you took, and from what. "area" means damage from
+      something on the ground (a boss's blast, a volley) rather than from one enemy.
+
+  Each line is a coloured bar. The biggest is on top and fills the whole width; the others
+  are as long as their share of the biggest. Heroes have their class colour (mages light
+  blue, warriors tan ...); everything else gets a colour of its own that stays the same.
+
+  On each line, for example:   2. Frostbolt          7846 (482.1, 12%)
+    2.        its place in the list
+    7846      the total so far (big numbers are shortened: 153.2k, 2.35M)
+    482.1     per second
+    12%       its share of the whole list
+
+  The buttons on the title bar:
+    <  and  >     switch between Damage Done and Damage Taken
+    R             clear the meter and start counting again
+    -             fold the window down to its title bar (+ opens it again)
+
+  Moving and sizing:
+    - Drag the red title bar to move the window anywhere.
+    - Drag the dotted corner (bottom right) to make it bigger or smaller.
+    - With more lines than fit, a thin scroll bar appears on the right: use the mouse
+      wheel over the window, or drag the bar.
+
+  The game remembers where you put it, its size, which list it shows and whether it is
+  folded, in benilla-config\meter.ron (a small text file). Delete that file to put the
+  window back where it started.
+
+
+4. THE END OF A RUN
+-------------------
+
+  When your hero falls, or beats the zone's final boss, a panel opens in the middle of the
+  screen. It looks and reads like the normal WoW windows and grows with the game window.
+
+  At the top, in big letters: "Overrun" (red) if you fell, "Triumph" (gold) if you won, and
+  under it your hero, race, class and the zone.
+
+  The window below (drag its title, or the big letters, to move it out of the way; the game
+  remembers where you put it, next time too):
+
+    Left side      what you did this run: how long you lasted, the level you reached, how
+                   many enemies, elites, rares and bosses you defeated, the damage you
+                   did and took, the gold you picked up and the caches you opened.
+
+    Right side     the talent experience your class earned. Each part shows up one after
+                   the other (time, enemies, bosses, the victory, a harder zone, harder run
+                   settings), the "Earned" number counts up, and the purple bar fills toward
+                   your class's next talent point. "New talent point!" flashes each time the
+                   bar fills up.
+
+    Below          a green line if the win opened the next zone for your class, then the
+                   boss gear you won: each piece in its quality colour, where it is worn, and
+                   whether it is new to your collection or one you already had.
+
+  The buttons:
+    Run Again      start over at once: same hero, same zone, same run settings. Everything
+                   on the field disappears, your hero is back at the start with full health,
+                   and the run waits for your first step.
+    Go Endless     (after a win only) keep fighting: the enemies keep coming, ever stronger,
+                   and what you earn from now on is paid when you fall or leave.
+    Change Hero    leave the run and go back to the character screen.
+
+  Your talents, gear and codex are not shown during a run:
+  they will be on the hero sheet before a run (see THE ARMORY AND THE CODEX below).
+
+  What you earned is already saved when the panel opens, whichever button you press.
+
+  WoW's own "Release Spirit" box stays hidden while the panel is up: a run has no graveyard.
+  After "Run Again" your hero is back at level 1; the chat no longer calls that a level-up
+  (WoW's own level-up glow still flashes once).
+
+5. THE HUD
+----------
+
+  The run's numbers, at the top in the middle of the screen, in the normal WoW lettering:
+
+      Foes slain        12:34          Gold
+         132     Boss arrives in 2:26   245
+                                        Next cache: 50
+
+    12:34                how long the run has gone (minutes:seconds)
+    Boss arrives in 2:26 how long until the next boss comes. Once you went on into Endless it
+                         says "Endless mode"; when no boss is left to come it says nothing.
+    Foes slain           how many enemies you have killed this run
+    Gold                 your gold, and under it what the next cache costs to open
+
+  While a boss is up, a bar under the numbers shows its name (on a red strip, like the
+  target frame shows an enemy) and its health in green, in a frame like the casting bar's,
+  with "health / maximum" on it.
+  With more than one boss up, the bar follows the one that came first.
+
+  Big lines in the middle of the screen, under WoW's own centre messages:
+    - a boss draws near (orange), the final boss arrives (red),
+    - a boss is vanquished (gold). Rares come and fall without one.
+  They stay 10 seconds and fade out, like WoW's raid warnings.
+
+  Smaller yellow lines under them are the game's short messages: a magnet dropped, you took
+  a rune, a cache needs more gold, you cannot leave the fight. They stay 5 seconds and fade,
+  like WoW's yellow info messages. The same message coming again does not stack: it just
+  starts over.
+
+  A boss's shout shows in a speech bubble over its head; when that bubble would cover the
+  numbers at the top or the boss bar, it moves down under them, so the clock stays readable.
+
+  Before your first step a gold line pulses: take a step and the fight begins.
+
+
+  THE ESCAPE MENU (PAUSING)
+
+  During a run, Escape first does what it always does in WoW: it closes
+  an open window or popup, leaves the chat line, stops a cast. When there is nothing left to
+  close, instead of clearing your target or opening WoW's game menu, it pauses the run and
+  opens the run's menu (the menu button on the bar does the same). Your target stays: in a
+  swarm something is always hitting you, and WoW picks the attacker as your target, so
+  Escape would otherwise never pause. The menu wears the new menus' look (a dark panel with a
+  thin gold border), says "Run Paused" and has five buttons:
+
+    Continue    go on (Escape does the same)
+    Reset Run   end this run here and start a fresh one at once, same hero, same zone, without
+                leaving the world. What the run earned so far is paid out and saved (the chat
+                says how much), just as if you had left it.
+    Options     the game's settings, the same panel as on the warband screen (section 8): see
+                below
+    End Run     end this run here: what it earned is paid out and saved, and you go back to
+                character select
+    Quit Game   the same, then the game closes (after the save is written)
+
+  Options opens over the paused run, which stays paused, and the menu waits behind it. Video,
+  Sound and Interface work as on the warband screen; a setting that only takes hold the next
+  time a hero enters the world says "next time in the world", and after Okay the menu says, in
+  gold under its buttons, what waits for later. On the Saves tab you can export the save, but
+  not import one: that would replace the save in the middle of a run, so it waits for the
+  warband screen, and the tab says so. "Key Bindings" opens WoW's own key binding window; close
+  it (its Okay or Cancel, or Escape) and you are back on the Options panel. Okay, Cancel or
+  Escape on the panel bring you back to the menu.
+
+  You cannot pause before your first step (Escape then opens WoW's game menu as usual), while
+  a level-up or cache choice is open, or once the run is won or lost (the end panel has its
+  own buttons). Clicking twice does nothing more: the game waits for the first click's answer.
+
+  With other heroes in the same run (later, with multiplayer), End Run and Quit Game take only
+  you out and the others play on; Reset Run then waits until nobody else is still in the run
+  (it would start their run over too), and says so.
+
+
+  THE POWER BAR. The bar under your hero's health on the player frame shows what your
+  starting option uses or counts, with its name and count written on it: rage (red) for the
+  Warrior and the Bear, energy (yellow) for the Rogue and the Cat, and for every other option
+  its own counter in its own colour (gold Holy Power, purple Insanity, teal Maelstrom Weapon
+  and so on); when a counter is full its passive goes off. The Rogue's and the Cat's combo
+  points are the little pips under it. Stacking buffs (Zeal, Hot Streak, Maelstrom Weapon ...)
+  show in the buff frame with their counts; hover one to read what it does. Burning Embers
+  also float over your hero's head.
+
+
+6. THE ARMORY AND THE CODEX
+---------------------------
+
+  These are not open during a run. There is no key or button
+  for them in a run (N opens the talent window to look at, L nothing: section 6b). The armory
+  is on the hero sheet before a run, on its Collection and Talents tabs (section 8); the codex
+  is on the warband screen, at the top right (section 8). What they hold:
+
+  THE ARMORY
+
+  Everything your class has earned between runs. It belongs to the class, not the hero: every
+  warrior you make shares the warriors' armory. Whatever you change counts from your next
+  run, and the sheet says so. If the game says no to something (say, a talent
+  whose row is not open yet), it says why, in red.
+
+  What it showed, tab by tab, when it was a window (the hero sheet lays it out anew):
+
+    Character      your class's gear as it is worn, laid out like WoW's character window:
+                   head, shoulders, chest and wrists on the left, hands, waist, legs and feet
+                   on the right, the weapon(s) below. Each slot shows the piece's icon and
+                   name in its quality colour, and the look it shows (you can show the look of
+                   another piece you own). In the middle: everything the worn gear adds
+                   together, how many pieces you have collected, your talent points and the
+                   zones open to your class. Hover a slot to see the piece's bonuses.
+
+    Collection     every piece your class can win: a row per slot, a column per tier (1 to 5,
+                   common to legendary). Pieces you own are in colour, the others dark. "E"
+                   marks what is worn, "L" the piece whose look the slot shows. Click a piece
+                   to see what it gives and which boss drops it, and to Wear it (or Take Off
+                   the one worn) or show its look on that slot (Show This Look; Show Own Look
+                   goes back to the worn piece's own look).
+
+    Drop Tables    one zone a page (the arrows at the top turn the pages): each boss, when it
+                   arrives, and the pieces it can drop for your class, owned (green) or still
+                   to find. The top says how likely each piece is to drop (harder run options
+                   raise it); each piece rolls on its own, and one you already have adds
+                   nothing. A zone your class has not opened says what to win to open it. The
+                   bottom line counts the pieces still to find in your open zones.
+
+    Talents        your talent points (to spend, earned out of 51, spent) and a purple bar
+                   toward the next point, then your class's three talent trees side by side,
+                   as WoW's talent window draws them. Click a talent to learn a rank,
+                   right-click it to take one back (taking back is free). Green: you can buy a
+                   rank; gold: all ranks bought; dimmed: its row or the talent it needs is not
+                   there yet (a row opens for every 5 points spent higher up in its tree).
+                   Hover a talent to see what it does now and at its next rank, and what it
+                   still needs.
+
+  THE CODEX
+
+  A book of every ring, trinket and amulet any of your heroes has ever taken in a run. It is
+  shared by the whole save and never forgets. Four tabs: Rings, Trinkets, Amulets and
+  Legendary; each tab says how many of its kind you have found ("Rings 3/9"). Found pieces
+  show their icon, name and what they do; the others are dark, with where they come from
+  (caches, bought or a rare's). Legendary amulets remake one spell each, so they are listed
+  class by class (the arrows turn from class to class, starting with your hero's class).
+  The new menus give it a look of its own.
+
+
+6b. WOW'S OWN WINDOWS DURING A RUN
+----------------------------------
+
+  During a run (and on the end-of-run panel) WoW's interface keeps only
+  three of its windows:
+
+    C   the character window, on its first tab only (no Pet, Reputation, Skills or Honor
+        tabs). Its stat lines show your hero's run numbers instead of WoW's: health, damage,
+        cooldowns, crit and crit power, damage reduction, regeneration, area, extra targets,
+        double cast, speed and pickup range. A number your worn gear adds to is green, and
+        pointing at a line says what it does and what your gear adds to it.
+    P   the spellbook, with one tab, General, holding exactly your race's spell, your race's
+        passives and the spells you learned in this run
+    N   the talent window, to look at only: your class's talents bought so far, each in its
+        place on its tree, with what it does when you point at it. Nothing can be learned or
+        changed during a run: that happens on the hero sheet before a run. It opens at any
+        level, and so does its button on the bar.
+
+  Everything else is closed off: the quest log (L), the social window (O), the world map (M),
+  reputation (U), skills (K), honor (H), the bags (B, F8 to F12, Shift-B) and the keyring,
+  the pet spellbook, the battleground map and scores, the macro window (/macro) and the help
+  window. Their keys do nothing, and their buttons are gone from the bar: only the character,
+  spellbook and talent buttons stay (Escape still opens the run's menu). On the minimap the
+  world map button is gone; the zoom buttons and the rest stay. Right-clicking your portrait,
+  your target or a party member opens no menu.
+
+  Pointing at a spell on the action bar or in the spellbook shows what it does in this run, in
+  WoW's usual tooltip: its name and rank (Rank 1, Rank 2 ... as level-up cards upgrade it),
+  its range (or the radius it covers) and school, its cooldown, and what it does with your
+  hero's numbers right now (the same words as its card, with your talents, amulet, level and
+  buffs counted in). Under that, when there is something to say:
+    Upgrades this run   what the upgrade cards you took for it add up to: "+8% damage, +18% area"
+    Your bonuses        (green) what your talents, gear, rings, trinkets, amulet and race add to
+                        it: "+31% damage, -4% cooldown"
+    and its crit        "7% chance to crit for 204% damage"; spells whose hits never crit
+                        (damage over time, heals, shields, buffs) have no crit line
+  Your race's spell says it is your race's, and your race's passives say what they give. The
+  spellbook writes the same names and ranks under the icons. Before, these were WoW's own texts
+  of the spells our spells look like.
+
+  Pointing at one of your buffs (the icons at the top right, or on the target frame when you
+  target yourself) says what it is: its name (the spell that cast it, or "Speed Rune",
+  "Berserker Rune" ...), what it does right now ("+60% movement speed", "+42% damage", "Absorbs
+  54 more damage"), the spell's own words with your numbers, whose race it belongs to for your
+  race's spell, and how long it has left. Pointing at an enemy's debuff that one of your spells
+  put on it (a bleed, a burn ...) shows that spell's name and what it does; anything else there
+  keeps WoW's own text.
+
+  Your buffs at the top right (runes, shields, your race's spell ...) show how long they still
+  last under each icon, and blink when they are about to end; WoW keeps this off unless you
+  turn it on, a run turns it on for you.
+
+  The experience bar keeps going up to the run's own level cap (99), not WoW's 60. WoW's own
+  "Congratulations, you have reached level ..." lines stay out of the chat during a run: the
+  game says what each level brought in a line of its own.
+
+  Outside a run (the character screens) nothing of this applies.
+
+
+7. THE CREATE SCREEN
+--------------------
+
+  New heroes are made on the hero sheet (section 8). WoW's own create screen only shows with
+  ESURV_MENUS=0 (a testing switch). Both offer, besides WoW's usual choices, six
+  more: Dwarf Shaman, Human Hunter, Gnome Priest, Orc Mage,
+  Troll Warlock and Undead Paladin. Pick the race and the class button shows up with the
+  others, with WoW's usual description. The hero on the stage wears the class's starting
+  clothes borrowed from another race (classes.txt, 3b, says which). For a test with nobody at
+  the mouse:
+
+    WOW_CHARCREATE_SHOT=1            open the create screen by itself
+    WOW_CHARCREATE_PICK=3,0,7        pick race 3 (Dwarf), male (0, or 1 for female) and
+                                     class 7 (Shaman)
+    WOW_CHARCREATE_SHOT_OUT=<png>    take a picture of it once it has settled
+    WOW_CHARCREATE_NAME=Anvilbeard   type that name and press Create
+
+
+8. THE MENUS BEFORE A RUN (CHOOSING YOUR HERO)
+-----------------------------------------------
+
+  Before a run the game shows its own menus instead of WoW's character screens.
+  They have a look of their own, not WoW's: near-black panels with a thin gold
+  border and round corners, gold titles in WoW's Morpheus letters, small grey labels over
+  white values, values in little framed boxes, a soft gold glow round what is picked, gold
+  arrows, and framed buttons (the one that is on is filled dark red).
+
+  WHEN THE GAME STARTS
+
+  If your save has a hero, you land on the warband screen (below). If it has none, you land
+  on the class picker.
+
+  THE CLASS PICKER
+
+  One panel with the nine classes in three rows of three. Click one to read about it: how it
+  plays, its health, the spell every run starts with, how many zones your class has opened
+  ("1 of 9"), and every spell it can learn in a run (hover one for what it is). "Choose" opens
+  the hero sheet for a new hero of that class; "Back" returns to your heroes.
+
+  THE HERO SHEET
+
+  Where a new hero is made, and where "Modify selected character" takes you. Three tabs at the
+  top right; "Back" at the top left leaves without making or changing anything.
+
+    Character      on the left, the races as portraits (Alliance, then Horde; the ones your
+                   class cannot be are dimmed), Male and Female, and the gear your class wears,
+                   slot by slot, with what it adds. In the middle the hero's name (just type
+                   it: letters only, up to twelve), and the hero itself on a lit floor: drag it
+                   or use the arrows to turn it. On the right the looks: skin colour, face, hair
+                   style, hair colour and the race's own extra (beard, piercings, tusks ...),
+                   each with arrows and dots, and Randomize. "Create" makes the hero; "Save
+                   changes" keeps the changes of a hero you modify. A hero's race and looks can
+                   always change before a run; a hero who becomes Alliance or Horde moves to that
+                   camp.
+
+    Collection     every piece of gear your class can win, a column per slot and a row per
+                   quality (common to legendary), with how many you have found and the zones
+                   that drop them; a dark piece with "?" is not found yet, E marks what is worn,
+                   L the look a slot shows. Below: what your open zones still hold (the piece,
+                   the boss, the zone, the chance). Click a piece for what it adds and who drops
+                   it, and to wear it or show its look; click a slot on the left to choose the
+                   look it shows.
+
+    Talents        your class's three talent trees on their WoW pictures, each talent with its
+                   rank; lines join a talent to the one it needs. On the right your points to
+                   spend, earned and spent, the bar to the next point, Reset (everything back),
+                   and the talent you clicked with Learn and Unlearn.
+
+  Gear and talents belong to the class: every warrior shares the warriors'. They change at once
+  and count from the next run; while you make a new hero, the sheet reminds you that they stay
+  even if you go back without making it.
+
+  THE WARBAND SCREEN
+
+  Your heroes wait around a campfire in the real world, one camp for each side:
+
+    Horde      beside the road in front of the main gate of Orgrimmar, at night; the heroes
+               kneel around the campfire
+    Alliance   on the grass beside the main gate of Stormwind, at night; the heroes sit
+               around the campfire
+
+  The camp fills the lower left of the window. Each hero wears the gear its class is wearing;
+  where the class wears nothing in a slot, the hero shows the clothes WoW gives a new hero of
+  that race and class. Up to nine heroes a side: the first five wait in a half circle round
+  the fire and stand up when you point at them or pick them; the other four stand behind them
+  and salute (warriors, paladins, hunters, rogues) or wave when picked. Click a hero to pick
+  it; its name shows over the fire, and a thin gold outline with a soft, slowly pulsing glow
+  goes round it (and only it), its gear and weapons too, following it as it stands up and
+  greets you.
+
+    - top left: the picked hero's name, race and class, its total wins and runs, then its
+      starting spell: the class's three starting options as icons (four for the Druid, its
+      forms). Hover one to read what it does, with its numbers, and its passive; click it to
+      pick it. The hero keeps the pick for its next runs (the first one until you pick).
+      Below it a place kept for later (choosing its weapons)
+    - top middle: the armour it wears (hover a piece for its name)
+    - right: the zones. The zone of the hero's next run is open as a card: what it is, its
+      enemies and its bosses with the time each one comes. Click another zone to send the
+      hero there; a zone your class has not opened says which boss to beat, and where, to
+      open it. Below: "Difficulty modifiers" (the run options: more, tougher, harder-hitting
+      or faster enemies for more rewards; they count for every hero) and "Start run"
+    - top right, beside the zones: the codex, with how many rings, trinkets, amulets and
+      legendary amulets you have found across all your heroes, and "Open the codex". The
+      codex opens over the screen: a tab per list with its count, arrows through the pages
+      (the legendary amulets a class a page, your picked hero's class first), and every
+      piece in two columns. A found piece shows its icon, its name and what it does; one not
+      found is dark, its name grey, with where it comes from. "Close" or Escape closes it.
+    - the round button at the camp's top left shows the other side's camp; its little badge
+      says how many heroes wait there
+    - under the campfire: "New character", "Modify character" and "Delete character".
+      Deleting asks first ("No" is the default); after a delete the camp picks the next hero.
+    - bottom-left corner: "Options" above "Quit game". Quit game closes the game.
+
+  Options holds the game's own settings in three tabs, as WoW's own options windows do (those
+  only exist once a hero is in the world), and a fourth for your save:
+
+    Video       the display (resolution, multisampling, windowed, vertical sync and the
+                rest), the interface scale, brightness, and the world's detail: view
+                distance, ground and texture detail, spell effects, weather and the shaders
+    Sound       sound, music, ambience and their volumes; these change as you move them
+    Interface   the mouse and camera settings, the names over heads, damage numbers, chat
+                bubbles and a few more the game reads itself. "Damage numbers"
+                is Smart or All: Smart, the default, hides your small hits. Once a
+                minute the game takes the average of your hits over that minute and, for the
+                whole next minute, hides the numbers below 60 % of it, so only your bigger hits
+                show (in the first minute every number shows). Crits must pass
+                it too, but count in the average only when your crit chance is over 50 %.
+                Each number is one hit: each target of a spell that hits many, and each
+                tick of damage over time, so small ticks mostly hide.
+                All shows every number. The damage itself, the meter and the combat log never
+                change, and numbers over your own hero always show.
+    Saves       "Export save" writes a copy of your whole save (every hero, what each class
+                earned, the collection, the codex) to a folder named on the page, the file
+                named with the date and time. The saves in that folder are listed, newest
+                first. Pick one and press "Import save" to replace your save with it: the game
+                asks first, checks the file, and keeps your current save in the same folder
+                (its name says "before-import"), so you can import it back. To bring a save
+                from another computer, put its file in that folder. Only a game running on
+                your own computer can do this.
+
+  Arrows change each setting; a setting greys out while the one it hangs on is off. "Okay"
+  keeps the changes, "Cancel" (or Escape) drops them. A line says which settings only take
+  hold after a restart or when a hero next enters the world. Key bindings are set during a
+  run: Escape, then Options, then Key Bindings (section 5, the Escape menu).
+
+  Escape does nothing else here.
+
+  The talent experience, the zones, the records and the run options come from your save
+  when the game runs on your own computer; a game hosted elsewhere cannot show them yet.
+
+
+9. FOR TESTING
+--------------
+
+    ESURV_METER_DEMO=1   fill the meter with made-up numbers that keep growing, to see
+                              it working without playing a run
+    ESURV_END_PRESS=again
+                              on the end-of-run panel, press "Run Again" by itself (or
+                              "endless" for Go Endless, "leave" for Change Hero) a moment
+                              after the panel has finished counting, to watch the whole
+                              loop without touching the mouse
+
+    ESURV_CARDS_SCRIPT=screen;shot:levelup;key:1;show:amulet;shot:amulet;close;quit
+                              drive the card window by itself, step by step: wait for a real
+                              card window (screen), press one of its keys (key:1 ... key:4,
+                              key:r), click a card (click:2), show a made-up window to look at (show:levelup, cache,
+                              amulet, legendary or rare; taking one of its cards changes
+                              nothing), light a card as if the mouse were on it (lit:2,
+                              unlit), close the made-up window (close), wait (wait:2), take a
+                              picture (shot:<name>, into the folder ESURV_CARDS_SHOTS)
+                              and close the game (quit). Nothing touches your real keyboard
+                              or mouse.
+
+    ESURV_ESCAPE_AT=15,21
+                              press Escape inside the game (not on your keyboard) when the run
+                              clock reaches 0:15, and again 6 seconds later: pauses and resumes
+                              a run with nobody at the keyboard
+    ESURV_PICKER_SHOT=<file.png>
+                              wait at the hero picker until the camp has loaded, take a
+                              picture of the window into that file, and close the game
+                              (ESURV_PICKER_FACTION=horde or alliance picks the camp)
+    ESURV_PICKER_PICK=<name>
+                              keep that hero picked at the hero picker, whatever is clicked
+    ESURV_PICKER_CLICK=<name>
+                              at the hero picker, click that hero by the fire (inside the
+                              game, not with your mouse) and take a picture before and after
+    ESURV_MENU_PRESS=reset@20,end@15
+                              open the Escape menu by itself and press one of its buttons
+                              (continue, reset, options, end or quit): here, at 0:20 it
+                              presses Reset Run, then in the fresh run at 0:15 End Run. Each
+                              press waits for the last one's result (the run going on, the
+                              fresh run, character select, the Options panel open). Nothing
+                              touches your real keyboard or mouse. Over the Options panel the
+                              menus' script below carries on (screens.md lists its steps).
+    ESURV_MENU_SHOTS=C:\shots\menu.png
+                              with the line above, take pictures of each step from inside the
+                              game (menu-1-menu.png, menu-1-reset.png, ...), without bringing
+                              the game window to the front
+    ESURV_KEY_PRESS=P@8,N@11,L@14
+                              press these keys inside the game (not on your keyboard), that
+                              many seconds after your hero came into the world: here the
+                              spellbook, then the talent window, then the quest log key
+    ESURV_KEY_SHOTS=C:\shots\keys.png
+                              with the line above, take a picture 1.5 seconds after each
+                              press (keys-1-p.png, keys-2-n.png, ...), without bringing the
+                              game window to the front
+    ESURV_TOOLTIP_SHOT=action:1@30,book:1@34,action:1@rank2
+                              show a spell's tooltip by itself, as pointing at it would, and
+                              leave it up: here the first action button's 30 seconds after
+                              your hero came into the world, then the spellbook's first
+                              spell, then the first action button's again once that spell
+                              reached rank 2 (with ESURV_CARDS_SCRIPT=screen;take:upgrade
+                              a level-up takes an upgrade card by itself). buff:<n> is the
+                              n-th buff at the top right: with ESURV_GRANT=speed_rune,
+                              berserker_rune both runes lie at your feet as the run starts
+    ESURV_TOOLTIP_SHOTS=C:\shots\tip.png
+                              with the line above, take a picture a second after each
+                              (tip-1-action1.png, tip-2-book1.png, ...)
+    ESURV_MENUS_SCRIPT=ready;shot:warband;quit
+                              press the menus' buttons from inside the game, one step after
+                              the other, and take pictures of them (into the folder
+                              ESURV_MENUS_SHOTS) without bringing the window to the front
+                              (screens.md lists the steps)
+    ESURV_MENUS=0        show WoW's own character screens instead of the menus
+    ESURV_UI_DEMO=1      show a sample window with every piece the game's windows are
+                              built from (border, title, buttons, icons, a bar, a tooltip
+                              box), to check how they look

@@ -1,0 +1,414 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    id: "elwynn",
+    name: Area(12),
+    subtitle: "Trouble at the Mine",
+    description: "Kobolds swarm out of the hills, gnolls raid the riverbanks and the Defias rise in the fields. Hold out until their leader shows himself.",
+    map_id: 0,
+    area_id: 12,
+    // Northshire Valley.
+    spawn: (
+        x: -8776.9,
+        y: -116.82,
+        z: 82.72,
+        facing: 0.04,
+    ),
+    arena_radius: 80.0,
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 10,
+    weather: (
+        kind: None,
+        intensity: 0.0,
+    ),
+    difficulty: 1.0,
+    enemies: [
+        (
+            name: "Kobold Vermin",
+            display_id: 26,
+            scale: 0.9,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Young Wolf",
+            display_id: 165,
+            scale: 0.7,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Murloc Streamrunner",
+            display_id: 31,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Kobold Geomancer",
+            display_id: 163,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            look_spell: Some(133),
+        ),
+        (
+            name: "Defias Thug",
+            display_id: 2323,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Riverpaw Brute",
+            display_id: 175,
+            scale: 1.1,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Prowler",
+            display_id: 644,
+            scale: 1.3,
+            creature_type: Beast,
+            kind: FastMid,
+            toughness: 0.75,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Defias Rogue Wizard",
+            display_id: 2315,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(116),
+        ),
+        (
+            name: "Defias Enforcer",
+            display_id: 2324,
+            scale: 1.25,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 3.0,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Kobold Taskmaster",
+            display_id: 163,
+            scale: 1.6,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Gruff Swiftbite",
+            display_id: 246,
+            scale: 1.3,
+            creature_type: Beast,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Bellygrub",
+            display_id: 377,
+            scale: 1.8,
+            creature_type: Beast,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only the bosses bring these (Hogger's gnoll pack, VanCleef's
+        // lapdogs, Mother Fang's spiderlings); they never spawn by themselves.
+        (
+            name: "Riverpaw Gnoll",
+            display_id: 175,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Defias Blackguard",
+            display_id: 2314,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+            weapons: (
+                main_hand: Some((kind: Dagger, display: 6469, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+        ),
+        (
+            name: "Mine Spider",
+            display_id: 368,
+            scale: 0.45,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
+    // every area attack is marked on the ground before it lands and hits the hero only. Each boss
+    // keeps the damage a hero cannot avoid (`swing_mult` carries what its unmarked abilities did).
+    bosses: [
+        (
+            name: "Hogger",
+            display_id: 384,
+            scale: 3.35,
+            creature_type: Humanoid,
+            spawn_minute: 3.0,
+            yell: "Grrr... fresh meat!",
+            swing_mult: Some(1.5),
+            abilities: [
+                // a short cone in front of him
+                Marked(
+                    shape: Cone(length: 8.0, angle: 70.0),
+                    at: Boss,
+                    impact_spell: 6730,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.2),
+                    cooldown: Some(7.0),
+                    warn: Some((text: "{Spell(6730)}: out of the cone!", bar: Some("{Spell(6730)}"))),
+                ),
+                // a marked charge line
+                Rush(
+                    look_spell: 100,
+                    length: Some(25.0),
+                    width: Some(4.0),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "Hogger charges: side-step the line!", bar: Some("{Spell(100)}"))),
+                ),
+            ],
+            script: [
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Gnoll pack incoming!", colour: Orange)),
+                    soon: Some("Gnoll pack soon"),
+                    run: [
+                        Emote(text: "%s howls for his pack!"),
+                        Wave(enemy: "Riverpaw Gnoll", count: 6, at: Edges),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Mother Fang",
+            display_id: 7536,
+            scale: 0.30,
+            creature_type: Beast,
+            spawn_minute: 6.0,
+            yell: "Something big and many-legged crawls up from the dark!",
+            swing_mult: Some(1.5),
+            abilities: [
+                // webs shot round the hero; standing in one stacks her poison (damage only)
+                Marked(
+                    shape: Circle(radius: 3.5),
+                    at: NearHero(count: 3, spread: 7.0),
+                    impact_spell: 0,
+                    damage_mult: Some(1.0),
+                    cooldown: Some(9.0),
+                    leaves: Some((
+                        look_spell: 28158,
+                        radius: 3.5,
+                        seconds: 8.0,
+                        damage_mult: 0.0,
+                        affliction: Some((look_spell: 744, damage_mult: 0.05, every: 1.0, seconds: 6.0, max_stacks: 5)),
+                    )),
+                    warn: Some((text: "Webs: stay out of them!", colour: Green, icon_spell: Some(12023), bar: Some("{Spell(12023)}"))),
+                ),
+                // egg sacs: walk over them before they hatch
+                Lay(
+                    object: (name: "Egg Sac", display_id: 6171, scale: 0.5, glow_spell: 20922, hatch: Some((after: 10.0, enemy: "Mine Spider", count: 3))),
+                    near: Boss(5.0),
+                    count: Some(2),
+                    cooldown: Some(15.0),
+                    warn: Some((text: "Egg sacs: stomp them before they hatch!", colour: Yellow, bar: Some("Egg sacs"))),
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Rhahk'Zor",
+            display_id: 14403,
+            scale: 2.00,
+            creature_type: Humanoid,
+            spawn_minute: 9.0,
+            yell: "VanCleef pay big for your heads!",
+            aggro_sound: Some(5774),
+            swing_mult: Some(2.0),
+            abilities: [
+                Marked(
+                    shape: Circle(radius: 10.0),
+                    at: Boss,
+                    impact_spell: 6304,
+                    wind_up: Some(1.8),
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(6304)}: move out!", bar: Some("{Spell(6304)}"))),
+                ),
+            ],
+            script: [
+                // later slams come faster
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Rhahk'Zor slams faster!", colour: Purple, icon_spell: Some(6304))),
+                    soon: Some("Faster slams soon"),
+                    run: [
+                        Kit(abilities: [
+                            Marked(
+                                shape: Circle(radius: 10.0),
+                                at: Boss,
+                                impact_spell: 6304,
+                                wind_up: Some(1.5),
+                                cooldown: Some(6.0),
+                                warn: Some((text: "{Spell(6304)}: move out!", bar: Some("{Spell(6304)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Mr. Smite",
+            display_id: 2026,
+            scale: 2.15,
+            creature_type: Humanoid,
+            spawn_minute: 12.0,
+            yell: "We're under attack! Avast, ye swabs! Repel the invaders!",
+            aggro_sound: Some(5777),
+            swing_mult: Some(2.0),
+            // phase 1: a pair of the original's axes (vmangos 2183), swung in turn
+            weapons: (
+                main_hand: Some((kind: OneHandedAxe, display: 7427, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: OneHandedAxe, display: 7427, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            abilities: [
+                // his stomp: a ring, safe right at his feet
+                Marked(
+                    shape: Ring(inner: 4.0, outer: 12.0),
+                    at: Boss,
+                    impact_spell: 6432,
+                    cooldown: Some(10.0),
+                    warn: Some((text: "{Spell(6432)}: hug him or get clear!", bar: Some("{Spell(6432)}"))),
+                ),
+            ],
+            script: [
+                // 66 %: he kneels 2 s and takes up his two-handed hammer (vmangos 10756)
+                (
+                    on: Health(66.0),
+                    warn: Some((text: "He swaps weapons: strike now!", colour: Purple)),
+                    soon: Some("Weapon swap soon"),
+                    run: [
+                        Kneel(seconds: 2.0),
+                        Yell(text: "You land lubbers are tougher than I thought! I'll have to improvise!", sound: Some(5778)),
+                        Weapons(weapons: (main_hand: Some((kind: TwoHandedMace, display: 19766, inventory_type: 17, sheath: 1, material: 2)))),
+                        Kit(abilities: [
+                            Marked(
+                                shape: Cone(length: 14.0, angle: 90.0),
+                                at: Boss,
+                                impact_spell: 6435,
+                                impact_on_bunny: true,
+                                cooldown: Some(8.0),
+                                warn: Some((text: "{Spell(6435)}: get behind him!", bar: Some("{Spell(6435)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+                // 33 %: he kneels again, then sweeps and stomps both, faster
+                (
+                    on: Health(33.0),
+                    warn: Some((text: "He is angry: both, and faster!", colour: Purple)),
+                    soon: Some("Weapon swap soon"),
+                    run: [
+                        Kneel(seconds: 2.0),
+                        Yell(text: "D'ah! Now you're making me angry!", sound: Some(5779)),
+                        Kit(abilities: [
+                            Marked(
+                                shape: Cone(length: 14.0, angle: 90.0),
+                                at: Boss,
+                                impact_spell: 6435,
+                                impact_on_bunny: true,
+                                cooldown: Some(5.6),
+                                warn: Some((text: "{Spell(6435)}: get behind him!", bar: Some("{Spell(6435)}"))),
+                            ),
+                            Marked(
+                                shape: Ring(inner: 4.0, outer: 12.0),
+                                at: Boss,
+                                impact_spell: 6432,
+                                cooldown: Some(7.0),
+                                warn: Some((text: "{Spell(6432)}: hug him or get clear!", bar: Some("{Spell(6432)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Edwin VanCleef",
+            display_id: 2029,
+            scale: 3.85,
+            creature_type: Humanoid,
+            spawn_minute: 16.0,
+            yell: "None may challenge the Brotherhood!",
+            aggro_sound: Some(5780),
+            swing_mult: Some(2.0),
+            abilities: [
+                // a flurry of blows round him
+                Marked(
+                    shape: Circle(radius: 6.0),
+                    at: Boss,
+                    impact_spell: 3391,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.2),
+                    cooldown: Some(7.0),
+                    warn: Some((text: "{Spell(3391)}: step back!", bar: Some("{Spell(3391)}"))),
+                ),
+                // thrown knives: a ring round him, safe in the middle
+                Marked(
+                    shape: Ring(inner: 5.0, outer: 14.0),
+                    at: Boss,
+                    impact_spell: 1680,
+                    cooldown: Some(11.0),
+                    warn: Some((text: "Knives: stay close to him!", bar: Some("Knives"))),
+                ),
+                GroundBurst(telegraph_spell: 5740, impact_spell: 13812),
+            ],
+            script: [
+                // 50 %: his original line and voice, and a ring of Defias Blackguards
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Lapdogs! Adds incoming!", colour: Orange)),
+                    soon: Some("Lapdogs soon"),
+                    run: [
+                        Yell(text: "Lapdogs, all of you!", sound: Some(5782)),
+                        Wave(enemy: "Defias Blackguard", count: 6, at: Ring(8.0)),
+                    ],
+                ),
+            ],
+            is_final: true,
+        ),
+    ],
+)

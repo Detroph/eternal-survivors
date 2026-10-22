@@ -1,0 +1,75 @@
+// The words cards put around their numbers: one table, so every card reads alike. Our own words
+//. A spell's description lives with the spell (abilities.ron `description`), a
+// ring's or trinket's line with the piece (jewelry.ron `text`).
+(
+    // An upgrade card's line after its number: "+34% damage", "-7% cooldown", "+1 target".
+    upgrades: [
+        (upgrade: Power, words: "damage"),
+        (upgrade: Cooldown, words: "cooldown"),
+        (upgrade: Targets, words: "targets", one: Some("target")),
+        (upgrade: Area, words: "area"),
+        (upgrade: Duration, words: "duration"),
+        (upgrade: RageGain, words: "rage gain"),
+        (upgrade: EnergyGain, words: "energy refill"),
+        (upgrade: Chance, words: "proc chance"),
+        (upgrade: Stacks, words: "stacks", one: Some("stack")),
+        (upgrade: Strikes, words: "extra hits", one: Some("extra hit")),
+        (upgrade: Imps, words: "imps", one: Some("imp")),
+        (upgrade: Pets, words: "pets", one: Some("pet")),
+        (upgrade: Critters, words: "critters", one: Some("critter")),
+    ],
+    // What Power raises on a spell that heals, or shields, instead of its damage.
+    power_of_heals: "healing",
+    power_of_shields: "absorb",
+    // After a gain an amulet gives every spell: "+1 target for every spell".
+    every_spell: "for every spell",
+    // A hero stat as one line (an amulet's): {v} is its value, {v}% a share shown as a percentage.
+    // A line that starts with its number is a stat line; the others read as sentences, and a card
+    // shows sentences first.
+    stats: [
+        (stat: Damage, line: "+{v}% damage"),
+        (stat: CooldownRecovery, line: "+{v}% cooldown speed"),
+        (stat: MaxHealth, line: "+{v}% max health"),
+        (stat: CritChance, line: "+{v}% critical strike chance"),
+        (stat: CritDamage, line: "+{v}% critical strike damage"),
+        (stat: DamageReduction, line: "+{v}% damage reduction"),
+        (stat: HealthPerSecond, line: "+{v} health per second"),
+        (stat: MoveSpeed, line: "+{v}% movement speed"),
+        (stat: Area, line: "+{v}% area of effect"),
+        (stat: PickupRange, line: "+{v}% pickup range"),
+        (stat: Experience, line: "+{v}% experience"),
+        (stat: Gold, line: "+{v}% gold"),
+        (stat: Luck, line: "+{v}% luck"),
+        (stat: DoubleCast, line: "+{v}% chance to cast a spell twice"),
+        (stat: Lifesteal, line: "+{v}% of your damage heals you"),
+        (stat: HealPerKill, line: "+{v} health for every kill"),
+        (stat: WeaponDamage, line: "+{v}% weapon damage"),
+        (stat: PetDamage, line: "+{v}% pet damage"),
+        (stat: DamageVsCrowdControlled, line: "+{v}% damage to slowed, held or fleeing enemies"),
+        (stat: DamageVsElites, line: "+{v}% damage to elites and bosses"),
+        (stat: DamageBelow30Pct, line: "+{v}% damage to enemies below 30% health"),
+        (stat: DamageVsAfflicted, line: "+{v}% damage to enemies under an effect over time"),
+        (stat: Thorns, line: "Whatever strikes you in melee takes {v}% of that blow back"),
+        (stat: BuffPower, line: "+{v}% strength of your buffs"),
+        (stat: ExtraLives, line: "+{v} extra life"),
+        (stat: DotStacks, line: "+{v} stacks of your effects over time"),
+        (stat: FlatMaxHealth, line: "+{v} max health"),
+        (stat: ExtraTargets, line: "+{v} targets for every spell"),
+        (stat: HealAndShieldPower, line: "+{v}% strength of your heals and shields"),
+    ],
+    // A buff on the hero, by its kind (every kind needs one): what its tooltip says it does now
+    // ({v} its value, {v}% a share shown as a percentage), and its name where no spell of the
+    // hero's names it (a rune's, a milestone's).
+    buffs: [
+        (kind: Speed, name: "Speed Rune", line: "+{v}% movement speed"),
+        (kind: Berserk, name: "Berserker Rune", line: "+{v}% damage"),
+        (kind: Damage, name: Spell(3631), line: "+{v}% damage"),
+        (kind: Haste, name: "Quickening", line: "+{v}% cooldown speed"),
+        (kind: Shield, name: Spell(9116), line: "Absorbs {v} more damage"),
+        (kind: Regen, name: Spell(2147), line: "+{v} health per second"),
+        (kind: Immunity, name: "Untouchable", line: "Nothing can hurt you"),
+        (kind: Aura, name: "Retribution", line: "Whatever hits you takes {v} damage back"),
+        (kind: HealingCharges, name: Spell(13078), line: "Your next weapon swing or spell hit restores {v} health"),
+        (kind: ExtraStrikes, name: Spell(23397), line: "Your attacks also strike {v} more enemies"),
+    ],
+)

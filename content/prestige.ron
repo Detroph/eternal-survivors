@@ -1,0 +1,46 @@
+// Prestige: once a class has all 51 talent points, its talent
+// experience buys prestige points, each costing 5 % more than the one before (the first costs what
+// a 52nd talent point would; esurv-sim game::rewards). One point buys one rank of a stat
+// below; a rank gives `per_rank`. Prestige ranks are the class's, like talents, and a talent reset
+// gives every prestige point back too.
+//
+// The stats: every basic stat of a class, every hero stat a card can give (rings, trinkets), the
+// spell numbers a card can raise that no hero stat already covers (duration; rage gain, energy
+// refill and proc chance, which share one number), and the defences (% max health, % damage
+// reduction). Never targets, nor what stands in for them (stacks, strikes, imps, pets, critters).
+//
+// `effect` is a talent effect: `Stat(stat, per_rank)` or `AbilityMod(filter: Any, kind,
+// per_rank)` for every spell. `classes` limits a stat to some classes (every class when left out);
+// `max_ranks` caps it (no cap when left out). The sim's own caps still hold (damage reduction
+// 60 %, movement speed x2.2, double cast, spell cooldown cuts 60 %).
+([
+    // basic stats
+    (id: "damage", name: "Damage", icon: "Spell_Nature_AbolishMagic", effect: Stat(stat: Damage, per_rank: 0.01)),
+    (id: "max_health", name: "Max health", icon: "INV_Misc_Gem_Pearl_05", effect: Stat(stat: MaxHealth, per_rank: 0.01)),
+    (id: "damage_reduction", name: "Damage reduction", icon: "Spell_Holy_DevotionAura", effect: Stat(stat: DamageReduction, per_rank: 0.01)),
+    (id: "base_health", name: "Base health", icon: "Spell_Holy_BlessingOfStamina", effect: Stat(stat: FlatMaxHealth, per_rank: 5.0)),
+    (id: "cooldown_recovery", name: "Cooldown recovery", icon: "INV_Misc_StoneTablet_11", effect: Stat(stat: CooldownRecovery, per_rank: 0.01)),
+    (id: "crit_chance", name: "Critical strike chance", icon: "INV_Jewelry_Ring_41", effect: Stat(stat: CritChance, per_rank: 0.01)),
+    (id: "crit_damage", name: "Critical strike damage", icon: "INV_Misc_ArmorKit_09", effect: Stat(stat: CritDamage, per_rank: 0.01)),
+    (id: "lifesteal", name: "Lifesteal", icon: "INV_Jewelry_Ring_49Naxxramas", effect: Stat(stat: Lifesteal, per_rank: 0.0025)),
+    (id: "health_per_second", name: "Health per second", icon: "INV_Jewelry_Ring_AhnQiraj_05", effect: Stat(stat: HealthPerSecond, per_rank: 1.0)),
+    (id: "move_speed", name: "Movement speed", icon: "INV_Misc_Food_54", effect: Stat(stat: MoveSpeed, per_rank: 0.005)),
+    (id: "pickup_range", name: "Pickup range", icon: "INV_Misc_PocketWatch_01", effect: Stat(stat: PickupRange, per_rank: 0.01)),
+    (id: "area", name: "Area of effect", icon: "INV_Jewelry_Ring_38", effect: Stat(stat: Area, per_rank: 0.01)),
+    (id: "experience", name: "Experience", icon: "INV_Jewelry_TrinketPVP_02", effect: Stat(stat: Experience, per_rank: 0.01)),
+    (id: "gold", name: "Gold", icon: "INV_Jewelry_Talisman_10", effect: Stat(stat: Gold, per_rank: 0.01)),
+    // the weapon-swing classes' swings (and the Shaman's), the Warrior's and Paladin's blocks
+    (id: "swing_speed", name: "Swing speed", icon: "Ability_Warrior_InnerRage", effect: Stat(stat: SwingSpeed, per_rank: 0.01), classes: ["warrior", "paladin", "rogue", "shaman"]),
+    (id: "block_chance", name: "Block chance", icon: "INV_Shield_06", effect: Stat(stat: BlockChance, per_rank: 0.01), classes: ["warrior", "paladin"]),
+    // what rings and trinkets give
+    (id: "luck", name: "Luck", icon: "INV_Jewelry_Talisman_08", effect: Stat(stat: Luck, per_rank: 0.01)),
+    (id: "double_cast", name: "Double cast chance", icon: "INV_Jewelry_Talisman_01", effect: Stat(stat: DoubleCast, per_rank: 0.005)),
+    (id: "heal_per_kill", name: "Health per kill", icon: "Spell_Shadow_LifeDrain", effect: Stat(stat: HealPerKill, per_rank: 1.0)),
+    (id: "buff_power", name: "Buff strength", icon: "INV_Misc_Horn_01", effect: Stat(stat: BuffPower, per_rank: 0.01)),
+    // capped for safety: each is a whole stack or life, and uncapped they would end the danger
+    (id: "dot_stacks", name: "Effect-over-time stacks", icon: "INV_Jewelry_Ring_51Naxxramas", effect: Stat(stat: DotStacks, per_rank: 1.0), max_ranks: Some(3)),
+    (id: "extra_lives", name: "Extra life", icon: "INV_Misc_Orb_04", effect: Stat(stat: ExtraLives, per_rank: 1.0), max_ranks: Some(1)),
+    // what spell cards raise that no hero stat covers, on every spell
+    (id: "spell_duration", name: "Spell duration", icon: "Spell_Arcane_ArcaneResilience", effect: AbilityMod(filter: Any, kind: Duration, per_rank: 0.01)),
+    (id: "spell_gain", name: "Rage, energy and proc chance", icon: "Ability_Racial_BloodRage", effect: AbilityMod(filter: Any, kind: RageGain, per_rank: 0.01)),
+])

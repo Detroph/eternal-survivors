@@ -1,0 +1,468 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    // The id stays "feralas" (saves and unlocks keep it); the zone is
+    // Dire Maul.
+    id: "feralas",
+    name: Area(2557),
+    subtitle: "Deep in {Area(357)}",
+    description: "Ogres, lashers, Highborne ghosts and corrupted beasts hold the courtyards of the old city.",
+    map_id: 429,
+    area_id: 2557,
+    // Inside Dire Maul, in the open circle centred on
+    // (806.63, 482.04, 37.32), facing as there.
+    spawn: (
+        x: 814.63,
+        y: 482.04,
+        z: 37.32,
+        facing: 0.075425,
+    ),
+    arena_radius: 80.0,
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 8,
+    weather: (
+        kind: Rain,
+        intensity: 0.2,
+    ),
+    // The sixth zone.
+    difficulty: 6.0,
+    enemies: [
+        // Dire Maul East's lashers and the west's Highborne ghosts.
+        (
+            name: "Whip Lasher",
+            display_id: 12962,
+            scale: 1.0,
+            creature_type: Elemental,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Longtooth Runner",
+            display_id: 165,
+            scale: 0.9,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Sprite Darter",
+            display_id: 1267,
+            scale: 0.8,
+            creature_type: Dragonkin,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Eldreth Sorcerer",
+            display_id: 11205,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 21376, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            // its own spells don't fly (Chain Lightning, Starshards): the bolt of the same school
+            look_spell: Some(403),
+        ),
+        (
+            name: "Gordunni Ogre",
+            display_id: 415,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 7476, inventory_type: 13, sheath: 3, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Wildspawn Satyr",
+            display_id: 2013,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedSword, display: 7420, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Demon,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Ironfur Bear",
+            display_id: 820,
+            scale: 1.0,
+            creature_type: Beast,
+            kind: ToughMid,
+            toughness: 2.25,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Gordunni Ogre-Mage",
+            display_id: 3250,
+            // vmangos's Gordunni Ogre Mage holds this (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 2840, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(133),
+        ),
+        (
+            name: "Feral Scar Yeti",
+            display_id: 1076,
+            scale: 1.3,
+            creature_type: Beast,
+            kind: ToughMid,
+            toughness: 2.75,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Gordunni Brute",
+            display_id: 10170,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedMace, display: 3879, inventory_type: 17, sheath: 1, material: 2)),
+            ),
+            scale: 0.8,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Warpwood Treant",
+            display_id: 2078,
+            scale: 0.6,
+            creature_type: Elemental,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Ironbark Protector",
+            // vmangos's model, at its own size
+            display_id: 13489,
+            scale: 1.0,
+            creature_type: Elemental,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only the bosses bring these (the Eyes of Immol'thar from his
+        // portals); they never spawn by themselves.
+        (
+            name: "Eye of Immol'thar",
+            display_id: 14430,
+            scale: 1.0,
+            creature_type: Demon,
+            kind: Mid,
+            toughness: 0.5,
+            move_speed: Some(1.0),
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
+    // every area attack is marked on the ground before it lands and hits the hero only. Each boss
+    // keeps the damage a hero cannot avoid (`swing_mult` carries what its unmarked abilities did).
+    bosses: [
+        (
+            name: "Zevrim Thornhoof",
+            // vmangos's model
+            display_id: 11335,
+            scale: 2.15,
+            creature_type: Demon,
+            spawn_minute: 4.0,
+            yell: "The forest is sick, and you will feed the sickness!",
+            swing_mult: Some(1.271),
+            abilities: [
+                // Intense Pain: a marked burst round him
+                Marked(
+                    shape: Circle(radius: 9.0),
+                    at: Boss,
+                    impact_spell: 22478,
+                    impact_on_bunny: true,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(22478)}: get away from him!", bar: Some("{Spell(22478)}"))),
+                ),
+                // a sacrifice altar by him: stand on it in time, or the sacrifice heals him
+                Lay(
+                    object: (
+                        name: "{Spell(22651)}",
+                        display_id: 227,
+                        scale: 0.6,
+                        glow_spell: 20922,
+                        left_alone: Some((seconds: 8.0, run: [
+                            Heal(on: Myself, share: 0.1, look_spell: 22651),
+                            Emote(text: "%s's sacrifice heals him!"),
+                        ])),
+                    ),
+                    near: Boss(6.0),
+                    count: Some(1),
+                    cooldown: Some(20.0),
+                    warn: Some((text: "Sacrifice altar: stand on it before he heals!", colour: Yellow, icon_spell: Some(22651), bar: Some("{Spell(22651)}"))),
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Alzzin the Wildshaper",
+            display_id: 14416,
+            scale: 2.15,
+            creature_type: Demon,
+            spawn_minute: 7.0,
+            yell: "The thorns will take you!",
+            swing_mult: Some(1.271),
+            // tree form: Wither at marked spots round the hero
+            abilities: [
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: NearHero(count: 3, spread: 7.0),
+                    impact_spell: 22662,
+                    impact_on_bunny: true,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(22662)}: move!", colour: Green, bar: Some("{Spell(22662)}"))),
+                ),
+            ],
+            script: [
+                // he comes in tree form, with a withering aura round him
+                (
+                    on: Arrival,
+                    warn: Some((text: "{Spell(22688)}: keep your distance!", colour: Green, icon_spell: Some(22688))),
+                    run: [
+                        Look(display_id: 13173, scale: Some(1.85)),
+                        LayZone(zone: (look_spell: 3256, radius: 6.0, seconds: 0.0, damage_mult: 0.12, follows: true)),
+                    ],
+                ),
+                // 66 %: wolf form, fast, with charges
+                (
+                    on: Health(66.0),
+                    warn: Some((text: "{Spell(22660)}: he is fast, watch his charges!", colour: Purple, icon_spell: Some(22660))),
+                    soon: Some("{Spell(22660)} soon"),
+                    run: [
+                        Look(display_id: 2352, scale: Some(2.5)),
+                        ClearZones,
+                        Speed(yards: 9.0),
+                        Emote(text: "%s shifts into a wolf!"),
+                        Kit(abilities: [
+                            Rush(
+                                look_spell: 100,
+                                length: Some(25.0),
+                                width: Some(4.0),
+                                cooldown: Some(8.0),
+                                warn: Some((text: "The wolf charges: side-step the line!", bar: Some("{Spell(100)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+                // 33 %: satyr form again, shadow volleys at marked spots
+                (
+                    on: Health(33.0),
+                    warn: Some((text: "Satyr form: shadow volleys!", colour: Purple, icon_spell: Some(22661))),
+                    soon: Some("Satyr form soon"),
+                    run: [
+                        Look(display_id: 14416, scale: Some(2.15)),
+                        Speed(yards: 6.0),
+                        Emote(text: "%s takes his own shape again!"),
+                        Kit(abilities: [
+                            Marked(
+                                shape: Circle(radius: 3.5),
+                                at: NearHero(count: 4, spread: 9.0),
+                                impact_spell: 22661,
+                                impact_on_bunny: true,
+                                damage_mult: Some(2.0),
+                                cooldown: Some(6.0),
+                                warn: Some((text: "Shadow volley: move!", colour: Purple, icon_spell: Some(22661), bar: Some("Volley"))),
+                            ),
+                        ]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Tendris Warpwood",
+            display_id: 14383,
+            scale: 0.65,
+            creature_type: Elemental,
+            spawn_minute: 11.0,
+            yell: "Who walks among my roots?",
+            swing_mult: Some(1.5),
+            abilities: [
+                // seeds land at marked spots and sprout Ironbark Protectors unless walked over
+                Marked(
+                    shape: Circle(radius: 3.0),
+                    at: NearHero(count: 2, spread: 8.0),
+                    impact_spell: 0,
+                    damage_mult: Some(1.0),
+                    cooldown: Some(14.0),
+                    leaves_object: Some((name: "Ancient Seed", display_id: 391, scale: 0.8, glow_spell: 20922, hatch: Some((after: 8.0, enemy: "Ironbark Protector", count: 1)))),
+                    warn: Some((text: "Seeds: stomp them before they sprout!", colour: Yellow, icon_spell: Some(22994), bar: Some("Seeds"))),
+                ),
+                // Trample: a marked circle round him
+                Marked(
+                    shape: Circle(radius: 9.0),
+                    at: Boss,
+                    impact_spell: 5568,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(5568)}: step back!", bar: Some("{Spell(5568)}"))),
+                ),
+                // Grasping Vines: a marked line from him
+                Marked(
+                    shape: Line(length: 22.0, width: 3.0),
+                    at: Boss,
+                    impact_spell: 22924,
+                    impact_on_bunny: true,
+                    cooldown: Some(11.0),
+                    warn: Some((text: "{Spell(22924)}: side-step the line!", colour: Green, bar: Some("{Spell(22924)}"))),
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Immol'thar",
+            display_id: 14173,
+            scale: 1.20,
+            creature_type: Demon,
+            spawn_minute: 14.0,
+            yell: "Chains snap as something ancient tears itself loose!",
+            // each bite stacks his Infected Bite (damage only)
+            on_hit: Some((look_spell: 16128, damage_mult: 0.04, every: 1.0, seconds: 10.0, max_stacks: 5)),
+            swing_mult: Some(1.871),
+            abilities: [
+                // Trample: a marked circle round him
+                Marked(
+                    shape: Circle(radius: 9.0),
+                    at: Boss,
+                    impact_spell: 5568,
+                    cooldown: Some(10.0),
+                    warn: Some((text: "{Spell(5568)}: step back!", bar: Some("{Spell(5568)}"))),
+                ),
+                // each Eye fires a marked laser line at the hero
+                Marked(
+                    shape: Line(length: 30.0, width: 3.0),
+                    at: Boss,
+                    impact_spell: 22909,
+                    impact_on_bunny: true,
+                    cooldown: Some(7.0),
+                    from: Some("Eye of Immol'thar"),
+                    warn: Some((text: "Eye beams: side-step the lines!", colour: Purple, icon_spell: Some(22899), bar: Some("Eye beams"))),
+                ),
+            ],
+            script: [
+                // portals open round him and Eyes come out
+                (
+                    on: Arrival,
+                    warn: Some((text: "Portals open: kill the Eyes!", colour: Orange, icon_spell: Some(22899))),
+                    run: [Wave(enemy: "Eye of Immol'thar", count: 2, at: Ring(10.0))],
+                ),
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "Portals open: kill the Eyes!", colour: Orange, icon_spell: Some(22899), bar: Some("Eyes"))),
+                    run: [Emote(text: "Portals open round %s!"), Wave(enemy: "Eye of Immol'thar", count: 3, at: Ring(10.0))],
+                ),
+                // 30 %: he goes into a frenzy, as the original
+                (
+                    on: Health(30.0),
+                    warn: Some((text: "Immol'thar goes into a frenzy!", colour: Purple, icon_spell: Some(8269))),
+                    soon: Some("{Spell(19621)} soon"),
+                    run: [Enrage, Emote(text: "%s goes into a frenzy!")],
+                ),
+            ],
+            is_final: false,
+        ),
+        // Cho'Rush the Observer joins King Gordok at 50 %; only that
+        // brings him. A caster, he never swings; Gordok's fall alone wins the run.
+        (
+            name: "Cho'Rush the Observer",
+            display_id: 11537,
+            scale: 2.05,
+            creature_type: Humanoid,
+            spawn_minute: 18.0,
+            called: true,
+            yell: "Cho'Rush the Observer joins his king!",
+            swing_mult: Some(0.0),
+            health_share: Some(0.35),
+            abilities: [
+                // Arcane Explosion: a ring round him
+                Marked(
+                    shape: Ring(inner: 3.0, outer: 11.0),
+                    at: Boss,
+                    impact_spell: 13745,
+                    impact_on_bunny: true,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(13745)}: hug him or get clear!", bar: Some("{Spell(13745)}"))),
+                ),
+                // bolts at marked spots round the hero
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: NearHero(count: 3, spread: 7.0),
+                    impact_spell: 15305,
+                    impact_on_bunny: true,
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(15305)}: move!", bar: Some("{Spell(15305)}"))),
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "King Gordok",
+            display_id: 11583,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedSword, display: 23969, inventory_type: 17, sheath: 1, material: 1)),
+            ),
+            scale: 2.55,
+            creature_type: Humanoid,
+            spawn_minute: 18.0,
+            yell: "Me smash! You die!",
+            swing_mult: Some(2.271),
+            abilities: [
+                // War Stomp: a marked circle round him (damage only)
+                Marked(
+                    shape: Circle(radius: 10.0),
+                    at: Boss,
+                    impact_spell: 16727,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(16727)}: step back!", bar: Some("{Spell(16727)}"))),
+                ),
+                // Berserker Charge along a marked line
+                Rush(
+                    look_spell: 22886,
+                    length: Some(25.0),
+                    width: Some(5.0),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "Gordok charges: side-step the line!", bar: Some("{Spell(22886)}"))),
+                ),
+            ],
+            script: [
+                // 50 %: Cho'Rush the Observer joins
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Cho'Rush the Observer joins the fight!", colour: Orange, icon_spell: Some(13745))),
+                    soon: Some("Cho'Rush soon"),
+                    run: [Call(boss: "Cho'Rush the Observer")],
+                ),
+                // 25 %: he enrages (our value)
+                (
+                    on: Health(25.0),
+                    warn: Some((text: "King Gordok enrages!", colour: Purple, icon_spell: Some(8269))),
+                    soon: Some("{Spell(8269)} soon"),
+                    run: [Enrage, Emote(text: "%s goes berserk!")],
+                ),
+            ],
+            is_final: true,
+        ),
+    ],
+)

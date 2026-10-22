@@ -1,0 +1,88 @@
+// Zone template. Copy this file to content/zones/<id>.ron, where <id> is the zone's `id` below
+// (this one would be content/zones/my_zone.ron). That file is the whole zone: no list or code
+// names it. Zones are ordered by `difficulty`, lowest first, and that order is the unlock path;
+// no two zones may share a difficulty. Every field is explained in docs/game/zones.md (and
+// docs/game/guides/zones.txt); a boss's fields in docs/game/bosses.md.
+(
+    id: "my_zone",                 // the file's name; saves and the zone picker use it
+    name: "My New Zone",           // our own name as text, or a pointer where the client holds
+                                   // it, e.g. Area(12) (any AreaTable.dbc id, not only area_id)
+    subtitle: "A Short Title",
+    description: "A line or two shown on the zone picker.",
+    map_id: 0,                     // Map.dbc: the continent or instance map
+    area_id: 12,                   // AreaTable.dbc: zone name, music and ambience
+    spawn: (x: -9396.0, y: -633.0, z: 68.0, facing: 1.6),   // where the hero appears
+    arena_radius: 80.0,            // the arena circle around `spawn`, yards
+    // Optional (zones.md, "Walls, doors and bosses at their own spots"):
+    //   arena_centre: Some((x, y)),  the circle's centre when it is not the spawn
+    //   walls: [(from: (x, y), to: (x, y))],  lines nobody crosses
+    //   doors: [(object, name, display_id, at, doorway, opens_at_minute, announce)]
+    //   props: [(name, display_id, at, scale)], platforms: [(centre, radius, z)]
+    //   by_faction: Some((vs_alliance: (enemies: [...], bosses: [...]), vs_horde: (...)))
+    enemy_spawn_ring: (22.0, 34.0),  // roster enemies appear this far from the hero (nearest, farthest), yards
+    boss_spawn_ring: (24.0, 28.0),   // the same for bosses
+    hour: 10,                      // time of day the run is locked to (0-23)
+    weather: (kind: None, intensity: 0.0),   // None | Rain | Snow | Sandstorm, intensity 0-1
+    difficulty: 2.5,               // D: the zone's place (Elwynn 1, Duskwood 2 ...); enemies, gear, drops grow with it
+    enemies: [
+        // the roster: each names its kind from content/enemy_kinds.ron
+        (
+            name: "Young Wolf",
+            display_id: 165,           // CreatureDisplayInfo.dbc
+            scale: 0.7,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,           // normal enemies: a quarter step, 0.25 and up
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Kobold Geomancer",
+            display_id: 163,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 1.0,
+            look_spell: Some(133),     // casters only: the look of the spell they cast
+        ),
+        (
+            name: "Gnoll Brute",
+            display_id: 377,
+            scale: 1.3,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 5.0,
+        ),
+    ],
+    bosses: [
+        // rising `spawn_minute`; exactly one final boss, the last (docs/game/templates/boss.ron)
+        (
+            name: "Hogger",
+            display_id: 384,
+            scale: 3.5,
+            creature_type: Humanoid,
+            spawn_minute: 3.0,
+            yell: "Grrr... fresh meat!",
+            abilities: [
+                Charge(look_spell: 100),
+                Summon(),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Edwin VanCleef",
+            display_id: 2029,
+            scale: 8.24,
+            creature_type: Humanoid,
+            spawn_minute: 16.0,
+            yell: "None may challenge the Brotherhood!",
+            abilities: [
+                Charge(look_spell: 100),
+                Stomp(look_spell: 1680),
+                GroundBurst(telegraph_spell: 5740, impact_spell: 13812),
+                Summon(),
+            ],
+            is_final: true,
+        ),
+    ],
+)

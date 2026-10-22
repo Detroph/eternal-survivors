@@ -1,0 +1,513 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    // The courtyards and the cathedral of the
+    // Scarlet Monastery's Cathedral wing are the arena; the run holds the courtyard until the
+    // cathedral's door opens at minute 10.
+    id: "scarlet",
+    name: Area(796),
+    subtitle: "The Crimson Vigil",
+    description: "The Crusade holds its cathedral. Survive the courtyard until its doors open, then face the High Inquisitor and her Commander at the altar.",
+    map_id: 189,
+    area_id: 796,
+    // In the courtyard inside the Cathedral wing's entrance, facing the cathedral.
+    spawn: (
+        x: 912.317993,
+        y: 1398.809937,
+        z: 18.023251,
+        facing: 0.002067,
+    ),
+    // The courtyard and the cathedral are the arena, walled by the
+    // building itself; the circle only catches strays, centred between the doorway behind the
+    // spawn and the altar.
+    arena_centre: Some((1042.0, 1399.0)),
+    arena_radius: 170.0,
+    // The doorway behind the spawn closes the courtyard.
+    walls: [
+        (from: (883.243347, 1395.995239), to: (882.958252, 1402.252441)),
+    ],
+    // The cathedral's door (the map's own, where the server data
+    // stands it) stays shut for the first 10 minutes; then it opens with a raid warning.
+    doors: [
+        (
+            object: 104591,
+            name: "Cathedral Door",
+            display_id: 1207,
+            at: (x: 1069.95, y: 1399.14, z: 30.8, facing: 3.142),
+            doorway: (from: (1069.95, 1391.0), to: (1069.95, 1407.3)),
+            opens_at_minute: 10.0,
+            announce: "Forces are emerging from the cathedral. Its door now stands open.",
+        ),
+    ],
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 14,
+    weather: (
+        kind: None,
+        intensity: 0.0,
+    ),
+    // The fourth zone, after Warsong Gulch; every zone's D is its
+    // place, a whole number.
+    difficulty: 4.0,
+    enemies: [
+        (
+            name: "Scarlet Soldier",
+            display_id: 2522,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedSword, display: 7483, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: Shield, display: 1705, inventory_type: 14, sheath: 4, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Scarlet Tracking Hound",
+            display_id: 2709,
+            scale: 1.0,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Scarlet Monk",
+            display_id: 2603,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Scarlet Adept",
+            display_id: 5726,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 1600, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            look_spell: Some(585),
+        ),
+        (
+            name: "Scarlet Myrmidon",
+            display_id: 2514,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedSword, display: 7526, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: OneHandedSword, display: 7488, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Scarlet Defender",
+            display_id: 2462,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedSword, display: 7487, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: Shield, display: 1705, inventory_type: 14, sheath: 4, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Scarlet Centurion",
+            display_id: 2499,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedSword, display: 7490, inventory_type: 17, sheath: 1, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Scarlet Wizard",
+            display_id: 2525,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 10654, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(133),
+        ),
+        (
+            name: "Scarlet Champion",
+            display_id: 2460,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedMace, display: 2839, inventory_type: 17, sheath: 1, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 3.0,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Scarlet Abbot",
+            display_id: 2492,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 5224, inventory_type: 21, sheath: 3, material: 2)),
+            ),
+            scale: 1.2,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Scarlet Protector",
+            display_id: 2476,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 7478, inventory_type: 13, sheath: 3, material: 2)),
+                off_hand: Some((kind: Shield, display: 1705, inventory_type: 14, sheath: 4, material: 1)),
+            ),
+            scale: 1.2,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Scarlet Guardsman",
+            display_id: 2511,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Polearm, display: 7437, inventory_type: 17, sheath: 2, material: 1)),
+            ),
+            scale: 1.2,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only the bosses bring these (the trainees pouring out when
+        // Herod falls); they never spawn by themselves.
+        (
+            name: "Scarlet Trainee",
+            display_id: 2467,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
+    // every area attack is marked on the ground before it lands and hits the hero only. Each boss
+    // keeps the damage a hero cannot avoid (`swing_mult` carries what its unmarked abilities did).
+    bosses: [
+        (
+            name: "Houndmaster Loksey",
+            display_id: 2040,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedAxe, display: 7508, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: OneHandedAxe, display: 7508, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            scale: 2.90,
+            creature_type: Humanoid,
+            spawn_minute: 4.0,
+            yell: "Release the hounds!",
+            aggro_sound: Some(5841),
+            swing_mult: Some(1.5),
+            abilities: [
+                // a marked charge line
+                Rush(
+                    look_spell: 100,
+                    length: Some(25.0),
+                    width: Some(4.0),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "Loksey charges: side-step the line!", bar: Some("{Spell(100)}"))),
+                ),
+            ],
+            script: [
+                // the hounds run in from four sides, their lanes marked first; then he gives them
+                // Bloodlust
+                (
+                    on: Arrival,
+                    warn: Some((text: "Hounds from four sides: watch the lanes!", colour: Orange, icon_spell: Some(17164))),
+                    run: [
+                        Wave(enemy: "Scarlet Tracking Hound", count: 8, at: Sides(4)),
+                        Later(seconds: 2.5, run: [
+                            Emote(text: "%s gives his hounds {Spell(6742)}!"),
+                            Bolster(enemy: Some("Scarlet Tracking Hound"), damage: 1.3, speed: 1.3, look_spell: 6742),
+                        ]),
+                    ],
+                ),
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "Hounds from four sides: watch the lanes!", colour: Orange, icon_spell: Some(17164), bar: Some("Hounds"))),
+                    run: [
+                        Emote(text: "%s whistles for his hounds!"),
+                        Wave(enemy: "Scarlet Tracking Hound", count: 8, at: Sides(4)),
+                        Later(seconds: 2.5, run: [
+                            Emote(text: "%s gives his hounds {Spell(6742)}!"),
+                            Bolster(enemy: Some("Scarlet Tracking Hound"), damage: 1.3, speed: 1.3, look_spell: 6742),
+                        ]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Arcanist Doan",
+            display_id: 5266,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 1927, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 2.90,
+            creature_type: Humanoid,
+            spawn_minute: 7.0,
+            yell: "You will not defile these mysteries!",
+            aggro_sound: Some(5842),
+            swing_mult: Some(1.271),
+            abilities: [
+                // Arcane Explosion: a ring round him, safe at his feet
+                Marked(
+                    shape: Ring(inner: 4.0, outer: 13.0),
+                    at: Boss,
+                    impact_spell: 9433,
+                    impact_on_bunny: true,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(9433)}: hug him or get clear!", bar: Some("{Spell(9433)}"))),
+                ),
+            ],
+            script: [
+                // 50 %: Arcane Bubble (immune), then Detonation, a big circle to leave
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "{Spell(9438)}: {Spell(9435)} coming, get far away!", colour: Purple, icon_spell: Some(9435))),
+                    soon: Some("{Spell(9438)} soon"),
+                    run: [
+                        Shield(damage_taken: 0.0, look_spell: 9438),
+                        Yell(text: "Burn in righteous fire!", sound: Some(5843)),
+                        Cast(ability: Marked(
+                            shape: Circle(radius: 15.0),
+                            at: Boss,
+                            impact_spell: 9435,
+                            wind_up: Some(2.5),
+                            damage_mult: Some(4.0),
+                        )),
+                        Later(seconds: 2.6, run: [Unshield]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Herod",
+            display_id: 2041,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedAxe, display: 15576, inventory_type: 17, sheath: 1, material: 1)),
+            ),
+            scale: 2.90,
+            creature_type: Humanoid,
+            spawn_minute: 11.0,
+            yell: "Ah - I've been waiting for a real challenge!",
+            aggro_sound: Some(5830),
+            swing_mult: Some(2.0),
+            abilities: [
+                // Rushing Charge along a marked line
+                Rush(
+                    look_spell: 8260,
+                    length: Some(28.0),
+                    width: Some(5.0),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "Herod charges: side-step the line!", bar: Some("{Spell(8260)}"))),
+                ),
+            ],
+            script: [
+                // Whirlwind: a marked circle that spins with him as he chases the hero
+                (
+                    on: Every(15.0),
+                    warn: Some((text: "{Spell(8989)}: run from him!", icon_spell: Some(8989), bar: Some("{Spell(8989)}"))),
+                    run: [
+                        Yell(text: "Blades of light!", sound: Some(5832)),
+                        Wear(look_spell: 8989, seconds: 6.0),
+                        LayZone(zone: (look_spell: 20924, radius: 7.0, seconds: 6.0, damage_mult: 0.5, follows: true)),
+                    ],
+                ),
+                // 25 %: he enrages (our value; the original at 50 %)
+                (
+                    on: Health(25.0),
+                    warn: Some((text: "Herod enrages!", colour: Purple, icon_spell: Some(8269))),
+                    soon: Some("{Spell(8269)} soon"),
+                    run: [
+                        Yell(text: "Light, give me strength!", sound: Some(5833)),
+                        Enrage,
+                        Emote(text: "%s becomes enraged!"),
+                    ],
+                ),
+                // as he falls a horde of Scarlet Trainees pours in, as in the original
+                (
+                    on: Death,
+                    warn: Some((text: "Herod has fallen: Scarlet Trainees pour in!", colour: Orange)),
+                    run: [
+                        Yell(text: "The master has fallen! Avenge him, my brethren!", sound: Some(5834)),
+                        Wave(enemy: "Scarlet Trainee", count: 20, at: Ring(7.0)),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "High Inquisitor Fairbanks",
+            display_id: 2605,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 7438, inventory_type: 13, sheath: 3, material: 2)),
+            ),
+            scale: 2.40,
+            creature_type: Humanoid,
+            spawn_minute: 14.0,
+            yell: "No heretic leaves this cathedral.",
+            // each blow stacks his Curse of Blood (damage only)
+            on_hit: Some((look_spell: 8282, damage_mult: 0.04, every: 1.0, seconds: 10.0, max_stacks: 5)),
+            swing_mult: Some(1.371),
+            abilities: [
+                // Holy Smite at marked spots round the hero
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: NearHero(count: 3, spread: 7.0),
+                    impact_spell: 9481,
+                    impact_on_bunny: true,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(9481)}: move!", bar: Some("{Spell(9481)}"))),
+                ),
+            ],
+            script: [
+                // he shields himself: burst him while he is bare
+                (
+                    on: Every(18.0),
+                    warn: Some((text: "{Spell(11647)} on Fairbanks!", colour: Purple, icon_spell: Some(11647), bar: Some("{Spell(11647)}"))),
+                    run: [Shield(damage_taken: 0.3, look_spell: 11647), Later(seconds: 6.0, run: [Unshield])],
+                ),
+                // green beams heal the enemies near him
+                (
+                    on: Every(5.0),
+                    run: [Heal(on: Near(15.0), share: 0.05, look_spell: 12039, beam_spell: 13540, beam_seconds: 3.0)],
+                ),
+            ],
+            is_final: false,
+        ),
+        // Mograine fights alone and falls; Whitemane arrives, puts all
+        // to sleep (the scripted pause) and raises him ("Arise, my champion!"); then both fight
+        // and she shields and heals him. They come behind the altar at two set spots;
+        // their health shares (0.5, raised at half of it, and 0.75) add up to 1.5. The run is won when both have fallen.
+        (
+            name: "Scarlet Commander Mograine",
+            display_id: 2042,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedMace, display: 15786, inventory_type: 13, sheath: 1, material: 2)),
+            ),
+            scale: 3.85,
+            creature_type: Humanoid,
+            spawn_minute: 18.0,
+            yell: "Infidels! They must be purified!",
+            aggro_sound: Some(5835),
+            swing_mult: Some(2.0),
+            abilities: [
+                // Crusader Strike in a marked cone before him
+                Marked(
+                    shape: Cone(length: 10.0, angle: 70.0),
+                    at: Boss,
+                    impact_spell: 14518,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.2),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(14518)}: out of the cone!", bar: Some("{Spell(14518)}"))),
+                ),
+            ],
+            script: [
+                // he falls: Whitemane comes for him
+                (on: Death, run: [Call(boss: "High Inquisitor Whitemane")]),
+            ],
+            is_final: true,
+            at: Some((x: 1154.015381, y: 1398.447144, z: 32.527908, facing: 3.230044)),
+            health_share: Some(0.5),
+        ),
+        (
+            name: "High Inquisitor Whitemane",
+            display_id: 2043,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 15990, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 4.50,
+            creature_type: Humanoid,
+            spawn_minute: 18.0,
+            called: true,
+            yell: "Mograine has fallen? You shall pay for this treachery!",
+            aggro_sound: Some(5838),
+            swing_mult: Some(1.271),
+            abilities: [
+                // Holy Smite at marked spots round the hero
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: NearHero(count: 3, spread: 7.0),
+                    impact_spell: 9481,
+                    impact_on_bunny: true,
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(9481)}: move!", bar: Some("{Spell(9481)}"))),
+                ),
+            ],
+            script: [
+                // the scripted pause: she puts all to sleep and raises Mograine
+                (
+                    on: Arrival,
+                    warn: Some((text: "Whitemane raises Mograine!", colour: Purple, icon_spell: Some(9232))),
+                    run: [
+                        Pause(seconds: 5.0, text: "{Spell(9256)}"),
+                        Later(seconds: 3.0, run: [
+                            Yell(text: "Arise, my champion!", sound: Some(5840)),
+                            Revive(boss: "Scarlet Commander Mograine", health: 0.5, look_spell: 9232),
+                        ]),
+                        Later(seconds: 5.5, run: [
+                            On(boss: "Scarlet Commander Mograine", run: [Yell(text: "At your side, milady!", sound: Some(5837))]),
+                        ]),
+                    ],
+                ),
+                // she shields him: strike her, or burst him while he is bare
+                (
+                    on: Every(14.0),
+                    warn: Some((text: "{Spell(22187)} on Mograine!", colour: Yellow, icon_spell: Some(22187), bar: Some("{Spell(22187)}"))),
+                    run: [On(boss: "Scarlet Commander Mograine", run: [Shield(damage_taken: 0.3, look_spell: 22187), Later(seconds: 5.0, run: [Unshield])])],
+                ),
+                // and heals him with a beam
+                (
+                    on: Every(8.0),
+                    run: [Heal(on: Boss("Scarlet Commander Mograine"), share: 0.04, look_spell: 12039, beam_spell: 13540, beam_seconds: 2.5)],
+                ),
+            ],
+            is_final: true,
+            at: Some((x: 1201.884277, y: 1398.897217, z: 29.010046, facing: 3.139704)),
+            health_share: Some(0.75),
+        ),
+    ],
+)

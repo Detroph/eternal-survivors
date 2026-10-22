@@ -1,0 +1,36 @@
+[package]
+name = "esurv-app"
+description = "The game's own screens over the benilla client: hero picker, armory, level-up cards, HUD, meter, codex, options."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+bevy.workspace = true
+benilla-app = { path = "../benilla-app", default-features = false }
+# The stock art loaded in its sprite form, and the edge files kept on the CPU (`stock`).
+benilla-assets = { path = "../benilla-assets", default-features = false }
+benilla-protocol = { path = "../benilla-protocol" }
+# The stock interface's Lua, for a stock frame a screen of ours stands in for.
+benilla-ui = { path = "../benilla-ui" }
+# The class gear's icons, from the player's `ItemDisplayInfo.dbc` (`armory`).
+benilla-formats = { path = "../benilla-formats", default-features = false }
+# The world camera (the totem shots switch frames the totem with it) and the select scene's ground.
+benilla-world = { path = "../benilla-world", default-features = false }
+esurv-protocol = { path = "../esurv-protocol" }
+esurv-content = { path = "../esurv-content" }
+# Gear names and talent point costs for the end of a run.
+esurv-sim = { path = "../esurv-sim" }
+# The meter window's kept place and size (`meter.ron`).
+serde = { version = "1", features = ["derive"] }
+ron = "0.12"
+# The game window's icon, loaded from the game exe's own icon resource (`window_icon`).
+winit = { version = "0.30", default-features = false }
+
+[dev-dependencies]
+# The run's stock-frame Lua, tried in a bare VM (`run_frames`), the same Lua as the interface's.
+mlua = { version = "0.11", features = ["lua51", "vendored"] }
+avian3d = "0.6"

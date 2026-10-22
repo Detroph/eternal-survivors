@@ -1,0 +1,55 @@
+// Gear set template: the gear one class earns. Copy the block below into the `sets` list in
+// content/gear.ron; every class needs exactly one set, named by its `class`.
+// A piece's stats are not here: the eight armor slots share theirs (`slots` in gear.ron) and each
+// weapon line has its own `stats`. Those are Elwynn values; a piece from a zone of difficulty D
+// has each × the gear factor of D (balance.ron zone_scaling), rounded.
+// Every zone has its own look of the set (`looks`), its pieces' names and looks; its weapons'
+// looks are the zone's armaments in content/loadouts.ron. Every field is explained in
+// docs/game/gear.md, sections 3 and 4.
+(
+    class: "my_class",             // the class id in content/classes.ron
+    armor: Cloth,                  // Cloth, Leather, Mail or Plate: the item's armor type, and a
+                                   // cloth chest is a robe
+    bonus_pairs: [2, 3, 4, 5, 6, 7, 0, 1, 2],   // the bonus pair (0-7 of gear.ron's bonus_stats)
+                                   // a piece adds from the second zone on: one per armor slot
+                                   // in slot order, then one per weapon line
+    looks: [                       // a look per zone (its id in content/zones), in the zones'
+                                   // difficulty order; a zone without one shows the look of the
+                                   // nearest zone before it that has one
+        (
+            zone: "elwynn",
+            // 8 names and 8 ItemDisplayInfo.dbc looks, in slot order: head, shoulders, chest,
+            // waist, legs, feet, wrists, hands; a 0 borrows the nearest other look's
+            names: ["Apprentice's Circlet", "Apprentice's Mantle", "Apprentice's Robes", "Apprentice's Belt",
+                    "Apprentice's Leggings", "Apprentice's Boots", "Apprentice's Bindings", "Apprentice's Gloves"],
+            displays: [8415, 0, 2163, 4444, 1883, 14046, 4094, 2164],
+        ),
+        (
+            zone: "duskwood",
+            names: ["Magister's Crown", "Magister's Mantle", "Magister's Robes", "Magister's Belt",
+                    "Magister's Leggings", "Magister's Boots", "Magister's Bindings", "Magister's Gloves"],
+            displays: [31087, 30211, 29591, 29596, 29273, 29594, 29597, 29593],
+        ),
+        (
+            zone: "duskwood", row: 1,   // optional: a second row of looks for the same zone (as
+                                        // Blackrock's); a piece of the zone unlocks both rows,
+                                        // and each loadout weapon needs a look for it too
+            row_name: Some("Arcanist sets"),   // optional: the row's name in the collection and
+                                        // the look's tooltip (as Stratholme's "Scholomance
+                                        // sets"); left out, a second row reads "Second look"
+            names: ["Arcanist Crown", "Arcanist Mantle", "Arcanist Robes", "Arcanist Belt",
+                    "Arcanist Leggings", "Arcanist Boots", "Arcanist Bindings", "Arcanist Gloves"],
+            displays: [31517, 30586, 30581, 30583, 30582, 30587, 30584, 30585],
+        ),
+    ],
+    weapons: [                     // one line per weapon slot (slot 8, then 9); the final boss
+                                   // of every zone drops them, named "<zone> Armaments": one of
+                                   // them unlocks the zone's looks of all three weapon loadouts
+        (
+            stats: [(stat: Damage, value: 0.08)],   // Elwynn values; any hero stat works
+            kind: Staff,           // Staff, Dagger, OneHandedSword, TwoHandedMace, Bow, Shield ...;
+                                   // the item class and subclass the item query tells of it
+            hand: MainHand,        // MainHand, OffHand or Ranged
+        ),
+    ],
+)

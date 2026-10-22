@@ -1,0 +1,32 @@
+// Uniform changes per spell category. Every number multiplies the spells of that category:
+// 1.0 = unchanged, 1.2 = 20 % more, 0.8 = 20 % less. All 1.0 plays the base numbers unchanged.
+// A spell in several categories gets every matching line, multiplied together.
+// Which spells are in which category: the `categories` of each spell in abilities.ron.
+// What each number does: docs/game/spells.md, section 7 (plain words: guides/spells.txt).
+//
+//   damage          damage per hit (in total, for effects over time)
+//   cooldown        seconds between casts (lower = more often)
+//   range           how far it reaches
+//   radius          area size (a cone's length)
+//   duration        how long the spell itself lasts: areas, effects over time, totems, and
+//                   buffs, shields and immunity on the hero. Ticks keep their size, so a longer
+//                   effect over time also deals more in total.
+//   effect          strength of its extra effect: slow, heal, shield, buff, weaken or aura amount
+//   effect_seconds  how long its extra effect holds an enemy: slow, root, stun, fear, weaken
+//
+// A number left out counts as 1.0, so a line can be as short as
+//   (category: DamageOverTime, damage: 1.1),
+([
+    (category: DirectDamage,    damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: DamageOverTime,  damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: AreaOfEffect,    damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Melee,           damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Ranged,          damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: CrowdControl,    damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Sustain,         damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Shield,          damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: DamageReduction, damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Reflect,         damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Buff,            damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+    (category: Summon,          damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0, duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+])

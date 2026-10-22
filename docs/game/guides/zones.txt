@@ -1,0 +1,481 @@
+ESURV - ZONES, ENEMIES AND BOSSES, EXPLAINED
+=================================================
+
+This file explains, in plain words, how a zone is written down in the game's data and what each
+part does when you play. The technical version is zones.md in the folder above this one.
+
+
+1. WHERE ZONES LIVE
+-------------------
+
+Every zone has a text file of its own, in one folder:
+
+    content\zones\elwynn.ron
+    content\zones\duskwood.ron
+    ... and so on, one file per zone
+
+The file's name is the zone's id (the "id" written at its top). You can open these files with
+any text editor (Notepad works). When the game starts, it reads every file in the folder. If you
+change a number and restart the game, the change is live. Nothing has to be compiled.
+
+There is no list of zones to keep up to date: the game puts the zones in order by their
+difficulty number, lowest first (section 7, "How zones unlock").
+
+After editing, you can check that the file is still valid by running this in the project folder:
+
+    cargo test -p esurv-content
+
+If you made a typo, it tells you which line is wrong.
+
+
+2. HOW TO READ THE FILE (THE "RON" FORMAT)
+------------------------------------------
+
+The file looks like this:
+
+    (
+        id: "elwynn",
+        name: Area(12),
+        hour: 10,
+    )
+
+Rules:
+
+  - Each thing is "name: value," on its own line. The comma at the end matters.
+  - Text goes in double quotes: "Elwynn Forest"
+  - Whole numbers have no dot: 10
+  - Decimal numbers have a dot: 0.82   (write 5.0, not 5, where the game expects a decimal)
+  - ( ... ) groups the fields of ONE thing (one zone, one enemy, one boss).
+  - [ ... ] is a LIST of things, separated by commas.
+  - Lines starting with // are notes for humans; the game ignores them.
+  - true / false are yes / no.
+  - None means "there is nothing here". Some( ... ) means "there is something, and here it is".
+
+
+3. WHAT A ZONE IS
+-----------------
+
+A zone is one arena where a run happens. It answers four questions:
+
+  WHERE is it?       a real spot in the WoW 1.12 world
+  WHAT does it look like?   time of day, weather, loading screen
+  WHO attacks?       a list of 12 enemies, which come in over time
+  HOW does it end?   a list of 5 bosses; killing the last one wins the run
+
+Here is Elwynn Forest, with every line explained:
+
+    id: "elwynn",
+        The zone's internal name. Never shown to the player. Saves and unlocks use it, so do not
+        rename it once players have saves.
+
+    name: Area(12),
+        The name the player sees: WoW's own zone name, read from your WoW files by its
+        AreaTable number (any area, not only area_id). A name of our own goes in quotes:
+        name: "The Sunken Arena".
+
+    subtitle: "Trouble at the Mine",
+    description: "Kobolds swarm out of the hills, ...",
+        Flavour text for the zone picker and loading screen.
+
+        Which WoW loading screen picture to show. The name of the picture file without
+        ".blp". Any loading screen from WoW 1.12 can be used.
+
+    map_id: 0,
+        Which WoW map the run takes place on.
+          0 = Eastern Kingdoms     1 = Kalimdor
+          30 = Alterac Valley      489 = Warsong Gulch      529 = Arathi Basin
+          329 = Stratholme (the D 8 zone, in Alterac Valley's place)
+
+    area_id: 12,
+        Which WoW area that spot belongs to. This decides the zone name in the corner of the
+        screen and the music and ambient sounds. 12 = Elwynn Forest.
+
+    spawn: (x: -9396.0, y: -633.0, z: 68.0, facing: 1.6),
+        The exact spot where the hero appears.
+          x, y = position on the map
+          z    = height (must be ground level, or the hero falls or gets stuck)
+          A dungeon with no outdoor ground (Dire Maul) works too: its floors and
+          walls are the ground. Dungeon rooms are small, so measure the room first
+          (the arena_ground example) and keep arena_radius near its "open reach".
+          Its "walked" column shows how much of each ring enemies can appear on:
+          in a dungeon they only appear where they can walk to the hero.
+          A dungeon city with streets between its buildings (Stratholme) walks on both: the
+          buildings' floors and the ground between them. Its arena is a square shut in by
+          the city's own gates (doors: the map's door objects, shut; a door with no
+          opens_at_minute stays shut until a boss's script says Door(name: "...", open: true)).
+          facing = which way the hero looks, in radians (0 = north, 1.57 = west, 3.14 = south,
+                   4.71 = east)
+        Tip: the easiest way to get these numbers is to walk to the spot in the game and read
+        the position from the debug readout.
+
+    arena_radius: 80.0,
+        How big the playing area is around the spawn point, in yards. The hero can wander
+        10 yards past it; further than that they are put back with "You cannot leave the
+        battlefield." Enemies always appear inside this circle, so keep it comfortably
+        bigger than the spawn rings below.
+
+    enemy_spawn_ring: (22.0, 34.0),
+    boss_spawn_ring: (24.0, 28.0),
+        How far from the hero enemies appear: (nearest, farthest), in yards. Each new enemy
+        picks a random distance in that range and a random direction. Bigger numbers give
+        you more time before they reach you. A spot outside the arena is pulled back onto
+        its edge. Leave both lines out to get the values above.
+
+    hour: 10,
+        The time of day, 0 to 23. The run stays at this hour. 10 = morning, 0 = midnight.
+        Duskwood uses 0 so it is always night.
+
+    weather: (kind: None, intensity: 0.0),
+        kind: None, Rain, Snow or Sandstorm.
+        intensity: how heavy, from 0.0 (none) to 1.0 (full).
+
+    difficulty: 1.0,
+        The zone's difficulty: its place in the list (Elwynn 1, Duskwood 2 ... Ahn'Qiraj 10).
+        Higher = harder: each step gives every normal enemy about 1.35 times the
+        health and 1.2 times the damage (elites, rares and bosses a little less), and
+        better gear and rewards. See section 6.
+
+    enemies: [ ... ],
+        The 12 enemies. See section 4.
+
+    bosses: [ ... ],
+        The 5 bosses. See section 5.
+
+
+4. ENEMIES
+----------
+
+Each enemy in the list looks like this (a Kobold Geomancer, a small spell caster):
+
+    name: "Kobold Geomancer",
+        The name shown above its head.
+
+        A unique ID number for this kind of enemy. Every enemy and boss in the whole game needs
+        a different number. The existing ones use 600 and up for enemies and 690 and up for
+        bosses. Pick unused numbers for new ones.
+
+    display_id: 163,
+        Which 3D model it uses. This is a WoW model number (from the file
+        CreatureDisplayInfo.dbc). Any creature model in WoW 1.12 can be used. If you know a
+        creature from WoW, looking up its display ID gives you its look.
+
+    scale: 1.0,
+        Size. 1.0 = normal, 0.7 = smaller, 2.0 = twice as big.
+
+    creature_type: Humanoid,
+        What kind of creature it is: Beast, Dragonkin, Demon, Elemental, Giant, Undead,
+        Humanoid, Critter, Mechanical or NotSpecified.
+
+    toughness: 0.5,
+        How sturdy it is compared with the zone's average normal enemy: 0.5 = half the health,
+        2.0 = twice the health. It changes health only, never damage. Use steps of 0.25 (0.25,
+        0.5, 0.75, 1.0, 1.25, ...). Leave the line out for 1.0. Elites ignore it.
+        An enemy has no health or damage of its own in the file: the game works them out
+        when it appears (section 6).
+
+    kind: Ranged,
+        What kind of enemy it is. The kind decides how fast it walks, how often it attacks, how
+        "expensive" it is (see "How enemies come in" below), whether it is an elite and, for
+        casters, how far it casts from. Those numbers are written ONCE for each kind, in
+        content\enemy_kinds.ron, so changing a number there changes every enemy of that kind.
+        The kinds:
+
+          Fodder       weak early enemies: walks 6, attacks every 1.5 s, costs 1
+          FastFodder   the same, but fast (walks 8), for wolves, bats and the like
+          Mid          sturdier melee: walks 5, attacks every 2 s, costs 2
+          ToughMid     the same for big ones (toughness 2 and up): costs 3
+          FastMid      a fast sturdier enemy: walks 8, attacks every 2 s, costs 2
+          Ranged       a caster: walks 5, casts every 3 s from 18 yards, stands 1.5 s
+                       casting, costs 2. It needs a look_spell (below).
+          Elite        a dangerous mini-boss: walks 5.5, attacks every 2 s. An elite always
+                       drops 15 gold and a Battleground Cache. Elites are also used for the
+                       RARES (see section 5b), so every zone needs at least one elite.
+
+        Writing a kind that does not exist stops the game from loading, with a message naming
+        it. You can add new kinds to enemy_kinds.ron.
+
+    appears_at_minute: 2.0,
+        This enemy cannot appear before minute 2 of the run. It lets a zone start easy and add
+        tougher enemies over time.
+
+    look_spell: Some(133),
+        Casters (kind Ranged) only: which WoW spell they cast (133 = Fireball). The shot flies
+        at the WoW speed of that spell and always hits when it arrives. Leave the line out for
+        any other kind.
+
+    weapons: ( main_hand: Some((kind: OneHandedSword, display: 7483, ...)), ),
+        What it holds in its hands (and a ranged slot): the same weapons the creature of that
+        name holds in WoW (taken from the vmangos database; the full list per zone is in
+        enemy-weapons.md). The game shows them, and the enemy swings the way that weapon is
+        swung: one-handed, two-handed, a staff or polearm, and an enemy with a weapon in each
+        hand strikes with them in turn. It changes nothing in the fight. Leave the line out and
+        it fights bare-handed (beasts, elementals, dragons). A boss can have the same line.
+
+  A SPECIAL enemy can have its own number instead of its kind's. Add a line like
+      move_speed: Some(5.2),
+  Possible: move_speed, attack_interval, spawn_cost, and for casters range and cast_time.
+  No enemy needs one today.
+
+
+HOW ENEMIES COME IN
+
+Think of it like a shop:
+
+  - The game earns "spawn money" every second. It earns slowly at the start of a run and faster
+    and faster as the minutes go by.
+  - It spends that money on enemies. Each enemy has a price: its spawn_cost.
+  - Cheap enemies (cost 1) show up in big numbers; pricier ones less often.
+  - ELITES ARE NEVER BOUGHT. They have their own clock (below).
+  - The game only buys an enemy once its appears_at_minute has passed.
+  - Which unlocked enemy it buys is random, but not evenly:
+      * An enemy that has JUST unlocked is rare. Every minute after it unlocks, it becomes
+        more common, until it is 4 times as common (after 6 minutes).
+      * Expensive enemies are rarer: the chance is divided by the enemy's spawn_cost.
+    In numbers: chance weight = smaller of (4, 1 + 0.5 x minutes since it unlocked),
+    divided by spawn_cost.
+  - It buys at most 8 enemies at once, so they arrive in waves rather than all together.
+
+Two extra rules:
+
+  - If you kill normal enemies faster than they arrive, the game notices and speeds up spawning, up to
+    3 times as fast, so you are never left alone for long. This effect fades over about 12
+    seconds when you stop killing.
+  - While a boss is alive, normal enemies arrive more slowly (45% of normal; 30% while the final
+    boss is alive), so you can focus on the boss.
+
+Three more things bring enemies in:
+
+  - A MINIMUM CROWD. The game always keeps at least a certain number of normal enemies around
+    you: 4 at the start, growing by 1.6 every minute (more with higher enemy density), up to 36.
+    If there are fewer, it adds a few at once.
+  - ELITES. The first elite comes at 4:00. After that, one comes every 55 seconds at first,
+    a bit more often each minute (never more often than every 25 seconds). The game picks
+    one of the elites that have already unlocked and announces it.
+  - SWARMS. At 1:20, and then every 80 seconds or so (more often later, but never more often
+    than every 45 seconds), a ring of cheap enemies appears all around you, 26 yards away,
+    with the message "Swarm surrounds you!". The ring gets bigger every minute. Swarms only
+    use cheap enemies (spawn_cost 1.2 or less), so every zone needs one.
+
+HOW ENEMIES MOVE AND FIGHT
+
+  - They walk toward a spot right next to you, each from a slightly different side, so a crowd
+    surrounds you instead of piling up in one place.
+  - Melee enemies hit you once they are close enough, every attack_interval seconds.
+  - Ranged enemies stop at their range, cast for cast_time seconds, then shoot.
+  - Slowed enemies walk slower; feared enemies run straight away from you.
+  - Bosses get angry below 30% health: faster, harder hits, abilities more often.
+  - Rares (section 5b) chase and fight like any enemy.
+
+A GOOD ENEMY LIST (how the existing zones are built)
+
+    Enemies 1-3:   weak, cheap swarm. Cost 1. Appear from minute 0 to about 1.
+                   Usually one fast animal among them.
+    Enemy 4:       first spell caster. Cost 2. Minute 2.
+    Enemies 5-6:   tougher melee. Cost 1.5 to 3. Minutes 3 to 4.5.
+    Enemy 7:       fast attacker. Cost 1.5. Minute 6.
+    Enemy 8:       second caster. Cost 2. Minute 7.5.
+    Enemy 9:       heavy hitter. Cost 3. Minute 9.
+    Enemies 10-12: elites. Cost 12 to 14. Around minutes 3.5, 8 and 13.
+
+
+5. BOSSES
+---------
+
+Each zone has 5 bosses that arrive at set times. Killing the last one wins the run.
+
+    name: "Edwin VanCleef",
+    display_id: 2029,
+    scale: 8.24,
+        Same meaning as for enemies. Bosses are made very large so you can see them coming.
+
+    creature_type: Humanoid,
+
+    spawn_minute: 16.0,
+        The boss appears exactly at this minute of the run.
+
+    move_speed: 6.6,
+        How fast it walks. A boss has no health or damage in the file: the game works them
+        out when it arrives (section 6).
+
+    yell: "None may challenge the Brotherhood!",
+        What the boss shouts when it arrives.
+
+    abilities: [ ... ],
+        The boss's special attacks. Each has a cooldown in seconds. There are 5 kinds:
+
+          Charge(look_spell)  rushes to where you stand (100 = WoW's Charge) and hits
+                                everything near the spot it lands on, double damage
+          Stomp(look_spell)   hits you if you are within 10 yards of the boss, double damage
+          GroundBurst(telegraph_spell, impact_spell)
+                                marks your spot on the ground, then after 2 seconds it
+                                explodes there - move out of it!
+          Volley(look_spell)  fires 6 missiles of that WoW spell: one where you stand, the
+                                others close around you. Each hurts a little.
+          Summon()              the boss shouts for help and helpers appear around it: 6, 7,
+                                8, 10 or 12 for a zone's first to fifth boss (every boss has
+                                this)
+
+        The numbers (cooldowns, sizes, damage, how many) are written ONCE for each kind, in
+        content\enemy_kinds.ron. See bosses.txt to give one boss its own number.
+
+        Each attack is first used a little before its cooldown has passed once (60% of it).
+        When a boss drops to 30% health it becomes ENRAGED: its special attacks come 30%
+        more often, it hits 40% harder and moves 25% faster.
+
+    is_final: true,
+        true for the boss that ends the run when killed. Exactly one boss per zone must have
+        true, and it must be the last one in the list.
+
+In the existing zones the 5 bosses come at:
+
+    Zones 1-3:  minutes 3, 6, 9, 12 and 16
+    Zones 4-6:  minutes 4, 7, 11, 14 and 18
+    Zones 7-9:  minutes 4, 8, 12, 16 and 20
+
+
+5b. RARES
+-------------
+
+  There are no lairs.
+
+  A RARE is a bigger, much tougher copy of one of the zone's elite enemies. Rares are
+  not listed in the zone file; the game picks them from the elites.
+
+  - Each run sends 5 or 6 rares (picked at random per run), spread over the run between the
+    first elite (minute 4) and the final boss: with 6 in a 16-minute run, at about minutes 5, 7,
+    9, 11, 13 and 15. A rare comes in place of the elite due at that moment, the same way and
+    in the same place an elite would.
+  - Its health bar wears the SILVER dragon (an elite wears the gold one).
+  - It says nothing: no shout, no centre-screen line, no banner.
+  - A rare has 16 times a normal enemy's health and 3 times its damage (section 6).
+  - Killing one gives: gold (30, then 35, 40...), an instant LEVEL UP, and a RARE'S CACHE
+    beside it that is FREE to open (pick a ring, trinket or amulet). Sometimes it also drops a
+    magnet.
+  - Killing rares does not make the others stronger; only the gold goes up.
+
+
+6. HOW STRONG ENEMIES ARE, AND HOW DIFFICULTY GOES UP
+----------------------------------------------------
+
+Every enemy, elite, rare and boss gets its health and damage from the same recipe,
+worked out once, at the moment it appears. The numbers of the recipe are in
+
+    content\balance.ron
+
+(The same file also holds the experience numbers, and the spell tag numbers under
+"spell_tags" - see spells.txt, section 7a.)
+
+  1. START FROM THE BASE
+
+     Every enemy starts at 240 health and 8 damage, in every zone.
+
+  2. MULTIPLY BY THE KIND OF ENEMY
+
+         kind              health     damage
+         normal enemy       x 1        x 1
+         elite              x 10       x 3
+         rare           x 16       x 3
+         boss               x 24       x 2
+         final boss         x 28       x 1
+
+     A normal enemy's health is then multiplied by its toughness (section 4).
+
+  3. MULTIPLY BY THE ZONE'S DIFFICULTY
+
+     The difficulty is the zone's place in the list: Elwynn 1, Duskwood 2 ... Ahn'Qiraj 10.
+     Each step up multiplies a normal enemy's health by 1.35 and its damage by about 1.2;
+     elites and rares grow by 1.3 a step, bosses by 1.22, so their fights keep their length
+     (content\balance.ron, zone_scaling). These numbers are set for the hero a player is expected
+     to bring to each zone: the talent points and gear of one win in every zone before it.
+
+        zone                 difficulty    a normal enemy at the start (health / damage)
+        Elwynn Forest           1            240 / 8.0
+        Duskwood                2            324 / 9.6
+        Warsong Gulch           3            437 / 11.5
+        Arathi Basin            4            590 / 13.7
+        Dire Maul               5            797 / 16.4
+        Gurubashi Arena         7           1453 / 23.6
+        Stratholme              8           1961 / 28.2
+        Blackrock Mountain      9           2648 / 33.8
+        Gates of Ahn'Qiraj     10           3574 / 40.4
+
+  4. MULTIPLY BY THE CLOCK
+
+     The later in the run an enemy appears, the stronger it is (straight lines between these
+     minutes; after minute 16 it keeps climbing at the same pace as 12 to 16). Bosses follow
+     the clock too, at the minute they arrive.
+
+         minute     health      damage
+            0       x 1         x 1
+            4       x 2.5       x 1.5
+            8       x 7         x 2.5
+           12       x 18        x 4.5
+           16       x 36        x 7
+           20       x 65        x 9.5
+
+     Health grows much faster than damage, especially late in the run.
+
+     Example: Hogger arrives in Elwynn at minute 3. 240 x 24 x 1 x 2.125 = 12,240 health, and
+     8 x 2 x 1 x 1.375 = 22 damage.
+
+Later zones are also harder because their runs are LONGER: the final boss comes at minute 18
+or 20 instead of 16. The spawn money grows faster every minute and the clock keeps climbing,
+so a few extra minutes mean a much bigger and sturdier crowd by the end.
+
+  5. ENDLESS MODE
+
+     After you kill the final boss you can choose to keep going ("Endless"). From then on,
+     every minute enemies get 22% more health and 12% more damage on top of everything else,
+     and they arrive faster. Now and then, just before a swarm, the final boss comes back;
+     each time it dies, the Endless minutes start over from zero.
+
+  6. A CAP ON HOW MANY ENEMIES ARE ALIVE
+
+     At normal density at most 60 enemies are alive at once. Higher density raises the cap
+     step by step, up to 120 at the highest density.
+
+On top of the zone, the player can make any run harder with the Run Options:
+
+    Enemy density   100% to 500%   (more enemies)
+    Enemy health    100% to 500%
+    Enemy damage    100% to 300%
+    Enemy speed     100% to 150%
+
+Harder settings give more talent experience and better boss loot.
+
+TO MAKE A NEW ZONE THAT FITS BETWEEN TWO OTHERS: give it a difficulty number between theirs
+(6 is kept free between Dire Maul and the Arena)
+and copy the boss minutes of the zones around it.
+
+
+7. MAKING A NEW ZONE, STEP BY STEP
+----------------------------------
+
+  1. Copy one of the files in content\zones\ (or docs\game\templates\zone.ron) and name the
+     copy after your new zone, for example content\zones\stranglethorn.ron.
+  2. Open the copy. Set its id to the file's name ("stranglethorn") and give it a name.
+  3. That file is the whole zone: you do not add it to any list, and no code changes.
+  4. Choose the place: map_id, area_id, spawn, hour, weather.
+  5. Change the 12 enemies: names, models (display_id), kind, toughness,
+     appears_at_minute, and look_spell for casters.
+  6. Change the 5 bosses. Keep exactly one is_final: true, on the last boss.
+  7. Pick a difficulty number (section 6). It also decides where the zone sits among the
+     others; two zones may not have the same number.
+  8. Save, then run "cargo test -p esurv-content" to check for mistakes. It tells you, by
+     file name, if a file's id is not its name, if two zones share an id or a difficulty
+     number, or if a difficulty is not above 0.
+
+HOW ZONES UNLOCK
+
+  The zones are in order of their difficulty number, lowest first. That is the order every
+  list of zones shows, and the order they unlock in, separately for each class. A new class
+  starts with only the first zone. When you WIN in a zone, every zone up to it and the one
+  right after it are open to that class ("Duskwood is now open to your Warriors"). Winning
+  again in an easier zone does not open anything new.
+
+  The save remembers which zones each class has won, not how many are open. So a new zone with
+  a difficulty below a class's hardest win is open to it at once, and nothing it had open ever
+  closes. A new zone above that opens like any other: by winning the zone right before it.
+
+  So the difficulty number you pick decides when players reach the new zone. Its gear tier
+  follows from its difficulty too (see gear.txt).

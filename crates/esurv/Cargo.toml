@@ -1,0 +1,37 @@
+[package]
+name = "esurv"
+description = "The game launcher: starts the embedded server, then the benilla client with the game's screens."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# Same dev/player seam as the `benilla` launcher: the player build is `--no-default-features`.
+default = ["dev"]
+# `dev` also watches the content folder and loads it again as it changes (`esurv-content/watch`).
+dev = ["benilla-app/dev", "benilla-formats/dev", "esurv-content/watch"]
+
+[dependencies]
+benilla-app = { path = "../benilla-app", default-features = false }
+esurv-app = { path = "../esurv-app" }
+esurv-server = { path = "../esurv-server" }
+esurv-content = { path = "../esurv-content", features = ["client"] }
+# The asks before a run, which the launcher's local carrier hands to the server.
+esurv-protocol = { path = "../esurv-protocol" }
+# Whether the data folder holds a client the game plays on, said before anything loads.
+esurv-client-check = { path = "../esurv-client-check" }
+# The install and project-folder lookup the client uses too.
+benilla-formats = { path = "../benilla-formats", default-features = false }
+anyhow.workspace = true
+rand = "0.8.6"
+
+[build-dependencies]
+benilla-buildstamp = { path = "../benilla-buildstamp" }
+
+[[bin]]
+name = "esurv"
+path = "src/main.rs"
+test = false

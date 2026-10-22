@@ -1,0 +1,422 @@
+ESURV - GEAR, EXPLAINED
+============================
+
+This file explains, in plain words, how gear works and how it is organised. The technical
+version is gear.md in the folder above this one.
+
+Class gear is now worked out: what each piece gives and how it grows from zone to zone
+(section 3).
+Still open: what happens to a piece for a slot you already fill ("not known yet").
+
+
+1. THE FIVE KINDS OF GEAR
+-------------------------
+
+  STARTING OUTFIT
+      What a brand new hero wears: plain clothes and a basic weapon, like in WoW at level 1.
+
+  CLASS GEAR (armor and a weapon)
+      Bosses drop pieces of your class's set. You keep them for good, across runs.
+      This is the hero's long-term progression.
+
+  RINGS
+      Found during a run, in Battleground Caches and rares' caches. There are 9 rings.
+      Each ring gives one bonus, for example "+17% damage".
+      Lost when the run ends; every run starts without rings. (Seen in play.)
+
+  TRINKETS
+      Found the same way as rings. There are 13 trinkets, all real WoW trinkets (Hand of
+      Justice, Carrot on a Stick, Onyxia Blood Talisman, Soulstone, ...). Also lost when the
+      run ends. (Seen in play; other details
+      not known yet.)
+
+  AMULETS (necklaces)
+      17 of them, plus LEGENDARY amulets that remake one of your spells (see below).
+      You can wear one at a time; taking a new one replaces the old one.
+      If the game offers you the same amulet again while you wear it, it gets stronger
+      ("empowered"), growing toward three times its strength.
+      Also lost when the run ends. (Seen in play.)
+
+  IN SHORT: class gear is what your hero keeps and grows over many runs. Rings, trinkets and
+  amulets are only for the current run, like the spells you pick when levelling up.
+
+
+1b. HOW YOU GET GEAR DURING A RUN (seen in play)
+------------------------------------------------
+
+  BOSSES
+      When a boss dies, it can drop a piece of your class gear. The chance goes by the zone's
+      difficulty D, in steps (little grinding for gear):
+
+          Elwynn 100%   Duskwood and Warsong 80%   Arathi and Dire Maul 70%
+          Gurubashi 60%   Stratholme, Blackrock and Ahn'Qiraj 40%
+
+      The steps are in content\balance.ron, zone_scaling, gear_drop_chance.
+
+      Harder Run Options multiply this, up to x2. Enemy SPEED counts the most, then damage,
+      then health; density barely counts.
+
+      Each zone drops its own whole set, stronger in harder zones (each
+      zone its own names and looks). Each of the 4 normal bosses drops two
+      armor pieces; the final boss drops the weapon.
+
+  CACHES (bought ones and rares' free ones)
+      Opening one shows 3 choices, just like a level-up, drawn from rings, trinkets and
+      necklaces. You pick ONE. An offer can be:
+          - a NEW item for a free slot,
+          - an UPGRADE to an item you already wear (it goes up a rank), or
+          - a NECKLACE that takes the place of the one you wear.
+
+  RARITY - THE SAME IDEA AS THE SPELL CARDS
+      Every offer rolls a rarity (white, green, blue, purple, orange). The rarity decides:
+          - for an upgrade: HOW MUCH better the next rank is (higher rarity = bigger jump)
+          - for a new item: what rarity the item has
+      The top rarity, LEGENDARY (orange), is the biggest jump for a ring or trinket; for a
+      necklace it can be a legendary necklace. Legendary necklaces only appear when a
+      necklace offer rolls legendary.
+
+  FOUND IN THE CODE:
+
+    How likely each rarity is (the same rule for spell cards and cache items):
+
+                       spell cards,       necklaces
+                       rings, trinkets    from a cache
+        white             60%                43%
+        green             25%                27%
+        blue              10%                16%
+        purple             4%                10%
+        orange             1%                 4%
+
+      (at the very start with no luck; luck and level raise the rare colours - level counts
+      up to level 30. Necklaces always get an extra bonus, so they roll rarer than rings and
+      trinkets, and a rare cache raises the odds of everything it offers a little more.)
+
+    What a cache can show (3 different ones, picked at random, some more likely than others):
+        - an upgrade to a ring/trinket you wear        (most likely)
+        - an amulet                                     (likely)
+        - "empower" your necklace, if you wear one
+        - a new ring or trinket                         (least likely)
+
+    You wear at most 2 rings and 2 trinkets. Once both ring slots are full, no new ring is
+    offered any more (the two you wear can still be upgraded); the same for trinkets. A piece
+    that raises buff power only comes once you have a shield, buff or aura spell, and one that
+    adds damage-over-time stacks only once you have a damage-over-time spell.
+
+    Upgrades stop being offered once an item is close to its maximum. Some bonuses have no
+    maximum (damage, cooldowns, critical strike, area); others can grow to 3 or 5 times their
+    base value, and a new one never starts above that.
+
+    If there are fewer than 3 things to offer, a gold card fills the empty spot.
+
+    HOW MUCH BETTER (the rarity decides it, as you noticed in play):
+
+        colour          ring/trinket strength      spell card
+        white   x1.0                               no bonus
+        green   x1.3                               +15% power  (or -7% cooldown)
+        blue    x1.7                               +25% power  (or -10% cooldown)
+        purple  x2.5                               +35% power  (or -13% cooldown)
+        orange  x3.2                               +50% power  (or -17% cooldown)
+
+      - A NEW ring or trinket starts at 1.5 x that strength x its normal value.
+      - An UPGRADE adds that strength x its normal value, but each upgrade of the same item
+        adds a bit less than the one before (8% less per upgrade already taken).
+      - Bonuses that have a maximum grow more slowly as they get close to it.
+      - Spells that do damage get more power; spells that don't (buffs, shields) get a
+        shorter cooldown instead.
+
+  WHERE CACHES, GOLD, RUNES AND MAGNETS COME FROM
+
+    Price:  opening a cache costs gold: 20 for the first, then 30, 42, 57, 76, ... (each
+            price is the last one x 1.25 + 5).
+    Caches: 2 lie on the field when a run starts, and a new one appears every 70 seconds
+            while there are fewer than 3. Every ELITE you kill drops one. Killing a RARE
+            drops a RARE'S CACHE, free to open (no gold; the price of the others stays).
+    Gold:   normal enemies sometimes drop 2-4 gold; elites always drop 15; rares and
+            bosses drop more (and more each time).
+    Runes:  every 45 seconds a rune may appear (if at most one is lying around):
+              Speed Rune        +60% movement speed for 10 seconds
+              Berserker Rune    +50% damage for 15 seconds
+              Restoration Rune  heals half your health
+    Magnets: 2 or 3 per run, spread over the run. One shows up with a beam of light; taking
+            it pulls everything on the field to you. Killing a boss (or, half the time, a
+            rare) can make the next magnet drop early.
+
+    Picking up:
+            Experience orbs fly to you when you come close (your pickup range). Orbs you
+            leave behind come to you by themselves after 6 seconds, wherever they are.
+            Gold is picked up as soon as you come close (pickup range).
+            Caches, runes and magnets: walk right onto them. A cache only opens if you
+            have enough gold; otherwise it stays where it is.
+
+  AMULETS IN DETAIL
+
+    Each amulet has a colour (rarity) and gives one to three bonuses, written like talents
+    (for example "All damage +15%", or "A blow that would kill you leaves you at 50% health
+    instead, once a minute"). They are listed in content\amulets.ron.
+
+    When a cache offers an amulet, it rolls a colour and then picks any amulet of that exact
+    colour. You are never offered the amulet you already wear as a "new" one.
+
+    LEGENDARY AMULETS remake one spell you know. There is one recipe per KIND of spell (the
+    "delivery" kind in classes.txt), for example:
+        projectile spells (Fireball...)  -> Eye of the Splitting Sky: +1 target, +20% damage,
+                                            and each hit leaps to 2 more enemies for 30%
+        melee strikes (Cleave...)        -> Medallion of the Bladestorm: +4 targets, +50%
+                                            damage, and every hit makes the target bleed
+        cones (Cone of Cold...)          -> Breath of the Black Dragon: wider, +30% damage,
+                                            and every hit burns
+    The amulet is called "<recipe name>: <spell name>", e.g. "Eye of the Splitting Sky:
+    Fireball". The 11 recipes are in content\legendary_amulets.ron; gear.md lists them all.
+
+    EMPOWER: when you are offered the amulet you already wear, taking it raises its rank and
+    all its numbers grow:
+        rank 1: x1.0    rank 2: x1.6    rank 3: x2.0    rank 4: x2.3   ... never past x3
+    (that is for the fastest-growing amulets; some grow more slowly, legendary ones grow
+    x1.2, x1.38, ...). A cooldown cut never goes past 50%.
+
+  STILL TO FIND: what one totem amulet effect (TotemHeal) does.
+
+Two screens show gear: the Armory (what your hero wears) and the Codex (every piece any run has
+ever offered you).
+
+
+2. THE STARTING OUTFIT
+----------------------
+
+Each class starts with real WoW starter items. Each item is described by a few numbers:
+
+    name             Worn Shortsword
+    item number      25     - the item's ID in WoW 1.12
+    look             1542   - which 3D model it shows (WoW "display ID")
+    slot             21     - where it is worn. Some slot numbers:
+                                21 main hand      17 two-handed weapon    13 one-handed weapon
+                                14 shield         15 ranged weapon         5 chest
+                                 7 legs            8 feet                   4 shirt
+    item type        2      - 2 = weapon, 4 = armor
+    weapon kind      7      - 7 = one-handed sword, 10 = staff, 4 = one-handed mace,
+                              0 = one-handed axe
+    sheath           3      - how the weapon hangs on the back or belt when put away
+
+Examples of starter items used: Recruit's Shirt, Footpad's Shoes, Apprentice's Robe,
+Worn Shortsword, Bent Staff, Worn Mace.
+
+
+3. CLASS GEAR SETS
+------------------
+
+EVERY ZONE HAS ITS OWN LOOK. Each class's set has a look per zone:
+its 8 armor pieces with their own names and models, and the zone's ARMAMENTS: a weapon look for
+each of the class's three weapon loadouts. Stats do not change with the look: they come from
+the zone's difficulty (below).
+
+    Zone (D)                Armor look                          Armaments
+    Elwynn (1)              the Recruit's starting look         level 10-15 green weapons
+    Duskwood (2)            Deadmines, Shadowfang Keep,         the same dungeons
+                            Blackfathom Deeps, Gnomeregan
+    Warsong Gulch (3)       Warsong reputation and level 25-35  Warsong reputation and others
+    Scarlet Monastery (4)   "Adventurer's" pieces, level 30-45  Scarlet Monastery
+    Sunken Temple (5)       Sunken Temple, Zul'Farrak,          the same dungeons
+                            Maraudon, Uldaman
+    Dire Maul (6)           Dungeon Set 1 (Valor, Lightforge..)  Dire Maul and Blackrock pre-raid
+    Gurubashi Arena (7)     Zul'Gurub sets                      Zul'Gurub
+    Stratholme (8)          TWO ROWS: Dungeon Set 2 (Heroism,   Stratholme drops
+                            Soulforge..) and the Scholomance    Scholomance drops
+                            sets
+    Blackrock (9)           TWO ROWS: Tier 1 (Molten Core)      Molten Core
+                            and Tier 2 (Blackwing Lair)         Blackwing Lair
+    Ahn'Qiraj (10)          Tier 2.5                            Temple of Ahn'Qiraj
+    (Naxxramas, no zone yet) Tier 3                             Naxxramas
+
+The Naxxramas looks wait in the content for its zone.
+
+BLACKROCK'S TWO ROWS: Blackrock's pieces have the same stats in
+both rows. A Blackrock piece unlocks that piece's look in BOTH rows: it shows the Molten Core
+row of its own, and you pick the Blackwing Lair row as a look (Show This Look) like any other.
+
+STRATHOLME'S TWO ROWS: the same as Blackrock. Row 0 is Dungeon Set 2 with mostly Stratholme weapons; row 1, the
+"Scholomance sets", is each armor type's Scholomance set (plate Deathbone Guardian, mail
+Bloodmail Regalia, leather Cadaverous Garb, cloth Necropile Raiment), its missing slots
+filled with Stratholme drops of the same colours, with mostly Scholomance weapons.
+gear.md section 3 lists every piece and weapon.
+
+Each zone has 8 ARMOR PIECES (head, shoulders, chest, waist, legs, feet, wrists, hands) and
+the class WEAPONS (one weapon, or two for rogue = two daggers and shaman = mace + shield). A
+weapon piece is called "<zone> Armaments": ONE of them unlocks the zone's weapon looks for all
+three loadouts. What you hold is your chosen loadout's weapons, in the armaments of the weapon
+piece you wear (its own zone's, or the look you picked for its slot; Elwynn's with none).
+
+Quality colour: from the zone's difficulty: Elwynn common, Duskwood and Warsong
+uncommon, Scarlet Monastery, Sunken Temple and Dire Maul rare, Gurubashi and Stratholme epic,
+Blackrock and Ahn'Qiraj legendary.
+
+WHAT A PIECE GIVES YOU
+
+  EACH ZONE DROPS ITS OWN GEAR. A piece is a slot from a zone, with the zone's own name and
+  look; its tooltip says where it came from: "From Duskwood".
+
+  Every slot gives the SAME stats for every class. These are the Elwynn values:
+
+      head        +1% crit chance, +4% crit damage
+      shoulders   +3% area, +5 health
+      chest       +15 health, +1% less damage taken
+      waist       +10% pickup range, +5% gold
+      legs        +10 health, +2% chance to cast twice
+      feet        +2% move speed, +10 health
+      wrists      +2% faster cooldowns, +2% heal and shield power
+      hands       +10% luck
+      weapon      +8% damage
+      off-hand    +4% damage, +6 health   (rogue's second dagger, shaman's shield)
+
+  HEAL AND SHIELD POWER is a stat of ours: it makes the heals of your spells (instant heals,
+  heals over time, Bloodthirst's healing charges, spells that heal from their damage) and the
+  shields you cast stronger. It does not touch health per second, lifesteal or health per kill.
+
+  A harder zone makes every stat bigger:
+
+      real value = Elwynn value  x  gear factor, rounded UP to a whole number
+      gear factor = D ^ 0.55 up to D 9, then x 1.3 more for each step of D past 9
+
+  D is the zone's difficulty (its file in content\zones). Percentages round UP to whole percents, health UP to
+  whole points, so no gear stat ever shows a decimal. A zone added later gets its own gear
+  level from its D, with nothing else to change. The numbers are in content\balance.ron,
+  zone_scaling: each zone's set is meant to add about 10% damage over the one before, up to the
+  set worn in Ahn'Qiraj, and about 25% a set after that.
+
+      zone        D      x       a 10 that becomes   a 2% that becomes
+      Elwynn      1      1.00    10                  2%
+      Duskwood    2      1.46    15                  3%
+      Warsong     3      1.83    19                  4%
+      Arathi      4      2.14    22                  5%
+      Dire Maul   5      2.42    25                  5%
+      Gurubashi   7      2.92    30                  6%
+      Stratholme  8      3.14    32                  7%
+      Blackrock   9      3.35    34                  7%
+      Ahn'Qiraj  10      4.35    44                  9%
+
+  So the head gives 1% crit in Elwynn and 5% in Ahn'Qiraj; the weapon 8% damage in Elwynn,
+  24% in Gurubashi and 35% in Ahn'Qiraj; the chest 15 health in Elwynn and 66 in Ahn'Qiraj.
+  gear.md has the full table.
+
+  From the second zone on (every zone but Elwynn), every piece ALSO gets a small CLASS BONUS:
+  two extra stats, grown and rounded the same way. Which two depends on the class and the slot
+  (the game counts: class number x 3 + slot number, and wraps around after 8). The 8 bonus
+  pairs, in Elwynn values:
+
+      0  +2% damage, +1% crit             4  +1% faster cooldowns, +2% cast twice
+      1  +5 health, +1% less damage       5  +10 health, +1 health per kill
+      2  +5 health, +1% faster cooldowns  6  +2% damage, +1% move speed
+      3  +1% move speed, +1% crit         7  +3% area, +1% crit
+
+  Example, a warrior's chest from Ahn'Qiraj:
+      15 health x 4.53 = 68 health, and 1% x 4.53 = 5% less damage taken
+      plus bonus pair 5 (warrior is class 1: 1 x 3 + chest 2 = 5): 45 health, 5 health per kill
+
+  Only what you WEAR counts (our best reading).
+
+
+OLD SAVES
+
+  Before gear came by zone, a piece was just a tier. A save from then is changed once, when it
+  is opened: every old piece becomes the piece of the LATER zone of its tier (tier 0 Elwynn,
+  1 Warsong, 2 Dire Maul, 3 Stratholme, 4 Ahn'Qiraj), worn or in the collection.
+
+  Saves from before every zone had its own look kept a chosen look as a tier (0 to 4). Such a
+  look is moved on once: it becomes the look of the LATEST zone of
+  that tier whose piece of the slot you have won; with none won, the choice goes and the slot
+  shows its own look. Since then a save keeps a chosen look by its zone and row.
+
+  Later saves kept pieces by number too; they are changed once in the same way, each piece
+  named by its slot and its zone. Since then a save names every piece ("head" from "elwynn"),
+  so when zones are added or taken out, the save follows: every piece stays the piece of the zone
+  it came from, wherever that zone now sits among the others.
+
+
+NAMES AND LOOKS
+
+  - Every zone's armor pieces have their own names (Duskwood's warrior helm is the Sparkmetal
+    Coif, the Scarlet Monastery's are "Adventurer's" pieces, Elwynn's the Recruit's). A weapon
+    piece is "<zone> Armaments" (a rogue's or shaman's second one "<zone> Off-hand Armaments").
+  - Each piece shows a WoW 3D model (a "display ID") of its zone. If a zone has no model for a
+    slot (written as 0), it borrows the nearest zone's: Elwynn's starting look has no helm for
+    several classes, so they show Duskwood's.
+  - A look you show over a worn piece is a zone's: the slot's piece of that zone unlocks it (a
+    Blackrock piece both its rows). A look you chose stays with the slot until you change it.
+  - Each piece has a short flavour line in its tooltip. We write our own.
+
+NOT KNOWN YET
+
+  - (answered) A dropped piece goes into your collection. If you already had it, nothing
+    changes. Gear is never put on automatically: equip it in the armory before the next run.
+
+
+WHICH BOSS DROPS WHAT
+
+  A boss drops gear of its own zone. Every piece it can drop gets its own dice roll (60% in
+  Elwynn down to 20% in the last zones, more with harder Run Options).
+
+  The four normal bosses share out the 8 armor slots:
+    - Elwynn is the only tier-0 zone, so its 4 bosses get 2 slots each:
+        boss 1: head and feet        boss 2: shoulders and wrists
+        boss 3: chest and hands      boss 4: waist and legs
+    - Every other tier has two zones (for example Duskwood and Warsong), so 8 bosses share
+      the 8 slots: the first zone's bosses drop head, shoulders, chest and waist; the second
+      zone's bosses drop legs, feet, wrists and hands. (For now: a later pass will let every
+      zone drop all its pieces.)
+  The final boss of a zone drops your class's weapon (rogues and shamans: both weapons).
+
+
+4. THE GEAR FILE
+----------------
+
+All of this lives in ONE file: content\gear.ron. Its parts, top to bottom:
+
+    slots               the 8 armor slots: their WoW numbers, the 4 slot words
+                        (cloth, leather, mail, plate) and their Elwynn stats
+    bonus_stats         the 8 bonus pairs (Elwynn values)
+    sets                one block per class:
+                          class, armor type,
+                          the bonus pair each slot and weapon adds (bonus_pairs),
+                          a look per zone (looks): the zone, its row (Blackrock's and
+                            Stratholme's second is row 1), 8 names and 8 display IDs,
+                          the weapons (stats, WoW weapon type, hand)
+    The weapons' looks are each zone's ARMAMENTS, in contentloadouts.ron: every loadout
+    weapon has a look per zone (and row), with the item's name, its display ID and, where it
+    is another kind than the loadout says (an axe among swords), its own kind.
+
+A stat is written like this:   (stat: FlatMaxHealth, value: 10.0)
+Stat names you can use: Damage, CooldownRecovery, FlatMaxHealth, MaxHealth, CritChance,
+CritDamage, DamageReduction, HealthPerSecond, MoveSpeed, Area, PickupRange, Gold, Experience,
+Luck, DoubleCast, HealPerKill, HealAndShieldPower, ExtraTargets, and the others listed in
+classes.md.
+Percentages are written as fractions: 0.03 = 3%.
+
+
+5. WHAT YOU CAN CHANGE
+----------------------
+
+  CHANGE WHAT A SLOT GIVES
+      Edit the "stats" of that slot (all classes change together), or of a weapon.
+
+  MAKE GEAR GROW FASTER OR SLOWER FROM ZONE TO ZONE
+      Edit gear_exponent (0.55 now) in content\balance.ron, zone_scaling. A bigger number
+      makes harder zones' gear stronger. Then run the balance check with --gear.
+
+  CHANGE HOW A PIECE LOOKS, OR ITS NAME
+      In gear.ron, find the class's look for that zone and replace the display ID (or the
+      name) of that slot with another WoW item model that fits the same slot. A weapon look:
+      the loadout weapon's line for that zone in loadouts.ron.
+
+  GIVE A NEW ZONE ITS LOOK
+      Add a look for the zone's id to every class in gear.ron, and a line for it to every
+      loadout weapon in loadouts.ron. Until then the zone's pieces show the look of the zone
+      before it. A second row for a zone is the same look with "row: 1".
+
+  ADD A WEAPON LINE
+      Add another weapon block to the class's set. (The planned weapon loadouts will use this.)
+      A set holds at most two weapon lines (slots 8 and 9): more needs code.
+
+  GEAR FOR A NEW CLASS
+      Add a new block under "sets" for that class (copy templates/gear_set.ron). Every class
+      needs exactly one.
+
+After editing: save, then run "cargo test -p esurv-content -p esurv-sim" to check for mistakes.

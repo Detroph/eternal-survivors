@@ -1,0 +1,325 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    id: "duskwood",
+    name: Area(10),
+    subtitle: "The Long Night",
+    description: "The dead walk out of {Area(94)} and worgen stalk the darkened forest. Something calls them all to war.",
+    map_id: 0,
+    area_id: 10,
+    spawn: (
+        x: -10455.82,
+        y: 242.45,
+        z: 30.96,
+        facing: 5.95,
+    ),
+    arena_radius: 80.0,
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 0,
+    weather: (
+        kind: Rain,
+        intensity: 0.25,
+    ),
+    difficulty: 2.0,
+    enemies: [
+        (
+            name: "Skeletal Raider",
+            display_id: 158,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Plague Spreader",
+            display_id: 137,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Black Widow Hatchling",
+            display_id: 1091,
+            scale: 0.6,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Nightbane Shadow Weaver",
+            display_id: 203,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 2.0,
+            look_spell: Some(686),
+        ),
+        (
+            name: "Rotting Horror",
+            display_id: 1201,
+            scale: 1.1,
+            creature_type: Undead,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Nightbane Dark Runner",
+            display_id: 202,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: FastMid,
+            toughness: 1.0,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Fleshripper",
+            display_id: 388,
+            scale: 0.35,
+            creature_type: Beast,
+            kind: FastMid,
+            toughness: 0.75,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Restless Shade",
+            display_id: 146,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(116),
+        ),
+        (
+            name: "Bone Chewer",
+            display_id: 414,
+            scale: 1.5,
+            creature_type: Undead,
+            kind: ToughMid,
+            toughness: 3.25,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Nightbane Worgen Alpha",
+            display_id: 523,
+            scale: 0.8,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Carrion Recluse",
+            display_id: 366,
+            scale: 2.4,
+            creature_type: Beast,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Flesh Eating Abomination",
+            display_id: 15961,
+            scale: 0.45,
+            creature_type: Undead,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only Lupos brings these when he howls; they never spawn by
+        // themselves.
+        (
+            name: "Starving Dire Wolf",
+            display_id: 801,
+            scale: 1.0,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
+    // every area attack is marked on the ground before it lands and hits the hero only. Each boss
+    // keeps the damage a hero cannot avoid (`swing_mult` carries what its unmarked abilities did).
+    bosses: [
+        (
+            name: "Naraxis",
+            display_id: 1091,
+            scale: 1.35,
+            creature_type: Beast,
+            spawn_minute: 3.0,
+            yell: "A shadow drops from the treetops, fangs first!",
+            swing_mult: Some(1.5),
+            abilities: [
+                // web blobs land round the hero and become cocoons: walk over them before they
+                // hatch
+                Marked(
+                    shape: Circle(radius: 3.0),
+                    at: NearHero(count: 3, spread: 8.0),
+                    impact_spell: 0,
+                    damage_mult: Some(1.0),
+                    cooldown: Some(10.0),
+                    leaves_object: Some((name: "Webbed Cocoon", display_id: 6171, scale: 0.7, glow_spell: 20922, hatch: Some((after: 8.0, enemy: "Black Widow Hatchling", count: 3)))),
+                    warn: Some((text: "Web blobs: break the cocoons!", colour: Yellow, icon_spell: Some(3542), bar: Some("{Spell(3542)}"))),
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Mor'Ladim",
+            display_id: 200,
+            scale: 2.80,
+            creature_type: Undead,
+            spawn_minute: 6.0,
+            yell: "Another soul for the old graves...",
+            swing_mult: Some(2.0),
+            abilities: [
+                // skeletal hands claw up from marked graves round the hero
+                Marked(
+                    shape: Circle(radius: 3.5),
+                    at: NearHero(count: 4, spread: 9.0),
+                    impact_spell: 17473,
+                    cooldown: Some(8.0),
+                    warn: Some((text: "Graves: the hands claw up, move!", bar: Some("Graves"))),
+                ),
+            ],
+            script: [
+                // below 30 % he enrages (faster, the graves more often)
+                (
+                    on: Health(30.0),
+                    warn: Some((text: "Mor'Ladim enrages: graves come faster!", colour: Purple, icon_spell: Some(3547))),
+                    soon: Some("{Spell(3547)} soon"),
+                    run: [Enrage, Emote(text: "%s is filled with {Spell(3547)}!")],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Stitches",
+            display_id: 1061,
+            scale: 1.45,
+            creature_type: Undead,
+            spawn_minute: 9.0,
+            yell: "Stitches smell lunch!",
+            // slow, so he can be kited
+            move_speed: Some(4.0),
+            swing_mult: Some(2.0),
+            abilities: [
+                // he spews plague in a cone that leaves poison puddles
+                Marked(
+                    shape: Cone(length: 14.0, angle: 60.0),
+                    at: Boss,
+                    impact_spell: 0,
+                    cooldown: Some(10.0),
+                    leaves: Some((look_spell: 28158, radius: 3.0, seconds: 10.0, damage_mult: 0.2)),
+                    warn: Some((text: "Plague spew: dodge the cone!", colour: Green, icon_spell: Some(3256), bar: Some("Plague"))),
+                ),
+            ],
+            script: [
+                // his rot hurts a hero who stays close: kite him
+                (
+                    on: Arrival,
+                    warn: Some((text: "{Spell(3106)}: keep your distance!", colour: Green, icon_spell: Some(3106))),
+                    run: [LayZone(zone: (look_spell: 3256, radius: 7.0, seconds: 0.0, damage_mult: 0.15, follows: true))],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Lupos",
+            display_id: 1236,
+            scale: 2.80,
+            creature_type: Beast,
+            spawn_minute: 12.0,
+            yell: "A howl rolls through the dark woods.",
+            // each bite leaves a stacking shadow wound (damage only)
+            on_hit: Some((look_spell: 589, damage_mult: 0.05, every: 1.0, seconds: 10.0, max_stacks: 5)),
+            swing_mult: Some(1.5),
+            abilities: [
+                // he fades into shadow, then pounces along a marked line
+                Rush(
+                    look_spell: 100,
+                    fade_spell: Some(1784),
+                    length: Some(28.0),
+                    width: Some(5.0),
+                    wind_up: Some(1.8),
+                    cooldown: Some(11.0),
+                    warn: Some((text: "Lupos fades: side-step the pounce!", bar: Some("Leap"))),
+                ),
+            ],
+            script: [
+                // he howls and calls wolves from the edges
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "Lupos howls: wolves incoming!", colour: Orange, bar: Some("Howl"))),
+                    run: [
+                        Emote(text: "%s howls!"),
+                        Wave(enemy: "Starving Dire Wolf", count: 4, at: Edges),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Morbent Fel",
+            display_id: 16309,
+            scale: 3.85,
+            creature_type: Undead,
+            spawn_minute: 16.0,
+            yell: "Rise, my dead. We have guests.",
+            swing_mult: Some(1.771),
+            abilities: [
+                // a slow dark bolt at the hero's spot: walk out of its mark
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 3108,
+                    impact_on_bunny: true,
+                    missile: true,
+                    wind_up: Some(2.5),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(3108)}: move!", colour: Purple, bar: Some("{Spell(3108)}"))),
+                ),
+                GroundBurst(telegraph_spell: 10, impact_spell: 122),
+            ],
+            script: [
+                // on arrival: every living enemy near the hero dies and rises as a skeleton, and
+                // only the undead come from then on
+                (
+                    on: Arrival,
+                    warn: Some((text: "{Spell(17473)}: the dead rise!", colour: Purple, icon_spell: Some(17473))),
+                    run: [
+                        RaiseDead(within: 45.0, rise_as: "Skeletal Raider", look_spell: 17473),
+                        Roster(only: Undead),
+                    ],
+                ),
+                // shielded until the hero takes Morbent's Bane: mortal 15 s, and it drops again
+                (
+                    on: Arrival,
+                    run: [
+                        Shield(damage_taken: 0.1, look_spell: 3109),
+                        Place(
+                            object: (
+                                name: "Morbent's Bane",
+                                display_id: 404,
+                                scale: 0.6,
+                                glow_spell: 20922,
+                                on_contact: [Mortal(seconds: 15.0), Emote(text: "%s is mortal!")],
+                                again_after: Some(30.0),
+                                warn: Some((text: "The relic dropped: grab it!", colour: Yellow, icon_spell: Some(8913))),
+                            ),
+                            near: Boss(8.0),
+                        ),
+                    ],
+                ),
+            ],
+            is_final: true,
+        ),
+    ],
+)

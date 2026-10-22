@@ -1,0 +1,14 @@
+[package]
+name = "benilla-ui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Engine-free WoW UI engine core: TOC and FrameXML parsing, templates, anchors, z-order"
+
+[lints]
+workspace = true
+
+[dependencies]
+roxmltree = "0.20"
+# The script host's Lua 5.1; `vendored` builds it from the workspace's patched `lua-src`.
+mlua = { version = "0.11", features = ["lua51", "vendored"] }

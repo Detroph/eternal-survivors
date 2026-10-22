@@ -1,0 +1,61 @@
+// Spell template. Copy the block below into the list in content/abilities.ron, change what you
+// need, then add its id to a class's `abilities` in content/classes.ron.
+// Every field is explained in docs/game/spells.md (and docs/game/guides/spells.txt).
+(
+    id: "my_new_spell",            // unique, lowercase, used by classes, talents and saves
+    name: "My New Spell",          // shown on cards and tooltips: our own name as text, or a
+                                   // pointer where the client holds it, e.g. Spell(133) (a
+                                   // Spell.dbc id), read from the player's client
+    description: "Hurls a bolt at {targets:the nearest enemy|the # nearest enemies} within {range} yd for {damage} {school} damage.",
+                                   // what a card says the first time it offers the spell, in
+                                   // our own words; {name} is one of the spell's numbers at the
+                                   // rank offered (the list is in spells.md, section 2a),
+                                   // and {Spell(133)} shows the client's name for a spell
+    icon: "Spell_Fire_FlameBolt",  // a texture name from Interface\Icons in the WoW client
+    look_spell: 133,               // the WoW spell (Spell.dbc id) whose look, sound and missile
+                                   // speed this spell uses
+    school: Fire,                  // Physical, Holy, Fire, Nature, Frost, Shadow or Arcane
+    delivery: Projectile,          // how it reaches enemies: Projectile, Chain, Nova, GroundArea,
+                                   // Bounce, Melee, DamageOverTime, Finisher, Cone, SelfEffect
+                                   // or Totem (see the table in spells.md)
+    categories: [DirectDamage, Ranged],
+                                   // what kind of spell it is, for changing every spell of a
+                                   // kind at once (content/spell_categories.ron) and for talents:
+                                   // DirectDamage, DamageOverTime, AreaOfEffect, Melee, Ranged,
+                                   // CrowdControl, Sustain, Shield, DamageReduction, Reflect,
+                                   // Buff, Summon (as many as fit; rules in spells.md section 7)
+    tags: [Nuke],                  // what the spell is about, for the tag coefficients in
+                                   // content/balance.ron (spells.md section 8a): one of Level1,
+                                   // Nuke, Cleave, Dot, Nova, Area, Pet if it deals damage, plus
+                                   // Sustain, Buffs or Defensive for what else it gives
+    upgrades: [Power, Cooldown, Targets],
+                                   // what level-up cards may improve:
+                                   // Power, Cooldown, Targets, Area, Duration
+    damage: 40.0,                  // base damage per hit; for areas and effects over time the
+                                   // total over `duration`, split over `ticks`;
+                                   // 0 for spells that do not deal damage
+    cooldown: 2.0,                 // seconds between automatic casts
+    range: 30.0,                   // yards it reaches; 0 = around the hero
+    radius: 0.0,                   // yards, for novas, ground areas, cones and totems
+    targets: 1,                    // enemies hit per cast (0 counts as 1)
+    duration: 0.0,                 // seconds, for areas, effects over time, buffs and totems
+    ticks: 0,                      // hits spread over `duration` (not used by totems,
+                                   // which pulse every 2 s); a Nova with 2 or
+                                   // more goes off that many times, `duration` / `ticks`
+                                   // seconds apart, the first at once, around the hero
+    pulse_spell: Some(8187),       // optional: a Totem's pulse spell (missing: look_spell)
+    free_casts_can_proc: false,    // optional: true lets this spell set off talents and amulets
+                                   // even when a talent or amulet casts it for free
+    heal_below: Some(0.65),        // optional: a heal on yourself waits for this share of
+                                   // max health (missing: 0.85)
+    effect: None,                  // extra effect: see the list in spells.md, e.g.
+                                   // Slow(amount: 0.5, seconds: 4.0), Root(seconds: 3.0),
+                                   // Stun(seconds: 2.0), Heal(share: 0.1), ...
+    burn: Some((damage: 160.0, duration: 5.0, ticks: 5)),
+                                   // optional: each enemy the hit lands on also burns, for
+                                   // `damage` in all, in `ticks` even ticks over `duration`
+                                   // seconds from when the hit lands (missing: no burn)
+    impact: 46.0,                  // optional, GroundArea spells: each enemy inside
+                                   // takes this much at once as the area lands, before its
+                                   // ticks (missing: no impact)
+)
