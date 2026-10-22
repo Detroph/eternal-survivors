@@ -1,0 +1,29 @@
+[package]
+name = "esurv-server"
+description = "The embedded 1.12.1 server: realmd logon, the zone picker as a realm list, and a world server driving esurv-sim."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+esurv-sim = { path = "../esurv-sim" }
+esurv-content = { path = "../esurv-content" }
+esurv-protocol = { path = "../esurv-protocol" }
+benilla-srp = { path = "../benilla-srp" }
+benilla-protocol = { path = "../benilla-protocol" }
+# Without default features: `dev` bakes the source path in; the launcher forwards it.
+benilla-formats = { path = "../benilla-formats", default-features = false }
+anyhow.workspace = true
+num-bigint = "0.4.6"
+rand = "0.8.6"
+serde = { version = "1", features = ["derive"] }
+ron = "0.12"
+sha1.workspace = true
+
+
+[dev-dependencies]
+# The client tests read the content's names from the client, as the launcher does.
+esurv-content = { path = "../esurv-content", features = ["client"] }

@@ -1,0 +1,51 @@
+# Client names that stay text, reviewed one by one (scan_client_names reads this file).
+# One line each: file | name | why it stays text. A line matches that name in that file's quoted
+# text only (comments are never shown in the game and are grouped apart); the scan lists lines
+# that no longer match anything, to be removed.
+
+# --- our own words that equal a client name
+crates/esurv/src/main.rs | Setup | our file's name, "Eternal Survivors Setup.exe" (an English word, not the spell)
+crates/esurv-setup/Cargo.toml | Setup | the crate's description names our file, "Eternal Survivors Setup.exe"; never shown in the game
+crates/esurv-server/src/game/pickups.rs | Restoration | our pickup's name, the Restoration Rune (an English word, not the talent tree)
+crates/esurv-sim/src/game/lines.rs | Restoration | the Restoration Rune pickup's line, our pickup's name (an English word, not the talent tree)
+content/classes.ron | Claw | "the Claw": the Claw Tentacle, our pet (a creature, like the enemies), not the spell
+crates/esurv-server/src/ground.rs | Human | a client file path (World\Generic\Human\...) the test reads a model from, not a race's name
+
+# --- test strings: assertion messages and fixtures, never shown to players
+crates/esurv-app/src/run_frames/class_bar.rs | Holy Power | test fixture: a bar's label round-tripped into the bar's script
+crates/esurv-protocol/src/to_client.rs | Holy Power | test fixture: a bar message's label round-tripped through the protocol
+crates/esurv-content/src/option_looks.rs | Berserk | test assertion message
+crates/esurv-server/src/game/doors.rs | Sunken Temple | test expectation message
+crates/esurv-server/src/ground.rs | Dire Maul | test assertion and expectation messages
+crates/esurv-sim/src/game/kit.rs | Berserk | test assertion message
+crates/esurv-sim/src/game/kit.rs | Rip | test assertion message
+crates/esurv-sim/src/game/kit.rs | Cat Form | test assertion message
+crates/esurv-sim/src/game/kit.rs | Thick Hide | test assertion message
+crates/esurv-sim/src/game/kit.rs | Claw | test assertion message
+crates/esurv-sim/src/game/kit.rs | Bear Form | test assertion message
+
+crates/esurv-app/src/hero_sheet/gear.rs | Wrath | test expectations: gear items' names ("Helm of Wrath"), our text by decision
+crates/esurv-content/tests/load.rs | Wrath | test expectations: gear items' names ("Helm of Wrath"), our text by decision
+crates/esurv-sim/src/game/gear.rs | Wrath | test expectations: gear items' names ("Helm of Wrath"), our text by decision
+crates/esurv-server/src/game/mod.rs | Sunken Temple | test assertion message
+crates/esurv-server/src/game/mod.rs | Blackwing Lair | test assertion message
+
+# --- roster enemies' names a boss names (our text by decision, as the enemies' own `name:`)
+content/zones/duskwood.ron | Dire Wolf | the Starving Dire Wolf, a roster enemy Lupos's howl brings (its own name)
+content/zones/elwynn.ron | Blackguard | the Defias Blackguard, a roster enemy VanCleef's lapdogs line brings (its own name)
+crates/esurv-sim/src/game/boss_rules_tests.rs | Blackguard | test expectation: the Defias Blackguard, an enemy's name
+content/zones/aq.ron | Warrior | the Qiraji Warrior, a roster enemy Rajaxx's waves bring (its own name)
+content/zones/aq.ron | Fear | Rajaxx's rally yell, the line his voice speaks (yells are text)
+content/zones/brm.ron | Blackrock Spire | Nefarian's landing yell, the line his voice speaks (yells are text)
+crates/esurv-sim/src/game/boss_damage.rs | Rend | test fixture: Warchief Rend Blackhand, a boss's name
+crates/esurv-sim/src/game/boss_rules_stratholme_blackrock_aq_tests.rs | Rend | test: Warchief Rend Blackhand, a boss's name
+crates/esurv-sim/src/game/boss_rules_tests.rs | Smite | test fixture: Mr. Smite, a boss's name
+crates/esurv-sim/src/game/boss_damage.rs | Smite | test fixture: Mr. Smite, a boss's name
+
+# --- boss lines voiced by the client: the yell's text is what the voice says
+content/zones/scarlet.ron | Avenge | the first Scarlet Trainee's voiced line as Herod falls (sound 5834)
+crates/esurv-sim/src/game/boss_rules_zones_3_to_6_tests.rs | Priest | test fixture: High Priest Venoxis, a boss's name
+
+# --- roster enemies' names a boss names (our text by decision, as the enemies' own `name:`)
+content/zones/feralas.ron | Eye of Immol'thar | the Eye of Immol'thar, a roster enemy Immol'thar's portals bring and lay marks from (its own name)
+crates/esurv-sim/src/game/boss_rules_zones_3_to_6_tests.rs | Eye of Immol'thar | test expectation: the Eye of Immol'thar, an enemy's name

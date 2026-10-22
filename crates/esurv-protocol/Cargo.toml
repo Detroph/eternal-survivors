@@ -1,0 +1,16 @@
+[package]
+name = "esurv-protocol"
+description = "The messages between Eternal Survivors's server and its client app, as addon chat lines: what the game's screens are told and what they ask."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+# `serde`: the kinds the content names (`BuffKind` in `words.ron`) read by name.
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }

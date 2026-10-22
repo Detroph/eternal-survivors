@@ -1,0 +1,182 @@
+ESURV - THE GAME SERVER, EXPLAINED
+=======================================
+
+This file explains in plain words how the game talks to itself. The technical version is
+server.md in the folder above this one.
+
+
+1. THE SHORT VERSION
+--------------------
+
+  The game is two programs in one. One half is the WoW client (benilla) that draws the
+  world. The other half is a small WoW server that runs the game rules. When you start
+  esurv.exe, the server starts first, quietly, on your own computer only. Then
+  the client starts and logs in to it by itself - you never type a name or password.
+
+  Nothing goes over the internet. The server only listens on 127.0.0.1 (your own machine).
+
+
+2. WHAT YOU SEE, STEP BY STEP
+-----------------------------
+
+  1. There is one realm, Eternal Survivors, and the game goes straight into it: the realm list never
+     shows. Where you will fight (Elwynn Forest, Duskwood ...) is chosen with the hero, and
+     each hero keeps its own choice (the zone it went to last, until another is chosen).
+  2. The character screen is your list of heroes, waiting around a campfire by Orgrimmar's or
+     Stormwind's gate in the gear their class wears (see screens.txt, THE HERO PICKER). Create
+     one with the normal create screen: name, race, class, looks. Names are 2 to 12 letters,
+     and two heroes cannot share a name. Each side (Horde, Alliance) can have up to nine heroes.
+     Besides WoW's own race and class choices, six more can be made (Dwarf Shaman, Human
+     Hunter, Gnome Priest, Orc Mage, Troll Warlock, Undead Paladin);
+     the server saves and plays them like any other, and refuses a pair the create
+     screen does not offer. A Dwarf Shaman's totems are the mace Ironfoe planted in the ground.
+  3. Enter the world: your hero stands at its zone's starting spot, at the zone's time of day
+     and in its weather. Nothing happens until you take your first step - then the run starts
+     and the enemies come.
+  4. Logging out takes you back to the hero list.
+
+
+3. WHERE THINGS ARE KEPT
+------------------------
+
+  Your heroes:   saves\heroes.ron in the game's folder (a plain text file you can read).
+                 In a dev build it is the saves folder of the project.
+  Game data:     the content folder (zones, enemies, spells ...).
+  The map:       read from your own WoW 1.12.1 Data folder, so enemies stand on the real
+                 ground of the zone. Inside a dungeon (Dire Maul) the ground is the
+                 building's own floors. Enemies only appear where they can walk to
+                 the hero, and they walk round walls and up ramps to reach you.
+
+  Deleting a hero on the character screen removes it from heroes.ron for good.
+
+  Copies of the save (Options, Saves tab, before a run) go to benilla-config\saves\exports,
+  each named with the date and time. Importing one replaces the whole save, after a check that
+  it is a save the game can take; the save it replaces is first kept in the same folder (its
+  name says "before-import"), so nothing is lost. Only the game on your own computer can do
+  this, never a game hosted elsewhere.
+
+  What you earn belongs to your class, so every hero of the class shares it: talent
+  experience and the talents bought with it, the zones the class has opened, and the gear it
+  wears. The gear you win and the codex are shared by everyone in the save: the codex
+  keeps every ring, trinket and necklace any of your heroes has collected. Each hero also
+  keeps its own records: best level, longest run, runs played and won.
+
+  A run ends when you fall, when the final boss falls, or when you leave it. Your class gets
+  the talent experience the run earned, and the chat tells you how much and how many new
+  talent points it bought. You are paid when the run ends, when you leave it and when you log
+  out, each time only for what you earned since the last time: leaving early still pays what
+  you earned, and going on into Endless after a win pays the extra time. Winning a zone opens
+  the next one for your class (once per run). A class can't enter a zone it hasn't opened yet:
+  the character screen says the login is disabled. The run options (how many enemies, how
+  tough, how hard they hit, how fast) are one set for the whole save and apply to the next run.
+
+  The Escape menu can also reset a run: it ends where it is, is paid
+  like a run you left, and a fresh run starts at once in the same zone with the same hero,
+  without leaving the world. With other heroes still in the run, the server says no: a fresh
+  run starts over for everyone in it. Ending the run or quitting the game from the menu pays
+  the run out and writes the save before your hero leaves the world.
+
+  Gear a boss drops goes into your collection straight away, and the chat names it.
+
+  Each level-up is told in the chat in the game's own words (what the level brought: damage,
+  health, regeneration); WoW's own level-up lines are kept out of the chat during a run.
+  Your hero's run numbers, and what your worn gear adds to them, are sent to the character
+  window (C), which shows them in its stat lines.
+
+  When the final boss falls, everything stops and your hero stands still: the run waits for
+  you to go on into Endless (enemies keep coming, ever stronger) or to leave. The same stop
+  happens while a level-up or cache choice is open and while the game is paused; when you fall,
+  the enemies stop where they are too.
+
+
+4. WHAT YOU SEE IN A FIGHT
+-------------------------
+
+  - Your hero wears exactly what the warband screen shows: your class's gear, each piece in the
+    look you chose for its slot, its weapon in hand (put away on the back or hip while it
+    casts), and the race's starting clothes where the class wears nothing. When put away, a
+    starting staff goes on the back and a starting one-hander on the hip;
+    by the campfire the heroes hold their weapons in hand. Other heroes in the run see it too. The character pane (C) shows the
+    worn pieces in their slots (the tooltip names each piece in its quality). Gear and looks
+    changed on the hero sheet show from the next run on; nothing changes during a run.
+  - The rings, trinkets and amulet you take in a run show in the character pane too: the amulet
+    at the neck, the first two rings on the fingers, the first two trinkets in the trinket
+    slots, each with its icon, its name in its rarity colour and, in the tooltip, what it does
+    now. An upgrade or an empowering swaps in the stronger piece. Your hero's body shows no
+    jewelry, as in WoW.
+  - Your spells fire by themselves. Each one shows its WoW spell effect, and the damage numbers
+    float up over the enemies it hits (crits are bigger).
+  - Your spells sit on the action bar in the order you got them; the race spell is on the last
+    button. Each button shows how long until that spell fires again.
+  - Enemies swing at you and you see the hits; ranged enemies show a cast bar first.
+  - Damage-over-time spells show when they land and stay visible on the enemy (with their
+    icon on its frame) until they run out.
+  - Totems stand on the ground as small totem figures until their time is up; each pulse
+    shows its spell. Areas such as Consecration or Blizzard lie on the ground as long as they
+    last.
+  - Pets appear next to you; a ranged pet's shots fly and their numbers count as yours.
+  - Bosses mark the ground where a blast will land; volleys, stomps and charges show their
+    spells. Damage you take shows on your health bar; enemy swings also show the hit.
+  - Thorns and other strike-back effects, and milestones (splashes, explosions, sweeps ...),
+    show their spells and their own damage numbers.
+  - Gold, caches, runes and magnets lie on the ground as objects; experience orbs are little
+    wisps that fly to you when picked up.
+  - Dead enemies fall over and vanish 1.5 seconds later.
+  - Bosses shout when they arrive and when they die; big events (a boss arriving, a swarm, a
+    rare falling) are written across the middle of the screen.
+  - Other messages (magnets, caches) show in the chat window until the HUD is built.
+  - Behind the scenes the server also tells the game's own screens what they will show: the
+    clock, kills, gold and the next boss, boss health bars and banners, the choice cards, the
+    gear you win, the end-of-run panel, the damage meter, your class's progress (for the armory)
+    and the codex (every ring, trinket and amulet found, told again when it grows). These are
+    hidden addon messages starting with ESURV; the screens answer the same way (pick a card,
+    reroll, pause, reset the run, go on into Endless, leave, change the run options, buy
+    talents, wear gear).
+    The technical list is in server.md, "The game's own screens".
+  - Area spells show their real size: a Consecration or Frost Nova on the ground looks exactly
+    as big as the area it really hits, and grows when your area bonus grows. Totems and heroes
+    keep their own size; a totem's pulse lights up every enemy it reaches.
+  - The spellbook (P) holds exactly what you have in this run: your race's spell, your
+    race's passives (shown as WoW's own racial traits of the same name) and the spells you
+    learned, all in one tab. The server sends just those.
+
+
+5. SWITCHES FOR TESTING
+-----------------------
+
+  These are set before starting the game (for example in a script):
+
+    ESURV_SAVE=<file>       keep the heroes in another file (handy for a test hero)
+    ESURV_CONTENT=<folder>  use content files from another folder
+    ESURV_AUTOSTART=1       start the run straight away, without the first step
+    ESURV_METER_DEMO=1      fill the damage meter with made-up numbers (see screens.txt)
+    ESURV_ZONE=<zone>       send every hero to this zone (its id or name)
+    ESURV_HERO_SHOTS=<png>  take close pictures of your hero in the run, from three sides
+    ESURV_GRANT=<names>     start every run wearing these rings, trinkets and amulets
+                                 (ids from the content, comma-separated; id@3 for an epic one),
+                                 or with a rune on the ground (speed_rune:20 lies 20 yards ahead)
+    ESURV_MOVE_LOG=<file>   write down every step the hero takes (time, place, speed)
+    WOW_CHAR=<hero>       skip the hero list and play this hero
+
+  With all of them set, the game goes from start to fighting without anyone touching the
+  keyboard - that is how it is tested.
+
+  Changing the content while the game runs (dev builds only): edit a file in the content
+  folder and save it. Half a second later the game says "Content reloaded" (or, if the file
+  has a mistake, "Content did not reload" and keeps what it had). Start a new run to play the
+  new numbers; a run already going on keeps the old ones until it ends. The full how-to is in
+  ..\README.md, "Editing content while the game runs".
+
+
+6. NOT DONE YET
+---------------
+
+  - The level-up cards have no screen yet: for now the first card is always taken for you.
+  - There are no screens yet for talents and gear: they come on the hero sheet before a run,
+    with the new menus (they are not open during a run); the server
+    already does what they will ask.
+  - The level and faction enemies show are stand-ins for now.
+  - For a game hosted on another computer, the hero picker cannot yet tell the talent
+    experience, zones and run options.
+  - Playing together (one player hosts, others join) comes later. The server is already built
+    so that it can hold several heroes.

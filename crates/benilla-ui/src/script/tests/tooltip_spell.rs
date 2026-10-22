@@ -1,0 +1,1555 @@
+//! The engine spell and aura tooltips: name|rank, one cost|range line, one casttime|cooldown line,
+//! the passive omission, the aura variant (white description, and the gold remaining line on
+//! `SetPlayerBuff` only), and the selectors that delegate to them.
+
+use super::common::script;
+use crate::script::*;
+
+fn fireball() -> SpellTooltipView {
+    SpellTooltipView {
+        name: "Fireball".into(),
+        rank: Some("Rank 1".into()),
+        cost: Some("30 Mana".into()),
+        range: Some("30 yd range".into()),
+        cast_time: Some("1.5 sec cast".into()),
+        cooldown: None,
+        description: "Hurls a fiery ball that causes 14 to 22 Fire damage.".into(),
+        ..Default::default()
+    }
+}
+
+/// The spellbook hover: no rank column, cost|range on one line, cast time, gold description.
+#[test]
+fn spellbook_hover_renders_the_verified_shape() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(133, fireball());
+    s.set_spellbook(SpellBookState {
+        tabs: Vec::new(),
+        slots: vec![SpellSlotView {
+            spell_id: 133,
+            name: "Fireball".into(),
+            ..Default::default()
+        }],
+    });
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "SB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetSpell(1, "spell")
+        assert(tt:IsShown(), "SetSpell shows")
+        assert(tt:NumLines() == 4, "name + cost|range + casttime + description, got " .. tt:NumLines())
+        assert(TTTextLeft1:GetText() == "Fireball")
+        -- Byte-verified: SetSpell passes showRank=0 — the spellbook hover shows NO rank column
+        -- (only SetAction shows it).
+        assert(not TTTextRight1:IsShown(), "no rank column from SetSpell")
+        assert(TTTextLeft2:GetText() == "30 Mana")
+        assert(TTTextRight2:GetText() == "30 yd range", "cost|range is ONE line")
+        assert(TTTextLeft3:GetText() == "1.5 sec cast")
+        assert(TTTextLeft4:GetText() ~= nil)
+    "#,
+    )
+    .unwrap();
+    s.resolve();
+    let quads = s.extract();
+    let gold = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t.starts_with("Hurls") && (c[1] - 210.0/255.0).abs() < 1e-6)
+    });
+    assert!(gold, "spell description is gold");
+    assert!(s.take_errors().is_empty());
+}
+
+/// `SetSpell`'s `bookType` picks the book (`0x532d10` forks at `0x532e1c`, `0x532e2a`: the pet's
+/// slots at `0xb6f098`, the player's at `0xb700f0`); both books hold a different spell at slot 1.
+#[test]
+fn a_pet_book_hover_reads_the_pets_book_not_the_players() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(133, fireball());
+    // The pet book's flag is the builder's unit selector, so its hover reads the pet's view.
+    s.set_pet_spell_tooltip(
+        3110,
+        SpellTooltipView {
+            name: "Firebolt".into(),
+            description: "Hurls a fiery ball.".into(),
+            ..Default::default()
+        },
+    );
+    s.set_spellbook(SpellBookState {
+        tabs: Vec::new(),
+        slots: vec![SpellSlotView {
+            spell_id: 133,
+            name: "Fireball".into(),
+            ..Default::default()
+        }],
+    });
+    s.set_pet_book(PetBookState {
+        token: Some("DEMON".into()),
+        slots: vec![SpellSlotView {
+            spell_id: 3110,
+            name: "Firebolt".into(),
+            ..Default::default()
+        }],
+    });
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "SB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetSpell(1, "pet")
+        assert(TTTextLeft1:GetText() == "Firebolt", "pet slot 1, got " .. TTTextLeft1:GetText())
+        -- The same slot id in the other book is the OTHER spell.
+        tt:SetSpell(1, "spell")
+        assert(TTTextLeft1:GetText() == "Fireball", "player slot 1, got " .. TTTextLeft1:GetText())
+        -- The compare is case-insensitive against "pet" ALONE (0x532e13's SStrCmpI), so every
+        -- other string is the player's book — including a mis-cased one being the pet's.
+        tt:SetSpell(1, "PeT")
+        assert(TTTextLeft1:GetText() == "Firebolt", "case-insensitive pet")
+        tt:SetSpell(1, "book")
+        assert(TTTextLeft1:GetText() == "Fireball", "any other string is the player's book")
+        -- A non-string third argument is not "the player's book": the reference bails outright
+        -- (0x532dc0's isstring test), leaving whatever was shown.
+        tt:SetSpell(1, 7)
+        assert(TTTextLeft1:GetText() == "Fireball", "a non-string arg shows nothing new")
+    "#,
+    )
+    .unwrap();
+    assert!(s.take_errors().is_empty());
+}
+
+/// `SetTrackingSpell`, as the reference draws it: a gold name over the white aura description,
+/// with no cost, cast time or remaining line.
+#[test]
+fn tracking_hover_renders_gold_name_over_white_description() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_tracking(Some(TrackingState {
+        spell_id: 2580,
+        name: Some("Find Minerals".into()),
+        icon: Some("Interface\\Icons\\Trade_Mining".into()),
+        cancelable: true,
+    }));
+    s.set_spell_tooltip(
+        2580,
+        SpellTooltipView {
+            name: "Find Minerals".into(),
+            cost: Some("a cost cell that must NOT render".into()),
+            cast_time: Some("nor this".into()),
+            description: "Finding Minerals.".into(),
+            aura_description: "Finding Minerals.".into(),
+            ..Default::default()
+        },
+    );
+    s.run(
+        r#"
+        local f = CreateFrame("Frame", "TRK"); f:SetPoint("CENTER", 0, 0); f:SetWidth(10); f:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(f, "ANCHOR_BOTTOMLEFT")
+        tt:SetTrackingSpell()
+        assert(tt:IsShown(), "SetTrackingSpell shows")
+        assert(tt:NumLines() == 2, "name + description only, got " .. tt:NumLines())
+        assert(TTTextLeft1:GetText() == "Find Minerals")
+        assert(TTTextLeft2:GetText() == "Finding Minerals.")
+    "#,
+    )
+    .unwrap();
+    s.resolve();
+    let quads = s.extract();
+    let gold_name = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "Find Minerals" && (c[1] - 210.0/255.0).abs() < 1e-6)
+    });
+    let white_desc = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "Finding Minerals." && (c[1] - 1.0).abs() < 1e-6 && (c[2] - 1.0).abs() < 1e-6)
+    });
+    assert!(gold_name, "the tracking name line is GOLD");
+    assert!(white_desc, "the description is the aura-variant white");
+    assert!(s.take_errors().is_empty());
+}
+
+/// A passive spell omits the casttime|cooldown line whole, with no "Passive" text line.
+#[test]
+fn passive_omits_the_casttime_line() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(
+        1461,
+        SpellTooltipView {
+            name: "Frost Warding".into(),
+            rank: None,
+            cost: None,
+            range: None,
+            cast_time: None, // passive
+            cooldown: Some("never shows without a casttime".into()),
+            description: "Increases your frost ward.".into(),
+            ..Default::default()
+        },
+    );
+    s.set_spellbook(SpellBookState {
+        tabs: Vec::new(),
+        slots: vec![SpellSlotView {
+            spell_id: 1461,
+            name: "Frost Warding".into(),
+            ..Default::default()
+        }],
+    });
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "SB2"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetSpell(1, "spell")
+        assert(tt:NumLines() == 2, "name + description only, got " .. tt:NumLines())
+        local all = ""
+        for i = 1, tt:NumLines() do all = all .. (getglobal("TTTextLeft" .. i):GetText() or "") end
+        assert(not string.find(all, "Passive"), "no Passive text line")
+    "#,
+    )
+    .unwrap();
+    assert!(s.take_errors().is_empty());
+}
+
+/// The buff hover is the aura variant: a white description and, on this entry point only, the
+/// remaining-time line computed off the aura's `GetTime` expiry.
+#[test]
+fn player_buff_hover_is_the_aura_variant() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(
+        1459,
+        SpellTooltipView {
+            name: "Arcane Intellect".into(),
+            rank: Some("Rank 1".into()),
+            cost: Some("60 Mana".into()), // ignored by the aura variant
+            range: Some("30 yd range".into()), // ignored
+            cast_time: Some("Instant".into()), // ignored
+            cooldown: None,
+            description: "Increases Intellect by 2.".into(),
+            aura_description: "Intellect increased by 2.".into(),
+            ..Default::default()
+        },
+    );
+    s.tick(10.0); // GetTime = 10
+    s.set_player_auras(vec![AuraState {
+        spell_id: 1459,
+        name: Some("Arcane Intellect".into()),
+        duration: 1800.0,
+        expiration_time: 100.0, // 90 s left at now = 10
+        helpful: true,
+        ..Default::default()
+    }]);
+    s.run(
+        r#"
+        -- The duration line's wording comes from the VM's GlobalStrings, which the app runs off
+        -- the player's own install at boot. This VM has no install, so the test supplies the pair
+        -- itself — deliberately NOT the shipped wording, because what is under test here is that
+        -- the engine reads the string table at all, not what the strings say.
+        SPELL_TIME_REMAINING_MIN    = "<%d m>"
+        SPELL_TIME_REMAINING_MIN_P1 = "<%d mm>"
+        local a = CreateFrame("Button", "BF1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        -- 0, not 1: SetPlayerBuff takes a 1.12 CACHE POSITION (see `script::aura`'s header).
+        tt:SetPlayerBuff(0)
+        assert(tt:NumLines() == 3, "name + description + remaining, got " .. tt:NumLines())
+        assert(TTTextLeft2:GetText() == "Intellect increased by 2.", "the AURA description column")
+        -- 90 s left ceils to 2 minutes, and 2 takes the _P1 twin.
+        assert(TTTextLeft3:GetText() == "<2 mm>", "got " .. TTTextLeft3:GetText())
+    "#,
+    )
+    .unwrap();
+    s.resolve();
+    let quads = s.extract();
+    let white = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t.starts_with("Intellect increased") && *c == [1.0, 1.0, 1.0, 1.0])
+    });
+    assert!(white, "aura description is white, not gold");
+    // The name is gold: the aura builder `0x52f880` writes it through the gold wrapper
+    // `0x530380`, where the spell builder uses the plain `0x530270`.
+    let gold_name = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "Arcane Intellect" && (c[1] - 210.0 / 255.0).abs() < 1e-6)
+    });
+    assert!(gold_name, "aura name is gold, not white");
+    // So is the remaining line, the same `0xffffd200`, as in the reference's buff hover.
+    let gold_remaining = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "<2 mm>" && *c == [1.0, 210.0 / 255.0, 0.0, 1.0])
+    });
+    assert!(gold_remaining, "duration-remaining line is gold, not white");
+    assert!(s.take_errors().is_empty());
+}
+
+/// The buff builder's (`0x52f880`) right column is the dispel class, gold through the aura name's
+/// wrapper, where the spell hover puts a gray rank; a `rank` on the view must not displace it.
+#[test]
+fn player_buff_hover_names_the_dispel_class_in_gold() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(
+        168,
+        SpellTooltipView {
+            name: "Ice Armor".into(),
+            rank: Some("Rank 1".into()), // the spell variant's column, never the aura's
+            dispel_type: Some("Magic".into()),
+            aura_description: "Encases the caster in a layer of ice.".into(),
+            ..Default::default()
+        },
+    );
+    s.set_player_auras(vec![AuraState {
+        spell_id: 168,
+        name: Some("Ice Armor".into()),
+        helpful: true,
+        ..Default::default()
+    }]);
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "BF1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetPlayerBuff(0)
+        assert(TTTextRight1:GetText() == "Magic",
+            "the dispel class, got " .. tostring(TTTextRight1:GetText()))
+    "#,
+    )
+    .unwrap();
+    s.resolve();
+    let gold_dispel = s.extract().iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "Magic" && (c[1] - 210.0 / 255.0).abs() < 1e-6)
+    });
+    assert!(
+        gold_dispel,
+        "the dispel column is gold, not the rank's gray"
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// `0x52e610`'s line order: cast|cooldown, requires-item, requires-form, reagents, description,
+/// each requirement red while unmet.
+#[test]
+fn requirement_and_reagent_lines_render_in_law_order() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(
+        5019,
+        SpellTooltipView {
+            name: "Shoot".into(),
+            range: Some("30 yd range".into()),
+            cast_time: Some("Instant".into()),
+            requires_item: Some("Requires Wands".into()),
+            item_met: false,
+            reagents: Some("Reagents: |cffff2020Light Feather|r".into()),
+            description: "Attack with an equipped wand.".into(),
+            ..Default::default()
+        },
+    );
+    s.set_spellbook(SpellBookState {
+        tabs: Vec::new(),
+        slots: vec![SpellSlotView {
+            spell_id: 5019,
+            name: "Shoot".into(),
+            ..Default::default()
+        }],
+    });
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "SB2"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetSpell(1, "spell")
+        assert(tt:NumLines() == 6, "name + range + cast + requires + reagents + desc, got " .. tt:NumLines())
+        assert(TTTextLeft1:GetText() == "Shoot")
+        assert(TTTextLeft2:GetText() == "30 yd range", "cost absent: range moves left")
+        assert(TTTextLeft3:GetText() == "Instant")
+        assert(TTTextLeft4:GetText() == "Requires Wands", "the requirement sits above the reagents")
+        assert(string.find(TTTextLeft5:GetText(), "Light Feather") ~= nil, "the reagents line")
+        assert(TTTextLeft6:GetText() == "Attack with an equipped wand.", "description last")
+    "#,
+    )
+    .unwrap();
+    s.resolve();
+    let quads = s.extract();
+    let red = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "Requires Wands" && *c == [1.0, 32.0 / 255.0, 32.0 / 255.0, 1.0])
+    });
+    assert!(red, "an unmet equipped-item requirement is red");
+    // The reagent's `|cffff2020` escape reaches the region verbatim over a white base colour; the
+    // app's text layer (`ui_text::markup`) turns it into colour runs.
+    let verbatim = quads.iter().any(|q| {
+        matches!(&q.content, QuadContent::Text { text: Some(t), color: Some(c), .. }
+            if t == "Reagents: |cffff2020Light Feather|r" && *c == [1.0, 1.0, 1.0, 1.0])
+    });
+    assert!(
+        verbatim,
+        "the reagents line reaches the region escape-intact, base white"
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// `SetUnitBuff`/`SetUnitDebuff` render the aura variant from the unit's sign-filtered list, with
+/// no remaining line: only `SetPlayerBuff` appends it, and the 1.12 wire carries no other unit's
+/// durations.
+#[test]
+fn unit_buff_and_debuff_hover_render_the_aura_variant_without_remaining() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(
+        589,
+        SpellTooltipView {
+            name: "Shadow Word: Pain".into(),
+            aura_description: "Suffering 12 Shadow damage every 3 sec.".into(),
+            ..Default::default()
+        },
+    );
+    s.set_spell_tooltip(
+        1126,
+        SpellTooltipView {
+            name: "Mark of the Wild".into(),
+            aura_description: "Armor increased by 25.".into(),
+            ..Default::default()
+        },
+    );
+    // The target, guid 7, through the resolver.
+    s.set_unit_guids(&crate::script::UnitGuids {
+        target: 7,
+        ..Default::default()
+    });
+    s.set_unit_auras(
+        7,
+        Some(vec![
+            AuraState {
+                spell_id: 1126,
+                name: Some("Mark of the Wild".into()),
+                helpful: true,
+                ..Default::default()
+            },
+            AuraState {
+                spell_id: 589,
+                name: Some("Shadow Word: Pain".into()),
+                helpful: false,
+                ..Default::default()
+            },
+        ]),
+    );
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "TF1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_BOTTOMRIGHT", 15, -25)
+        tt:SetUnitDebuff("target", 1)
+        assert(tt:NumLines() == 2, "name + description, NO remaining line, got " .. tt:NumLines())
+        assert(TTTextLeft1:GetText() == "Shadow Word: Pain", "the sign filter picks the debuff")
+        assert(TTTextLeft2:GetText() == "Suffering 12 Shadow damage every 3 sec.")
+        tt:SetOwner(a, "ANCHOR_BOTTOMRIGHT", 15, -25)
+        tt:SetUnitBuff("target", 1)
+        assert(TTTextLeft1:GetText() == "Mark of the Wild", "the sign filter picks the buff")
+        tt:SetOwner(a, "ANCHOR_BOTTOMRIGHT", 15, -25)
+        tt:SetUnitDebuff("target", 2)
+        assert(tt:NumLines() == 0 and not tt:IsShown(), "past the list: no empty plate")
+    "#,
+    )
+    .unwrap();
+    assert!(s.take_errors().is_empty());
+}
+
+/// `SetPlayerBuff` takes a 1.12 cache position, the `GetPlayerBuff` family's index space:
+/// `BuffFrame.lua:105` passes that return straight in. A miss, `-1` included, clears the plate,
+/// and a surplus filter argument is ignored.
+#[test]
+fn player_buff_hover_indexes_the_cache_position_not_a_filtered_ordinal() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    for (id, name, desc) in [
+        (1126, "Mark of the Wild", "Armor increased by 25."),
+        (2457, "Battle Stance", "A balanced combat stance."),
+        (589, "Shadow Word: Pain", "Suffering 12 Shadow damage."),
+    ] {
+        s.set_spell_tooltip(
+            id,
+            SpellTooltipView {
+                name: name.into(),
+                aura_description: desc.into(),
+                ..Default::default()
+            },
+        );
+    }
+    // The player's cache: two buffs then a debuff, in one insertion-ordered list.
+    s.set_player_auras(vec![
+        AuraState {
+            spell_id: 1126,
+            name: Some("Mark of the Wild".into()),
+            helpful: true,
+            ..Default::default()
+        },
+        AuraState {
+            spell_id: 2457,
+            name: Some("Battle Stance".into()),
+            helpful: true,
+            ..Default::default()
+        },
+        AuraState {
+            spell_id: 589,
+            name: Some("Shadow Word: Pain".into()),
+            helpful: false,
+            ..Default::default()
+        },
+    ]);
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "BF1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        local function at(i, extra)
+            tt:SetOwner(a, "ANCHOR_RIGHT")
+            tt:SetPlayerBuff(i, extra)
+            return TTTextLeft1 and TTTextLeft1:GetText()
+        end
+        assert(at(0) == "Mark of the Wild", "position 0 is the first aura, got " .. tostring(at(0)))
+        assert(at(1) == "Battle Stance", "position 1 is the SECOND, got " .. tostring(at(1)))
+        assert(at(2) == "Shadow Word: Pain", "the debuff shares the index space, got " .. tostring(at(2)))
+        -- The handle really is GetPlayerBuff's return, round-tripped.
+        assert(at(GetPlayerBuff(0, "HARMFUL")) == "Shadow Word: Pain", "round-trip through GetPlayerBuff")
+        -- A surplus filter argument is ignored, as the reference's binding ignores it.
+        assert(at(1, "HELPFUL|HARMFUL") == "Battle Stance", "surplus argument must be ignored")
+        -- Misses CLEAR (Loatheb's scan terminates on a nil first line) rather than leaving a plate.
+        tt:SetOwner(a, "ANCHOR_RIGHT"); tt:SetPlayerBuff(3)
+        assert(tt:NumLines() == 0 and not tt:IsShown(), "past the cache: no plate")
+        tt:SetOwner(a, "ANCHOR_RIGHT"); tt:SetPlayerBuff(-1)
+        assert(tt:NumLines() == 0 and not tt:IsShown(), "-1 must clear, not show the first buff")
+        tt:SetOwner(a, "ANCHOR_RIGHT"); tt:SetPlayerBuff(GetPlayerBuff(9, "HARMFUL"))
+        assert(tt:NumLines() == 0 and not tt:IsShown(), "an unguarded -1 from GetPlayerBuff clears")
+    "#,
+    )
+    .unwrap();
+    assert!(s.take_errors().is_empty(), "{:?}", s.take_errors());
+}
+
+/// `SetAction` delegates by payload kind: a spell slot renders the spell view, and a spell the
+/// store lacks shows no plate and records the ask.
+#[test]
+fn action_hover_delegates_by_kind() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(133, fireball());
+    s.set_action(
+        24,
+        Some(ActionSlot {
+            kind: 0x00, // SPELL
+            action: 133,
+            ..Default::default()
+        }),
+    );
+    s.set_action(
+        25,
+        Some(ActionSlot {
+            kind: 0x00,
+            action: 5143, // not in the store: the ask channel fires
+            ..Default::default()
+        }),
+    );
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "AB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetAction(24)
+        assert(TTTextLeft1:GetText() == "Fireball", "spell slot renders the spell view")
+        assert(TTTextRight1:GetText() == "Rank 1", "SetAction shows the rank column")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetAction(25)
+        assert(tt:NumLines() == 0 and not tt:IsShown(), "a total miss shows no empty plate")
+    "#,
+    )
+    .unwrap();
+    assert_eq!(s.take_spell_tooltip_asks(), vec![5143], "the miss asked");
+    assert!(s.take_errors().is_empty());
+}
+
+/// `player_aura_spell_ids`, the embedder's hook: the player's auras' spells by the position
+/// `GetPlayerBuff` answers and `SetPlayerBuff` reads, debuffs in their places.
+#[test]
+fn the_embedder_reads_the_player_auras_by_buff_position() {
+    let mut s = script();
+    let aura = |spell_id, helpful| AuraState {
+        spell_id,
+        helpful,
+        count: 1,
+        ..Default::default()
+    };
+    s.set_player_auras(vec![aura(1243, true), aura(589, false), aura(23451, true)]);
+    assert_eq!(s.player_aura_spell_ids(), vec![1243, 589, 23451]);
+    s.set_player_auras(Vec::new());
+    assert!(s.player_aura_spell_ids().is_empty());
+}
+
+/// `action_spell`, the embedder's hook: the spell a slot holds, the one `SetAction` renders;
+/// nothing for an item, a macro or an empty slot.
+#[test]
+fn the_embedder_reads_the_spell_a_slot_holds() {
+    let mut s = script();
+    s.set_action(
+        24,
+        Some(ActionSlot {
+            kind: 0x00, // SPELL
+            action: 133,
+            ..Default::default()
+        }),
+    );
+    s.set_action(
+        25,
+        Some(ActionSlot {
+            kind: 0x80, // ITEM
+            action: 6948,
+            ..Default::default()
+        }),
+    );
+    assert_eq!(s.action_spell(24), Some(133));
+    assert_eq!(s.action_spell(25), None, "an item");
+    assert_eq!(s.action_spell(26), None, "empty");
+    s.set_action(24, None);
+    assert_eq!(s.action_spell(24), None, "cleared");
+}
+
+/// A macro slot's hover is the reference's `0x52b040`: one line, the macro's name in the normal
+/// colour (`0xc0cf60` holds `0xffffffff`, white); a slot whose macro is gone shows no plate.
+#[test]
+fn action_hover_on_a_macro_slot_shows_its_name_in_white() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_macros(MacroState {
+        account: vec![MacroView {
+            name: "spawn".into(),
+            texture: Some("Interface\\Icons\\Ability_Racial_Cannibalize".into()),
+            body: ".spawn 16032".into(),
+            local_only: false,
+        }],
+        character: Vec::new(),
+    });
+    s.set_action(
+        24,
+        Some(ActionSlot {
+            kind: 0x40, // MACRO
+            action: 1,  // macro index 1
+            ..Default::default()
+        }),
+    );
+    s.set_action(
+        25,
+        Some(ActionSlot {
+            kind: 0x40,
+            action: 7, // no such macro
+            ..Default::default()
+        }),
+    );
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "AB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetAction(24)
+        assert(tt:IsShown(), "a macro slot shows a plate")
+        assert(tt:NumLines() == 1, "exactly one line, got " .. tt:NumLines())
+        assert(TTTextLeft1:GetText() == "spawn", "the macro's name")
+        local r, g, b = TTTextLeft1:GetTextColor()
+        assert(r == 1 and g == 1 and b == 1, "white — the normal line colour, not the spell title gold")
+        assert(not TTTextRight1:IsShown(), "no right column")
+        tt:SetOwner(a, "ANCHOR_RIGHT")
+        tt:SetAction(25)
+        assert(tt:NumLines() == 0 and not tt:IsShown(), "a missing macro shows no plate")
+    "#,
+    )
+    .unwrap();
+    assert!(s.take_errors().is_empty(), "{:?}", s.take_errors());
+}
+
+/// The tooltip's left-column texts in order.
+fn left_lines(s: &mut UiScript) -> Vec<String> {
+    let n: i64 = s.eval("return TT:NumLines()").unwrap();
+    (1..=n)
+        .map(|i| {
+            s.eval::<String>(&format!(
+                "return getglobal('TTTextLeft{i}'):GetText() or ''"
+            ))
+            .unwrap()
+        })
+        .collect()
+}
+
+/// One trainer service fixture with an explicit tooltip subject.
+fn trainer_service(spell_id: u32, name: &str, tooltip: TrainerTooltip) -> TrainerService {
+    TrainerService {
+        spell_id,
+        tooltip,
+        name: Some(name.into()),
+        texture: Some("Interface\\Icons\\Temp".into()),
+        category: TrainerServiceCategory::Available,
+        group_key: 26,
+        group_name: "Arms".into(),
+        ..Default::default()
+    }
+}
+
+/// `SetTrainerService` renders no line of its own: it routes to the item or spell builder the app
+/// picked (`altCaster` drops the reagents), and its index is a visible row, so row 1 is a header.
+#[test]
+fn set_trainer_service_selects_the_builder_and_never_renders_its_own_line() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_item_template(
+        2847,
+        ItemTemplateView {
+            name: "Copper Shortsword".into(),
+            quality: 1,
+            class: 2,
+            subclass: 7,
+            // The app resolves the type cell's word from ItemSubClass.dbc; a view without one
+            // prints no type cell.
+            sub_class_display: Some("Sword".into()),
+            ..Default::default()
+        },
+    );
+    let heroic_strike = SpellTooltipView {
+        name: "Heroic Strike".into(),
+        cost: Some("15 Rage".into()),
+        reagents: Some("Reagents: Linen Cloth".into()),
+        description: "A strong attack.".into(),
+        ..Default::default()
+    };
+    s.set_spell_tooltip(200, heroic_strike.clone());
+    // altCaster is the builder's unit selector, which reads the pet's view.
+    s.set_pet_spell_tooltip(200, heroic_strike);
+    s.set_trainer(Some(TrainerState {
+        services: vec![
+            trainer_service(2756, "Copper Shortsword", TrainerTooltip::Item(2847)),
+            trainer_service(
+                100,
+                "Heroic Strike",
+                TrainerTooltip::Spell {
+                    spell_id: 200,
+                    alt_caster: false,
+                },
+            ),
+            trainer_service(
+                101,
+                "Train Growl",
+                TrainerTooltip::Spell {
+                    spell_id: 200,
+                    alt_caster: true,
+                },
+            ),
+        ],
+        ..Default::default()
+    }));
+
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "AB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+
+        -- Row 1 is the "Arms" header: a no-op, not a shifted hit onto a neighbouring service.
+        TT:SetOwner(a, "ANCHOR_RIGHT")
+        TT:SetTrainerService(1)
+        assert(TT:NumLines() == 0, "a header row renders nothing")
+
+        -- Row 2: the recipe -> the ITEM builder, full item tooltip (not the spell's name).
+        TT:SetOwner(a, "ANCHOR_RIGHT")
+        TT:SetTrainerService(2)
+        assert(TTTextLeft1:GetText() == "Copper Shortsword", "the item arm renders the item")
+        assert(TT:NumLines() > 1, "the ITEM builder, not a one-line stub")
+    "#,
+    )
+    .unwrap();
+
+    // Row 3: the class-trainer service goes to the spell builder on the taught spell.
+    s.run(
+        r#"
+        TT:SetOwner(AB1, "ANCHOR_RIGHT")
+        TT:SetTrainerService(3)
+    "#,
+    )
+    .unwrap();
+    let texts = left_lines(&mut s);
+    assert_eq!(
+        texts[0], "Heroic Strike",
+        "the spell arm hops to the taught"
+    );
+    assert!(
+        texts.iter().any(|t| t == "Reagents: Linen Cloth"),
+        "altCaster clear -> the reagents block renders: {texts:?}"
+    );
+    assert!(
+        texts.iter().any(|t| t == "A strong attack."),
+        "the gold description is part of the shared builder's law: {texts:?}"
+    );
+
+    // Row 4: the same view with altCaster set loses only the reagents block.
+    s.run(
+        r#"
+        TT:SetOwner(AB1, "ANCHOR_RIGHT")
+        TT:SetTrainerService(4)
+    "#,
+    )
+    .unwrap();
+    let texts = left_lines(&mut s);
+    assert!(
+        !texts.iter().any(|t| t == "Reagents: Linen Cloth"),
+        "altCaster gates the reagents block: {texts:?}"
+    );
+    assert!(
+        texts.iter().any(|t| t == "A strong attack."),
+        "and gates ONLY that block: {texts:?}"
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// `SetCraftSpell` is a selector like `SetTrainerService`: a rod recipe hovers the rod's item
+/// tooltip while its row's icon is the spell's, which is the reference's shape, not a bug.
+#[test]
+fn set_craft_spell_selects_the_builder_like_the_trainer_hover_does() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_item_template(
+        6218,
+        ItemTemplateView {
+            name: "Runed Copper Rod".into(),
+            quality: 1,
+            ..Default::default()
+        },
+    );
+    s.set_spell_tooltip(
+        7420,
+        SpellTooltipView {
+            name: "Enchant Bracer - Minor Health".into(),
+            cast_time: Some("Instant cast".into()),
+            description: "Permanently enchant bracers.".into(),
+            ..Default::default()
+        },
+    );
+    let recipe = |spell_id: u32, name: &str, tooltip: CraftTooltip| CraftRecipe {
+        spell_id,
+        tooltip,
+        name: name.into(),
+        sub_name: String::new(),
+        difficulty: TradeSkillDifficulty::Optimal,
+        num_available: 1,
+        icon: Some("Interface\\Icons\\Spell_Holy_Heal".into()),
+        description: Some("the OLD two-line stub's second line".into()),
+        needs_item_target: false,
+        reagents: vec![],
+        tools: vec![],
+        spell_level: 0,
+    };
+    s.set_craft(Some(CraftState {
+        name: "Enchanting".into(),
+        rank: 100,
+        max_rank: 150,
+        craft_type: 3,
+        recipes: vec![
+            recipe(
+                7420,
+                "Enchant Bracer - Minor Health",
+                CraftTooltip::Spell(7420),
+            ),
+            recipe(7421, "Runed Copper Rod", CraftTooltip::Item(6218)),
+        ],
+    }));
+
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "AB2"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+        TT:SetOwner(a, "ANCHOR_RIGHT")
+        TT:SetCraftSpell(1)
+    "#,
+    )
+    .unwrap();
+    let texts = left_lines(&mut s);
+    assert_eq!(texts[0], "Enchant Bracer - Minor Health");
+    assert!(
+        texts.iter().any(|t| t == "Instant cast"),
+        "the SHARED spell builder's law, not a two-line stub: {texts:?}"
+    );
+    assert!(
+        !texts
+            .iter()
+            .any(|t| t == "the OLD two-line stub's second line"),
+        "the row's own `description` field is no longer the tooltip's source: {texts:?}"
+    );
+
+    s.run(
+        r#"
+        TT:SetOwner(AB2, "ANCHOR_RIGHT")
+        TT:SetCraftSpell(2)
+    "#,
+    )
+    .unwrap();
+    let texts = left_lines(&mut s);
+    assert_eq!(
+        texts[0], "Runed Copper Rod",
+        "a CREATE_ITEM recipe hovers the ITEM, though its icon is the spell's: {texts:?}"
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// `0x532b00` skips the remaining line on `untilCancelled` (`0x532bda`, `0x532bdf`), never on
+/// whether the aura has a duration yet.
+#[test]
+fn the_remaining_line_is_gated_on_until_cancelled_not_on_the_duration() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(
+        1459,
+        SpellTooltipView {
+            name: "Arcane Intellect".into(),
+            aura_description: "Intellect increased by 2.".into(),
+            ..Default::default()
+        },
+    );
+    s.tick(10.0);
+    s.run(
+        r#"
+        SPELL_TIME_REMAINING_MIN    = "<%d m>"
+        SPELL_TIME_REMAINING_MIN_P1 = "<%d mm>"
+        SPELL_TIME_REMAINING_SEC    = "<%d s>"
+        SPELL_TIME_REMAINING_SEC_P1 = "<%d ss>"
+        BENILLA_ANCHOR = CreateFrame("Button", "BF2")
+        BENILLA_ANCHOR:SetPoint("CENTER", 0, 0); BENILLA_ANCHOR:SetWidth(10); BENILLA_ANCHOR:SetHeight(10)
+        BENILLA_TIP = CreateFrame("GameTooltip", "TT2")
+    "#,
+    )
+    .unwrap();
+    let hover = r#"
+        BENILLA_TIP:SetOwner(BENILLA_ANCHOR, "ANCHOR_RIGHT")
+        BENILLA_TIP:SetPlayerBuff(0)
+        BENILLA_LINES = BENILLA_TIP:NumLines()
+        BENILLA_LAST = BENILLA_LINES == 3 and TT2TextLeft3:GetText() or ""
+    "#;
+    let mut show = |aura: AuraState| {
+        s.set_player_auras(vec![aura]);
+        s.run(hover).unwrap();
+        (
+            s.eval::<i64>("return BENILLA_LINES").unwrap(),
+            s.eval::<String>("return BENILLA_LAST").unwrap(),
+        )
+    };
+    let base = AuraState {
+        spell_id: 1459,
+        name: Some("Arcane Intellect".into()),
+        helpful: true,
+        ..Default::default()
+    };
+
+    // 1 · Permanent, with a duration anyway, so only the flag can suppress the line.
+    assert_eq!(
+        show(AuraState {
+            duration: 1800.0,
+            expiration_time: 100.0,
+            until_cancelled: true,
+            ..base.clone()
+        }),
+        (2, String::new()),
+        "untilCancelled suppresses the line even with a live duration on the record"
+    );
+
+    // 2 · Timed, before any duration packet: the reference shows the line, counting from zero.
+    assert_eq!(
+        show(AuraState {
+            duration: 0.0,
+            expiration_time: 0.0,
+            until_cancelled: false,
+            ..base.clone()
+        }),
+        (3, "<0 ss>".to_string()),
+        "a timed aura's first frames still carry the line"
+    );
+
+    // 3 · Lapsed: the reference's truncating seconds arm reads 0.
+    assert_eq!(
+        show(AuraState {
+            duration: 30.0,
+            expiration_time: 9.6, // 0.4 s in the past at now = 10
+            until_cancelled: false,
+            ..base.clone()
+        }),
+        (3, "<0 ss>".to_string()),
+        "a lapsed aura reads 0, it does not lose the line"
+    );
+
+    // Control: an ordinary live aura still counts down.
+    assert_eq!(
+        show(AuraState {
+            duration: 1800.0,
+            expiration_time: 100.0,
+            until_cancelled: false,
+            ..base
+        }),
+        (3, "<2 mm>".to_string()),
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// `GetRewardSpell()` and `GetQuestLogRewardSpell()` answer `texture, name, isTradeskillSpell`,
+/// three nils when the quest teaches nothing, and `SetQuestRewardSpell()` and
+/// `SetQuestLogRewardSpell()` render that spell.
+#[test]
+fn quest_reward_spell_getters_and_hovers() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_spell_tooltip(133, fireball());
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "Q1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        local tt = CreateFrame("GameTooltip", "TT")
+        "#,
+    )
+    .unwrap();
+
+    s.set_quest(Some(QuestState::default()));
+    assert_eq!(
+        s.arity("GetRewardSpell()").unwrap(),
+        3,
+        "three values on the empty path"
+    );
+    assert!(s
+        .eval::<bool>(
+            "local t, n, ts = GetRewardSpell() return t == nil and n == nil and ts == nil"
+        )
+        .unwrap());
+    s.run(r#"TT:SetOwner(Q1, "ANCHOR_RIGHT"); TT:SetQuestRewardSpell()"#)
+        .unwrap();
+    assert_eq!(s.eval::<i64>("return TT:NumLines()").unwrap(), 0);
+
+    let reward = QuestRewardSpell {
+        spell_id: 133,
+        name: Some("Fireball".into()),
+        texture: Some("Interface\\Icons\\Spell_Fire_FlameBolt".into()),
+        tradeskill: false,
+    };
+    s.set_quest(Some(QuestState {
+        panel: QuestPanel::Reward,
+        reward_spell: Some(reward.clone()),
+        ..QuestState::default()
+    }));
+    assert_eq!(
+        s.eval::<(String, String, Option<i64>)>("return GetRewardSpell()")
+            .unwrap(),
+        (
+            "Interface\\Icons\\Spell_Fire_FlameBolt".to_string(),
+            "Fireball".to_string(),
+            None
+        )
+    );
+    s.run(r#"TT:SetOwner(Q1, "ANCHOR_RIGHT"); TT:SetQuestRewardSpell()"#)
+        .unwrap();
+    s.resolve();
+    assert_eq!(
+        s.eval::<String>("return TTTextLeft1:GetText()").unwrap(),
+        "Fireball"
+    );
+
+    s.set_quest_log(QuestLogState {
+        entries: vec![QuestLogEntryView {
+            quest_id: 7,
+            detail: Some(QuestLogDetail {
+                reward_spell: Some(reward),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    // The detail hangs on the row, so both readers go through the selection.
+    s.run("SelectQuestLogEntry(1)").unwrap();
+    assert_eq!(
+        s.eval::<(String, String, Option<i64>)>("return GetQuestLogRewardSpell()")
+            .unwrap()
+            .1,
+        "Fireball"
+    );
+    s.run(r#"TT:SetOwner(Q1, "ANCHOR_RIGHT"); TT:SetQuestLogRewardSpell()"#)
+        .unwrap();
+    s.resolve();
+    assert_eq!(
+        s.eval::<String>("return TTTextLeft1:GetText()").unwrap(),
+        "Fireball"
+    );
+    assert!(s.errors().is_empty(), "script errors: {:?}", s.errors());
+}
+
+/// A craft recipe row whose detail icon hovers `tooltip`.
+fn craft_recipe(spell_id: u32, name: &str, tooltip: CraftTooltip) -> CraftRecipe {
+    CraftRecipe {
+        spell_id,
+        tooltip,
+        name: name.into(),
+        sub_name: String::new(),
+        difficulty: TradeSkillDifficulty::Optimal,
+        num_available: 1,
+        icon: None,
+        description: None,
+        needs_item_target: false,
+        reagents: vec![],
+        tools: vec![],
+        spell_level: 0,
+    }
+}
+
+/// Firebolt (3110) on a pet-bar slot.
+fn firebolt_slot() -> PetActionView {
+    PetActionView {
+        name: Some("Firebolt".into()),
+        spell_id: Some(3110),
+        ..Default::default()
+    }
+}
+
+fn firebolt() -> SpellTooltipView {
+    SpellTooltipView {
+        name: "Firebolt".into(),
+        rank: Some("Rank 1".into()),
+        cost: Some("10 Mana".into()),
+        range: Some("30 yd range".into()),
+        cast_time: Some("1 sec cast".into()),
+        description: "Deals 7 to 10 Fire damage to a target.".into(),
+        ..Default::default()
+    }
+}
+
+/// Pet-bar tokens and craft item subjects name no spell, so they are left out.
+#[test]
+fn the_spell_subjects_are_what_the_setters_read_from_the_vm() {
+    let mut s = script();
+    s.set_pet_actions(
+        true,
+        true,
+        true,
+        vec![
+            PetActionView {
+                name: Some("PET_ACTION_ATTACK".into()),
+                is_token: true,
+                ..Default::default()
+            },
+            firebolt_slot(),
+        ],
+    );
+    s.set_pet_book(PetBookState {
+        token: Some("DEMON".into()),
+        slots: vec![SpellSlotView {
+            spell_id: 6307,
+            name: "Blood Pact".into(),
+            ..Default::default()
+        }],
+    });
+    let reward = |spell_id| {
+        Some(QuestRewardSpell {
+            spell_id,
+            ..Default::default()
+        })
+    };
+    s.set_quest(Some(QuestState {
+        panel: QuestPanel::Reward,
+        reward_spell: reward(133),
+        ..QuestState::default()
+    }));
+    s.set_quest_log(QuestLogState {
+        entries: vec![QuestLogEntryView {
+            quest_id: 7,
+            detail: Some(QuestLogDetail {
+                reward_spell: reward(116),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }],
+        ..Default::default()
+    });
+    s.set_craft(Some(CraftState {
+        name: "Beast Training".into(),
+        rank: 0,
+        max_rank: 0,
+        craft_type: 1,
+        recipes: vec![
+            craft_recipe(24599, "Bite", CraftTooltip::Spell(17253)),
+            craft_recipe(7421, "Runed Copper Rod", CraftTooltip::Item(6218)),
+        ],
+    }));
+    let aura = |spell_id| AuraState {
+        spell_id,
+        ..Default::default()
+    };
+    s.set_player_auras(vec![aura(1459)]);
+    // The pet's, the target-of-target's and party1's lists, by guid.
+    s.set_unit_auras(0xF140_0000_0000_0077, Some(vec![aura(172)]));
+    s.set_unit_auras(0x21, Some(vec![aura(589)]));
+    s.set_unit_auras(0x22, Some(vec![aura(8921)]));
+    s.set_tracking(Some(TrackingState {
+        spell_id: 2580,
+        name: Some("Find Minerals".into()),
+        icon: None,
+        cancelable: true,
+    }));
+
+    let mut subjects = s.spell_tooltip_subjects();
+    subjects.sort_unstable();
+    assert_eq!(subjects, vec![116, 133, 172, 589, 1459, 2580, 8921, 17253]);
+    // The pet's bar and book are read through the builder's unit selector: the pet's views.
+    let mut pet_subjects = s.pet_spell_tooltip_subjects();
+    pet_subjects.sort_unstable();
+    assert_eq!(pet_subjects, vec![3110, 6307]);
+}
+
+/// The builder's unit selector picks the view built against the pet: `SetPetAction` passes it
+/// (`0x532888`, `0x5328d0`), `SetSpell` on the pet book (`0x532e23`) and a pet-learn
+/// `SetTrainerService` (`0x533a7f`); the player's book, a class service and a craft pass 0.
+#[test]
+fn the_unit_selector_setters_read_the_pet_view() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    let view = |description: &str| SpellTooltipView {
+        name: "Sacrifice".into(),
+        description: description.into(),
+        ..Default::default()
+    };
+    s.set_spell_tooltip(7812, view("absorb 305 damage"));
+    s.set_pet_spell_tooltip(7812, view("absorb 318 damage"));
+    s.set_pet_actions(
+        true,
+        true,
+        true,
+        vec![PetActionView {
+            name: Some("Sacrifice".into()),
+            spell_id: Some(7812),
+            ..Default::default()
+        }],
+    );
+    let slot = SpellSlotView {
+        spell_id: 7812,
+        name: "Sacrifice".into(),
+        ..Default::default()
+    };
+    s.set_pet_book(PetBookState {
+        token: Some("DEMON".into()),
+        slots: vec![slot.clone()],
+    });
+    s.set_spellbook(SpellBookState {
+        tabs: Vec::new(),
+        slots: vec![slot],
+    });
+    let service = |alt_caster| {
+        trainer_service(
+            100,
+            "Sacrifice",
+            TrainerTooltip::Spell {
+                spell_id: 7812,
+                alt_caster,
+            },
+        )
+    };
+    s.set_trainer(Some(TrainerState {
+        services: vec![service(true), service(false)],
+        ..Default::default()
+    }));
+    s.set_craft(Some(CraftState {
+        name: "Beast Training".into(),
+        rank: 0,
+        max_rank: 0,
+        craft_type: 1,
+        recipes: vec![craft_recipe(24599, "Sacrifice", CraftTooltip::Spell(7812))],
+    }));
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "PB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+        local function desc(set)
+            TT:SetOwner(PB1, "ANCHOR_RIGHT"); set(); return TTTextLeft2:GetText()
+        end
+        PET_BAR = desc(function() TT:SetPetAction(1) end)
+        PET_BOOK = desc(function() TT:SetSpell(1, "pet") end)
+        BOOK = desc(function() TT:SetSpell(1, "spell") end)
+        -- Row 1 is the group header.
+        PET_SERVICE = desc(function() TT:SetTrainerService(2) end)
+        SERVICE = desc(function() TT:SetTrainerService(3) end)
+        CRAFT = desc(function() TT:SetCraftSpell(1) end)
+    "#,
+    )
+    .unwrap();
+    let got = |name: &str| s.eval::<String>(&format!("return {name}")).unwrap();
+    assert_eq!(got("PET_BAR"), "absorb 318 damage");
+    assert_eq!(got("PET_BOOK"), "absorb 318 damage");
+    assert_eq!(got("PET_SERVICE"), "absorb 318 damage");
+    assert_eq!(got("BOOK"), "absorb 305 damage");
+    assert_eq!(got("SERVICE"), "absorb 305 damage");
+    assert_eq!(got("CRAFT"), "absorb 305 damage");
+    assert!(s.take_spell_tooltip_asks().is_empty());
+    assert!(s.take_pet_spell_tooltip_asks().is_empty());
+    assert!(s.take_errors().is_empty());
+}
+
+/// A pet view's miss asks the pet's store, and only the pet view's answer re-renders it.
+#[test]
+fn a_pet_view_miss_waits_on_the_pet_store() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_pet_actions(true, true, true, vec![firebolt_slot()]);
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "PB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+        TT:SetOwner(PB1, "ANCHOR_RIGHT")
+        TT:SetPetAction(1)
+    "#,
+    )
+    .unwrap();
+    assert!(s.take_spell_tooltip_asks().is_empty());
+    assert_eq!(s.take_pet_spell_tooltip_asks(), vec![3110]);
+    // The player's view of the same id is not the one the selector renders.
+    s.set_spell_tooltip(3110, firebolt());
+    assert_eq!(left_lines(&mut s), vec!["Firebolt"]);
+    s.set_pet_spell_tooltip(3110, firebolt());
+    assert_eq!(
+        left_lines(&mut s),
+        vec![
+            "Firebolt",
+            "10 Mana",
+            "1 sec cast",
+            "Deals 7 to 10 Fire damage to a target."
+        ]
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// No second hover and no second `OnTooltipCleared`: the reference builds the tooltip at the call.
+#[test]
+fn a_missed_view_re_renders_the_tooltip_when_the_app_answers() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_pet_actions(true, true, true, vec![firebolt_slot()]);
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "PB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+        TT:SetOwner(PB1, "ANCHOR_RIGHT")
+        CLEARED = 0
+        TT:SetScript("OnTooltipCleared", function() CLEARED = CLEARED + 1 end)
+        TT:SetPetAction(1)
+    "#,
+    )
+    .unwrap();
+    assert_eq!(left_lines(&mut s), vec!["Firebolt"]);
+    assert_eq!(s.take_pet_spell_tooltip_asks(), vec![3110]);
+
+    s.set_pet_spell_tooltip(3110, firebolt());
+    assert_eq!(
+        left_lines(&mut s),
+        vec![
+            "Firebolt",
+            "10 Mana",
+            "1 sec cast",
+            "Deals 7 to 10 Fire damage to a target."
+        ]
+    );
+    assert!(s.eval::<bool>("return TT:IsShown() == 1").unwrap());
+    assert!(
+        s.take_pet_spell_tooltip_asks().is_empty(),
+        "the re-render found the view"
+    );
+    assert_eq!(
+        s.eval::<i64>("return CLEARED").unwrap(),
+        1,
+        "one setter call, one OnTooltipCleared"
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// Beast Training's icon has no fallback name, so its miss is a hidden plate.
+#[test]
+fn a_hidden_miss_shows_and_an_enchant_link_fills_when_answered() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_craft(Some(CraftState {
+        name: "Beast Training".into(),
+        rank: 0,
+        max_rank: 0,
+        craft_type: 1,
+        recipes: vec![craft_recipe(24599, "Bite", CraftTooltip::Spell(17253))],
+    }));
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "CI"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+        CreateFrame("GameTooltip", "REF")
+        TT:SetOwner(CI, "ANCHOR_RIGHT")
+        TT:SetCraftSpell(1)
+        REF:SetOwner(CI, "ANCHOR_PRESERVE")
+        REF:SetHyperlink("|cffffd000|Henchant:20034|h[Enchant Weapon - Crusader]|h|r")
+    "#,
+    )
+    .unwrap();
+    assert_eq!(s.eval::<i64>("return TT:NumLines()").unwrap(), 0);
+    assert!(!s.eval::<bool>("return TT:IsShown() == 1").unwrap());
+    assert_eq!(
+        s.eval::<String>("return REFTextLeft1:GetText()").unwrap(),
+        "Enchant Weapon - Crusader"
+    );
+    assert_eq!(s.eval::<i64>("return REF:NumLines()").unwrap(), 1);
+
+    s.set_spell_tooltip(
+        17253,
+        SpellTooltipView {
+            name: "Bite".into(),
+            description: "Bite the enemy.".into(),
+            ..Default::default()
+        },
+    );
+    s.set_spell_tooltip(
+        20034,
+        SpellTooltipView {
+            name: "Enchant Weapon - Crusader".into(),
+            cast_time: Some("5 sec cast".into()),
+            description: "Permanently enchant a melee weapon.".into(),
+            ..Default::default()
+        },
+    );
+    assert!(s.eval::<bool>("return TT:IsShown() == 1").unwrap());
+    assert_eq!(
+        s.eval::<(String, String)>("return TTTextLeft1:GetText(), TTTextLeft2:GetText()")
+            .unwrap(),
+        ("Bite".to_string(), "Bite the enemy.".to_string())
+    );
+    assert_eq!(
+        s.eval::<(i64, String)>("return REF:NumLines(), REFTextLeft3:GetText()")
+            .unwrap(),
+        (3, "Permanently enchant a melee weapon.".to_string())
+    );
+    assert!(s.take_errors().is_empty());
+}
+
+/// A new hover, a hide, an added line or a running fade leaves the tooltip as it is.
+#[test]
+fn new_content_or_an_added_line_ends_the_wait() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_pet_actions(true, true, true, vec![firebolt_slot()]);
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "PB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "TT")
+        CreateFrame("GameTooltip", "HID")
+        CreateFrame("GameTooltip", "ADD")
+        TT:SetOwner(PB1, "ANCHOR_RIGHT")
+        TT:SetPetAction(1)
+        TT:SetOwner(PB1, "ANCHOR_RIGHT")
+        TT:SetText("Attack")
+        HID:SetOwner(PB1, "ANCHOR_RIGHT")
+        HID:SetPetAction(1)
+        HID:Hide()
+        ADD:SetOwner(PB1, "ANCHOR_RIGHT")
+        ADD:SetPetAction(1)
+        ADD:AddLine("an addon's line")
+        CreateFrame("GameTooltip", "FAD")
+        FAD:SetOwner(PB1, "ANCHOR_RIGHT")
+        FAD:SetPetAction(1)
+        FAD:FadeOut()
+    "#,
+    )
+    .unwrap();
+    s.set_pet_spell_tooltip(3110, firebolt());
+    assert_eq!(left_lines(&mut s), vec!["Attack"]);
+    assert_eq!(s.eval::<i64>("return HID:NumLines()").unwrap(), 0);
+    assert!(!s.eval::<bool>("return HID:IsShown() == 1").unwrap());
+    assert_eq!(
+        s.eval::<(i64, String)>("return ADD:NumLines(), ADDTextLeft2:GetText()")
+            .unwrap(),
+        (2, "an addon's line".to_string())
+    );
+    assert_eq!(s.eval::<i64>("return FAD:NumLines()").unwrap(), 1);
+    assert!(s.take_errors().is_empty());
+}
+
+/// What Lua wrote after the miss is kept: a line rewritten in place, by `AppendText` or a cell's
+/// `SetTextColor`, or new content that reads the same as the miss's line.
+#[test]
+fn a_line_rewritten_in_place_ends_the_wait() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_pet_actions(true, true, true, vec![firebolt_slot()]);
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "PB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "APP")
+        CreateFrame("GameTooltip", "COL")
+        APP:SetOwner(PB1, "ANCHOR_RIGHT")
+        APP:SetPetAction(1)
+        APP:AppendText(" (Pet)")
+        COL:SetOwner(PB1, "ANCHOR_RIGHT")
+        COL:SetPetAction(1)
+        COLTextLeft1:SetTextColor(1, 0, 0)
+        CreateFrame("GameTooltip", "SAM")
+        SAM:SetOwner(PB1, "ANCHOR_RIGHT")
+        SAM:SetPetAction(1)
+        SAM:SetOwner(PB1, "ANCHOR_RIGHT")
+        SAM:SetText("Firebolt", 1, 1, 1)
+    "#,
+    )
+    .unwrap();
+    s.set_pet_spell_tooltip(3110, firebolt());
+    assert_eq!(
+        s.eval::<(i64, String)>("return APP:NumLines(), APPTextLeft1:GetText()")
+            .unwrap(),
+        (1, "Firebolt (Pet)".to_string())
+    );
+    assert_eq!(
+        s.eval::<(i64, f32, f32)>(
+            "local r, g = COLTextLeft1:GetTextColor(); return COL:NumLines(), r, g"
+        )
+        .unwrap(),
+        (1, 1.0, 0.0)
+    );
+    assert_eq!(s.eval::<i64>("return SAM:NumLines()").unwrap(), 1);
+    assert!(s.take_errors().is_empty());
+}
+
+/// A re-render's `OnShow` can move another waiting tooltip onto a new spell.
+#[test]
+fn a_wait_replaced_by_an_earlier_re_render_is_not_replayed() {
+    let mut s = script();
+    s.set_screen_size(800.0, 600.0);
+    s.set_craft(Some(CraftState {
+        name: "Beast Training".into(),
+        rank: 0,
+        max_rank: 0,
+        craft_type: 1,
+        recipes: vec![craft_recipe(24599, "Firebolt", CraftTooltip::Spell(3110))],
+    }));
+    s.run(
+        r#"
+        local a = CreateFrame("Button", "PB1"); a:SetPoint("CENTER", 0, 0); a:SetWidth(10); a:SetHeight(10)
+        CreateFrame("GameTooltip", "A")
+        CreateFrame("GameTooltip", "B")
+        A:SetOwner(PB1, "ANCHOR_RIGHT")
+        A:SetCraftSpell(1)
+        B:SetOwner(PB1, "ANCHOR_RIGHT")
+        B:SetCraftSpell(1)
+        A:SetScript("OnShow", function()
+            B:SetOwner(PB1, "ANCHOR_RIGHT")
+            B:SetHyperlink("|cffffd000|Henchant:20034|h[Enchant Weapon - Crusader]|h|r")
+        end)
+    "#,
+    )
+    .unwrap();
+    s.set_spell_tooltip(3110, firebolt());
+    assert_eq!(
+        s.eval::<(i64, String)>("return B:NumLines(), BTextLeft1:GetText()")
+            .unwrap(),
+        (1, "Enchant Weapon - Crusader".to_string())
+    );
+    assert_eq!(
+        s.eval::<String>("return ATextLeft1:GetText()").unwrap(),
+        "Firebolt"
+    );
+    assert!(s.take_errors().is_empty());
+}

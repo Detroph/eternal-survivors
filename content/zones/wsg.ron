@@ -1,0 +1,289 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    id: "wsg",
+    name: Area(3277),
+    // The gulch is held by the other faction's players, every class
+    // of every race of that faction (zones.md, "Player-looking enemies"). Before: the Burning
+    // Legion's demons ("Legion at the Gate").
+    subtitle: "Capture the Flag",
+    description: "The other faction holds the gulch: every class, every race, every bad habit, and their ranked champions.",
+    map_id: 489,
+    area_id: 3277,
+    spawn: (
+        x: 1230.0,
+        y: 1450.0,
+        z: 310.0,
+        facing: 1.57,
+    ),
+    // The whole middle field is the arena, from the Horde's side in the
+    // south to the Alliance's in the north, each ending at a line across the full width of the gulch
+    // (each line straight across at its x). The circle, centred between them
+    // and wide enough for the field, only catches strays.
+    arena_centre: Some((1240.8, 1455.0)),
+    arena_radius: 150.0,
+    walls: [
+        // the Horde's side, south: (1116.85, 1462.46)
+        (from: (1116.85, 1000.0), to: (1116.85, 1900.0)),
+        // the Alliance's side, north: (1364.76, 1461.69)
+        (from: (1364.76, 1000.0), to: (1364.76, 1900.0)),
+    ],
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 20,
+    weather: (
+        kind: None,
+        intensity: 0.0,
+    ),
+    difficulty: 3.0,
+    // Normal enemies: a joke picked for each (pvp_looks.ron jokes) before the class they look like; the server picks each one's race
+    // of the other faction, gender, face and pre-raid gear. Melee for warriors, paladins, rogues,
+    // melee shamans and feral druids (shown as cats); the rest stand and cast, hunters shoot.
+    enemies: [
+        (
+            name: "{Joke} {Class(1)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            looks_like: Some((class: "warrior")),
+        ),
+        (
+            name: "{Joke} {Class(4)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.5,
+            looks_like: Some((class: "rogue")),
+        ),
+        (
+            name: "{Joke} {Class(11)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 1.0,
+            looks_like: Some((class: "druid", form: Some(Cat))),
+        ),
+        (
+            name: "{Joke} {Class(8)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            look_spell: Some(116),
+            looks_like: Some((class: "mage")),
+        ),
+        (
+            name: "{Joke} {Class(5)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.5,
+            look_spell: Some(585),
+            looks_like: Some((class: "priest")),
+        ),
+        (
+            name: "{Joke} {Class(2)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 3.0,
+            looks_like: Some((class: "paladin")),
+        ),
+        (
+            name: "{Joke} {Class(7)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 4.5,
+            looks_like: Some((class: "shaman")),
+        ),
+        (
+            name: "{Joke} {Class(9)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 5.0,
+            look_spell: Some(686),
+            looks_like: Some((class: "warlock")),
+        ),
+        (
+            name: "{Joke} {Class(1)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 6.0,
+            looks_like: Some((class: "warrior")),
+        ),
+        (
+            name: "{Joke} {Class(7)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 6.5,
+            look_spell: Some(403),
+            looks_like: Some((class: "shaman")),
+        ),
+        (
+            name: "{Joke} {Class(3)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(75),
+            looks_like: Some((class: "hunter")),
+        ),
+        (
+            name: "{Joke} {Class(11)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 8.0,
+            look_spell: Some(5176),
+            looks_like: Some((class: "druid")),
+        ),
+        (
+            name: "{Joke} {Class(2)}",
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 3.0,
+            appears_at_minute: 9.0,
+            looks_like: Some((class: "paladin")),
+        ),
+        // Elites: a PvP rank's title (ranks 1-11) before a made-up player name, in their class's
+        // rank 12 rare set.
+        (
+            name: "",
+            scale: 1.2,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 4.0,
+            looks_like: Some((class: "rogue")),
+            rank: Some(5),
+        ),
+        (
+            name: "",
+            scale: 1.2,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 8.5,
+            looks_like: Some((class: "warrior")),
+            rank: Some(8),
+        ),
+        (
+            name: "",
+            scale: 1.2,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 13.0,
+            looks_like: Some((class: "paladin")),
+            rank: Some(11),
+        ),
+    ],
+    // Bosses: each played by one of the hand-made characters of the faction the party
+    // fights (player_characters.ron), dealt at random, no title; while there are none, the
+    // looks_like stand-in shows (a class, a made-up player name). Each fights as its class: its class's
+    // boss abilities, none that stuns, fears, roots or slows, then its
+    // Summon.
+    bosses: [
+        (
+            name: "",
+            scale: 1.9,
+            creature_type: Humanoid,
+            spawn_minute: 3.0,
+            yell: "You picked the wrong gulch to stand in.",
+            // its class's first 2 (pvp_looks.ron), then its adds
+            class_abilities: 2,
+            abilities: [
+                Summon(),
+            ],
+            is_final: false,
+            // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
+            carries: Some((vs_alliance: 23335, vs_horde: 23333)),
+            played_by: Some(Any),
+            looks_like: Some((class: "warrior")),
+        ),
+        (
+            name: "",
+            scale: 1.9,
+            creature_type: Humanoid,
+            spawn_minute: 6.0,
+            yell: "Sheep first, questions never.",
+            // its class's first 2 (pvp_looks.ron), then its adds
+            class_abilities: 2,
+            abilities: [
+                Summon(),
+            ],
+            is_final: false,
+            // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
+            carries: Some((vs_alliance: 23335, vs_horde: 23333)),
+            played_by: Some(Any),
+            looks_like: Some((class: "mage")),
+        ),
+        (
+            name: "",
+            scale: 1.9,
+            creature_type: Humanoid,
+            spawn_minute: 9.0,
+            yell: "You never saw me coming. Nobody does.",
+            // its class's first 2 (pvp_looks.ron), then its adds
+            class_abilities: 2,
+            abilities: [
+                Summon(),
+            ],
+            is_final: false,
+            // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
+            carries: Some((vs_alliance: 23335, vs_horde: 23333)),
+            played_by: Some(Any),
+            looks_like: Some((class: "rogue")),
+        ),
+        (
+            name: "",
+            scale: 1.9,
+            creature_type: Humanoid,
+            spawn_minute: 12.0,
+            yell: "Fear, dots, and a long walk back to your graveyard.",
+            // its class's first 2 (pvp_looks.ron), then its adds
+            class_abilities: 2,
+            abilities: [
+                Summon(),
+            ],
+            is_final: false,
+            // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
+            carries: Some((vs_alliance: 23335, vs_horde: 23333)),
+            played_by: Some(Any),
+            looks_like: Some((class: "warlock")),
+        ),
+        (
+            name: "",
+            scale: 2.0,
+            creature_type: Humanoid,
+            spawn_minute: 16.0,
+            yell: "Twelve weeks of grinding for this. Kneel.",
+            // its class's first 3 (pvp_looks.ron), then its adds
+            class_abilities: 3,
+            abilities: [
+                Summon(),
+            ],
+            is_final: true,
+            // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
+            carries: Some((vs_alliance: 23335, vs_horde: 23333)),
+            played_by: Some(Any),
+            looks_like: Some((class: "warrior")),
+        ),
+    ],
+)

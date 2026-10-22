@@ -1,0 +1,165 @@
+// The legendary amulets' looks: each legendary's signature moments
+// wear a 1.12 spell look of their own, the boss's or hero's own look where the player's client
+// has it, the class fantasy kept. A legendary is named by its main spell (as in
+// legendary_amulets.ron); each moment is a milestone kind (Burst, LeaveArea, Spree...) or, for an
+// Afflict, the effect it puts on an enemy (Stun, Fear, Silence...), with the Spell.dbc id it shows.
+// As the content loads, each look goes into the matching milestones of that legendary, over any
+// look legendary_amulets.ron gives them; numbers and words stay in legendary_amulets.ron.
+// How each kind shows: docs/game/screens.md "Looks". The ids are pointers only.
+([
+    // ---- Warrior ----
+    // Gruul's Shatter: turned to stone (a basilisk's Petrify), then shattering into rock
+    (legendary: "slam", moments: [(Stun, 11020), (Burst, 26271)]),
+    // Blademaster's Bladestorm: the Bladestorm whirl round the hero while it spins
+    (legendary: "whirlwind", moments: [(Spree, 9632)]),
+    // Mark of the Fallen Champion: a blood-red mark on each attacker
+    (legendary: "revenge", moments: [(MarkAttackers, 1130)]),
+    // Hateful Strike: Patchwerk's own blow on the healthiest
+    (legendary: "cleave", moments: [(StrikeOne, 28308)]),
+    // Hammer of the Mountain King: the Storm Bolt hammer flies at the healthiest
+    (legendary: "thunder_clap", moments: [(StrikeOne, 20685)]),
+    // Blade Dance: a cleaving slash on each enemy it dances to
+    (legendary: "mortal_strike", moments: [(ExtraTargets, 9633)]),
+    // Gorehowl: Bloodlust while the kills stack
+    (legendary: "execute", moments: [(TimedBuff, 6742)]),
+    // Bellowing Roar: Onyxia's roar of fear on each enemy
+    (legendary: "demo_shout", moments: [(Fear, 18431)]),
+    // Endurance Aura: an aura's ring at the hero's feet while the shout lasts
+    (legendary: "battle_shout", moments: [(WhileBuff, 7069)]),
+    // Vampiric Bite: the vampiric embrace on each heal, a frenzy's red while it stacks
+    (legendary: "bloodthirst", moments: [(HealOnTrigger, 15290), (TimedBuff, 26041)]),
+    // Corrupted Blood: Hakkar's blood bursting on each enemy it passes to
+    (legendary: "rend", moments: [(DotSpread, 24328)]),
+    // Storm Bolt: the Mountain King's hammer at each further enemy
+    (legendary: "shield_slam", moments: [(ExtraTargets, 20685)]),
+
+    // ---- Paladin ----
+    // Reflective Shield: a holy nova where the hero stands as the shield ends
+    (legendary: "holy_shield", moments: [(Burst, 15237)]),
+    // The Ashbringer: a great holy burst at the struck enemy
+    (legendary: "seal_of_command", moments: [(Burst, 8913)]),
+    // Sanctified Ground: Death and Decay's ground, recoloured holy gold, as Consecration grows
+    (legendary: "consecration", moments: [(GrowingArea, 11433)]),
+    // Hand of Ragnaros: a meteor falling on the struck enemy
+    (legendary: "hammer_of_wrath", moments: [(Burst, 24340)]),
+    // Avatar of the Light: a holy shield's glow at the feet while Divine Shield lasts, a holy nova as it ends and heals
+    (legendary: "divine_shield", moments: [(WhileBuff, 11011), (HealOnTrigger, 15237)]),
+
+    // ---- Hunter ----
+    // Rocket Strike: a rocket's blast at the struck spot
+    (legendary: "explosive_shot", moments: [(Burst, 1940)]),
+    // Serpent's Brood: the snakes hatch from a burst of green
+    (legendary: "serpent_sting", moments: [(PetOnTrigger, 6587)]),
+    // Lava Bomb: heated, burning ground
+    (legendary: "explosive_trap", moments: [(LeaveArea, 22191)]),
+    // Silence: the silencing hush on the enemy
+    (legendary: "concussive_shot", moments: [(Silence, 15487)]),
+    // Lava Splash: Emberseer's great fire burst where the enemy dies
+    (legendary: "immolation_trap", moments: [(ExplodeOnDeath, 16049)]),
+    // Flash Freeze: frozen solid in ice (Sapphiron's Icebolt)
+    (legendary: "frost_trap", moments: [(Stun, 28522)]),
+
+    // ---- Rogue ----
+    // Poison Cloud: Grobbulus's poison cloud
+    (legendary: "mutilate", moments: [(LeaveArea, 28158)]),
+    // Vengeance: the avatars rise from a burst of shadow
+    (legendary: "sinister_strike", moments: [(PetOnTrigger, 27249)]),
+    // VanCleef's Whirling Blades: a whirl round the hero
+    (legendary: "blade_flurry", moments: [(LeaveArea, 11568)]),
+    // Blinding Powder: the blind's daze on each enemy
+    (legendary: "gouge", moments: [(Fear, 2094)]),
+    // Mirror Image: the hero shimmers while Adrenaline Rush lasts
+    (legendary: "adrenaline_rush", moments: [(WhileBuff, 4511)]),
+    // Critical Strike: an ambush's stab on each critical blow
+    (legendary: "backstab", moments: [(StrikeAgain, 8676)]),
+    // Wind Walk: the hero fades while Slice and Dice lasts
+    (legendary: "slice_and_dice", moments: [(WhileBuff, 885)]),
+    // Silent Strangler: the silencing hush on the enemy
+    (legendary: "garrote", moments: [(Silence, 15487)]),
+
+    // ---- Priest ----
+    // Shadow Spike: shadow fissures bursting from the ground
+    (legendary: "mind_spike", moments: [(Burst, 27812)]),
+    // Whisper of Death: a burst of shadow where the enemy dies
+    (legendary: "sw_pain", moments: [(DotBurst, 7067)]),
+    // Divine Aegis: Smite's holy bolt at each enemy struck while it holds, a holy nova as it breaks
+    (legendary: "pw_shield", moments: [(Barrage, 585), (ShieldBurst, 15237)]),
+    // Dominate Mind: the turned enemy wears Mind Control
+    (legendary: "psychic_scream", moments: [(FearedTurn, 605)]),
+    // Inevitable Doom: a great burst of shadow as the plague runs out
+    (legendary: "devouring_plague", moments: [(DotBurst, 12151)]),
+    // Deplete: Vampiric Embrace's shadow on each enemy that pays for the heal
+    (legendary: "renew", moments: [(DotFromHeal, 15286)]),
+
+    // ---- Shaman ----
+    // Tornado: a cyclone riding the struck enemy
+    (legendary: "wellspring", moments: [(LeaveArea, 10340)]),
+    // Earthquake: rocks bursting from the shaking ground
+    (legendary: "earth_shock", moments: [(LeaveArea, 26271)]),
+    // Frost Nova: Frost Nova's ring at the struck enemy
+    (legendary: "frost_shock", moments: [(Splash, 122)]),
+    // Lava Spawn: the spawn rise from a fire nova
+    (legendary: "magma_totem", moments: [(PetOnTrigger, 10604)]),
+    // Wrath of Ragnaros: Ragnaros's own fire nova round the hero, then heated ground
+    (legendary: "fire_nova", moments: [(Burst, 21154), (LeaveArea, 22191)]),
+
+    // ---- Mage ----
+    // Arcane Bomb: an arcane explosion at the struck enemy
+    (legendary: "arcane_blast", moments: [(Burst, 1449)]),
+    // Phoenix: it rises from a great burst of fire (and burns while it lives, pets.ron)
+    (legendary: "fireball", moments: [(PetOnTrigger, 16049)]),
+    // Frostbolt Volley: Kel'Thuzad-like volley, a frostbolt at each further enemy
+    (legendary: "frostbolt", moments: [(ExtraTargets, 8398)]),
+    // Ice Tomb: encased in ice (Kel'Thuzad's Frost Blast)
+    (legendary: "frost_nova", moments: [(Stun, 27808)]),
+    // Magnetic Pull: Thaddius's pull onto the enemies drawn in
+    (legendary: "arcane_explosion", moments: [(PullEveryNth, 28337)]),
+    // Living Bomb: Baron Geddon's bomb burns on the enemy, then his explosion
+    (legendary: "fire_blast", moments: [(BurstMark, 20475), (Burst, 20476)]),
+    // Frost Breath: the frost trap's frozen ground
+    (legendary: "cone_of_cold", moments: [(LeaveArea, 13810)]),
+    // Flame Wreath: a ring of walking fire round the hero
+    (legendary: "blast_wave", moments: [(LeaveArea, 269)]),
+    // Pyroblast: a blast wave at the struck enemy
+    (legendary: "pyroblast", moments: [(Splash, 11113)]),
+    // Frozen Shell: a Frostbolt's shard at each enemy struck, Frost Nova's ring as the barrier breaks
+    (legendary: "ice_barrier", moments: [(Barrage, 116), (Burst, 122)]),
+
+    // ---- Warlock ----
+    // Harvest Soul: the soul siphon's glow while the kills stack
+    (legendary: "drain_soul", moments: [(TimedBuff, 7290)]),
+    // Shadow Bolt Volley: a volley's shadow bolt at each further enemy
+    (legendary: "shadow_bolt", moments: [(ExtraTargets, 9081)]),
+    // Unbound Plague: a plague's green burst on each enemy it jumps to
+    (legendary: "corruption", moments: [(DotSpread, 8600)]),
+    // Legion Flame: heated, burning ground behind each burning enemy
+    (legendary: "immolate", moments: [(FireTrail, 22191)]),
+    // Doom: the doomguard crashes down as an infernal does
+    (legendary: "curse_of_agony", moments: [(PetOnTrigger, 23056)]),
+    // Blood Siphon: Hakkar's siphon, a burst of blood at each tick
+    (legendary: "drain_life", moments: [(Splash, 16141)]),
+    // Sleep: asleep while the fear lasts
+    (legendary: "fear", moments: [(Vulnerable, 700)]),
+
+    // ---- Druid ----
+    // Starfall: the falling stars on each enemy struck
+    (legendary: "starfire", moments: [(Barrage, 20687)]),
+    // Mark of Arlokk: the panthers come out of a puff of smoke
+    (legendary: "claw", moments: [(PetOnTrigger, 24223)]),
+    // Force of Nature: the treants grow out of tangling roots
+    (legendary: "friend_of_the_forest", moments: [(PetOnTrigger, 4931)]),
+    // Lifebinder's Gift: an ancient glyph of nature where the hero stands
+    (legendary: "rejuvenation", moments: [(Burst, 24815)]),
+    // Frenzy: a beast's frenzy on the claws while Tiger's Fury lasts
+    (legendary: "tigers_fury", moments: [(WhileBuff, 23128)]),
+    // Sprint of the Wild: Sprint's trail while Dash lasts
+    (legendary: "dash", moments: [(WhileBuff, 2983)]),
+    // War Stomp: the tauren's stomp round the hero
+    (legendary: "bash", moments: [(Burst, 20549)]),
+    // Thorns Aura: Wrath's nature bolt on each enemy the vines lash
+    (legendary: "thorns", moments: [(Barrage, 5176)]),
+    // Shapeshift: Fandral's flames, Flamestrike's burst and burning ground where the hero shifts
+    (legendary: "powershift", moments: [(Burst, 2120), (LeaveArea, 2120)]),
+    // Surge: Demoralizing Roar's roar round the bear
+    (legendary: "enrage", moments: [(Burst, 99)]),
+])

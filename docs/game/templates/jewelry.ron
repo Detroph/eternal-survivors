@@ -1,0 +1,13 @@
+// Ring or trinket template. Copy the block below into the list in content/jewelry.ron. Caches and
+// rares' hoards offer it at once; it lasts one run. How offers, rarities, upgrades and caps
+// work is in docs/game/gear.md, section 1 ("Caches and jewelry offers").
+(
+    id: "my_new_ring",             // unique, lowercase; the codex and the save use it
+    name: "My New Ring",
+    icon: "INV_Jewelry_Ring_15",   // a texture name from Interface\Icons in the WoW client
+    slot: Ring,                    // Ring or Trinket: a hero wears at most 2 of each
+    text: "+{v}% damage",          // its line: {v} is its value now, {v}% a share as a percentage
+    stat: Damage,                  // the hero stat it adds to (the list is in classes.md, section 4)
+    value: 0.15,                   // its base value: 0.15 = 15 %; a new piece starts at
+                                   // 1.5 × this × its rarity's multiplier, upgrades raise it
+)

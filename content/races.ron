@@ -1,0 +1,190 @@
+// Races: passives, the race spell, the classes each adds to the stock ones, and totem looks.
+([
+    (
+        id: "human",
+        name: Race(1),
+        wow_race_id: 1,
+        faction: Alliance,
+        faction_template: 1,
+        spell: "perception",
+        // classes beyond the stock create screen's
+        added_classes: ["hunter"],
+        passives: [
+            (
+                name: Spell(20598),
+                stat: Experience,
+                value: 0.1,
+                text: "Experience gained +10%.",
+            ),
+            (
+                name: Spell(20599),
+                stat: Gold,
+                value: 0.2,
+                text: "Gold found +20%.",
+            ),
+        ],
+    ),
+    (
+        id: "orc",
+        name: Race(2),
+        wow_race_id: 2,
+        faction: Horde,
+        faction_template: 2,
+        spell: "blood_fury",
+        added_classes: ["mage"],
+        passives: [
+            (
+                name: Spell(20573),
+                stat: MaxHealth,
+                value: 0.1,
+                text: "Maximum health +10%.",
+            ),
+        ],
+    ),
+    (
+        id: "dwarf",
+        name: Race(3),
+        wow_race_id: 3,
+        faction: Alliance,
+        faction_template: 3,
+        spell: "stoneform",
+        added_classes: ["shaman"],
+        // every totem is the mace of item 11684 (display 23618) planted by
+        // its grip, head up, the stock totem's body hidden and its effects swirling around the
+        // mace. From the models (yards): the totem's body stands from 0.53 to 2.01 over the ground
+        // (z 1.93 to 3.41 at rest, lowered 1.40 as it stands), its glow rising from 1.61; the mace
+        // runs 0.30 from its grip to the pommel and 0.72 to the head's top, the head from 0.30.
+        totem_look: Some((
+            part: Weapon(23618),
+            scale: 1.6,           // the head's top at 1.15, the head from 0.48
+            pitch_degrees: -90.0, // stood head up
+            turn_degrees: 0.0,
+            sink: 0.48,           // the grip at the ground, the pommel 0.48 under it
+            raise_effects: -0.41, // the glow lowered to just over the head's top (1.20)
+            hide_totem_body: true,
+        )),
+        passives: [
+            (
+                name: Spell(5626),
+                stat: Damage,
+                value: 0.05,
+                text: "All damage +5%.",
+            ),
+            (
+                name: "Treasure Finding",
+                stat: PickupRange,
+                value: 0.3,
+                text: "Pickup range +30%.",
+                // the spellbook shows it as the stock racial of this name
+                stock_spell: Some(Spell(2481)),
+            ),
+        ],
+    ),
+    (
+        id: "night_elf",
+        name: Race(4),
+        wow_race_id: 4,
+        faction: Alliance,
+        faction_template: 4,
+        spell: "shadowmeld",
+        passives: [
+            (
+                name: Spell(4281),
+                stat: MoveSpeed,
+                value: 0.1,
+                text: "Movement speed +10%.",
+            ),
+            (
+                name: Spell(848),
+                stat: DamageReduction,
+                value: 0.05,
+                text: "Damage taken -5%.",
+            ),
+        ],
+    ),
+    (
+        id: "undead",
+        name: Race(5),
+        wow_race_id: 5,
+        faction: Horde,
+        faction_template: 5,
+        spell: "will_of_the_forsaken",
+        added_classes: ["paladin"],
+        passives: [
+            (
+                name: Spell(20577),
+                stat: HealPerKill,
+                value: 1.0,
+                text: "Each kill heals 1 health.",
+            ),
+            (
+                name: Spell(24488),
+                stat: DamageReduction,
+                value: 0.05,
+                text: "Damage taken -5%.",
+            ),
+        ],
+    ),
+    (
+        id: "tauren",
+        name: Race(6),
+        wow_race_id: 6,
+        faction: Horde,
+        faction_template: 6,
+        spell: "war_stomp",
+        passives: [
+            (
+                name: Spell(13742),
+                stat: MaxHealth,
+                value: 0.15,
+                text: "Maximum health +15%.",
+            ),
+        ],
+    ),
+    (
+        id: "gnome",
+        name: Race(7),
+        wow_race_id: 7,
+        faction: Alliance,
+        faction_template: 115,
+        spell: "escape_artist",
+        added_classes: ["priest"],
+        passives: [
+            (
+                name: Spell(20591),
+                stat: CooldownRecovery,
+                value: 0.1,
+                text: "Cooldowns recover 10% faster.",
+            ),
+            (
+                name: Spell(20593),
+                stat: Luck,
+                value: 0.2,
+                text: "Luck +20%.",
+            ),
+        ],
+    ),
+    (
+        id: "troll",
+        name: Race(8),
+        wow_race_id: 8,
+        faction: Horde,
+        faction_template: 116,
+        spell: "berserking",
+        added_classes: ["warlock"],
+        passives: [
+            (
+                name: Spell(820),
+                stat: HealthPerSecond,
+                value: 2.0,
+                text: "+2 health per second.",
+            ),
+            (
+                name: Spell(5952),
+                stat: CritChance,
+                value: 0.03,
+                text: "Critical strike chance +3%.",
+            ),
+        ],
+    ),
+])

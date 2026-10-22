@@ -1,0 +1,19 @@
+// Amulet template. Copy the block below into the list in content/amulets.ron. A cache offer that
+// rolls this amulet's rarity may show it; one amulet is worn at a time, for one run. Legendary
+// amulets are not records: they are recipes by delivery kind (content/legendary_amulets.ron).
+// How offers and empowering work is in docs/game/gear.md, section 1 ("Amulets").
+(
+    id: "my_new_amulet",           // unique, lowercase; the codex and the save use it
+    name: "My New Amulet",
+    icon: "INV_Jewelry_Necklace_02",   // a texture name from Interface\Icons in the WoW client
+    text: "All damage +10%. Cooldowns recover 5% faster.",   // its tooltip, our own words
+    effects: [                     // the same shapes as talents, at rank 1 (classes.md section 4);
+                                   // every Stat it gives needs a line in content/words.ron
+        Stat(stat: Damage, per_rank: 0.1),
+        Stat(stat: CooldownRecovery, per_rank: 0.05),
+    ],
+    rarity: Uncommon,              // the rarity it is offered at: Common, Uncommon, Rare, Epic
+                                   // or Legendary
+    growth: Fast,                  // how fast its numbers grow when offered again: Fastest,
+                                   // Fast, Medium, Slow or Slowest
+)

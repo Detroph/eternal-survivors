@@ -1,0 +1,565 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    // The run is held in Stratholme's Slaughter Square (map 329), the open square before Baron
+    // Rivendare's Slaughterhouse, its gates shut. A save naming the zone `av` reads as `strat`.
+    id: "strat",
+    name: Area(2017),
+    subtitle: "The Slaughter Square",
+    description: "The Scourge holds the dead city. Its gates are barred behind you: hold the square before the Slaughterhouse until the Baron himself steps out.",
+    map_id: 329,
+    area_id: 2017,
+    // In the square, a little in front of the Slaughterhouse's door, facing it (west).
+    spawn: (
+        x: 4033.0,
+        y: -3428.0,
+        z: 117.6,
+        facing: 1.571,
+    ),
+    // The square is the arena, walled by the city itself and its shut
+    // gates; the circle only catches strays, centred in the square.
+    arena_centre: Some((4042.0, -3405.0)),
+    arena_radius: 100.0,
+    // The square's gates stand shut, the map's own doors where the
+    // server data stands them: the Slaughter Square Gate to the south, the Gauntlet's portcullis
+    // to the east, the Slaughterhouse's door to the west and the Baron's own door inside it. Each
+    // doorway line runs across the opening the walk finds there and into the walls each side.
+    doors: [
+        (
+            object: 175358,
+            name: "Slaughter Square Gate",
+            display_id: 3614,
+            at: (x: 3960.6, y: -3392.89, z: 119.662, facing: -3.08923),
+            doorway: (from: (3960.6, -3383.0), to: (3960.6, -3403.0)),
+        ),
+        (
+            object: 175373,
+            name: "Gauntlet Portcullis",
+            display_id: 3631,
+            at: (x: 4037.15, y: -3469.15, z: 121.804, facing: -3.05433),
+            doorway: (from: (4023.5, -3469.15), to: (4050.5, -3469.15)),
+        ),
+        (
+            object: 175405,
+            name: "Slaughterhouse Door",
+            display_id: 3632,
+            at: (x: 4032.85, y: -3388.84, z: 119.667, facing: -1.5708),
+            // the opening walked here spans x 4030.5 to 4036.5
+            doorway: (from: (4026.0, -3388.84), to: (4041.0, -3388.84)),
+            // It opens 3 s before Ramstein is due, so he walks
+            // straight out into the square.
+            opens_at_minute: 19.95,
+            announce: "The Slaughterhouse door grinds open. Something hungry is coming out.",
+        ),
+        (
+            object: 175796,
+            name: "Baron's Door",
+            display_id: 3632,
+            at: (x: 4032.69, y: -3364.54, z: 115.054, facing: 1.5708),
+            // the opening walked here spans x 4029.5 to 4035; the Baron's script opens it as his
+            // Black Guard comes out, as in Stratholme
+            doorway: (from: (4024.0, -3364.54), to: (4042.0, -3364.54)),
+        ),
+    ],
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 21,
+    weather: (
+        kind: None,
+        intensity: 0.0,
+    ),
+    difficulty: 8.0,
+    // The Scourge's side of Stratholme, each in the place of the slot it took (its kind,
+    // toughness and minute kept); models and weapons are vmangos's creature of the name
+    // (docs/game/enemy-weapons.md).
+    enemies: [
+        (
+            name: "Mangled Cadaver",
+            display_id: 10972,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Fodder,
+            toughness: 0.25,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Plague Ghoul",
+            display_id: 559,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Skeletal Berserker",
+            display_id: 9784,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedAxe, display: 7428, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: OneHandedAxe, display: 7428, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Thuzadin Shadowcaster",
+            display_id: 10631,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Dagger, display: 19555, inventory_type: 13, sheath: 3, material: 1)),
+                off_hand: Some((kind: HeldInOffHand, display: 23175, inventory_type: 23, sheath: 0, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            look_spell: Some(15232),
+        ),
+        (
+            name: "Ghoul Ravener",
+            display_id: 10626,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Patchwork Horror",
+            display_id: 1693,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Rockwing Gargoyle",
+            display_id: 7533,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Shrieking Banshee",
+            display_id: 10728,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(16868),
+        ),
+        (
+            name: "Venom Belcher",
+            display_id: 12819,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: ToughMid,
+            toughness: 2.5,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Crypt Beast",
+            display_id: 9758,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Bile Spewer",
+            display_id: 9760,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Black Guard Swordsmith",
+            display_id: 775,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedSword, display: 23355, inventory_type: 17, sheath: 1, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only the bosses bring these (Nerub'enkan's scarabs, the
+        // Baron's skeletons and his end event, as in Stratholme); they never spawn by themselves.
+        (
+            name: "Crypt Scarab",
+            display_id: 10005,
+            scale: 1.0,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Mindless Undead",
+            display_id: 9784,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Black Guard Sentry",
+            display_id: 775,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Polearm, display: 22492, inventory_type: 17, sheath: 2, material: 1)),
+            ),
+            scale: 1.2,
+            creature_type: Undead,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Mindless Skeleton",
+            display_id: 9784,
+            scale: 1.0,
+            creature_type: Undead,
+            kind: Fodder,
+            toughness: 0.25,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
+    // every area attack is marked on the ground before it lands and hits the hero only. Each boss
+    // keeps the damage a hero cannot avoid of the Alterac Valley boss whose slot it took, by the same recipe. Sizes: normal bosses
+    // one size, the final ones a third bigger, by each model's measured box. None of them has a
+    // voice line in 1.12.
+    bosses: [
+        (
+            name: "Magistrate Barthilas",
+            display_id: 10433,
+            scale: 1.65,
+            creature_type: Undead,
+            spawn_minute: 4.0,
+            yell: "The Magistrate's court is in session. The sentence is death!",
+            // Korrak's slot and recipe: his swing carries what his charge did
+            swing_mult: Some(1.5),
+            abilities: [
+                // Mighty Blow: a marked cone before him, no knock back
+                Marked(
+                    shape: Cone(length: 10.0, angle: 70.0),
+                    at: Boss,
+                    impact_spell: 14099,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.2),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(14099)}: out of the cone!", bar: Some("{Spell(14099)}"))),
+                ),
+                // Crowd Pummel: a marked circle round him, its own 10 yd
+                Marked(
+                    shape: Circle(radius: 10.0),
+                    at: Boss,
+                    impact_spell: 10887,
+                    wind_up: Some(1.8),
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(10887)}: step back!", bar: Some("{Spell(10887)}"))),
+                ),
+            ],
+            script: [
+                // his Furious Anger stacks as the fight goes on: his marks come sooner and hit
+                // harder, and he runs faster (his swing stays as it is)
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "{Spell(16791)} grows: faster, harder blows!", colour: Purple, icon_spell: Some(16791), bar: Some("{Spell(16791)}"))),
+                    run: [
+                        Emote(text: "%s's {Spell(16791)} grows!"),
+                        Empower(look_spell: 16791, faster: 0.1, harder: 0.1, max_stacks: 5),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Baroness Anastari",
+            display_id: 10698,
+            scale: 2.00,
+            creature_type: Undead,
+            spawn_minute: 8.0,
+            yell: "Your soul will make a fine vessel. Come closer, mortal...",
+            abilities: [
+                // Banshee Wail volleys (Ivus's slot and recipe)
+                Volley(look_spell: 16565, impact_on_bunny: true),
+                // Possess: she fades and dives through a marked line for a host (no control of
+                // the hero: a hit is damage only)
+                Rush(
+                    look_spell: 100,
+                    fade_spell: Some(24699),
+                    length: Some(28.0),
+                    width: Some(5.0),
+                    wind_up: Some(1.8),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "Anastari seeks a host: side-step her dive!", icon_spell: Some(17244), bar: Some("{Spell(17244)}"))),
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Nerub'enkan",
+            display_id: 9793,
+            scale: 1.40,
+            creature_type: Undead,
+            spawn_minute: 12.0,
+            yell: "The crypts hunger. My children will pick your bones clean.",
+            // each blow pierces deeper: a damage-only stack (Lokholar's slot and recipe)
+            on_hit: Some((look_spell: 6016, damage_mult: 0.05, every: 1.0, seconds: 10.0, max_stacks: 5)),
+            abilities: [
+                // Encasing Webs: marked webs round the hero, no root; the webs left stack a poison
+                Marked(
+                    shape: Circle(radius: 3.5),
+                    at: NearHero(count: 3, spread: 7.0),
+                    impact_spell: 4962,
+                    impact_on_bunny: true,
+                    damage_mult: Some(1.0),
+                    cooldown: Some(12.0),
+                    leaves: Some((
+                        look_spell: 28158,
+                        radius: 3.5,
+                        seconds: 8.0,
+                        damage_mult: 0.0,
+                        affliction: Some((look_spell: 744, damage_mult: 0.05, every: 1.0, seconds: 6.0, max_stacks: 5)),
+                    )),
+                    warn: Some((text: "{Spell(4962)}: stay out of the webs!", colour: Green, bar: Some("{Spell(4962)}"))),
+                ),
+            ],
+            script: [
+                // Raise Undead Scarab: six Crypt Scarabs round him
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "Scarabs crawl from the crypts!", colour: Orange, icon_spell: Some(17235), bar: Some("Scarabs"))),
+                    run: [
+                        Emote(text: "%s raises the crypt scarabs!"),
+                        Wave(enemy: "Crypt Scarab", count: 6, at: Ring(5.0)),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Maleki the Pallid",
+            display_id: 10546,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 23539, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 2.90,
+            creature_type: Humanoid,
+            spawn_minute: 16.0,
+            yell: "The cold of the grave waits for you. Let me show you the way.",
+            // Glacius's slot and recipe
+            swing_mult: Some(1.5),
+            abilities: [
+                // Frostbolt: a bolt flying at the hero's spot, no slow
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 17503,
+                    impact_on_bunny: true,
+                    missile: true,
+                    wind_up: Some(2.0),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(17503)}: move!", colour: Blue, bar: Some("{Spell(17503)}"))),
+                ),
+                // Ice Tomb: a marked circle on the hero, damage only, no stun
+                Marked(
+                    shape: Circle(radius: 5.0),
+                    at: Hero,
+                    impact_spell: 16869,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.8),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "{Spell(16869)}: get out before it closes!", colour: Blue, bar: Some("{Spell(16869)}"))),
+                ),
+            ],
+            script: [
+                // below 60 % he drains life: a heal on a timer
+                (
+                    on: Health(60.0),
+                    warn: Some((text: "Maleki drains life: burst him down!", colour: Purple, icon_spell: Some(17238))),
+                    soon: Some("{Spell(17238)} soon"),
+                    run: [Emote(text: "%s begins to drain the life from you!")],
+                ),
+                (
+                    on: Every(15.0),
+                    from_health: Some(60.0),
+                    warn: Some((text: "{Spell(17238)}: he heals!", colour: Yellow, icon_spell: Some(17238), bar: Some("{Spell(17238)}"))),
+                    run: [Heal(on: Myself, share: 0.04, look_spell: 17238)],
+                ),
+            ],
+            is_final: false,
+        ),
+        // The end event, as in Stratholme. At 19:57 the Slaughterhouse
+        // door opens; at 20:00 Ramstein the Gorger comes out of it and the zone's spawns stop; as
+        // he falls the Baron is called, standing apart and immune in the doorway while 34 Mindless
+        // Undead pour in through the square's south gate and then (60 s after, or once all are
+        // dead) his five Black Guard Sentries come out, his own door opening behind them; with the
+        // last of them dead he fights. The two share the final slot's health, 0.3 and 0.7, as
+        // Ohgan and Mandokir do; the run is won when the Baron falls.
+        (
+            name: "Ramstein the Gorger",
+            display_id: 12818,
+            // the final size, as Mograine before Whitemane
+            scale: 1.95,
+            creature_type: Undead,
+            spawn_minute: 20.0,
+            yell: "Ramstein hunger for flesh!",
+            // Azuregos's slot and recipe
+            swing_mult: Some(1.771),
+            abilities: [
+                // Trample: a marked circle round him
+                Marked(
+                    shape: Circle(radius: 9.0),
+                    at: Boss,
+                    impact_spell: 5568,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(5568)}: step back!", bar: Some("{Spell(5568)}"))),
+                ),
+                // Knockout: a marked cone before him, no knock back, no stun
+                Marked(
+                    shape: Cone(length: 10.0, angle: 90.0),
+                    at: Boss,
+                    impact_spell: 17307,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.3),
+                    cooldown: Some(10.0),
+                    warn: Some((text: "{Spell(17307)}: get out of the front!", bar: Some("{Spell(17307)}"))),
+                ),
+            ],
+            script: [
+                (
+                    on: Arrival,
+                    warn: Some((text: "Ramstein the Gorger comes out: the streets fall quiet!", colour: Purple, icon_spell: Some(5568))),
+                    run: [
+                        StopSpawns,
+                        // the Baron's line, shown with his name: he is not up yet to yell it
+                        Emote(text: "Baron Rivendare: So you see fit to toy with the Lich King's creations? Ramstein, be sure to give the intruders a proper greeting."),
+                    ],
+                ),
+                (
+                    on: Death,
+                    warn: Some((text: "Ramstein has fallen: the dead pour into the square!", colour: Orange, icon_spell: Some(17473))),
+                    run: [Call(boss: "Baron Rivendare")],
+                ),
+            ],
+            is_final: true,
+            // just inside the Slaughterhouse door, where Stratholme brings him
+            at: Some((x: 4032.35, y: -3380.57, z: 119.74, facing: 4.7614)),
+            health_share: Some(0.3),
+        ),
+        (
+            name: "Baron Rivendare",
+            display_id: 10729,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedSword, display: 7489, inventory_type: 17, sheath: 1, material: 1)),
+            ),
+            scale: 2.30,
+            creature_type: Undead,
+            spawn_minute: 20.0,
+            called: true,
+            yell: "You slew my Gorger? Then let the dead of this city have you.",
+            // Azuregos's slot and recipe
+            swing_mult: Some(1.771),
+            abilities: [
+                // Cleave: a marked cone before him
+                Marked(
+                    shape: Cone(length: 10.0, angle: 90.0),
+                    at: Boss,
+                    impact_spell: 15754,
+                    impact_on_bunny: true,
+                    wind_up: Some(1.2),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(15754)}: get out of the front!", bar: Some("{Spell(15754)}"))),
+                ),
+                // Shadow Bolt: a bolt flying at the hero's spot
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 17393,
+                    impact_on_bunny: true,
+                    missile: true,
+                    wind_up: Some(2.0),
+                    cooldown: Some(10.0),
+                    warn: Some((text: "{Spell(17393)}: move!", colour: Purple, bar: Some("{Spell(17393)}"))),
+                ),
+            ],
+            script: [
+                // the dead first, then his Black Guard, he apart and immune in the doorway
+                (
+                    on: Arrival,
+                    run: [
+                        Waves(
+                            waves: [
+                                (
+                                    // through the square's south gate, as in Stratholme
+                                    run: [Wave(enemy: "Mindless Undead", count: 34, at: Spot(x: 3974.0, y: -3395.0, spread: 5.0))],
+                                    warn: Some((text: "The Mindless Undead swarm the square!", colour: Orange, icon_spell: Some(17473))),
+                                ),
+                                (
+                                    run: [
+                                        Wave(enemy: "Black Guard Sentry", count: 5, at: Ring(4.0)),
+                                        Door(name: "Baron's Door", open: true),
+                                        Emote(text: "Black Guard Sentry: Who dares disturb our master?"),
+                                    ],
+                                    warn: Some((text: "The Black Guard comes out: kill all five!", colour: Orange, icon_spell: Some(15623))),
+                                ),
+                            ],
+                            gap: 60.0,
+                            immune: true,
+                            aloof: true,
+                            bar: Some("Black Guard"),
+                            counter: Some("Foes left"),
+                            then: [
+                                Yell(text: "Time to take matters into my own hands. Come. Enter my domain and challenge the might of the Scourge!"),
+                                Emote(text: "%s steps out of the Slaughterhouse!"),
+                                // Unholy Aura round him (Stitches's Aura of Rot numbers)
+                                LayZone(zone: (look_spell: 17467, radius: 7.0, seconds: 0.0, damage_mult: 0.15, follows: true)),
+                            ],
+                        ),
+                    ],
+                ),
+                // Raise Dead: six skeletons round him; 12 s later each one still up heals him
+                // (Death Pact)
+                (
+                    on: Every(15.0),
+                    warn: Some((text: "{Spell(17473)}: kill the skeletons before their {Spell(17471)}!", colour: Orange, icon_spell: Some(17473), bar: Some("{Spell(17473)}"))),
+                    run: [
+                        Wave(enemy: "Mindless Skeleton", count: 6, at: Ring(5.0)),
+                        Later(seconds: 12.0, run: [
+                            Emote(text: "The skeletons give their lives to %s!"),
+                            Mend(by: "Mindless Skeleton", share: 0.01, look_spell: 17471),
+                        ]),
+                    ],
+                ),
+                // the zone's spawns come back once he falls (Endless)
+                (on: Death, run: [ResumeSpawns]),
+            ],
+            is_final: true,
+            // the Slaughterhouse doorway, where Ramstein and the Black Guard came out
+            at: Some((x: 4032.84, y: -3380.57, z: 119.74, facing: 4.7614)),
+            health_share: Some(0.7),
+        ),
+    ],
+)

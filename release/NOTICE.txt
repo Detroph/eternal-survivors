@@ -1,0 +1,17 @@
+Eternal Survivors
+Copyright (c) 2026 the Eternal Survivors authors.
+
+Eternal Survivors is built on benilla, Copyright (c) 2026 Sam, licensed under either of
+
+  * the Apache License, Version 2.0 (LICENSE-APACHE.txt), or
+  * the MIT license (LICENSE-MIT.txt),
+
+at your option. Eternal Survivors's own code and content are offered under the same terms.
+
+It is built with open-source Rust crates and Lua 5.1.5, each under its own license: their
+licenses and copyright notices are in THIRD-PARTY-LICENSES.txt.
+
+Eternal Survivors is a free fan project, not affiliated with or endorsed by Blizzard
+Entertainment. It contains no Blizzard Entertainment files: it reads the data it shows from the
+player's own installed World of Warcraft client. World of Warcraft and Warcraft are trademarks
+or registered trademarks of Blizzard Entertainment, Inc.

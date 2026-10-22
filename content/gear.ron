@@ -1,0 +1,998 @@
+// Class gear: first-zone slot stats and each class set with its weapons.
+// The stats here are a piece's from the first zone; a piece from a zone
+// of difficulty D has each × the gear factor of D (balance.ron zone_scaling), rounded (docs/game/gear.md).
+// Every zone has its own look of each class set (`looks`: eight names
+// and ItemDisplayInfo.dbc displays; Blackrock and Stratholme two rows, both unlocked by their
+// pieces; Naxxramas's wait for its zone). The weapons' looks are each zone's
+// armaments in loadouts.ron.
+// Stratholme's second row is the "Scholomance sets", each armor type's
+// Scholomance set with Stratholme drops of its colours in the other slots.
+(
+    slots: [
+        (
+            slot: Head,
+            names: ["Circlet", "Cover", "Helm", "Helm"],
+            stats: [
+                (
+                    stat: CritChance,
+                    value: 0.01,
+                ),
+                (
+                    stat: CritDamage,
+                    value: 0.04,
+                ),
+            ],
+        ),
+        (
+            slot: Shoulders,
+            names: ["Mantle", "Spaulders", "Spaulders", "Pauldrons"],
+            stats: [
+                (
+                    stat: Area,
+                    value: 0.03,
+                ),
+                (
+                    stat: FlatMaxHealth,
+                    value: 5.0,
+                ),
+            ],
+        ),
+        (
+            slot: Chest,
+            names: ["Robes", "Chestpiece", "Breastplate", "Breastplate"],
+            stats: [
+                (
+                    stat: FlatMaxHealth,
+                    value: 15.0,
+                ),
+                (
+                    stat: DamageReduction,
+                    value: 0.01,
+                ),
+            ],
+        ),
+        (
+            slot: Waist,
+            names: ["Belt", "Belt", "Belt", "Girdle"],
+            stats: [
+                (
+                    stat: PickupRange,
+                    value: 0.1,
+                ),
+                (
+                    stat: Gold,
+                    value: 0.05,
+                ),
+            ],
+        ),
+        (
+            slot: Legs,
+            names: ["Leggings", "Pants", "Legguards", "Legplates"],
+            stats: [
+                (
+                    stat: FlatMaxHealth,
+                    value: 10.0,
+                ),
+                (
+                    stat: DoubleCast,
+                    value: 0.02,
+                ),
+            ],
+        ),
+        (
+            slot: Feet,
+            names: ["Boots", "Boots", "Greaves", "Sabatons"],
+            stats: [
+                (
+                    stat: MoveSpeed,
+                    value: 0.02,
+                ),
+                (
+                    stat: FlatMaxHealth,
+                    value: 10.0,
+                ),
+            ],
+        ),
+        (
+            slot: Wrists,
+            names: ["Bindings", "Bracers", "Bracers", "Bracers"],
+            stats: [
+                (
+                    stat: CooldownRecovery,
+                    value: 0.02,
+                ),
+                (
+                    stat: HealAndShieldPower,
+                    value: 0.02,
+                ),
+            ],
+        ),
+        (
+            slot: Hands,
+            names: ["Gloves", "Gloves", "Gauntlets", "Gauntlets"],
+            stats: [
+                (
+                    stat: Luck,
+                    value: 0.1,
+                ),
+            ],
+        ),
+    ],
+    bonus_stats: [
+        [
+            (
+                stat: Damage,
+                value: 0.02,
+            ),
+            (
+                stat: CritChance,
+                value: 0.01,
+            ),
+        ],
+        [
+            (
+                stat: FlatMaxHealth,
+                value: 5.0,
+            ),
+            (
+                stat: DamageReduction,
+                value: 0.01,
+            ),
+        ],
+        [
+            (
+                stat: FlatMaxHealth,
+                value: 5.0,
+            ),
+            (
+                stat: CooldownRecovery,
+                value: 0.01,
+            ),
+        ],
+        [
+            (
+                stat: MoveSpeed,
+                value: 0.01,
+            ),
+            (
+                stat: CritChance,
+                value: 0.01,
+            ),
+        ],
+        [
+            (
+                stat: CooldownRecovery,
+                value: 0.01,
+            ),
+            (
+                stat: Luck,
+                value: 0.02,
+            ),
+        ],
+        [
+            (
+                stat: FlatMaxHealth,
+                value: 10.0,
+            ),
+            (
+                stat: HealPerKill,
+                value: 1.0,
+            ),
+        ],
+        [
+            (
+                stat: Damage,
+                value: 0.02,
+            ),
+            (
+                stat: MoveSpeed,
+                value: 0.01,
+            ),
+        ],
+        [
+            (
+                stat: Area,
+                value: 0.03,
+            ),
+            (
+                stat: CritChance,
+                value: 0.01,
+            ),
+        ],
+    ],
+    sets: [
+        (
+            class: "warrior",
+            armor: Plate,
+            bonus_pairs: [3, 4, 5, 6, 7, 0, 1, 2, 3],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Recruit's Helm", "Recruit's Pauldrons", "Recruit's Breastplate", "Recruit's Girdle", "Recruit's Legplates", "Recruit's Sabatons", "Recruit's Bracers", "Recruit's Gauntlets"],
+                    displays: [0, 26164, 16183, 3418, 3414, 25828, 4448, 25831],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Sparkmetal Coif", "Cutthroat Pauldrons", "Phantom Armor", "Belt of the Stars", "Goblin Mail Leggings", "Caverndeep Trudgers", "Jimmied Handcuffs", "Algae Fists"],
+                    displays: [15324, 10166, 12632, 13758, 697, 18431, 10402, 13361],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Brutal Helm", "Frost Metal Pauldrons", "Wildwood Chain", "Brightscale Girdle", "Sentinel's Plate Legguards", "Black Ogre Kickers", "Berserker Bracers", "Warsong Gauntlets"],
+                    displays: [15288, 6919, 14069, 28306, 35069, 11269, 32088, 28750],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Helm", "Adventurer's Pauldrons", "Adventurer's Breastplate", "Adventurer's Girdle", "Adventurer's Legplates", "Adventurer's Sabatons", "Adventurer's Bracers", "Adventurer's Gauntlets"],
+                    displays: [21301, 18389, 12960, 28684, 29934, 18430, 18378, 29000],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Helm of the Mountain", "Overlord's Spaulders", "Revenant Chestplate", "Overlord's Girdle", "Silvershell Leggings", "Obsidian Greaves", "Noxxion's Shackles", "Vice Grips"],
+                    displays: [29911, 27403, 27427, 27399, 19900, 28362, 29925, 18573],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Helm of Valor", "Spaulders of Valor", "Breastplate of Valor", "Belt of Valor", "Legplates of Valor", "Boots of Valor", "Bracers of Valor", "Gauntlets of Valor"],
+                    displays: [31284, 29964, 29958, 29959, 29963, 29960, 29961, 29962],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Gurubashi Helm", "Bloodsoaked Pauldrons", "Zandalar Vindicator's Breastplate", "Zandalar Vindicator's Belt", "Bloodsoaked Legplates", "Peacekeeper Boots", "Zandalar Vindicator's Armguards", "Bloodsoaked Gauntlets"],
+                    displays: [32900, 32409, 32415, 32416, 32296, 32758, 32417, 32348],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Helm of Heroism", "Spaulders of Heroism", "Breastplate of Heroism", "Belt of Heroism", "Legplates of Heroism", "Boots of Heroism", "Bracers of Heroism", "Gauntlets of Heroism"],
+                    displays: [34614, 34616, 34617, 34610, 34615, 34611, 34612, 34613],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Helm of the Executioner", "Wailing Nightbane Pauldrons", "Deathbone Chestplate", "Deathbone Girdle", "Deathbone Legguards", "Deathbone Sabatons", "Vambraces of the Sadist", "Deathbone Gauntlets"],
+                    displays: [34902, 24115, 24102, 25225, 25226, 25227, 24110, 25224],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Helm of Might", "Pauldrons of Might", "Breastplate of Might", "Belt of Might", "Legplates of Might", "Sabatons of Might", "Bracers of Might", "Gauntlets of Might"],
+                    displays: [31260, 31024, 31021, 31019, 31023, 31025, 31020, 31022],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Helm of Wrath", "Pauldrons of Wrath", "Breastplate of Wrath", "Waistband of Wrath", "Legplates of Wrath", "Sabatons of Wrath", "Bracelets of Wrath", "Gauntlets of Wrath"],
+                    displays: [34215, 34253, 33983, 33990, 33986, 33989, 33982, 33984],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Conqueror's Crown", "Conqueror's Spaulders", "Conqueror's Breastplate", "Triad Girdle", "Conqueror's Legguards", "Conqueror's Greaves", "Hive Defiler Wristguards", "Gauntlets of Annihilation"],
+                    displays: [34486, 34256, 33709, 34320, 33713, 33714, 34227, 34165],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Dreadnaught Helmet", "Dreadnaught Pauldrons", "Dreadnaught Breastplate", "Dreadnaught Waistguard", "Dreadnaught Legplates", "Dreadnaught Sabatons", "Dreadnaught Bracers", "Dreadnaught Gauntlets"],
+                    displays: [35447, 35177, 35049, 35058, 35051, 35067, 35044, 35050],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: TwoHandedSword,
+                    hand: MainHand,
+                ),
+            ],
+        ),
+        (
+            class: "paladin",
+            armor: Plate,
+            bonus_pairs: [6, 7, 0, 1, 2, 3, 4, 5, 6],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Squire's Helm", "Squire's Pauldrons", "Squire's Breastplate", "Squire's Girdle", "Squire's Legplates", "Squire's Sabatons", "Squire's Bracers", "Squire's Gauntlets"],
+                    displays: [0, 26164, 16183, 3418, 3414, 25828, 4448, 25831],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Glimmering Mail Coif", "Glimmering Mail Pauldrons", "Martyr's Chain", "Cobrahn's Grasp", "Goblin Mail Leggings", "Savage Trodders", "Glimmering Mail Bracers", "Night Watch Gauntlets"],
+                    displays: [15517, 25806, 12971, 11945, 697, 11935, 25800, 11626],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Mail Combat Headguard", "Mail Combat Spaulders", "Forest Chain", "Crusader Belt", "Sentinel's Lamellar Legguards", "Quagmire Galoshes", "Berserker Bracers", "Sandspire Gloves"],
+                    displays: [25825, 25815, 12723, 6902, 35175, 28238, 32088, 28288],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Helm", "Adventurer's Pauldrons", "Adventurer's Breastplate", "Adventurer's Girdle", "Adventurer's Legplates", "Adventurer's Sabatons", "Adventurer's Bracers", "Adventurer's Gauntlets"],
+                    displays: [15811, 15809, 19049, 27951, 3519, 28383, 28382, 16223],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Gothic Plate Helmet", "Templar Pauldrons", "Warforged Chestplate", "Atal'ai Girdle", "Elemental Rockridge Leggings", "Atal'ai Boots", "Templar Bracers", "Warmonger's Gauntlets"],
+                    displays: [27366, 27414, 28185, 19996, 29880, 19794, 27406, 26185],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Lightforge Helm", "Lightforge Spaulders", "Lightforge Breastplate", "Lightforge Belt", "Lightforge Legplates", "Lightforge Boots", "Lightforge Bracers", "Lightforge Gauntlets"],
+                    displays: [31207, 29971, 29969, 29966, 29972, 29967, 29968, 29970],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Gurubashi Helm", "Darksoul Shoulders", "Zandalar Freethinker's Breastplate", "Zandalar Freethinker's Belt", "Peacekeeper Leggings", "Peacekeeper Boots", "Zandalar Freethinker's Armguards", "Peacekeeper Gauntlets"],
+                    displays: [32900, 32168, 32263, 32264, 32756, 32758, 32265, 32757],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Soulforge Helm", "Soulforge Spaulders", "Soulforge Breastplate", "Soulforge Belt", "Soulforge Legplates", "Soulforge Boots", "Soulforge Bracers", "Soulforge Gauntlets"],
+                    displays: [34524, 34526, 34519, 34520, 34525, 34521, 34522, 34523],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Helm of the Executioner", "Wailing Nightbane Pauldrons", "Deathbone Chestplate", "Deathbone Girdle", "Deathbone Legguards", "Deathbone Sabatons", "Vambraces of the Sadist", "Deathbone Gauntlets"],
+                    displays: [34902, 24115, 24102, 25225, 25226, 25227, 24110, 25224],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Lawbringer Helm", "Lawbringer Spaulders", "Lawbringer Chestguard", "Lawbringer Belt", "Lawbringer Legplates", "Lawbringer Boots", "Lawbringer Bracers", "Lawbringer Gauntlets"],
+                    displays: [31506, 31510, 31505, 31353, 31352, 31354, 31509, 31507],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Judgement Crown", "Judgement Spaulders", "Judgement Breastplate", "Judgement Belt", "Judgement Legplates", "Judgement Sabatons", "Judgement Bindings", "Judgement Gauntlets"],
+                    displays: [34216, 34258, 33635, 33633, 33637, 33639, 33634, 33636],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Avenger's Crown", "Avenger's Pauldrons", "Avenger's Breastplate", "Belt of the Fallen Emperor", "Avenger's Legguards", "Avenger's Greaves", "Hive Defiler Wristguards", "Gloves of the Redeemed Prophecy"],
+                    displays: [34487, 34257, 33705, 34202, 33706, 33708, 34227, 34466],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Redemption Headpiece", "Redemption Spaulders", "Redemption Tunic", "Redemption Girdle", "Redemption Legguards", "Redemption Boots", "Redemption Wristguards", "Redemption Handguards"],
+                    displays: [36972, 35617, 35618, 35614, 35616, 35613, 35619, 35615],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: TwoHandedMace,
+                    hand: MainHand,
+                ),
+            ],
+        ),
+        (
+            class: "hunter",
+            armor: Mail,
+            bonus_pairs: [1, 2, 3, 4, 5, 6, 7, 0, 1],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Tracker's Helm", "Tracker's Spaulders", "Tracker's Breastplate", "Tracker's Belt", "Tracker's Legguards", "Tracker's Greaves", "Tracker's Bracers", "Tracker's Gauntlets"],
+                    displays: [1131, 4975, 954, 12298, 685, 2229, 2230, 1407],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Humbert's Helm", "Forest Tracker Epaulets", "Gloomshroud Armor", "Girdle of the Blindwatcher", "Petrolspill Leggings", "Gnomebot Operating Boots", "Black Wolf Bracers", "Metalworking Gloves"],
+                    displays: [21302, 17190, 8676, 11253, 18429, 18367, 17166, 17062],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Pathfinder Hat", "Wrangling Spaulders", "Panther Armor", "Beastmaster's Girdle", "Outrider's Chain Leggings", "Trailblazer Boots", "Forest Stalker's Bracers", "Tiger Hunter Gloves"],
+                    displays: [27680, 26419, 12794, 7662, 35093, 9174, 32090, 4438],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Helm", "Adventurer's Spaulders", "Adventurer's Breastplate", "Adventurer's Belt", "Adventurer's Legguards", "Adventurer's Greaves", "Adventurer's Bracers", "Adventurer's Gauntlets"],
+                    displays: [15492, 6480, 15731, 28684, 18274, 18431, 18352, 28685],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Champion's Helmet", "Merciless Epaulets", "Atal'ai Breastplate", "Seared Mail Girdle", "Windrunner Legguards", "Elven Chain Boots", "Bracers of the Stone Princess", "Murkwater Gauntlets"],
+                    displays: [26098, 27291, 19793, 27137, 28447, 28439, 29890, 28800],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Beaststalker's Cap", "Beaststalker's Mantle", "Beaststalker's Tunic", "Beaststalker's Belt", "Beaststalker's Pants", "Beaststalker's Boots", "Beaststalker's Bindings", "Beaststalker's Gloves"],
+                    displays: [31410, 31409, 31402, 31404, 31403, 31408, 31405, 31406],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Bloodstained Coif", "Zandalar Predator's Mantle", "Bloodsoul Breastplate", "Zandalar Predator's Belt", "Bloodstained Legplates", "Bloodstained Greaves", "Zandalar Predator's Bracers", "Bloodsoul Gauntlets"],
+                    displays: [32413, 32270, 32163, 32272, 32337, 32389, 28806, 32164],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Beastmaster's Cap", "Beastmaster's Mantle", "Beastmaster's Tunic", "Beastmaster's Belt", "Beastmaster's Pants", "Beastmaster's Boots", "Beastmaster's Bindings", "Beastmaster's Gloves"],
+                    displays: [34649, 34651, 34645, 34646, 34652, 34648, 34647, 34650],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Crown of Tyranny", "Stratholme Militia Shoulderguard", "Bloodmail Hauberk", "Bloodmail Belt", "Bloodmail Legguards", "Bloodmail Boots", "Twilight Void Bracers", "Bloodmail Gauntlets"],
+                    displays: [24045, 31194, 25222, 25219, 25223, 25220, 24180, 25221],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Giantstalker's Helmet", "Giantstalker's Epaulets", "Giantstalker's Breastplate", "Giantstalker's Belt", "Giantstalker's Leggings", "Giantstalker's Boots", "Giantstalker's Bracers", "Giantstalker's Gloves"],
+                    displays: [32028, 32030, 32022, 32019, 32029, 32040, 32021, 32024],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Dragonstalker's Helm", "Dragonstalker's Spaulders", "Dragonstalker's Breastplate", "Dragonstalker's Belt", "Dragonstalker's Legguards", "Dragonstalker's Greaves", "Dragonstalker's Bracers", "Dragonstalker's Gauntlets"],
+                    displays: [34367, 34091, 33667, 33665, 33672, 34269, 33666, 33668],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Striker's Diadem", "Striker's Pauldrons", "Striker's Hauberk", "Grasp of the Fallen Emperor", "Striker's Leggings", "Striker's Footguards", "Sand Reaver Wristguards", "Vek'lor's Gloves of Devastation"],
+                    displays: [34221, 34904, 33691, 34203, 33700, 33690, 33902, 34193],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Cryptstalker Headpiece", "Cryptstalker Spaulders", "Cryptstalker Tunic", "Cryptstalker Girdle", "Cryptstalker Legguards", "Cryptstalker Boots", "Cryptstalker Wristguards", "Cryptstalker Handguards"],
+                    displays: [35601, 35611, 35415, 35410, 35413, 35409, 35416, 35411],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: Bow,
+                    hand: Ranged,
+                ),
+            ],
+        ),
+        (
+            class: "rogue",
+            armor: Leather,
+            bonus_pairs: [4, 5, 6, 7, 0, 1, 2, 3, 4, 5],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Footpad's Cover", "Footpad's Spaulders", "Footpad's Chestpiece", "Footpad's Belt", "Footpad's Pants", "Footpad's Boots", "Footpad's Bracers", "Footpad's Gloves"],
+                    displays: [0, 7836, 3719, 4473, 4469, 9773, 4471, 4470],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Infiltrator Cap", "Forest Leather Mantle", "Blackened Defias Armor", "Blackened Defias Belt", "Blackened Defias Leggings", "Blackened Defias Boots", "Madwolf Bracers", "Blackened Defias Gloves"],
+                    displays: [21298, 8098, 9123, 14389, 27947, 21903, 17011, 27946],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Insignia Cap", "Cutthroat's Mantle", "Boorguard Tunic", "Deftkin Belt", "Sentinel's Leather Pants", "Warsong Boots", "Forest Stalker's Bracers", "Shepherd's Gloves"],
+                    displays: [21304, 27713, 28837, 28270, 35157, 28749, 32090, 17186],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Cover", "Adventurer's Spaulders", "Adventurer's Chestpiece", "Adventurer's Belt", "Adventurer's Pants", "Adventurer's Boots", "Adventurer's Bracers", "Adventurer's Gloves"],
+                    displays: [18322, 12830, 28808, 16931, 21404, 15889, 32036, 15753],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Embrace of the Lycan", "Phytoskin Spaulders", "Fungus Shroud Armor", "Swashbuckler's Belt", "Atal'ai Leggings", "Albino Crocscale Boots", "Darkwater Bracers", "Righteous Gloves"],
+                    displays: [18392, 29928, 29919, 19001, 14776, 30172, 19806, 19017],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Shadowcraft Cap", "Shadowcraft Spaulders", "Shadowcraft Tunic", "Shadowcraft Belt", "Shadowcraft Pants", "Shadowcraft Boots", "Shadowcraft Bracers", "Shadowcraft Gloves"],
+                    displays: [28180, 28179, 28160, 28177, 28161, 28162, 24190, 28166],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Blooddrenched Mask", "Zandalar Madcap's Mantle", "Zandalar Madcap's Tunic", "Shadow Panther Hide Belt", "Blooddrenched Leggings", "Blooddrenched Footpads", "Zandalar Madcap's Bracers", "Blooddrenched Grips"],
+                    displays: [36630, 32274, 32273, 30749, 32772, 32773, 32275, 32340],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Darkmantle Cap", "Darkmantle Spaulders", "Darkmantle Tunic", "Darkmantle Belt", "Darkmantle Pants", "Darkmantle Boots", "Darkmantle Bracers", "Darkmantle Gloves"],
+                    displays: [34700, 34688, 34689, 34699, 34687, 34684, 34685, 34686],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Grand Crown", "Wyrmtongue Shoulders", "Cadaverous Armor", "Cadaverous Belt", "Cadaverous Leggings", "Cadaverous Walkers", "Chillhide Bracers", "Cadaverous Gloves"],
+                    displays: [28022, 18971, 25249, 25248, 26966, 11571, 24190, 25253],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Nightslayer Cover", "Nightslayer Shoulder Pads", "Nightslayer Chestpiece", "Nightslayer Belt", "Nightslayer Pants", "Nightslayer Boots", "Nightslayer Bracelets", "Nightslayer Gloves"],
+                    displays: [31514, 31504, 31105, 31339, 31340, 31109, 31106, 31503],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Bloodfang Hood", "Bloodfang Spaulders", "Bloodfang Chestpiece", "Bloodfang Belt", "Bloodfang Pants", "Bloodfang Boots", "Bloodfang Bracers", "Bloodfang Gloves"],
+                    displays: [33743, 33653, 33650, 31110, 31115, 31111, 31127, 33651],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Deathdealer's Helm", "Deathdealer's Spaulders", "Deathdealer's Vest", "Thick Qirajihide Belt", "Deathdealer's Leggings", "Deathdealer's Boots", "Qiraji Execution Bracers", "Gloves of Enforcement"],
+                    displays: [34608, 34077, 34087, 34299, 33678, 33673, 34197, 34295],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Bonescythe Helmet", "Bonescythe Pauldrons", "Bonescythe Breastplate", "Bonescythe Waistguard", "Bonescythe Legplates", "Bonescythe Sabatons", "Bonescythe Bracers", "Bonescythe Gauntlets"],
+                    displays: [35132, 35064, 35054, 36349, 35065, 36351, 35053, 35055],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: Dagger,
+                    hand: MainHand,
+                ),
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.04,
+                        ),
+                        (
+                            stat: FlatMaxHealth,
+                            value: 6.0,
+                        ),
+                    ],
+                    kind: Dagger,
+                    hand: OffHand,
+                ),
+            ],
+        ),
+        (
+            class: "priest",
+            armor: Cloth,
+            bonus_pairs: [7, 0, 1, 2, 3, 4, 5, 6, 7],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Acolyte's Circlet", "Acolyte's Mantle", "Acolyte's Robes", "Acolyte's Belt", "Acolyte's Leggings", "Acolyte's Boots", "Acolyte's Bindings", "Acolyte's Gloves"],
+                    displays: [8415, 0, 2163, 4444, 1883, 14046, 4094, 2164],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Holy Shroud", "Mantle of Honor", "Scholarly Robes", "Ghamoo-ra's Bind", "Leech Pants", "Ivycloth Boots", "Crystalline Cuffs", "Zodiac Gloves"],
+                    displays: [16826, 20715, 12699, 16723, 13365, 16881, 24983, 16959],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Corpseshroud", "Luminescent Amice", "Robes of Antiquity", "Aurora Sash", "Sentinel's Silk Leggings", "Lightheel Boots", "Dryad's Wrist Bindings", "Pardoc Grips"],
+                    displays: [19903, 12473, 12694, 14656, 32927, 26086, 32091, 28289],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Circlet", "Adventurer's Mantle", "Adventurer's Robes", "Adventurer's Belt", "Adventurer's Leggings", "Adventurer's Boots", "Adventurer's Bindings", "Adventurer's Gloves"],
+                    displays: [16224, 32034, 19109, 14456, 15824, 19993, 18366, 19056],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Soulcatcher Halo", "Rotgrip Mantle", "Vestments of the Atal'ai Prophet", "Dawnspire Cord", "Kilt of the Atal'ai Prophet", "Mistwalker Boots", "Firwillow Wristbands", "Gloves of the Atal'ai Prophet"],
+                    displays: [22928, 29908, 19810, 28190, 19812, 19950, 19915, 19813],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Devout Crown", "Devout Mantle", "Devout Robe", "Devout Belt", "Devout Skirt", "Devout Sandals", "Devout Bracers", "Devout Gloves"],
+                    displays: [31104, 31103, 30422, 30425, 30424, 30430, 30426, 30427],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Zulian Headdress", "Zandalar Confessor's Mantle", "Flowing Ritual Robes", "Zandalar Confessor's Bindings", "Ritualistic Legguards", "Betrayer's Boots", "Zandalar Confessor's Wraps", "Bloodtinged Gloves"],
+                    displays: [35125, 32567, 12675, 32289, 32407, 32563, 32290, 32410],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Virtuous Crown", "Virtuous Mantle", "Virtuous Robe", "Virtuous Belt", "Virtuous Skirt", "Virtuous Sandals", "Virtuous Bracers", "Virtuous Gloves"],
+                    displays: [34630, 34632, 34633, 34628, 34635, 34634, 34629, 34631],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Bonecaster's Crown", "Necropile Mantle", "Necropile Robe", "Duskwoven Sash", "Necropile Leggings", "Necropile Boots", "Necropile Cuffs", "Darkbind Fingers"],
+                    displays: [26277, 25247, 25245, 28155, 25255, 18863, 4607, 24177],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Circlet of Prophecy", "Mantle of Prophecy", "Robes of Prophecy", "Girdle of Prophecy", "Pants of Prophecy", "Boots of Prophecy", "Vambraces of Prophecy", "Gloves of Prophecy"],
+                    displays: [31371, 30623, 31490, 30621, 28198, 31718, 30617, 30620],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Halo of Transcendence", "Pauldrons of Transcendence", "Robes of Transcendence", "Belt of Transcendence", "Leggings of Transcendence", "Boots of Transcendence", "Bindings of Transcendence", "Handguards of Transcendence"],
+                    displays: [34233, 34048, 34047, 34053, 34049, 34055, 34052, 34051],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Tiara of the Oracle", "Mantle of the Oracle", "Vestments of the Oracle", "Grasp of the Old God", "Trousers of the Oracle", "Footwraps of the Oracle", "Bracelets of Royal Redemption", "Gloves of the Messiah"],
+                    displays: [34348, 34021, 34063, 34176, 33652, 33647, 34199, 34230],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Circlet of Faith", "Shoulderpads of Faith", "Robe of Faith", "Belt of Faith", "Leggings of Faith", "Sandals of Faith", "Bindings of Faith", "Gloves of Faith"],
+                    displays: [35155, 35149, 36354, 35143, 35154, 35148, 35144, 35145],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: Staff,
+                    hand: MainHand,
+                ),
+            ],
+        ),
+        (
+            class: "shaman",
+            armor: Mail,
+            bonus_pairs: [5, 6, 7, 0, 1, 2, 3, 4, 5, 6],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Primal Helm", "Primal Spaulders", "Primal Breastplate", "Primal Belt", "Primal Legguards", "Primal Greaves", "Primal Bracers", "Primal Gauntlets"],
+                    displays: [1131, 4975, 954, 12298, 685, 2229, 2230, 1407],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Tribal Worg Helm", "Lambent Scale Pauldrons", "Tortoise Armor", "Cobrahn's Grasp", "Smelting Pants", "Grunt's AnkleWraps", "Bands of Serra'kis", "Naga Battle Gloves"],
+                    displays: [13266, 25783, 16903, 11945, 1978, 26970, 17001, 17182],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Tusken Helm", "Fleshhide Shoulders", "Brawnhide Armor", "Bracesteel Belt", "Outrider's Mail Leggings", "Tundra Boots", "Windtalker's Wristguards", "Braced Handguards"],
+                    displays: [15492, 28744, 28266, 28265, 35093, 28192, 32089, 13026],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Helm", "Adventurer's Spaulders", "Adventurer's Breastplate", "Adventurer's Belt", "Adventurer's Legguards", "Adventurer's Greaves", "Adventurer's Bracers", "Adventurer's Gauntlets"],
+                    displays: [15810, 18333, 19049, 27951, 3519, 28383, 28382, 15816],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Horns of Eranikus", "Ebonhold Shoulderpads", "Prismscale Hauberk", "Stronghorn Girdle", "Infernal Trickster Leggings", "Slitherscale Boots", "Slimescale Bracers", "Rockgrip Gauntlets"],
+                    displays: [19838, 26217, 28237, 28300, 29934, 19912, 28711, 29912],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Coif of Elements", "Pauldrons of Elements", "Vest of Elements", "Cord of Elements", "Kilt of Elements", "Boots of Elements", "Bindings of Elements", "Gauntlets of Elements"],
+                    displays: [31117, 30925, 31416, 31413, 31415, 31412, 31411, 31414],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Bloodstained Coif", "Bloodsoul Shoulders", "Zandalar Augur's Hauberk", "Zandalar Augur's Belt", "Seafury Leggings", "Seafury Boots", "Zandalar Augur's Bracers", "Seafury Gauntlets"],
+                    displays: [32413, 32165, 32748, 32750, 32753, 32755, 32749, 32751],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Coif of The Five Thunders", "Pauldrons of The Five Thunders", "Vest of The Five Thunders", "Cord of The Five Thunders", "Kilt of The Five Thunders", "Boots of The Five Thunders", "Bindings of The Five Thunders", "Gauntlets of The Five Thunders"],
+                    displays: [34693, 34697, 34698, 34694, 34696, 34692, 34691, 34695],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Crown of Tyranny", "Stratholme Militia Shoulderguard", "Bloodmail Hauberk", "Bloodmail Belt", "Bloodmail Legguards", "Bloodmail Boots", "Twilight Void Bracers", "Bloodmail Gauntlets"],
+                    displays: [24045, 31194, 25222, 25219, 25223, 25220, 24180, 25221],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Earthfury Helmet", "Earthfury Epaulets", "Earthfury Vestments", "Earthfury Belt", "Earthfury Legguards", "Earthfury Boots", "Earthfury Bracers", "Earthfury Gauntlets"],
+                    displays: [31835, 31833, 31832, 31829, 31836, 31830, 31831, 31834],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Helmet of Ten Storms", "Epaulets of Ten Storms", "Breastplate of Ten Storms", "Belt of Ten Storms", "Legplates of Ten Storms", "Greaves of Ten Storms", "Bracers of Ten Storms", "Gauntlets of Ten Storms"],
+                    displays: [34217, 34255, 34081, 34078, 34084, 34083, 34079, 34082],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Stormcaller's Diadem", "Stormcaller's Pauldrons", "Stormcaller's Hauberk", "Grasp of the Fallen Emperor", "Stormcaller's Leggings", "Stormcaller's Footguards", "Sand Reaver Wristguards", "Gauntlets of Kalimdor"],
+                    displays: [34222, 34056, 33697, 34203, 33701, 33696, 33902, 34236],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Earthshatter Headpiece", "Earthshatter Spaulders", "Earthshatter Tunic", "Earthshatter Girdle", "Earthshatter Legguards", "Earthshatter Boots", "Earthshatter Wristguards", "Earthshatter Handguards"],
+                    displays: [37056, 35751, 35752, 35747, 35754, 35746, 35753, 35748],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: OneHandedMace,
+                    hand: MainHand,
+                ),
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.04,
+                        ),
+                        (
+                            stat: FlatMaxHealth,
+                            value: 6.0,
+                        ),
+                    ],
+                    kind: Shield,
+                    hand: OffHand,
+                ),
+            ],
+        ),
+        (
+            class: "mage",
+            armor: Cloth,
+            bonus_pairs: [0, 1, 2, 3, 4, 5, 6, 7, 0],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Apprentice's Circlet", "Apprentice's Mantle", "Apprentice's Robes", "Apprentice's Belt", "Apprentice's Leggings", "Apprentice's Boots", "Apprentice's Bindings", "Apprentice's Gloves"],
+                    displays: [8415, 0, 2163, 4444, 1883, 14046, 4094, 2164],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Electromagnetic Gigaflux Reactivator", "Silver-thread Amice", "Robes of Arugal", "Belt of Arugal", "Silk-threaded Trousers", "Acidic Walkers", "Buccaneer's Bracers", "Hotshot Pilot's Gloves"],
+                    displays: [18415, 13677, 12696, 11533, 16848, 14749, 28050, 14765],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Nightsky Cowl", "Moonlit Amice", "Dustfall Robes", "Lilac Sash", "Outrider's Silk Leggings", "Kodo Rustler Boots", "Dryad's Wrist Bindings", "Shredder Operating Gloves"],
+                    displays: [15298, 14649, 28323, 13023, 32927, 26415, 32091, 27912],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Circlet", "Adventurer's Mantle", "Adventurer's Robes", "Adventurer's Belt", "Adventurer's Leggings", "Adventurer's Boots", "Adventurer's Bindings", "Adventurer's Gloves"],
+                    displays: [16224, 4488, 12673, 14456, 12345, 14749, 18366, 14765],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Eye of Theradras", "Flameseer Mantle", "Royal Gown", "Venomshroud Belt", "Spellshock Leggings", "Vinerot Sandals", "Shizzle's Nozzle Wiper", "Atal'ai Gloves"],
+                    displays: [29894, 5116, 28417, 21459, 22426, 29927, 28255, 19796],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Magister's Crown", "Magister's Mantle", "Magister's Robes", "Magister's Belt", "Magister's Leggings", "Magister's Boots", "Magister's Bindings", "Magister's Gloves"],
+                    displays: [31087, 30211, 29591, 29596, 29273, 29594, 29597, 29593],
+                ),
+                (
+                    zone: "arena",
+                    names: ["The Hexxer's Cover", "Zandalar Illusionist's Mantle", "Zandalar Illusionist's Robe", "Belt of Untapped Power", "Bloodvine Leggings", "Bloodvine Boots", "Zandalar Illusionist's Wraps", "Bloodtinged Gloves"],
+                    displays: [32734, 32292, 32565, 35120, 32155, 32770, 32290, 32410],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Sorcerer's Crown", "Sorcerer's Mantle", "Sorcerer's Robes", "Sorcerer's Belt", "Sorcerer's Leggings", "Sorcerer's Boots", "Sorcerer's Bindings", "Sorcerer's Gloves"],
+                    displays: [34602, 34597, 34596, 34599, 34598, 34782, 34601, 34600],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Bonecaster's Crown", "Necropile Mantle", "Necropile Robe", "Duskwoven Sash", "Necropile Leggings", "Necropile Boots", "Necropile Cuffs", "Darkbind Fingers"],
+                    displays: [26277, 25247, 25245, 28155, 25255, 18863, 4607, 24177],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Arcanist Crown", "Arcanist Mantle", "Arcanist Robes", "Arcanist Belt", "Arcanist Leggings", "Arcanist Boots", "Arcanist Bindings", "Arcanist Gloves"],
+                    displays: [31517, 30586, 30581, 30583, 30582, 30587, 30584, 30585],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Netherwind Crown", "Netherwind Mantle", "Netherwind Robes", "Netherwind Belt", "Netherwind Pants", "Netherwind Boots", "Netherwind Bindings", "Netherwind Gloves"],
+                    displays: [34218, 34254, 34038, 34046, 34039, 34044, 34045, 34041],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Enigma Circlet", "Enigma Shoulderpads", "Enigma Robes", "Eyestalk Waist Cord", "Enigma Leggings", "Enigma Boots", "Bracelets of Royal Redemption", "Gloves of the Immortal"],
+                    displays: [34370, 34020, 37266, 35138, 33643, 33641, 34199, 29736],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Frostfire Circlet", "Frostfire Shoulderpads", "Frostfire Robe", "Frostfire Belt", "Frostfire Leggings", "Frostfire Sandals", "Frostfire Bindings", "Frostfire Gloves"],
+                    displays: [36440, 35326, 35523, 35519, 35522, 35525, 35677, 35521],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: Staff,
+                    hand: MainHand,
+                ),
+            ],
+        ),
+        (
+            class: "warlock",
+            armor: Cloth,
+            bonus_pairs: [3, 4, 5, 6, 7, 0, 1, 2, 3],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Novice's Circlet", "Novice's Mantle", "Novice's Robes", "Novice's Belt", "Novice's Leggings", "Novice's Boots", "Novice's Bindings", "Novice's Gloves"],
+                    displays: [8415, 0, 2163, 4444, 1883, 14046, 4094, 2164],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Dread Mage Hat", "Ghostly Mantle", "Necrology Robes", "Buccaneer's Cord", "Abomination Skin Leggings", "Ivycloth Boots", "Mindthrust Bracers", "Serpent Gloves"],
+                    displays: [16544, 21457, 19037, 28051, 28648, 16881, 16901, 19128],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Elder's Hat", "Death Speaker Mantle", "Death Speaker Robes", "Warsong Sash", "Sentinel's Silk Leggings", "Junglewalker Sandals", "Dryad's Wrist Bindings", "Insulated Sage Gloves"],
+                    displays: [15906, 11473, 12858, 28746, 32927, 16822, 32091, 16944],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Circlet", "Adventurer's Mantle", "Adventurer's Robes", "Adventurer's Belt", "Adventurer's Leggings", "Adventurer's Boots", "Adventurer's Bindings", "Adventurer's Gloves"],
+                    displays: [16224, 15800, 19953, 19910, 22426, 19993, 18366, 30474],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Gemburst Circlet", "Elder Wizard's Mantle", "Grimlok's Tribal Vestments", "Shadowy Belt", "Rainstrider Leggings", "Hazecover Boots", "Breezecloud Bracers", "Witherseed Gloves"],
+                    displays: [19920, 28643, 18347, 19313, 14590, 4272, 28305, 27910],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Dreadmist Mask", "Dreadmist Mantle", "Dreadmist Robe", "Dreadmist Belt", "Dreadmist Leggings", "Dreadmist Sandals", "Dreadmist Bracers", "Dreadmist Wraps"],
+                    displays: [31263, 29798, 29792, 29793, 29797, 29799, 29795, 29800],
+                ),
+                (
+                    zone: "arena",
+                    names: ["The Hexxer's Cover", "Zandalar Demoniac's Mantle", "Zandalar Demoniac's Robe", "Belt of Untapped Power", "Bloodtinged Kilt", "Betrayer's Boots", "Zandalar Demoniac's Wraps", "Bloodtinged Gloves"],
+                    displays: [32734, 32566, 32564, 35120, 32401, 32563, 32290, 32410],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Deathmist Mask", "Deathmist Mantle", "Deathmist Robe", "Deathmist Belt", "Deathmist Leggings", "Deathmist Sandals", "Deathmist Bracers", "Deathmist Wraps"],
+                    displays: [34624, 34623, 34625, 34620, 34622, 34626, 34621, 34627],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Bonecaster's Crown", "Necropile Mantle", "Necropile Robe", "Duskwoven Sash", "Necropile Leggings", "Necropile Boots", "Necropile Cuffs", "Darkbind Fingers"],
+                    displays: [26277, 25247, 25245, 28155, 25255, 18863, 4607, 24177],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Felheart Horns", "Felheart Shoulder Pads", "Felheart Robes", "Felheart Belt", "Felheart Pants", "Felheart Slippers", "Felheart Bracers", "Felheart Gloves"],
+                    displays: [31987, 31974, 31973, 31969, 31972, 31975, 31970, 31971],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Nemesis Skullcap", "Nemesis Spaulders", "Nemesis Robes", "Nemesis Belt", "Nemesis Leggings", "Nemesis Boots", "Nemesis Bracers", "Nemesis Gloves"],
+                    displays: [34369, 34022, 34014, 34011, 29857, 34015, 34012, 34013],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Doomcaller's Circlet", "Doomcaller's Mantle", "Doomcaller's Robes", "Grasp of the Old God", "Doomcaller's Trousers", "Doomcaller's Footwraps", "Bracelets of Royal Redemption", "Dark Storm Gauntlets"],
+                    displays: [34351, 34018, 34061, 34176, 33618, 33625, 34199, 34183],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Plagueheart Circlet", "Plagueheart Shoulderpads", "Plagueheart Robe", "Plagueheart Belt", "Plagueheart Leggings", "Plagueheart Sandals", "Plagueheart Bindings", "Plagueheart Gloves"],
+                    displays: [35182, 35187, 35185, 35179, 35184, 35186, 35180, 35183],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: Staff,
+                    hand: MainHand,
+                ),
+            ],
+        ),
+        (
+            class: "druid",
+            armor: Leather,
+            bonus_pairs: [1, 2, 3, 4, 5, 6, 7, 0, 1],
+            looks: [
+                (
+                    zone: "elwynn",
+                    names: ["Thicket Cover", "Thicket Spaulders", "Thicket Chestpiece", "Thicket Belt", "Thicket Pants", "Thicket Boots", "Thicket Bracers", "Thicket Gloves"],
+                    displays: [0, 7836, 3719, 4473, 4469, 9773, 4471, 4470],
+                ),
+                (
+                    zone: "duskwood",
+                    names: ["Ruffled Chaplet", "Feline Mantle", "Armor of the Fang", "Belt of the Fang", "Leggings of the Fang", "Footpads of the Fang", "Deepwood Bracers", "Gloves of the Fang"],
+                    displays: [8753, 10169, 17091, 28384, 28385, 27949, 3606, 19125],
+                ),
+                (
+                    zone: "wsg",
+                    names: ["Cap of Harmony", "Faerie Mantle", "Grizzly Tunic", "Screecher Belt", "Sentinel's Lizardhide Pants", "Windseeker Boots", "Dryad's Wrist Bindings", "Oilrag Handwraps"],
+                    displays: [21293, 9077, 12482, 28767, 18962, 26026, 32091, 27913],
+                ),
+                (
+                    zone: "scarlet",
+                    names: ["Adventurer's Cover", "Adventurer's Spaulders", "Adventurer's Chestpiece", "Adventurer's Belt", "Adventurer's Pants", "Adventurer's Boots", "Adventurer's Bracers", "Adventurer's Gloves"],
+                    displays: [17277, 15890, 18284, 16931, 17142, 28654, 18331, 4485],
+                ),
+                (
+                    zone: "sunken_temple",
+                    names: ["Soothsayer's Headdress", "Atal'ai Spaulders", "Nature's Embrace", "Chloromesh Girdle", "Brusslehide Leggings", "Keeper's Hooves", "Jadefire Bracelets", "Bloodfire Talons"],
+                    displays: [29941, 19995, 29918, 29929, 29930, 27568, 27655, 28680],
+                ),
+                (
+                    zone: "feralas",
+                    names: ["Wildheart Cowl", "Wildheart Spaulders", "Wildheart Vest", "Wildheart Belt", "Wildheart Kilt", "Wildheart Boots", "Wildheart Bracers", "Wildheart Gloves"],
+                    displays: [31228, 30412, 29974, 29976, 29975, 29981, 29977, 29979],
+                ),
+                (
+                    zone: "arena",
+                    names: ["Zulian Headdress", "Animist's Spaulders", "Zandalar Haruspex's Tunic", "Zandalar Haruspex's Belt", "Animist's Leggings", "Animist's Boots", "Zandalar Haruspex's Bracers", "Shadow Panther Hide Gloves"],
+                    displays: [35125, 32404, 32285, 32286, 32405, 32406, 32287, 32752],
+                ),
+                (
+                    zone: "strat",
+                    names: ["Feralheart Cowl", "Feralheart Spaulders", "Feralheart Vest", "Feralheart Belt", "Feralheart Kilt", "Feralheart Boots", "Feralheart Bracers", "Feralheart Gloves"],
+                    displays: [34639, 34643, 34644, 34637, 34642, 34638, 34641, 34640],
+                ),
+                (
+                    zone: "strat", row: 1,
+                    row_name: Some("Scholomance sets"),
+                    names: ["Grand Crown", "Wyrmtongue Shoulders", "Cadaverous Armor", "Cadaverous Belt", "Cadaverous Leggings", "Cadaverous Walkers", "Chillhide Bracers", "Cadaverous Gloves"],
+                    displays: [28022, 18971, 25249, 25248, 26966, 11571, 24190, 25253],
+                ),
+                (
+                    zone: "brm",
+                    names: ["Cenarion Helm", "Cenarion Spaulders", "Cenarion Vestments", "Cenarion Belt", "Cenarion Leggings", "Cenarion Boots", "Cenarion Bracers", "Cenarion Gloves"],
+                    displays: [32790, 32016, 31797, 31722, 31729, 31724, 31725, 31726],
+                ),
+                (
+                    zone: "brm", row: 1,
+                    names: ["Stormrage Cover", "Stormrage Pauldrons", "Stormrage Chestguard", "Stormrage Belt", "Stormrage Legguards", "Stormrage Boots", "Stormrage Bracers", "Stormrage Handguards"],
+                    displays: [33655, 30546, 30536, 30541, 30540, 30542, 30548, 34016],
+                ),
+                (
+                    zone: "aq",
+                    names: ["Genesis Helm", "Genesis Shoulderpads", "Genesis Vest", "Regenerating Belt of Vek'nilash", "Genesis Trousers", "Genesis Boots", "Beetle Scaled Wristguards", "Wasphide Gauntlets"],
+                    displays: [34609, 34037, 34086, 34205, 33662, 33661, 34335, 34226],
+                ),
+                (
+                    zone: "naxxramas",
+                    names: ["Dreamwalker Headpiece", "Dreamwalker Spaulders", "Dreamwalker Tunic", "Dreamwalker Girdle", "Dreamwalker Legguards", "Dreamwalker Boots", "Dreamwalker Wristguards", "Dreamwalker Handguards"],
+                    displays: [35162, 35160, 35159, 35164, 35161, 35173, 35158, 35167],
+                ),
+            ],
+            weapons: [
+                (
+                    stats: [
+                        (
+                            stat: Damage,
+                            value: 0.08,
+                        ),
+                    ],
+                    kind: Staff,
+                    hand: MainHand,
+                ),
+            ],
+        ),
+    ],
+)

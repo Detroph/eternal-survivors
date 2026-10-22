@@ -1,0 +1,26 @@
+// Talent template. Copy the block below into the `talents` list of one of a class's three trees
+// in content/talents.ron. Every effect shape (Stat, AbilityMod, Milestone) and every milestone kind
+// is explained in docs/game/classes.md, section 4.
+(
+    id: "my_new_talent",           // unique, lowercase; the save keeps ranks by it
+    name: "My New Talent",         // our own name as text, or a pointer where the client holds
+                                   // it, e.g. Spell(12282) (a Spell.dbc id)
+    icon: "Spell_Fire_FlameBolt",  // a texture name from Interface\Icons in the WoW client
+    text: "Damage +{v}%.",         // the tooltip: each {v} shows the next effect's number at the
+                                   // current rank ({v}% shows a share as a percentage);
+                                   // {Spell(133)} shows the client's name for a spell
+    row: 1,                        // 0 to 6 (6 is the capstone); a row opens once the tree has
+                                   // 5 points for every row above it
+    col: 0,                        // the shipped trees use columns 0 to 2; one talent per spot
+    max_rank: 5,
+    requires: None,                // or Some("other_talent_id"): a talent of the same tree that
+                                   // must be at its last rank first
+    effects: [
+        // per rank: + 2 % damage (the standard talent value, classes.md section 4)
+        Stat(stat: Damage, per_rank: 0.02),
+        // other shapes, for example:
+        //   AbilityMod(filter: Spell("frostbolt"), kind: Power, per_rank: 0.1),
+        //   AbilityMod(filter: School(Fire), kind: Cooldown, per_rank: 0.03),
+        //   Milestone(FreeCast(chance: 0.1, cooldown: 0.0, spell: "", trigger: Crit, filter: Spell("fireball"))),
+    ],
+)

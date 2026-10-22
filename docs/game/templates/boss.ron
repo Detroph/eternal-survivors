@@ -1,0 +1,48 @@
+// Boss template. Copy the block below into a zone's `bosses` list in its file, content/zones/<id>.ron.
+// Bosses arrive in list order by `spawn_minute`; exactly one per zone has `is_final: true`, and
+// it must be the last one. Every field and every ability kind is explained in
+// docs/game/bosses.md (and docs/game/guides/bosses.txt).
+(
+    name: "My New Boss",           // shown over its head and in messages
+    display_id: 384,               // CreatureDisplayInfo.dbc: the model and skin
+    scale: 3.5,                    // size; also sets its reach (1.5 x scale + 3.5, at most 9)
+    creature_type: Humanoid,       // Beast, Dragonkin, Demon, Elemental, Giant, Undead, Humanoid, ...
+    spawn_minute: 6.0,             // run minute it arrives
+    // no health or damage here: they come from the enemy formula (content/balance.ron), the
+    // boss kind (final boss kind if is_final) at its arrival minute; abilities scale off its damage
+    yell: "You will not leave this place!",  // shouted when it arrives
+    // aggro_sound: Some(5774),    // optional: the original boss's own voice line (SoundEntries.dbc), heard as it arrives
+    // Any number of abilities, in any mix; remove a line to remove an ability. Each names its
+    // kind and its looks; the numbers (cooldown, radius, damage, bolts, adds) are the kind's
+    // standard ones in content/enemy_kinds.ron. Summon's adds follow the boss's place in the
+    // zone's list. To give this boss its own number, add it as an override, for example
+    // `Stomp(look_spell: 6343, radius: Some(12.0), cooldown: Some(10.0))`.
+    abilities: [
+        Charge(look_spell: 100),
+        Stomp(look_spell: 6343),
+        GroundBurst(telegraph_spell: 10, impact_spell: 122),
+        Volley(look_spell: 133),
+        Summon(),
+        // The building blocks (docs/game/bosses.md section 6): every
+        // area attack marked on the ground before it lands, hitting the hero only.
+        // Marked(shape: Circle(radius: 10.0), at: Boss, impact_spell: 6343,
+        //        warn: Some((text: "Move out!", bar: Some("Slam")))),
+        // Rush(look_spell: 100, warn: Some((text: "Side-step the line!"))),
+        // Lay(object: (name: "Egg", display_id: 6171, glow_spell: 20922,
+        //              hatch: Some((after: 10.0, enemy: "<a roster enemy>", count: 3))),
+        //     near: Boss(5.0)),
+    ],
+    // swing_mult: Some(1.5),      // optional: its swing carries what its old unmarked abilities did
+    // called: true,               // optional: only a script's Call brings it (Whitemane, when Mograine falls)
+    // on_hit: Some((look_spell: 589, damage_mult: 0.05, every: 1.0, seconds: 10.0, max_stacks: 5)),
+    // script: [                   // optional: what it does at a health share, on a timer, on arrival or death
+    //     (on: Health(50.0), warn: Some((text: "Adds incoming!", colour: Orange)), soon: Some("Adds soon"),
+    //      run: [Yell(text: "To me!"), Wave(enemy: "<a roster enemy>", count: 6, at: Ring(8.0))]),
+    //     // a run of waves it waits behind, immune and apart, then it joins (docs/game/bosses.md)
+    //     (on: Arrival, run: [Waves(waves: [(run: [Wave(enemy: "<a roster enemy>", count: 6, at: Ring(6.0))])],
+    //      gap: 20.0, immune: true, aloof: true, bar: Some("Next wave"), counter: Some("Adds left"),
+    //      then: [Yell(text: "Enough! I will deal with you myself!")])]),
+    //     // and: Gather, SpellImmune, Empower, Mend, ClassCall, RaiseFallen, Cameo
+    // ],
+    is_final: false,               // true only for the zone's last boss: killing it wins the run
+)

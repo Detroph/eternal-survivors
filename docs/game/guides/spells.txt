@@ -1,0 +1,264 @@
+ESURV - MAKING A SPELL, EXPLAINED
+======================================
+
+This file explains in plain words how to add a new spell. The technical version is spells.md
+in the folder above this one. A ready-to-copy spell is in docs\game\templates\spell.ron.
+How to read the data files (quotes, commas, brackets) is explained at the top of zones.txt.
+
+
+1. THE SHORT VERSION
+--------------------
+
+  1. Open content\abilities.ron.
+  2. Copy the block from docs\game\templates\spell.ron into the list.
+  3. Give it a new id (lowercase, no spaces, e.g. "frost_comet") and a name.
+  4. Pick how it looks (look_spell and icon, section 3).
+  5. Pick how it works (delivery, section 4) and set its numbers.
+     Then say what level-up cards may improve (section 6) and what kind of spell it is
+     (section 7).
+  6. Open content\classes.ron and add the new id to a class's list of abilities.
+  7. Save, then run "cargo test -p esurv-content -p esurv-sim" to check for mistakes.
+
+
+2. EVERY LINE OF A SPELL
+------------------------
+
+    id: "my_new_spell"         the spell's internal name. Classes and talents use it.
+    name: "My New Spell"       what the player sees. If WoW already has a spell of exactly
+                               that name, write its number instead, name: Spell(133),
+                               and the game reads the name from your own WoW files (any
+                               rank of the spell will do). A name of our own stays in
+                               quotes. Inside a description, {Spell(133)} shows WoW's
+                               name for that spell.
+    icon: "Spell_Fire_FlameBolt"
+                               the icon picture, by its name in the WoW client.
+    look_spell: 133            which real WoW spell it looks like (133 = Fireball). This
+                               also decides how fast its missile flies (section 3).
+    description: "Hurls a bolt at {targets:the nearest enemy|the # nearest enemies} within
+                 {range} yd for {damage} {school} damage."
+                               what a card says the first time it offers the spell, in your
+                               own words. The words in curly brackets are filled in with the
+                               spell's real numbers when the card shows: {damage}, {range},
+                               {targets}, {radius}, {duration}, {school} and more (the full
+                               list is in spells.md, section 2a). {targets:one|# many} picks
+                               the words by the number (# is the number). The game will not
+                               start with a name it does not know, and the tests check that
+                               every spell has each number its text asks for.
+    school: Fire               Physical, Holy, Fire, Nature, Frost, Shadow or Arcane.
+    delivery: Projectile       HOW it reaches enemies (section 4).
+    categories: [DirectDamage, Ranged]
+                               what kind of spell it is (section 7).
+    tags: [Nuke]               what the spell is about (section 7a).
+    upgrades: [Power, Cooldown, Targets]
+                               what level-up cards can improve (section 6).
+    damage: 40.0               damage per hit. For lasting areas, effects over time and
+                               totems: the damage over the whole duration, shared out over
+                               the ticks. 0 if it does no damage.
+    cooldown: 2.0              time between casts. Spells cast by themselves. In the game
+                               it is exactly this (then made shorter by upgrades, talents
+                               and gear), and never goes under 0.25 s. Damage is multiplied
+                               by the class's spell_damage_scale (classes.ron, 1 for now);
+                               cooldowns and durations never are.
+    range: 30.0                how far it reaches. 0 = around you.
+    radius: 0.0                size of a nova, area, cone or totem. The spell's look is
+                               grown or shrunk in the game to match it.
+    targets: 1                 how many enemies one cast hits.
+    duration: 0.0              how long areas, effects over time, buffs and totems last.
+    ticks: 0                   how many hits happen during that duration. A Nova with ticks
+                               2 or more goes off that many times per cast,
+                               duration / ticks seconds apart, the first at once, each
+                               around where you then stand, each for the full damage
+                               (Hellfire: duration 3.0, ticks 3 = at 0, 1 and 2 seconds).
+                               Longer durations add whole novas.
+    pulse_spell: Some(8187)    optional, for totems: the WoW spell each pulse shows
+                               (leave it out to use look_spell).
+    effect: None               an extra effect (section 5).
+    burn: Some((damage: 160.0, duration: 5.0, ticks: 5))
+                               optional: every enemy the hit lands on also burns, here for
+                               160 in all, in 5 even ticks over 5 seconds, starting when
+                               the hit lands. It grows with the hit's damage, and longer
+                               durations add whole ticks. Leave it out for no burn.
+    impact: 46.0               optional, GroundArea spells only: every enemy inside
+                               the area as it lands takes this much at once, before its
+                               ticks. It grows with the spell's damage. Leave it out for
+                               no impact.
+
+
+3. HOW IT LOOKS, AND HOW FAST IT FLIES
+-------------------------------------
+
+  look_spell is the number of a real WoW spell. The game shows that spell's casting, missile,
+  impact and sound. Look the number up on any vanilla spell database, for example:
+
+      Fireball 133      Frostbolt 116      Shadow Bolt 686      Frost Nova 122
+
+  If that WoW spell is a missile, your spell's missile flies at the same speed as in WoW
+  (Fireball 24 yards per second, Frostbolt 28, Shadow Bolt 20, Arcane Shot 40). The damage
+  lands exactly when the missile arrives on screen. If the WoW spell is not a missile, the hit
+  is instant.
+
+
+4. THE 11 WAYS A SPELL CAN WORK (delivery)
+-----------------------------------------
+
+    Projectile          shoots at bosses and elites first, then the nearest enemies (a
+                        wounded enemy in a tight bunch around the nearest one goes first)
+    Chain               hits random nearby enemies one after another
+    Nova                hits everything around you
+    GroundArea          a lasting area that hits again and again
+    Bounce              jumps from enemy to enemy (like Chain Lightning)
+    Melee               hits bosses and elites first, then the closest enemies (picked the
+                        same way as projectiles)
+    DamageOverTime      a poison, curse or bleed that keeps hurting. It goes to bosses
+                        first, then elites, then the healthiest enemies. One cast puts at
+                        most one on each enemy, so cast after cast the first in line fills
+                        up before the next one gets any. A spell that hits several enemies
+                        puts one on each of the first ones in line. An enemy that is already
+                        full only gets it again when it would wear off before your next
+                        cast; otherwise the next enemy in line does.
+    Finisher            a melee hit that does double damage to badly hurt enemies
+    Cone                a cone in front of you
+    SelfEffect          a heal, shield, buff or immunity on yourself
+    Totem               puts down a totem near enemies, in front of you (to your left
+                        when a milestone casts it). It strikes half a second after
+                        landing, then every 2 seconds for as long as it lasts (a longer
+                        duration means more strikes).
+
+  Which numbers matter:
+      projectile, chain, bouncing chain, melee, finisher: damage, cooldown, range, targets
+      nova, cone: damage, cooldown, radius
+      ground area: damage, cooldown, range, radius, duration, ticks
+      over time: damage, cooldown, range, duration, ticks
+      self: cooldown, duration, and its effect
+      totem: pulse_spell, cooldown, radius, duration (and damage if it attacks);
+             ticks does nothing for totems
+
+
+5. EXTRA EFFECTS (effect)
+-------------------------
+
+      None                                  nothing extra
+      Slow(amount: 0.5, seconds: 4.0)       slows enemies by 50% for 4 seconds
+      Root(seconds: 3.0)                    enemies cannot move
+      Stun(seconds: 2.0)                    enemies cannot move or attack
+      Fear(seconds: 3.0)                    enemies run away from you
+      Heal(share: 0.15)                     heals you for 15% of your health
+      Shield(share: 0.3, seconds: 10.0)     a shield worth 30% of your health
+      DamageBuff(amount: 0.2, seconds: 8.0) +20% damage for 8 seconds
+      HasteBuff(amount: 0.2, seconds: 8.0)  faster cooldowns for 8 seconds
+      Immunity(seconds: 3.0)                you take no damage
+      (and a few more, listed in spells.md)
+
+
+6. WHAT LEVEL-UP CARDS CAN IMPROVE (upgrades)
+---------------------------------------------
+
+      Power      more damage or healing
+      Cooldown   casts more often
+      Targets    hits more enemies
+      Area       bigger
+      Duration   lasts longer
+
+  List the ones that fit your spell. The game also skips any that make no sense for its
+  delivery (a nova cannot get more targets, for example).
+
+
+7. WHAT KIND OF SPELL IT IS (categories) - CHANGING A WHOLE KIND AT ONCE
+-----------------------------------------------------------------------
+
+  Every spell says what kind of spell it is. A spell can be several kinds at once: Frost Nova
+  is DirectDamage, AreaOfEffect and CrowdControl.
+
+      DirectDamage     hits for damage straight away
+      DamageOverTime   hurts again and again over time (poisons, curses, bleeds, lasting
+                       areas, attacking totems)
+      AreaOfEffect     hits everything in an area (novas, lasting areas, cones)
+      Melee            hits up close
+      Ranged           hits from a distance (missiles, chains)
+      CrowdControl     slows, roots, stuns or scares enemies
+      Sustain          heals you
+      Shield           puts a shield on you
+      DamageReduction  makes you take less damage (shields, immunity, weakening enemies)
+      Reflect          hurts enemies that hit you (like Thorns)
+      Buff             more damage or speed for a while
+      Summon           puts down a totem
+
+  WHY: to change a whole kind of spell at once. Open content\spell_categories.ron. It has
+  one line per kind, with numbers that are all 1.0:
+
+      (category: DamageOverTime, damage: 1.0, cooldown: 1.0, range: 1.0, radius: 1.0,
+       duration: 1.0, effect: 1.0, effect_seconds: 1.0),
+
+  Every number multiplies ALL spells of that kind: 1.2 = 20% more, 0.8 = 20% less.
+  All 1.0 leaves every spell at its own numbers.
+
+      damage          how much it hurts (for effects over time: in total)
+      cooldown        time between casts (smaller = more often)
+      range           how far it reaches
+      radius          how big its area is
+      duration        how long the spell lasts (areas, poisons, totems, and buffs or
+                      shields on you). Ticks stay the same size, so a poison that lasts
+                      longer also hurts more in total.
+      effect          how strong its extra effect is (slow, heal, shield, buff ...)
+      effect_seconds  how long its extra effect holds an enemy (stun, root, fear, slow)
+
+  Example - all poisons, curses and bleeds 10% stronger and 20% longer:
+
+      (category: DamageOverTime, damage: 1.1, duration: 1.2),
+
+  (numbers you leave out count as 1.0). A spell that is several kinds gets every line that
+  fits it, multiplied together.
+
+  For a NEW spell, list the kinds that fit it; every spell needs at least one. Talents can
+  also be made to react to a kind of spell (see classes.md).
+
+
+7a. WHAT THE SPELL IS ABOUT (tags)
+----------------------------------
+
+  Every spell also has tags, for example:
+
+      tags: [Nuke, Sustain]
+
+  A spell that hurts enemies gets exactly ONE of these, by its shape:
+
+      Level1     the class's starting spell
+      Nuke       hits 1 enemy
+      Cleave     hits 2 to 5 enemies
+      Dot        hurts over time (poisons, curses, bleeds)
+      Nova       hits everything around you, or in a cone in front of you
+      Area       a lasting area on the ground
+      Pet        a creature fights for you (totems)
+
+  On top of that (or alone, for spells that do no damage):
+
+      Sustain    it heals you
+      Buffs      it gives you more damage or speed for a while
+      Defensive  shields, immunity, hurting enemies that hit you, weakening enemies
+
+  WHY: each tag has a number in content\balance.ron, under "spell_tags", all 1.0:
+
+      spell_tags: (
+          level_1: 1.0, nuke: 1.0, cleave: 1.0, dot: 1.0, nova: 1.0, area: 1.0, pet: 1.0,
+          sustain: 1.0, buffs: 1.0, defensive: 1.0,
+      ),
+
+  Each number changes only what its tag is about: a damage tag the damage, sustain how much
+  it heals, buffs how big the buff is, defensive how big the shield, the weakening or the
+  hurt-back damage is. Cooldowns and how long things last never change. The pet number also
+  changes the damage of every pet a talent gives you. Example - every nuke 10% stronger:
+  nuke: 1.1. Restart the game after a change.
+
+  The full list of which spell has which tags is in spells.md, section 8a. For a NEW spell,
+  pick its tags the same way; the tests check every spell. Race spells get no tags: tune
+  their numbers one by one.
+
+
+8. WHAT YOU GET FOR FREE
+------------------------
+
+  - A legendary amulet can remake your new spell, like any other.
+  - Talents can boost it by its id, by its school, or by its kind.
+  - The lines in spell_categories.ron apply to it as soon as it lists that kind.
+  - The tag numbers in balance.ron apply to it as soon as it lists that tag.
+  - Coloured spell cards make it start stronger.

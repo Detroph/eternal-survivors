@@ -1,0 +1,23 @@
+[package]
+name = "esurv-sim"
+description = "The game rules as a headless, deterministic simulation: run clock, spawning, scaling, combat, progression."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+esurv-content = { path = "../esurv-content" }
+
+[dev-dependencies]
+# The golden run shows names as the game does, read from the client (`examples/golden_run.rs`).
+esurv-content = { path = "../esurv-content", features = ["client"] }
+# The boss damage test reads the kits the bosses had before their rework as written.
+ron = "0.12"
+
+# the balance check carries a test of its own (its legendary measure takes the amulet it forces)
+[[example]]
+name = "balance_check"
+test = true

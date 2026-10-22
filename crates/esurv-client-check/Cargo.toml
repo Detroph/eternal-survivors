@@ -1,0 +1,12 @@
+[package]
+name = "esurv-client-check"
+description = "Whether a folder holds a usable WoW 1.12.1 enUS client: the game's first launch and the setup both ask it."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lints]
+workspace = true
+
+# No dependencies: the setup carries it, and it must stay small.
+[dependencies]

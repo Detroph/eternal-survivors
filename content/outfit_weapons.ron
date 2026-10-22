@@ -1,0 +1,33 @@
+// The stock weapons and shields of the starting outfits, by item entry (and look) as the
+// player's CharStartOutfit.dbc names them: what the item query tells of each beyond its look and
+// slot, by its kind (`OneHandedSword`, `Staff`, `Shield` ...). Where it rests when not in use
+// follows from the kind: staves and two-handers on the back,
+// one-handers on the hip, a shield on the back; a ranged weapon shows only when drawn.
+([
+    // a short sword
+    (item: 25, display: 1542, kind: OneHandedSword),
+    // a long staff
+    (item: 35, display: 472, kind: Staff),
+    // a flanged mace
+    (item: 36, display: 5194, kind: OneHandedMace),
+    // a hatchet
+    (item: 37, display: 14029, kind: OneHandedAxe),
+    // a dagger
+    (item: 2092, display: 6442, kind: Dagger),
+    // a two-handed maul
+    (item: 2361, display: 8690, kind: TwoHandedMace),
+    // a round wooden shield
+    (item: 2362, display: 18730, kind: Shield),
+    // a short bow
+    (item: 2504, display: 8106, kind: Bow),
+    // a rifle
+    (item: 2508, display: 6606, kind: Gun),
+    // a throwing knife
+    (item: 2947, display: 16754, kind: Thrown),
+    // a throwing axe
+    (item: 3111, display: 20777, kind: Thrown),
+    // a druid's staff
+    (item: 3661, display: 18530, kind: Staff),
+    // a two-handed battle axe
+    (item: 12282, display: 22291, kind: TwoHandedAxe),
+])

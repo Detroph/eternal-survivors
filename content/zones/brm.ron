@@ -1,0 +1,700 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    id: "brm",
+    name: Area(25),
+    subtitle: "Fire from the Mountain",
+    description: "Dark Iron dwarves and the Blackrock orcs march together, with fire and dragons at their side.",
+    map_id: 0,
+    area_id: 46,
+    spawn: (
+        x: -8022.62,
+        y: -1342.3,
+        z: 133.56,
+        facing: 0.8,
+    ),
+    arena_radius: 80.0,
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 21,
+    weather: (
+        kind: None,
+        intensity: 0.0,
+    ),
+    difficulty: 9.0,
+    enemies: [
+        (
+            name: "Dark Iron Slaver",
+            display_id: 8673,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedSword, display: 7419, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Black Broodling",
+            display_id: 387,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Blackrock Grunt",
+            display_id: 8699,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedAxe, display: 7428, inventory_type: 13, sheath: 3, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Dark Iron Geomancer",
+            display_id: 8799,
+            // vmangos has no Dark Iron Geomancer: the Dark Iron Geologist's staff (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 10654, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            look_spell: Some(133),
+        ),
+        (
+            name: "Anvilrage Guardsman",
+            display_id: 8681,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 7476, inventory_type: 13, sheath: 3, material: 2)),
+                off_hand: Some((kind: Shield, display: 1705, inventory_type: 14, sheath: 4, material: 1)),
+            ),
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Blazing Elemental",
+            display_id: 1070,
+            scale: 0.8,
+            creature_type: Elemental,
+            kind: FastMid,
+            toughness: 0.75,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Firegut Ogre",
+            display_id: 10707,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 7477, inventory_type: 13, sheath: 3, material: 2)),
+            ),
+            scale: 0.55,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Black Wyrmkin",
+            display_id: 8249,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Staff, display: 10654, inventory_type: 17, sheath: 2, material: 2)),
+            ),
+            scale: 0.9,
+            creature_type: Dragonkin,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(11366),
+        ),
+        (
+            name: "Fireguard Destroyer",
+            display_id: 8686,
+            scale: 0.75,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2.25,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Core Hound",
+            display_id: 10193,
+            scale: 0.9,
+            creature_type: Beast,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Black Drake",
+            display_id: 6377,
+            scale: 0.4,
+            creature_type: Dragonkin,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Molten Giant",
+            display_id: 12162,
+            scale: 0.6,
+            creature_type: Giant,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only the bosses bring these (Angerforge's call, the Spire's
+        // waves before Rend, Princess Moira, Majordomo's guards, Ragnaros rising, Nefarian's
+        // drakonids, bone constructs and infernals); they never spawn by themselves.
+        (
+            name: "Anvilrage Reservist",
+            display_id: 8755,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Anvilrage Medic",
+            display_id: 8752,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Chromatic Whelp",
+            display_id: 10095,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: FastFodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Chromatic Dragonspawn",
+            display_id: 10094,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Blackhand Dragon Handler",
+            display_id: 10176,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Princess Moira Bronzebeard",
+            display_id: 8705,
+            // 75 % of Thaurissan's 3.15
+            scale: 2.35,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 3.0,
+            appears_at_minute: 0.0,
+            look_spell: Some(8092),
+            only_summoned: true,
+        ),
+        (
+            name: "Flamewaker Elite",
+            display_id: 12002,
+            scale: 3.0,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Flamewaker Healer",
+            display_id: 13029,
+            scale: 2.0,
+            creature_type: Humanoid,
+            kind: ToughMid,
+            toughness: 2.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Ragnaros",
+            display_id: 11121,
+            scale: 1.0,
+            creature_type: Elemental,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Red Drakonid",
+            display_id: 14889,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Blue Drakonid",
+            display_id: 14886,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Green Drakonid",
+            display_id: 14888,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Bronze Drakonid",
+            display_id: 14887,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Black Drakonid",
+            display_id: 14885,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Chromatic Drakonid",
+            display_id: 14352,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: ToughMid,
+            toughness: 2.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Bone Construct",
+            display_id: 12073,
+            scale: 0.6,
+            creature_type: Undead,
+            kind: Mid,
+            toughness: 1.0,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Corrupted Infernal",
+            display_id: 169,
+            scale: 0.8,
+            creature_type: Demon,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    bosses: [
+        (
+            name: "General Angerforge",
+            display_id: 8756,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: TwoHandedAxe, display: 21238, inventory_type: 17, sheath: 1, material: 1)),
+            ),
+            scale: 3.15,
+            creature_type: Humanoid,
+            spawn_minute: 4.0,
+            yell: "Intruders! Every hammer to the gate!",
+            swing_mult: Some(2.0),
+            abilities: [
+                // Flurry: a burst of blows in front of him
+                Marked(
+                    shape: Cone(length: 10.0, angle: 90.0),
+                    at: Boss,
+                    impact_spell: 15754,
+                    wind_up: Some(1.3),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(15088)}: get out of the front!", icon_spell: Some(15088), bar: Some("{Spell(15088)}"))),
+                ),
+            ],
+            script: [
+                // at 30 % (as the original) he calls his Reservists and two Medics
+                (
+                    on: Health(30.0),
+                    warn: Some((text: "Reservists and Medics: kill the Medics!", colour: Orange)),
+                    soon: Some("Reservists soon"),
+                    run: [
+                        Emote(text: "%s cries out an alarm!"),
+                        Wave(enemy: "Anvilrage Reservist", count: 8, at: Edges),
+                        Wave(enemy: "Anvilrage Medic", count: 2, at: Ring(8.0)),
+                    ],
+                ),
+                // the Medics heal him while they live
+                (
+                    on: Every(5.0),
+                    run: [Mend(by: "Anvilrage Medic", share: 0.01, look_spell: 15586)],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Warchief Rend Blackhand",
+            display_id: 9778,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Polearm, display: 22411, inventory_type: 17, sheath: 2, material: 1)),
+            ),
+            scale: 2.35,
+            creature_type: Humanoid,
+            spawn_minute: 8.0,
+            yell: "Blackrock stands! You do not!",
+            swing_mult: Some(2.0),
+            // on Gyth: his flame breath, a cone that leaves fire
+            abilities: [
+                Marked(
+                    shape: Cone(length: 16.0, angle: 60.0),
+                    at: Boss,
+                    impact_spell: 16390,
+                    cooldown: Some(9.0),
+                    leaves: Some((look_spell: 2120, radius: 3.0, seconds: 8.0, damage_mult: 0.25)),
+                    warn: Some((text: "{Spell(16390)}: get out of the cone!", bar: Some("{Spell(16390)}"))),
+                ),
+            ],
+            script: [
+                // the Spire's waves first, Rend watching; then he comes down on Gyth
+                (
+                    on: Arrival,
+                    run: [
+                        Waves(
+                            waves: [
+                                (
+                                    run: [Wave(enemy: "Chromatic Whelp", count: 5, at: Ring(6.0)), Wave(enemy: "Blackhand Dragon Handler", count: 1, at: Ring(6.0))],
+                                    warn: Some((text: "The Spire's defenders: wave 1!", colour: Orange)),
+                                ),
+                                (
+                                    run: [Wave(enemy: "Blackrock Grunt", count: 4, at: Ring(6.0)), Wave(enemy: "Chromatic Dragonspawn", count: 1, at: Ring(6.0))],
+                                    warn: Some((text: "Wave 2!", colour: Orange)),
+                                ),
+                                (
+                                    run: [Wave(enemy: "Chromatic Whelp", count: 5, at: Ring(6.0)), Wave(enemy: "Blackhand Dragon Handler", count: 2, at: Ring(6.0))],
+                                    warn: Some((text: "Wave 3!", colour: Orange)),
+                                ),
+                                (
+                                    run: [Wave(enemy: "Chromatic Dragonspawn", count: 2, at: Ring(6.0)), Wave(enemy: "Blackhand Dragon Handler", count: 2, at: Ring(6.0))],
+                                    warn: Some((text: "Wave 4!", colour: Orange)),
+                                ),
+                                (
+                                    run: [
+                                        Wave(enemy: "Chromatic Whelp", count: 6, at: Ring(6.0)),
+                                        Wave(enemy: "Chromatic Dragonspawn", count: 2, at: Ring(6.0)),
+                                        Wave(enemy: "Blackhand Dragon Handler", count: 1, at: Ring(6.0)),
+                                    ],
+                                    warn: Some((text: "Last wave!", colour: Orange)),
+                                ),
+                            ],
+                            gap: 30.0,
+                            immune: true,
+                            aloof: true,
+                            bar: Some("Next wave"),
+                            counter: Some("Defenders left"),
+                            then: [
+                                Yell(text: "With pleasure..."),
+                                Emote(text: "%s comes down on Gyth!"),
+                                // Gyth (the drake with its rider) sized to the boss-sized Rend: his size kept in step with Rend's
+                                // (2.5 for his former 3.04)
+                                Look(display_id: 9723, scale: Some(1.95)),
+                            ],
+                        ),
+                    ],
+                ),
+                // 50 %: knocked off his drake, he fights on foot with Whirlwind and his cleave
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Knocked off his drake: beware his {Spell(13736)}!", colour: Purple, icon_spell: Some(13736))),
+                    soon: Some("Off the drake soon"),
+                    run: [
+                        Emote(text: "%s is knocked off his drake!"),
+                        Look(display_id: 9778, scale: Some(2.35)),
+                        Kit(abilities: [
+                            // Whirlwind: a circle round him that follows him for 6 s
+                            Zone(
+                                zone: (look_spell: 13736, radius: 7.0, seconds: 6.0, damage_mult: 0.5, follows: true),
+                                at: Boss,
+                                cooldown: Some(14.0),
+                                warn: Some((text: "{Spell(13736)}: run from him!", bar: Some("{Spell(13736)}"))),
+                            ),
+                            Marked(
+                                shape: Cone(length: 8.0, angle: 90.0),
+                                at: Boss,
+                                impact_spell: 15754,
+                                wind_up: Some(1.2),
+                                cooldown: Some(8.0),
+                                warn: Some((text: "{Spell(15754)}: get out of the front!", bar: Some("{Spell(15754)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Emperor Dagran Thaurissan",
+            display_id: 8807,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: OneHandedMace, display: 21751, inventory_type: 13, sheath: 3, material: 2)),
+            ),
+            scale: 3.15,
+            creature_type: Humanoid,
+            spawn_minute: 12.0,
+            yell: "Come to the aid of the Throne!",
+            swing_mult: Some(1.771),
+            abilities: [
+                // Avatar of Flame: a ring of fire round him, safe at his feet
+                Marked(
+                    shape: Ring(inner: 4.0, outer: 13.0),
+                    at: Boss,
+                    impact_spell: 15636,
+                    cooldown: Some(11.0),
+                    warn: Some((text: "{Spell(15636)}: hug him or get clear!", bar: Some("{Spell(15636)}"))),
+                ),
+                // Hand of Thaurissan: his hammer flies at the hero's spot
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 17492,
+                    impact_on_bunny: true,
+                    missile: true,
+                    wind_up: Some(2.0),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(17492)}: move!", bar: Some("{Spell(17492)}"))),
+                ),
+            ],
+            script: [
+                // Princess Moira comes with him and heals him: kill her or burst through
+                (
+                    on: Arrival,
+                    warn: Some((text: "Princess Moira heals him: kill her or burst through!", colour: Yellow, icon_spell: Some(15586))),
+                    run: [Wave(enemy: "Princess Moira Bronzebeard", count: 1, at: Ring(6.0))],
+                ),
+                (
+                    on: Every(6.0),
+                    run: [Mend(by: "Princess Moira Bronzebeard", share: 0.02, look_spell: 15586)],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Majordomo Executus",
+            display_id: 12029,
+            // vmangos's creature of this name holds these (docs/game/enemy-weapons.md)
+            weapons: (
+                main_hand: Some((kind: Polearm, display: 22031, inventory_type: 17, sheath: 2, material: 1)),
+            ),
+            scale: 2.35,
+            creature_type: Humanoid,
+            spawn_minute: 16.0,
+            yell: "Reckless mortals! None may challenge the Sons of the Living flame!",
+            aggro_sound: Some(8035),
+            swing_mult: Some(1.5),
+            abilities: [
+                Volley(look_spell: 133, impact_on_bunny: true),
+                // flames at the hero's feet (his teleport's fire)
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 20618,
+                    wind_up: Some(1.5),
+                    cooldown: Some(9.0),
+                    warn: Some((text: "Flames at your feet: move!", icon_spell: Some(20618), bar: Some("Flames"))),
+                ),
+            ],
+            script: [
+                // immune until all eight Flamewakers are dead
+                (
+                    on: Arrival,
+                    run: [
+                        Waves(
+                            waves: [
+                                (
+                                    run: [Wave(enemy: "Flamewaker Elite", count: 4, at: Ring(7.0)), Wave(enemy: "Flamewaker Healer", count: 4, at: Ring(7.0))],
+                                    warn: Some((text: "Majordomo is immune: kill his eight guards!", colour: Orange, icon_spell: Some(20620))),
+                                ),
+                            ],
+                            immune: true,
+                            look_spell: 20620,
+                            counter: Some("Guards left"),
+                            then: [
+                                Yell(text: "You think you've won already? Perhaps you'll need another lesson in pain!"),
+                                Emote(text: "%s is no longer protected!"),
+                            ],
+                        ),
+                    ],
+                ),
+                // beaten, he submits; Ragnaros rises for one marked Sulfuras smash, then sinks
+                (
+                    on: Death,
+                    run: [
+                        Yell(text: "Impossible! Stay your attack, mortals... I submit! I submit!", sound: Some(8038)),
+                        Cameo(
+                            enemy: "Ragnaros",
+                            // further out at his full size, so he rises clear of the fight
+                            at: Ring(16.0),
+                            delay: 4.0,
+                            seconds: 8.0,
+                            rise_spell: 20568,
+                            sink_spell: 19774,
+                            run: [Yell(text: "TOO SOON! YOU HAVE AWAKENED ME TOO SOON, EXECUTUS! WHAT IS THE MEANING OF THIS INTRUSION???", sound: Some(8043))],
+                            abilities: [
+                                Marked(
+                                    shape: Circle(radius: 9.0),
+                                    at: Hero,
+                                    impact_spell: 20566,
+                                    wind_up: Some(2.0),
+                                    cooldown: Some(6.0),
+                                    warn: Some((text: "Sulfuras comes down: get out!", icon_spell: Some(20566), bar: Some("Sulfuras"))),
+                                ),
+                            ],
+                        ),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Nefarian",
+            display_id: 11380,
+            scale: 1.5,
+            creature_type: Dragonkin,
+            spawn_minute: 20.0,
+            yell: "Let the games begin!",
+            aggro_sound: Some(8280),
+            swing_mult: Some(1.5),
+            abilities: [
+                Volley(look_spell: 686, impact_on_bunny: true),
+                // Shadow Flame: a cone in front of him
+                Marked(
+                    shape: Cone(length: 20.0, angle: 60.0),
+                    at: Boss,
+                    impact_spell: 22539,
+                    wind_up: Some(1.6),
+                    cooldown: Some(10.0),
+                    warn: Some((text: "{Spell(22539)}: get out of the cone!", bar: Some("{Spell(22539)}"))),
+                ),
+            ],
+            script: [
+                // phase 1: drakonid waves while he watches; phase 2: he lands
+                (
+                    on: Arrival,
+                    run: [
+                        Waves(
+                            waves: [
+                                (
+                                    run: [Wave(enemy: "Red Drakonid", count: 3, at: Edges), Wave(enemy: "Blue Drakonid", count: 3, at: Edges)],
+                                    warn: Some((text: "Drakonids: wave 1!", colour: Orange)),
+                                ),
+                                (
+                                    run: [Wave(enemy: "Green Drakonid", count: 3, at: Edges), Wave(enemy: "Bronze Drakonid", count: 3, at: Edges)],
+                                    warn: Some((text: "Drakonids: wave 2!", colour: Orange)),
+                                ),
+                                (
+                                    run: [Wave(enemy: "Black Drakonid", count: 3, at: Edges), Wave(enemy: "Red Drakonid", count: 2, at: Edges), Wave(enemy: "Chromatic Drakonid", count: 1, at: Edges)],
+                                    warn: Some((text: "Drakonids: wave 3!", colour: Orange)),
+                                ),
+                                (
+                                    run: [Wave(enemy: "Blue Drakonid", count: 2, at: Edges), Wave(enemy: "Green Drakonid", count: 2, at: Edges), Wave(enemy: "Chromatic Drakonid", count: 2, at: Edges)],
+                                    warn: Some((text: "Drakonids: last wave!", colour: Orange)),
+                                ),
+                            ],
+                            gap: 25.0,
+                            immune: true,
+                            aloof: true,
+                            bar: Some("Next drakonids"),
+                            counter: Some("Drakonids left"),
+                            then: [
+                                Yell(text: "Well done, my minions. The mortals' courage begins to wane! Now, let's see how they contend with the true Lord of Blackrock Spire!!!", sound: Some(8288)),
+                                Emote(text: "%s lands!"),
+                            ],
+                        ),
+                    ],
+                ),
+                // every 30 s a class call twists the hero's class for 10 s (never crowd control;
+                // unvoiced in 1.12: text only)
+                (
+                    on: Every(30.0),
+                    warn: Some((text: "Class call!", colour: Purple, icon_spell: Some(23410), bar: Some("Class call"))),
+                    run: [
+                        ClassCall(
+                            seconds: 10.0,
+                            calls: [
+                                (class: "warrior", weakens: 0.5, look_spell: 23397, warn: (text: "{Class(1)} call: your blows go wild, half damage for 10 s!", colour: Purple), run: [Yell(text: "Warriors, I know you can hit harder than that! Lets see it!")]),
+                                (class: "paladin", weakens: 0.5, look_spell: 23418, warn: (text: "{Class(2)} call: your blessings feed him, half damage for 10 s!", colour: Purple), run: [Yell(text: "Paladins... I've heard you have many lives. Show me.")]),
+                                (class: "hunter", weakens: 0.5, look_spell: 23436, warn: (text: "{Class(3)} call: your weapon is corrupted, half damage for 10 s!", colour: Purple), run: [Yell(text: "Hunters and your annoying pea-shooters!")]),
+                                (class: "rogue", weakens: 0.5, look_spell: 23414, warn: (text: "{Class(4)} call: dragged into the light, half damage for 10 s!", colour: Purple), run: [Yell(text: "Rogues? Stop hiding and face me!")]),
+                                (class: "priest", weakens: 0.5, look_spell: 23401, warn: (text: "{Class(5)} call: your light is corrupted, half damage for 10 s!", colour: Purple), run: [Yell(text: "Priests! If you're going to keep healing like that, we might as well make it a little more interesting!")]),
+                                (class: "shaman", weakens: 0.5, look_spell: 23425, warn: (text: "{Class(7)} call: your totems are corrupted, half damage for 10 s!", colour: Purple), run: [Yell(text: "Shamans, show me what your totems can do!")]),
+                                (class: "mage", weakens: 0.5, look_spell: 23410, warn: (text: "{Class(8)} call: your magic runs wild, half damage for 10 s!", colour: Purple), run: [Yell(text: "Mages too? You should be more careful when you play with magic...")]),
+                                (class: "warlock", look_spell: 23427, warn: (text: "{Class(9)} call: infernals rise round you!", colour: Orange), run: [Yell(text: "Warlocks, you shouldn't be playing with magic you don't understand. See what happens?"), Wave(enemy: "Corrupted Infernal", count: 3, at: NearHero(7.0))]),
+                                (class: "druid", weakens: 0.5, look_spell: 23398, warn: (text: "{Class(11)} call: forced into another shape, half damage for 10 s!", colour: Purple), run: [Yell(text: "Druids and your silly shapeshifting. Lets see it in action!")]),
+                            ],
+                        ),
+                    ],
+                ),
+                // 20 %: every fallen drakonid rises as a bone construct
+                (
+                    on: Health(20.0),
+                    warn: Some((text: "The drakonids rise again as bone constructs!", colour: Orange, icon_spell: Some(17473))),
+                    soon: Some("The dead rise soon"),
+                    run: [
+                        Yell(text: "Impossible! Rise my minions!  Serve your master once more!", sound: Some(8291)),
+                        RaiseFallen(rise_as: "Bone Construct", look_spell: 17473, most: 16),
+                    ],
+                ),
+                (
+                    on: Death,
+                    run: [Yell(text: "This cannot be!  I am the master here!  You mortals are nothing to my kind!  Do you hear me? Nothing!", sound: Some(8292))],
+                ),
+            ],
+            is_final: true,
+        ),
+    ],
+)

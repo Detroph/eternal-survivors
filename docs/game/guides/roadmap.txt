@@ -1,0 +1,215 @@
+ESURV - PLANNED CHANGES AFTER VERSION 1, EXPLAINED
+=======================================================
+
+These are the changes planned after version 1, as
+rough ideas for now; the details come later. This file explains what each idea needs and what
+we prepare already, so the ideas are easy to add later. The technical version is roadmap.md in
+the folder above this one.
+
+
+IDEA 1 - CHOOSE ONE OF THREE STARTING SPELLS
+--------------------------------------------
+
+  What: at level 1, every class picks one of three spells instead of always getting the same
+  one. Each choice comes with its own passive mechanic (idea 2).
+
+  Where you choose: on the LAUNCH SCREEN, where you pick class and race - before the hero
+  loads into the map. You can read each of the three spells and its mechanic there and pick
+  one. You do NOT choose after entering the world.
+
+  What it touches:
+    - The class data: "starting spell" becomes "three starting choices", each with its
+      mechanic and a description to read.
+    - The class/race screen: a row of three spells with readable descriptions.
+    - The chosen spell has to travel with the hero into the run, like class and race do.
+    - Some talents say "you start every run with spell X". They need a rule for what happens
+      when the start is a choice.
+
+  What we prepare now:
+    - The class/race screen gets a spell information panel filled from the data files;
+      showing three choices is then a data change.
+    - Keep "which spells a run starts with" in the data files, not in code.
+    - Pin down exactly how the "start every run with X" talents work.
+
+
+IDEA 2 - CLASS MECHANICS (RAGE, PROCS, ...)
+-------------------------------------------
+
+  What: each class gets its own mechanic, tied to its starting spell. Examples:
+    - Warrior RAGE: hitting with your weapon builds rage; your level-1 spell spends it.
+    - Mage passives: HOT STREAK (makes Pyroblast stronger or free), FINGERS OF FROST (for an
+      ice spell), and so on.
+
+  What it touches:
+    - A resource bar for the hero (rage, energy, mana, or something new).
+    - Weapon swings (they generate rage).
+    - Spells that cost or consume something.
+    - What the player sees on screen.
+
+  What we prepare now:
+    - EVENTS: the game will announce every swing, cast, hit, critical hit, kill and damage
+      taken. A mechanic can "listen" for these, e.g. "after 3 fire crits, the next Pyroblast
+      is free". The game already has talents that work like this, so we need it
+      anyway. We build it so ANY mechanic can use it, not just the existing talents.
+    - Each class gets a "mechanic" slot in its data: which mechanic and its numbers.
+    - WoW 1.12 can already show a rage, energy or mana bar, so the display is easy.
+    - WoW 1.12 has no glowing spell buttons. A proc is shown as a buff icon on the hero.
+
+  Watch out:
+    - Ice Lance, Hot Streak and Fingers of Frost come from later WoW expansions. They do NOT
+      exist in WoW 1.12 files. They need a 1.12 spell effect and icon as stand-ins, because
+      everything you see must come from the player's own 1.12 game files.
+
+
+IDEA 3 - WEAPON LOADOUTS
+------------------------
+
+  What: before a run, pick one of three weapon setups. Each has pluses and minuses and fits
+  one talent spec best, but all three work with any spec. Paladin example:
+
+      Loadout 1  two-handed weapon      slow swing (3.6 s), +100% melee damage
+      Loadout 2  one-hander + shield    30% chance to fully block a hit
+                                        (damage reflected by spells still happens),
+                                        but -10% damage done
+      Loadout 3  one-hander + off-hand  -10% cooldown on all spells,
+                                        +1 target for spells that hit several enemies
+
+  Where you choose:
+    - Before the run, and
+    - in the CHARACTER GEAR SCREEN (the Armory), where you also pick and equip your armor
+      and how your armor looks. The loadout is picked there like the rest of your equipment.
+
+  How weapon looks are earned:
+    - Weapons never drop on their own. A weapon drop is called "ARMAMENTS OF <name>".
+    - It unlocks ALL the weapon looks for your class from that ZONE at once - the looks for
+      all three loadouts.
+    - Example: you play a run with the two-handed hammer and get a weapon drop. You also get
+      the matching one-hander + shield look and the one-hander + off-hand look from that zone.
+    - In the Armory you then choose which unlocked look each loadout shows - but only looks
+      that FIT the loadout. A one-hander + shield loadout can only show a one-handed weapon
+      and a shield; you cannot give it the look of the two-handed hammer.
+
+  What it touches:
+    - The screens before the run, and the Armory.
+    - Weapon swings (speed and damage).
+    - Hero stats, including new ones like "block chance".
+    - How the hero looks (which weapons are shown).
+    - Gear: class gear also contains weapons, so the two must fit together.
+
+  What we prepare now:
+    - ONE "LANGUAGE" FOR BONUSES: talents, gear, rings, necklaces, Run Options, cards, and
+      later loadouts and class mechanics, all describe their effect the same way: a list of
+      bonuses like "+100% melee damage", "-10% cooldowns", "+1 target". One part of the game
+      adds them all up. The game already has most of these bonuses. Adding a new one
+      (like "block chance") then means adding one word to the list and one rule.
+    - Weapon swings stay in the data files. In version 1, only warriors, paladins and
+      rogues have a melee swing; keeping it as data lets a loadout change it, or give a swing
+      to another class.
+    - What the hero holds is already described by WoW item looks per hand, so a loadout just
+      picks which looks to show.
+    - LOOK SEPARATE FROM POWER, BUT IT MUST FIT: "what a piece looks like" is kept apart from
+      "what it does", so you can change a loadout's look without changing its effect. Each
+      hand of a loadout has a weapon type (two-hander, one-hander, shield, off-hand), and only
+      looks of that type can be chosen for it. The Armory's look options (such as
+      "Starting clothes" and "Hidden") are still to be settled.
+    - Each hero's save remembers which looks it has unlocked, so "Armaments of ..." is simply
+      a list of looks added to that list.
+    - Weapon looks are organised per class, per zone and per hand (main hand, off-hand,
+      shield), so one zone's armaments are one entry in the data files.
+
+
+IDEA 4 - FACTION BANNER: CALL IN A CHAMPION
+-------------------------------------------
+
+A new thing that can lie on the field, like a rune or a magnet: a BANNER of your hero's
+faction (Alliance or Horde, decided by your race). Pick it up and a CHAMPION appears: a
+special character, drawn 1.5 times normal size, picked from a list you will write later. Each
+champion has its own look, entrance, shout and action.
+
+Your example: WAYZE, a dwarf rogue in tier 2 armor with Tigereye goggles, Thunderfury and
+Felstriker. He pops in as if he had just used Vanish (with its sound and smoke cloud), shouts
+"Kick here, stun this, bam bam bam!" and casts Kidney Shot on every enemy on the screen,
+stunning them for 5 seconds.
+
+How it will be built: a new file, content\champions.ron, with one block per champion: which
+faction, what he looks like (race, gear looks, size), how he enters (spell effect and sound),
+what he shouts, and what he does (stun everything, deal damage, heal you, ...). Adding a
+champion is then just writing a new block.
+
+
+IDEA 5 - BATTLEGROUNDS AGAINST THE OTHER FACTION
+------------------------------------------------
+
+The battleground zones WARSONG GULCH and ARATHI BASIN get two sets of enemies: if your hero is Alliance you fight Horde, if your hero is Horde you
+fight Alliance.
+
+How it will be built: those zones get two enemy lists (and two boss lists) in their zone files, one
+per faction. When the run starts, the game picks the list for your faction. The rest of the
+game (how enemies come in, how strong they are) does not change.
+
+
+IDEA 6 - MULTIPLAYER: ONE PLAYER HOSTS, FRIENDS JOIN
+----------------------------------------------------
+
+One player starts a run as the HOST; friends JOIN it from their own copy of the game and fight
+together in the same zone. The game already has its own little server built in (that is how
+it works even alone), so hosting just means letting friends' games connect to it too.
+
+  - Everyone brings their own hero: class, talents and gear from their own save.
+  - One arena, one horde, one clock - but each hero has their own health, level, spells,
+    rings and amulet.
+  - DIFFICULTY SCALES WITH PLAYERS: more players means tougher or more enemies. You will
+    decide the exact rules later. The game already has a hidden "difficulty knob"
+    for the whole run (always 1 when playing alone), which we can use for this.
+  - Still to decide: who enemies chase, whether experience and gold are shared, how level-up
+    choices work without pausing everyone, reviving fallen friends, and splitting loot.
+
+  What it means NOW: the game must never assume there is only one hero. Heroes are kept as
+  a list, enemies choose which hero to chase, and everything that happens (hits, kills,
+  pickups, level-ups) remembers which hero it belongs to. Alone, the game still plays exactly
+  the same.
+
+
+IDEA 7 - GAMEPAD AND TOUCH
+--------------------------
+
+Playing with a controller, or on a touch screen. It was planned for the screens step at first;
+you moved it here, after version 1, which is played with keyboard and mouse.
+
+  - Move and aim with a stick (or by dragging), pick level-up cards with buttons or taps, and
+    walk through the menus with the pad.
+
+  What it means NOW: our screens already work through named actions (pick this card, start a
+  run, choose this hero), which is how the test switches press buttons from inside the game.
+  A controller or touch layer can later send those same actions.
+
+
+THE BIG PICTURE - WHY THIS MATTERS NOW
+--------------------------------------
+
+All these ideas rest on the same four building blocks:
+
+    1. One way to describe bonuses, added up in one place.
+    2. Events that mechanics can react to (swings, casts, hits, crits, kills, damage taken).
+    3. Reusable screens: "pick 1 of 3" (level-ups, caches) and the screens before the run
+       (the class/race screen - later with the starting spell -, Run Options, and the Armory -
+       later with weapon loadouts and weapon looks).
+    4. Room for several heroes in one run (idea 6), instead of exactly one.
+
+If we build these properly now, then your ideas later become mostly data files plus a few
+small, separate pieces of code. Version 1 still plays the same; this only changes HOW it is
+built inside, not what the player sees.
+
+
+OPEN QUESTIONS
+--------------
+
+    - Is rage / energy / mana used in play at all, or is it just for show?
+    - How do weapon swings, the weapons in class gear and gear stats fit together?
+    - What can the Armory change about how a hero looks?
+    - Do gear drops depend on the zone, on the gear tier, or both?
+    - How exactly do the "start every run with spell X" talents work?
+    - Do level-ups and caches use the same "pick 1 of 3" code?
+    - (answered) Your hero is a real character of its race, not just a changed model: the
+      game tells WoW its race, class, gender and faction (Alliance or Horde) like a normal
+      player. So the faction is already there for ideas 4 and 5.

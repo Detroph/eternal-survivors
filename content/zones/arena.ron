@@ -1,0 +1,495 @@
+// A zone: its arena, roster and boss schedule. The file name is the zone id.
+// Zones are ordered by `difficulty`, ascending: that order is the unlock path and the order
+// every list shows. Roster and ability numbers come from enemy_kinds.ron by kind.
+(
+    id: "arena",
+    name: Area(1741),
+    subtitle: "Blood in the Ring",
+    description: "The trolls of {Area(19)} have taken the arena. Raptors, serpents and priests of the Blood God fill the pit.",
+    map_id: 0,
+    area_id: 33,
+    spawn: (
+        x: -13204.0,
+        y: 274.0,
+        z: 21.9,
+        facing: 0.0,
+    ),
+    arena_radius: 38.0,
+    enemy_spawn_ring: (30.0, 40.0),
+    boss_spawn_ring: (25.0, 30.0),
+    hour: 16,
+    weather: (
+        kind: None,
+        intensity: 0.0,
+    ),
+    difficulty: 7.0,
+    enemies: [
+        (
+            name: "Gurubashi Scout",
+            display_id: 337,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Fodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+        ),
+        (
+            name: "Razzashi Raptor",
+            display_id: 1959,
+            scale: 1.2,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.5,
+            appears_at_minute: 0.5,
+        ),
+        (
+            name: "Bloodseeker Bat",
+            display_id: 15191,
+            scale: 0.6,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.25,
+            appears_at_minute: 1.0,
+        ),
+        (
+            name: "Hakkari Shadowcaster",
+            display_id: 314,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.5,
+            appears_at_minute: 2.0,
+            look_spell: Some(686),
+        ),
+        (
+            name: "Gurubashi Axe Thrower",
+            display_id: 316,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 1.25,
+            appears_at_minute: 3.0,
+        ),
+        (
+            name: "Zulian Tiger",
+            display_id: 599,
+            scale: 1.1,
+            creature_type: Beast,
+            kind: FastMid,
+            toughness: 0.75,
+            appears_at_minute: 4.5,
+        ),
+        (
+            name: "Razzashi Serpent",
+            display_id: 4312,
+            scale: 1.3,
+            creature_type: Beast,
+            kind: ToughMid,
+            toughness: 2.25,
+            appears_at_minute: 6.0,
+        ),
+        (
+            name: "Hakkari Witch Doctor",
+            display_id: 317,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Ranged,
+            toughness: 0.75,
+            appears_at_minute: 7.5,
+            look_spell: Some(403),
+        ),
+        (
+            name: "Son of Hakkar",
+            display_id: 2699,
+            scale: 1.0,
+            creature_type: Dragonkin,
+            kind: ToughMid,
+            toughness: 3.25,
+            appears_at_minute: 9.0,
+        ),
+        (
+            name: "Gurubashi Berserker",
+            display_id: 591,
+            scale: 1.3,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 4.0,
+        ),
+        (
+            name: "Zulian Crocolisk",
+            display_id: 807,
+            scale: 1.5,
+            creature_type: Beast,
+            kind: Elite,
+            appears_at_minute: 8.5,
+        ),
+        (
+            name: "Gurubashi Champion",
+            display_id: 593,
+            scale: 1.4,
+            creature_type: Humanoid,
+            kind: Elite,
+            appears_at_minute: 13.0,
+        ),
+        // Only the bosses bring these (Jeklik's bat riders, Venoxis's
+        // cobras, the Shades of Jin'do); they never spawn by themselves.
+        (
+            name: "Gurubashi Bat Rider",
+            display_id: 15303,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: Mid,
+            toughness: 0.75,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Razzashi Cobra",
+            display_id: 14559,
+            scale: 1.0,
+            creature_type: Beast,
+            kind: FastFodder,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+        (
+            name: "Shade of Jin'do",
+            display_id: 15233,
+            scale: 1.0,
+            creature_type: Humanoid,
+            kind: FastMid,
+            toughness: 0.5,
+            appears_at_minute: 0.0,
+            only_summoned: true,
+        ),
+    ],
+    // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
+    // every area attack is marked on the ground before it lands and hits the hero only. Each boss
+    // keeps the damage a hero cannot avoid (`swing_mult` carries what its unmarked abilities did).
+    bosses: [
+        (
+            name: "High Priestess Jeklik",
+            display_id: 15219,
+            scale: 2.75,
+            creature_type: Humanoid,
+            spawn_minute: 4.0,
+            yell: "Lord Hir'eek, grant me wings of vengeance!",
+            swing_mult: Some(1.271),
+            // bat phase: Sonic Burst, a ring round her
+            abilities: [
+                Marked(
+                    shape: Ring(inner: 3.0, outer: 12.0),
+                    at: Boss,
+                    impact_spell: 23918,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(23918)}: hug her or get clear!", bar: Some("{Spell(23918)}"))),
+                ),
+            ],
+            script: [
+                // she comes in bat form
+                (on: Arrival, run: [Look(display_id: 15191, scale: Some(1.75))]),
+                // bat swarms from the edges, while she is a bat
+                (
+                    on: Every(15.0),
+                    until_health: Some(50.0),
+                    warn: Some((text: "Bat swarm incoming!", colour: Orange, icon_spell: Some(23974), bar: Some("Bats"))),
+                    run: [Wave(enemy: "Bloodseeker Bat", count: 6, at: Edges)],
+                ),
+                // 50 %: her troll shape; bat riders drop fire bombs at marked spots
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Jeklik takes her troll shape: bat riders drop fire!", colour: Purple, icon_spell: Some(23970))),
+                    soon: Some("Her troll shape soon"),
+                    run: [
+                        Look(display_id: 15219, scale: Some(2.75)),
+                        Emote(text: "%s takes her troll shape!"),
+                        Wave(enemy: "Gurubashi Bat Rider", count: 2, at: Ring(12.0)),
+                        Kit(abilities: [
+                            Marked(
+                                shape: Circle(radius: 4.0),
+                                at: Hero,
+                                impact_spell: 23970,
+                                impact_on_bunny: true,
+                                missile: true,
+                                wind_up: Some(2.0),
+                                cooldown: Some(6.0),
+                                damage_mult: Some(2.0),
+                                from: Some("Gurubashi Bat Rider"),
+                                leaves: Some((look_spell: 12468, radius: 4.0, seconds: 8.0, damage_mult: 0.25)),
+                                warn: Some((text: "Fire bombs: out of the fire!", icon_spell: Some(23970), bar: Some("Bombs"))),
+                            ),
+                            Marked(
+                                shape: Ring(inner: 3.0, outer: 12.0),
+                                at: Boss,
+                                impact_spell: 23918,
+                                cooldown: Some(10.0),
+                                warn: Some((text: "{Spell(23918)}: hug her or get clear!", bar: Some("{Spell(23918)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+                (
+                    on: Every(25.0),
+                    from_health: Some(50.0),
+                    warn: Some((text: "More bat riders!", colour: Orange, icon_spell: Some(23970), bar: Some("Riders"))),
+                    run: [Wave(enemy: "Gurubashi Bat Rider", count: 2, at: Ring(12.0))],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "High Priest Venoxis",
+            display_id: 15217,
+            scale: 1.90,
+            creature_type: Humanoid,
+            spawn_minute: 7.0,
+            yell: "Let the coils of hate unfurl!",
+            aggro_sound: Some(8421),
+            swing_mult: Some(1.771),
+            // priest phase: Holy Nova rings and Holy Fire
+            abilities: [
+                Marked(
+                    shape: Ring(inner: 3.0, outer: 12.0),
+                    at: Boss,
+                    impact_spell: 23858,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(23858)}: hug him or get clear!", bar: Some("{Spell(23858)}"))),
+                ),
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 23860,
+                    impact_on_bunny: true,
+                    missile: true,
+                    wind_up: Some(2.0),
+                    cooldown: Some(8.0),
+                    warn: Some((text: "{Spell(23860)}: move!", bar: Some("{Spell(23860)}"))),
+                ),
+            ],
+            script: [
+                // 50 %: the snake; lasting poison clouds, Venom Spit and cobras
+                (
+                    on: Health(50.0),
+                    warn: Some((text: "Venoxis becomes a snake: poison clouds and cobras!", colour: Purple, icon_spell: Some(23849))),
+                    soon: Some("Snake form soon"),
+                    run: [
+                        Look(display_id: 15102, scale: Some(2.05)),
+                        Yell(text: "Let the coils of hate unfurl!", sound: Some(8421)),
+                        Wave(enemy: "Razzashi Cobra", count: 4, at: Ring(8.0)),
+                        Kit(abilities: [
+                            Marked(
+                                shape: Circle(radius: 5.0),
+                                at: NearHero(count: 2, spread: 9.0),
+                                impact_spell: 23861,
+                                damage_mult: Some(1.5),
+                                cooldown: Some(10.0),
+                                leaves: Some((look_spell: 23861, radius: 5.0, seconds: 15.0, damage_mult: 0.25)),
+                                warn: Some((text: "{Spell(23861)}: stay out of it!", colour: Green, bar: Some("{Spell(23861)}"))),
+                            ),
+                            Marked(
+                                shape: Cone(length: 14.0, angle: 40.0),
+                                at: Boss,
+                                impact_spell: 23862,
+                                impact_on_bunny: true,
+                                cooldown: Some(8.0),
+                                warn: Some((text: "{Spell(23862)}: out of the cone!", colour: Green, bar: Some("{Spell(23862)}"))),
+                            ),
+                        ]),
+                    ],
+                ),
+            ],
+            is_final: false,
+        ),
+        // Mandokir comes with his raptor Ohgan, who only he brings;
+        // what a hero cannot avoid from both is Mandokir's of before, their health shares (0.7 and
+        // 0.3) his whole health. Killing Ohgan first enrages him.
+        (
+            name: "Bloodlord Mandokir",
+            display_id: 11288,
+            scale: 1.90,
+            creature_type: Humanoid,
+            spawn_minute: 11.0,
+            yell: "I'll feed your souls to Hakkar himself!",
+            aggro_sound: Some(8413),
+            swing_mult: Some(1.25),
+            health_share: Some(0.7),
+            abilities: [
+                // Whirlwind: a marked circle round him
+                Marked(
+                    shape: Circle(radius: 8.0),
+                    at: Boss,
+                    impact_spell: 13736,
+                    cooldown: Some(10.0),
+                    warn: Some((text: "{Spell(13736)}: step back!", bar: Some("{Spell(13736)}"))),
+                ),
+                // Charge along a marked line
+                Rush(
+                    look_spell: 24408,
+                    length: Some(28.0),
+                    width: Some(5.0),
+                    cooldown: Some(12.0),
+                    warn: Some((text: "Mandokir charges: side-step the line!", bar: Some("{Spell(24408)}"))),
+                ),
+            ],
+            script: [
+                (on: Arrival, run: [Call(boss: "Ohgan")]),
+                // he grows stronger each time the hero loses a life to him, as he levels in the
+                // original
+                (
+                    on: HeroFell,
+                    warn: Some((text: "Mandokir grows stronger!", colour: Purple, icon_spell: Some(24312))),
+                    run: [Yell(text: "DING!"), Bolster(damage: 1.1, speed: 1.0, look_spell: 24312)],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Ohgan",
+            display_id: 15271,
+            scale: 0.95,
+            creature_type: Beast,
+            spawn_minute: 11.0,
+            called: true,
+            yell: "",
+            swing_mult: Some(0.75),
+            health_share: Some(0.3),
+            abilities: [],
+            script: [
+                // killed before Mandokir, he enrages him
+                (
+                    on: Death,
+                    warn: Some((text: "Ohgan is dead: Mandokir enrages!", colour: Purple, icon_spell: Some(24318))),
+                    run: [On(boss: "Bloodlord Mandokir", run: [Enrage, Emote(text: "%s flies into a rage!")])],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Jin'do the Hexxer",
+            display_id: 11311,
+            scale: 1.90,
+            creature_type: Humanoid,
+            spawn_minute: 14.0,
+            yell: "Welcome to da great show, friends. Step right up to die!",
+            aggro_sound: Some(8425),
+            swing_mult: Some(1.271),
+            abilities: [
+                // Delusions at marked spots round the hero
+                Marked(
+                    shape: Circle(radius: 3.5),
+                    at: NearHero(count: 3, spread: 8.0),
+                    impact_spell: 24306,
+                    impact_on_bunny: true,
+                    cooldown: Some(9.0),
+                    warn: Some((text: "{Spell(24306)}: move!", colour: Purple, bar: Some("{Spell(24306)}"))),
+                ),
+                // a Powerful Healing Ward by him: walk over it to break it
+                Lay(
+                    object: (
+                        name: "{Spell(24309)}",
+                        display_id: 653,
+                        // the original Powerful Healing Ward (creature 14987, vmangos)
+                        creature_display: Some(15292),
+                        scale: 1.0,
+                        glow_spell: 20922,
+                        pulse: Some((seconds: 3.0, run: [Heal(on: Near(30.0), share: 0.03, look_spell: 24309)])),
+                    ),
+                    near: Boss(6.0),
+                    count: Some(1),
+                    cooldown: Some(20.0),
+                    warn: Some((text: "{Spell(24309)}: break it!", colour: Yellow, icon_spell: Some(24309), bar: Some("Ward"))),
+                ),
+                // a Brain Wash Totem near the hero that marks the hero's spot: break it
+                Lay(
+                    object: (
+                        name: "{Spell(24262)}",
+                        display_id: 652,
+                        // the original Brain Wash Totem (creature 15112, vmangos)
+                        creature_display: Some(15291),
+                        scale: 1.0,
+                        glow_spell: 20922,
+                        pulse: Some((seconds: 4.0, run: [Cast(ability: Marked(
+                            shape: Circle(radius: 4.0),
+                            at: Hero,
+                            impact_spell: 24262,
+                            impact_on_bunny: true,
+                            damage_mult: Some(1.5),
+                        ))])),
+                    ),
+                    near: Hero(7.0),
+                    count: Some(1),
+                    cooldown: Some(22.0),
+                    warn: Some((text: "{Spell(24262)}: stand on it to break it!", colour: Yellow, icon_spell: Some(24262), bar: Some("Totem"))),
+                ),
+            ],
+            script: [
+                // Shades of Jin'do come from the edges
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "Shades of Jin'do!", colour: Orange, icon_spell: Some(24308), bar: Some("Shades"))),
+                    run: [Wave(enemy: "Shade of Jin'do", count: 2, at: Edges)],
+                ),
+            ],
+            is_final: false,
+        ),
+        (
+            name: "Hakkar the Soulflayer",
+            display_id: 15295,
+            scale: 2.50,
+            creature_type: Dragonkin,
+            spawn_minute: 18.0,
+            yell: "PRIDE HERALDS THE END OF YOUR WORLD. COME, MORTALS! FACE THE WRATH OF THE SOULFLAYER!",
+            aggro_sound: Some(8414),
+            swing_mult: Some(1.771),
+            abilities: [
+                // Corrupted Blood: a slow bolt at the hero's spot, leaving a patch that hurts
+                Marked(
+                    shape: Circle(radius: 4.0),
+                    at: Hero,
+                    impact_spell: 24328,
+                    impact_on_bunny: true,
+                    missile: true,
+                    wind_up: Some(2.0),
+                    cooldown: Some(9.0),
+                    leaves: Some((look_spell: 24328, radius: 4.0, seconds: 8.0, damage_mult: 0.3)),
+                    warn: Some((text: "{Spell(24328)}: move!", bar: Some("{Spell(24328)}"))),
+                ),
+            ],
+            script: [
+                // Sons of Hakkar come, and each leaves its poisonous blood where it falls
+                (
+                    on: Every(20.0),
+                    warn: Some((text: "Sons of Hakkar: their blood poisons!", colour: Green, icon_spell: Some(24320), bar: Some("Sons"))),
+                    run: [Wave(enemy: "Son of Hakkar", count: 2, at: Edges)],
+                ),
+                (
+                    on: AddDied,
+                    add: Some("Son of Hakkar"),
+                    run: [LayZone(zone: (look_spell: 24320, radius: 4.0, seconds: 20.0, damage_mult: 0.0, affliction: Some((look_spell: 24321, damage_mult: 0.02, every: 1.0, seconds: 30.0, max_stacks: 1))))],
+                ),
+                // Blood Siphon: the scripted pause, and he drains the hero and every enemy; a
+                // poisoned hero's blood hurts him instead
+                (
+                    on: Every(35.0),
+                    warn: Some((text: "{Spell(24324)}: walk through the poison first!", colour: Purple, icon_spell: Some(24324), bar: Some("{Spell(24324)}"))),
+                    run: [
+                        Pause(seconds: 4.0, text: "{Spell(24324)}"),
+                        Siphon(
+                            damage_mult: 3.0,
+                            heal_share: 0.08,
+                            poison_spell: 24321,
+                            poisoned_share: 0.08,
+                            enemy_share: 0.5,
+                            enemy_heal_share: 0.002,
+                            beam_spell: 24323,
+                            poisoned_beam_spell: 24322,
+                            seconds: 4.0,
+                        ),
+                    ],
+                ),
+            ],
+            is_final: true,
+        ),
+    ],
+)
