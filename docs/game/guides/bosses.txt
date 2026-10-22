@@ -169,6 +169,10 @@ of zones.txt.
   coming in at the square's gate). Door(name: "...", open: true) swings one of the zone's doors
   open (false: shut again). An object can have pulse (a totem that acts every few seconds), left_alone (something
   bad happens unless you stand on it in time) and on_all_taken (when the last one is taken).
+  An object can look like a creature (creature_display: Some(...)) or like a weapon planted in
+  the ground (planted_item: Some((display: 21604, sink: 0.25, aura_lift: -0.8)), an ItemDisplayInfo display: Morbent's
+  Bane is the Torch of Holy Flame stuck in the floor), and then wear a spell's lasting look
+  around it (aura_look: Some(642), Divine Shield's golden bubble; aura_lift lowers it).
   A marked attack with from: Some("...") is laid from each of those adds (Immol'thar's Eyes).
   swing_mult: Some(0.0) makes a boss that never swings (a caster).
 

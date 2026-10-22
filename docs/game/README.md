@@ -13,7 +13,7 @@ Design and reference docs for Eternal Survivors. Each reference has a plain-lang
 | [bosses.md](bosses.md) | [guides/bosses.txt](guides/bosses.txt) | How to make a boss and add, change or remove its abilities; copy [templates/boss.ron](templates/boss.ron) |
 | [spells.md](spells.md) | [guides/spells.txt](guides/spells.txt) | How to make a spell, field by field; copy [templates/spell.ron](templates/spell.ron); spell categories and changing a whole kind of spell at once |
 | [classes.md](classes.md) | [guides/classes.txt](guides/classes.txt) | Classes, races, hero stats, spells and their delivery kinds, cards, talents; how to add them |
-| [server.md](server.md) | [guides/server.txt](guides/server.txt) | The game's own server: launch, zone list, heroes and the save, what the client is told, switches for testing |
+| [server.md](server.md) | [guides/server.txt](guides/server.txt) | The game's own server: launch, zone list, heroes and the save, what the client is told, the update check and hand-off to the setup, switches for testing |
 | [screens.md](screens.md) | [guides/screens.txt](guides/screens.txt) | The game's own windows over WoW's interface: the stock look kit, the level-up and cache cards, the damage meter and its feed, the end panel, the HUD and its Escape menu |
 | [menus.md](menus.md) | | The menus before a run: class picker, hero sheet with its Character, Collection and Talents tabs, the warband select with its zone selector, and their art style |
 | [roadmap.md](roadmap.md) | [guides/roadmap.txt](guides/roadmap.txt) | Changes planned after version 1, and what the build prepares for them |

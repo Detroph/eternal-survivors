@@ -1,5 +1,6 @@
 //! What the server and the client must agree on to show the added race and class pairs: the pairs
-//! themselves with the outfit each borrows, and the composed display of a race's own totem look.
+//! themselves with the outfit each borrows, the composed display of a race's own totem look, and
+//! the composed display of each item a boss's object plants in the ground.
 
 use crate::{Content, Race};
 
@@ -13,6 +14,13 @@ pub const TOTEM_DISPLAYS: [u32; 2] = [TOTEM_DISPLAY, MAGMA_TOTEM_DISPLAY];
 /// Our composed displays are numbered from here, far past the 1.12 display table (which ends
 /// below 20 000): `9 000 000 + race × 100 000 + the stock look`.
 const COMPOSED_DISPLAYS_FROM: u32 = 9_000_000;
+
+/// The unseen unit a planted item stands in (`CreatureDisplayInfo.dbc`: the invisible stalker, a
+/// figure with no body to draw).
+pub const PLANTED_ITEM_BASE: u32 = 11_686;
+/// The composed displays of planted items are numbered from here, past the totem looks':
+/// `9 900 000 + the item display`.
+const PLANTED_ITEMS_FROM: u32 = 9_900_000;
 
 /// A race and class pair the game adds, in 1.12 ids, and the races whose stock outfit for the
 /// class it borrows, in the order they are tried.
@@ -58,6 +66,27 @@ impl Content {
             .flat_map(|(r, look)| TOTEM_DISPLAYS.iter().map(move |&base| (composed_display(r, base), base, look)))
             .collect()
     }
+}
+
+impl Content {
+    /// Every item a boss's object plants in the ground, once each: (composed display id, the item).
+    pub fn planted_items(&self) -> Vec<(u32, &crate::PlantedItem)> {
+        let mut out: Vec<(u32, &crate::PlantedItem)> = Vec::new();
+        let objects = self.zones.iter().flat_map(|z| &z.bosses).flat_map(|b| b.ground_objects());
+        for item in objects.filter_map(|o| o.planted_item.as_ref()) {
+            let id = planted_item_look(item);
+            if !out.iter().any(|(k, _)| *k == id) {
+                out.push((id, item));
+            }
+        }
+        out
+    }
+}
+
+/// The creature look an object planting `item` is shown as: the item composed with
+/// [`PLANTED_ITEM_BASE`].
+pub fn planted_item_look(item: &crate::PlantedItem) -> u32 {
+    PLANTED_ITEMS_FROM + item.display
 }
 
 /// The look of a totem of stock look `base` placed by a hero of `race`: the composed one when
@@ -116,6 +145,17 @@ mod tests {
         let top = 0.72 * look.scale;
         assert!((STOCK_TOTEM_GLOW + look.raise_effects - top - 0.05).abs() < 0.01);
         assert!(look.hide_totem_body);
+    }
+
+    /// Morbent's Bane is the one planted item: the Torch of Holy Flame's display (the quest
+    /// item's own), its look numbered past the totems'.
+    #[test]
+    fn morbents_bane_plants_the_torch_of_holy_flame() {
+        let c = content();
+        let planted = c.planted_items();
+        assert_eq!(planted.iter().map(|(id, p)| (*id, p.display)).collect::<Vec<_>>(), vec![(9_921_604, 21_604)]);
+        // a look apart from every totem look and from the 1.12 display table
+        assert!(c.composed_totems().iter().all(|t| t.0 < planted[0].0));
     }
 
     #[test]

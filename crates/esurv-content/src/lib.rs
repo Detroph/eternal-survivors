@@ -737,6 +737,23 @@ impl Content {
                 for class in called.iter().filter(|c| !self.classes.iter().any(|k| &k.id == *c)) {
                     problems.push(format!("zone {}: boss {}'s class call names {class}, no class", z.id, b.name));
                 }
+                // an object is shown one way, and only a unit wears an aura look
+                for o in b.ground_objects() {
+                    if o.planted_item.is_some() && o.creature_display.is_some() {
+                        problems.push(format!("zone {}: boss {}'s {} is both a planted item and a creature model", z.id, b.name, o.name));
+                    }
+                    if o.aura_look.is_some() && o.planted_item.is_none() && o.creature_display.is_none() {
+                        problems.push(format!("zone {}: boss {}'s {} wears an aura look but is no unit", z.id, b.name, o.name));
+                    }
+                }
+            }
+        }
+        // one composed look per planted item: the same item stands the same way everywhere
+        let planted: Vec<&PlantedItem> =
+            self.zones.iter().flat_map(|z| &z.bosses).flat_map(|b| b.ground_objects()).filter_map(|o| o.planted_item.as_ref()).collect();
+        for (i, p) in planted.iter().enumerate() {
+            if planted[..i].iter().any(|q| q.display == p.display && q != p) {
+                problems.push(format!("item display {} is planted two ways", p.display));
             }
         }
     }

@@ -1829,6 +1829,7 @@ mod tests {
             aim: Aim::Caster,
             ammo: false,
             reach,
+            triggered: false,
         };
         // `frost_nova`'s look is drawn 10 yards across: a 5-yard nova shows at half its size
         let (told, _) = game.present(&[nova(5.0)]);
@@ -1893,7 +1894,7 @@ mod tests {
         let me = game.players[0].guid();
         let star = starting_looks::extras::DIVINE_STAR;
         let end = (game.run.heroes[0].pos.0 + 24.0, game.run.heroes[0].pos.1);
-        let out = Event::SpellGo { caster: Unit::Hero(hero), spell: star, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: 3.0 };
+        let out = Event::SpellGo { caster: Unit::Hero(hero), spell: star, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: 3.0, triggered: false };
         let (told, _) = game.present(&[out]);
         let turn = told
             .iter()
@@ -1937,6 +1938,7 @@ mod tests {
             aim: Aim::Caster,
             ammo: false,
             reach: 0.0,
+            triggered: false,
         };
         let cast = Event::SpellCast { hero, spell: "lacerate".into() };
         assert_eq!(sounds(&game.present(&[rend(), rend(), cast]).0), 2);
@@ -2172,7 +2174,7 @@ mod tests {
         let hero = Unit::Hero(game.run.heroes[0].id);
         let me = game.guid_of(hero).unwrap();
         let bomb = game.run.content.legendary_looks.iter().find(|l| l.legendary == "fire_blast").unwrap().moments.iter().find(|(m, _)| *m == esurv_content::Moment::Burst).unwrap().1;
-        let go = |spell| Event::SpellGo { caster: hero, spell, hits: vec![], aim: Aim::Ground((4.0, 2.0)), ammo: false, reach: 0.0 };
+        let go = |spell| Event::SpellGo { caster: hero, spell, hits: vec![], aim: Aim::Ground((4.0, 2.0)), ammo: false, reach: 0.0, triggered: false };
         let (told, _) = game.present(&[go(bomb)]);
         let casts: Vec<u64> = told
             .iter()
@@ -2186,6 +2188,28 @@ mod tests {
         assert_eq!(creates(&told[0]).len(), 1, "the look put down first");
         let (told, _) = game.present(&[go(10)]);
         assert!(told.iter().all(|p| creates(p).is_empty()), "a card's ground look is cast by the hero as before");
+    }
+
+    /// A proc's look goes as a triggered spell (the caster plays no cast for it); the hero's own
+    /// cast goes plain, and animates as ever.
+    #[test]
+    fn a_procs_look_goes_triggered_and_a_cast_plain() {
+        let (mut game, _client) = game_with_a_player();
+        game.show(&[]);
+        let hero = Unit::Hero(game.run.heroes[0].id);
+        let go = |triggered| Event::SpellGo { caster: hero, spell: 133, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0, triggered };
+        for triggered in [false, true] {
+            let (told, _) = game.present(&[go(triggered)]);
+            let flags: Vec<u16> = told
+                .iter()
+                .filter_map(|p| match parse_server(p.opcode, &p.body) {
+                    Ok(ServerPacket::SpellGo(go)) if go.spell_id == 133 => Some(go.cast_flags),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(flags.len(), 1, "{told:?}");
+            assert_eq!(flags[0] & packets::CAST_FLAG_TRIGGERED != 0, triggered, "flags {:#x}", flags[0]);
+        }
     }
 
     /// Two heroes in one run: each player object every client gets shows that hero's own class

@@ -31,6 +31,10 @@
         // Lay(object: (name: "Egg", display_id: 6171, glow_spell: 20922,
         //              hatch: Some((after: 10.0, enemy: "<a roster enemy>", count: 3))),
         //     near: Boss(5.0)),
+        // An object can be a weapon's model planted head up in the ground instead (an
+        // ItemDisplayInfo.dbc display, its foot sink yards deep at scale 1), wearing a spell's
+        // lasting look as an aura:
+        //     planted_item: Some((display: 21604, sink: 0.25, aura_lift: -0.8)), aura_look: Some(642),
     ],
     // swing_mult: Some(1.5),      // optional: its swing carries what its old unmarked abilities did
     // called: true,               // optional: only a script's Call brings it (Whitemane, when Mograine falls)

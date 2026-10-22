@@ -57,6 +57,9 @@ pub struct PartPlacement {
     pub sink: f32,
     /// How far the base's particle effects on its moving bones (any bone with a parent) rise.
     pub raise_effects: f32,
+    /// How far the base's attachment points rise: the looks the unit wears (an aura's state
+    /// model) hang on them; negative lowers them.
+    pub raise_attachments: f32,
     /// Hide the base's solid body (and the cards laid on it), keeping its effects: glow cards,
     /// particle emitters and their bones' animation.
     pub hide_base_body: bool,
@@ -430,6 +433,10 @@ fn planted(
             e.def.position[2] += p.raise_effects;
         }
     }
+    // the looks the unit wears hang on its attachment points
+    for a in &mut out.attachments {
+        a.offset.y += p.raise_attachments;
+    }
     // The part widens the authored bounds the cull and the camera read.
     if let Some(b) = out.bounds.as_mut() {
         let top = (hi[2] - lo[2]) * p.scale - p.sink;
@@ -535,6 +542,7 @@ mod tests {
             turn_degrees: 0.0,
             sink: 0.5,
             raise_effects: 0.0,
+            raise_attachments: 0.0,
             hide_base_body: true,
         }
     }
@@ -589,6 +597,19 @@ mod tests {
         // the body and the card laid on its bone are hidden, the glow card stays
         assert_eq!(out.submeshes.len(), 2);
         assert!(out.submeshes[0].billboard.is_some());
+    }
+
+    /// The looks the unit wears hang on its attachment points, which move by the placement's
+    /// lift (an aura lowered round a planted weapon).
+    #[test]
+    fn the_attachment_points_move_by_their_lift() {
+        let weapon = model(vec![sub(vec![[0.0, 0.0, 0.0]], 0, ModelBlend::Opaque)]);
+        let mut with_point = base();
+        with_point.attachments = vec![benilla_assets::ModelAttachment { id: 19, bone: 2, offset: Vec3::new(0.1, 0.2, 0.3) }];
+        let lowered = PartPlacement { raise_attachments: -0.8, ..placement() };
+        let out = planted(&with_point, &weapon, None, &lowered).unwrap();
+        assert_eq!((out.attachments[0].id, out.attachments[0].bone), (19, 2));
+        assert!((out.attachments[0].offset - Vec3::new(0.1, -0.6, 0.3)).length() < 1e-6, "{:?}", out.attachments[0].offset);
     }
 
     #[test]

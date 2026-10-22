@@ -299,17 +299,21 @@
                         Roster(only: Undead),
                     ],
                 ),
-                // shielded until the hero takes Morbent's Bane: mortal 15 s, and it drops again
+                // shielded in a purple shadow bubble until the hero takes Morbent's Bane: mortal 15 s, and it drops again
                 (
                     on: Arrival,
                     run: [
-                        Shield(damage_taken: 0.1, look_spell: 3109),
+                        Shield(damage_taken: 0.1, look_spell: 12040),
                         Place(
                             object: (
                                 name: "Morbent's Bane",
                                 display_id: 404,
-                                scale: 0.6,
+                                // the Torch of Holy Flame's model stuck in the floor, about 1.5 yd standing,
+                                // in Divine Shield's golden bubble
+                                planted_item: Some((display: 21604, sink: 0.25, aura_lift: -0.8)),
+                                scale: 2.7,
                                 glow_spell: 20922,
+                                aura_look: Some(642),
                                 on_contact: [Mortal(seconds: 15.0), Emote(text: "%s is mortal!")],
                                 again_after: Some(30.0),
                                 warn: Some((text: "The relic dropped: grab it!", colour: Yellow, icon_spell: Some(8913))),

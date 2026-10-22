@@ -462,6 +462,7 @@ impl Game {
                     aim,
                     ammo,
                     reach,
+                    triggered,
                 } => {
                     // a lasher's burst plays from the ground where it stood (`option_extras`)
                     if matches!(caster, Unit::Pet(_)) && *spell == super::starting_looks::extras::LASHER_BLAST {
@@ -493,15 +494,12 @@ impl Game {
                             ));
                         }
                     }
-                    all.push(packets::spell_go(
-                        from,
-                        *spell,
-                        &hits,
-                        target,
-                        ammo.then_some(packets::ARROW),
-                    ));
-                    // a shot plays the shooting of the ranged weapon the hero holds
-                    if let Unit::Hero(h) = caster {
+                    // a proc's look is a triggered spell's: the caster plays no cast for it
+                    let go = if *triggered { packets::triggered_spell_go } else { packets::spell_go };
+                    all.push(go(from, *spell, &hits, target, ammo.then_some(packets::ARROW)));
+                    // a shot plays the shooting of the ranged weapon the hero holds (not for a
+                    // proc: the hero shoots nothing)
+                    if let (Unit::Hero(h), false) = (caster, *triggered) {
                         if let Some(look) = self.shot_look(*h, *spell) {
                             all.push(packets::spell_go(from, look, &[], target, None));
                         }

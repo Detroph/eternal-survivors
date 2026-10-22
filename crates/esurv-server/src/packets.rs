@@ -225,6 +225,9 @@ fn spell_target(b: &mut Body, target: SpellTarget) {
 /// The cast flags every spell go carries, and the one that adds an ammo block.
 const CAST_FLAGS: u16 = 0x100;
 const CAST_FLAG_AMMO: u16 = 0x20;
+/// A triggered spell's cast (`CAST_FLAG_PENDING`, which servers set on a triggered spell): the
+/// caster plays no cast for it (benilla's `TRIGGERED_CAST_FLAG` hook).
+pub const CAST_FLAG_TRIGGERED: u16 = 0x01;
 /// The arrow a ranged shot flies: its display id and inventory type (ammo).
 pub const ARROW: (u32, u32) = (5996, 24);
 
@@ -248,8 +251,33 @@ pub fn spell_go(
     target: SpellTarget,
     ammo: Option<(u32, u32)>,
 ) -> Packet {
+    spell_go_flagged(caster, spell, hits, target, ammo, false)
+}
+
+/// `SMSG_SPELL_GO` of a triggered spell (a proc): its missile and impact play on `hits` as
+/// [`spell_go`]'s do, while the caster plays no cast for it.
+pub fn triggered_spell_go(
+    caster: u64,
+    spell: u32,
+    hits: &[u64],
+    target: SpellTarget,
+    ammo: Option<(u32, u32)>,
+) -> Packet {
+    spell_go_flagged(caster, spell, hits, target, ammo, true)
+}
+
+fn spell_go_flagged(
+    caster: u64,
+    spell: u32,
+    hits: &[u64],
+    target: SpellTarget,
+    ammo: Option<(u32, u32)>,
+    triggered: bool,
+) -> Packet {
     let mut b = Body::new();
-    let flags = CAST_FLAGS | if ammo.is_some() { CAST_FLAG_AMMO } else { 0 };
+    let flags = CAST_FLAGS
+        | if ammo.is_some() { CAST_FLAG_AMMO } else { 0 }
+        | if triggered { CAST_FLAG_TRIGGERED } else { 0 };
     b.packed_guid(caster)
         .packed_guid(caster)
         .u32(spell)

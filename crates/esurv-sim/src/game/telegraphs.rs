@@ -295,7 +295,7 @@ impl Run {
                     let linger = t.lands_at - now + BUNNY_LINGER;
                     self.events.push(Event::ImpactAtSpot { caster: Unit::Enemy(t.source), spell: t.impact_spell, at: t.at, linger });
                 } else {
-                    self.events.push(Event::SpellGo { caster: Unit::Enemy(t.source), spell: t.impact_spell, hits: vec![], aim: Aim::Ground(t.at), ammo: false, reach: t.shape.reach() });
+                    self.events.push(Event::SpellGo { caster: Unit::Enemy(t.source), spell: t.impact_spell, hits: vec![], aim: Aim::Ground(t.at), ammo: false, reach: t.shape.reach(), triggered: false });
                 }
             }
             t.impact_spell = 0;
@@ -370,15 +370,15 @@ impl Run {
             }
         } else if t.impact_spell != 0 && t.from_boss && alive && !t.rush {
             // laid round the boss: it plays its own spell round itself (a slam, a stomp)
-            self.push(Event::SpellGo { caster: Unit::Enemy(t.source), spell: t.impact_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: t.shape.reach() });
+            self.push(Event::SpellGo { caster: Unit::Enemy(t.source), spell: t.impact_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: t.shape.reach(), triggered: false });
         } else if t.impact_spell != 0 && t.rush && alive {
             let end = (t.at.0 + t.facing.cos() * t.shape.reach(), t.at.1 + t.facing.sin() * t.shape.reach());
-            self.push(Event::SpellGo { caster: Unit::Enemy(t.source), spell: t.impact_spell, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: 0.0 });
+            self.push(Event::SpellGo { caster: Unit::Enemy(t.source), spell: t.impact_spell, hits: vec![], aim: Aim::Ground(end), ammo: false, reach: 0.0, triggered: false });
         } else if t.impact_spell != 0 {
             let caster = if alive { Unit::Enemy(t.source) } else { self.first_hero_unit() };
             let step = patches.len().div_ceil(MOST_IMPACTS).max(1);
             for (c, r) in patches.iter().step_by(step) {
-                self.push(Event::SpellGo { caster, spell: t.impact_spell, hits: vec![], aim: Aim::Ground(*c), ammo: false, reach: *r });
+                self.push(Event::SpellGo { caster, spell: t.impact_spell, hits: vec![], aim: Aim::Ground(*c), ammo: false, reach: *r, triggered: false });
             }
         }
         if t.rush {

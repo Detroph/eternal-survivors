@@ -13,7 +13,10 @@ server.md in the folder above this one.
   esurv.exe, the server starts first, quietly, on your own computer only. Then
   the client starts and logs in to it by itself - you never type a name or password.
 
-  Nothing goes over the internet. The server only listens on 127.0.0.1 (your own machine).
+  The game itself goes over no network: the server only listens on 127.0.0.1 (your own
+  machine). The one thing that goes online is the update check: once per start the game asks
+  the game's release page on GitHub whether a newer version is out (nothing about you is sent;
+  Options > Interface > "Check for updates" turns it off). See UPDATES below.
 
 
 2. WHAT YOU SEE, STEP BY STEP
@@ -156,6 +159,8 @@ server.md in the folder above this one.
                                  (ids from the content, comma-separated; id@3 for an epic one),
                                  or with a rune on the ground (speed_rune:20 lies 20 yards ahead)
     ESURV_MOVE_LOG=<file>   write down every step the hero takes (time, place, speed)
+    ESURV_UPDATE_FEED=<url> ask this address for the latest release instead of GitHub (a test
+                                 of the whole update, with a fake release served locally)
     WOW_CHAR=<hero>       skip the hero list and play this hero
 
   With all of them set, the game goes from start to fighting without anyone touching the
@@ -180,3 +185,24 @@ server.md in the folder above this one.
     experience, zones and run options.
   - Playing together (one player hosts, others join) comes later. The server is already built
     so that it can hold several heroes.
+
+
+7. UPDATES
+----------
+
+  When the game starts, it asks GitHub once whether a newer version is out. If one is, the
+  character screen shows "v0.5.0 is available" above Options, with an "Update" button. If the
+  check cannot be made (no internet, GitHub busy), nothing is shown and the game starts as
+  always.
+
+  Update downloads the new version (you see how far it is), checks that the file is exactly
+  the one published, and then the game closes. A small window opens: the setup waits for the
+  game to close, updates it - your heroes, settings and logs stay as they are - and starts the
+  game again. If anything goes wrong on the way, the panel says what, and nothing is changed;
+  press Update to try again.
+
+  Options > Interface > "Check for updates" (on at first) turns the check off. Nothing about
+  you is sent: only the game's name and version.
+
+  If you have v0.4.0 or older, update by hand once (download the new setup and run it in your
+  WoW folder, as the README says); from then on the game offers its updates itself.

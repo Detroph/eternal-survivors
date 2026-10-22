@@ -146,10 +146,16 @@ fn tip_of(s: &Setting) -> Option<&'static [&'static str]> {
     match s.key() {
         crate::smart_numbers::CVAR => Some(&[
             "Damage numbers",
-            "Smart: once a minute the game takes the average of your hits over that minute and, for the whole next minute, hides the numbers below 60% of it, so only your bigger hits show. In the first minute every number shows. Crits are held to it too, but left out of the average unless your crit chance is over 50%.",
-            "Each number is one hit: each target of a spell that hits many, and each tick of damage over time, so small ticks mostly hide.",
+            "Smart: every 30 seconds the game takes the average of your hits, each counted as much as it deals, and for the next 30 seconds hides the numbers below 60% of it, so only your bigger hits show. In the first 30 seconds every number shows. Crits are held to it too, but left out of the average unless your crit chance is over 50%.",
+            "Each number is one hit: each target of a spell that hits many, and each tick of damage over time. Small ticks can't pull the average down, so they hide.",
             "All: every number shows.",
             "The damage, the meter and the combat log are the same either way; numbers over your hero always show.",
+        ]),
+        crate::update::CVAR => Some(&[
+            "Check for updates",
+            "When the game starts, it asks the game's release page on GitHub whether a newer version is out, and the character screen offers it with an Update button.",
+            "Update downloads the new version, checks it, and restarts the game into it; your heroes and settings stay.",
+            "Nothing about you is sent. Unticked, the game never asks.",
         ]),
         _ => None,
     }
@@ -644,6 +650,13 @@ const INTERFACE_DISPLAY: &[Setting] = &[
         needs: None,
         takes: Takes::Now,
     },
+    // the updater's check at start ([`crate::update`]); on, it checks as soon as it is ticked
+    Check {
+        cvar: crate::update::CVAR,
+        label: "Check for updates",
+        needs: None,
+        takes: Takes::Now,
+    },
 ];
 
 /// The Timers tab (`crate::boss_alerts`, `crate::boss_bar_places`): the
@@ -778,6 +791,7 @@ pub(super) fn read(script: &UiScript, tab: OptionsTab) -> OptionsDraft {
     // our own settings are registered as an addon's are, so they read and keep
     crate::boss_alerts::register_cvars(script);
     crate::smart_numbers::register_cvar(script);
+    crate::update::register_cvar(script);
     let text = |chunk: &str| script.eval::<Option<String>>(chunk).ok().flatten();
     let list = |call: &str| -> Vec<String> {
         text(&format!(
@@ -1452,7 +1466,29 @@ mod tests {
         assert_eq!(damage_numbers_read("7"), "1", "an unknown value reads as Smart");
         let tip = row_tip(tip_of(s).unwrap());
         assert_eq!(tip.0[0].text, "Damage numbers");
-        assert!(tip.0[1].text.contains("60%") && tip.0[1].text.contains("once a minute") && tip.0[1].text.contains("over 50%"));
+        assert!(tip.0[1].text.contains("60%") && tip.0[1].text.contains("every 30 seconds") && tip.0[1].text.contains("over 50%"));
+    }
+
+    /// Check for updates: on by default, a box on the Interface tab, written on Okay as the CVar
+    /// the host keeps; the row has its tooltip.
+    #[test]
+    fn check_for_updates_defaults_to_on_and_is_saved() {
+        use crate::update::CVAR;
+        let mut script = UiScript::new().unwrap();
+        let mut d = read(&script, OptionsTab::Interface);
+        let s = find(CVAR).unwrap();
+        assert!(all(OptionsTab::Interface).any(|x| x.key() == CVAR));
+        assert!(d.ticked(CVAR), "on by default");
+        change(None, &mut d, CVAR, true);
+        assert!(!d.ticked(CVAR));
+        let _ = script.take_cvar_changes();
+        apply(&script, &mut d);
+        assert_eq!(script.cvar(CVAR).as_deref(), Some("0"));
+        assert!(script.take_cvar_changes().iter().any(|(k, v)| k.eq_ignore_ascii_case(CVAR) && v == "0"));
+        assert!(!crate::update::on_from_value(script.cvar(CVAR).as_deref()));
+        let tip = row_tip(tip_of(s).unwrap());
+        assert_eq!(tip.0[0].text, "Check for updates");
+        assert!(tip.0.iter().any(|l| l.text.contains("Nothing about you is sent")));
     }
 
     #[test]

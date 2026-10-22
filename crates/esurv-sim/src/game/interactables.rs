@@ -192,6 +192,8 @@ mod tests {
             left_alone: None,
             on_all_taken: vec![],
             creature_display: None,
+            planted_item: None,
+            aura_look: None,
         }
     }
 

@@ -19,6 +19,21 @@ Feedback, ideas and bug reports go to the [Eternal Survivors Discord](https://di
 This is my own version and takes no pull requests, but you're welcome to fork it and make your own
 ([docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)).
 
+## Install and update
+
+1. Download `eternal-survivors-<version>.zip` from the
+   [Releases](https://github.com/Detroph/eternal-survivors/releases) page and unzip it.
+2. Copy `Eternal Survivors Setup.exe` into your WoW 1.12.1 folder (beside `WoW.exe`) and run it
+   there. It checks the client and installs the game into `Eternal Survivors\` inside that folder.
+3. Start `Eternal Survivors\Eternal Survivors.exe`.
+
+The game checks for a newer version when it starts and offers it on the character screen: Update
+downloads it, checks it against the release's `.sha256` and restarts the game into it, keeping
+your heroes and settings (Options > Interface > Check for updates turns this off). Players on
+v0.4.0 or older update by hand once, running the new setup in the WoW folder as above; later
+versions offer their updates in the game. Each release carries the zip and its
+`eternal-survivors-<version>.zip.sha256`.
+
 ## Requirements
 
 - A legally owned **World of Warcraft 1.12.1** client (build 5875, enUS). The game reads all art,

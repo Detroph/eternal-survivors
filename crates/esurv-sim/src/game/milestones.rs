@@ -161,14 +161,14 @@ impl Run {
     }
 
     /// A milestone's look: `spell` from hero `h`, striking `hits`, aimed at `aim`; nothing when
-    /// the milestone has no look (0).
+    /// the milestone has no look (0). A proc, triggered: the hero shows no cast for it.
     pub(crate) fn show_proc(&mut self, h: usize, spell: u32, hits: &[u32], aim: Aim, reach: f32) {
         if spell == 0 {
             return;
         }
         let caster = Unit::Hero(self.heroes[h].id);
         let hits = hits.iter().map(|&id| Unit::Enemy(id)).collect();
-        self.push(Event::SpellGo { caster, spell, hits, aim, ammo: AMMO_SPELLS.contains(&spell), reach });
+        self.push(Event::SpellGo { caster, spell, hits, aim, ammo: AMMO_SPELLS.contains(&spell), reach, triggered: true });
     }
 
     pub(crate) fn trigger_fires(&self, h: usize, trigger: &Trigger, e: &CombatEvent) -> bool {
@@ -621,7 +621,7 @@ impl Run {
     /// Legendary look `look` plays on hero `h` (a heal's look on the hero).
     pub(crate) fn show_on_hero(&mut self, h: usize, look: u32) {
         let me = Unit::Hero(self.heroes[h].id);
-        self.push(Event::SpellGo { caster: me, spell: look, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+        self.push(Event::SpellGo { caster: me, spell: look, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
     }
 
     /// What an `Afflict` effect does to `target` (or for the hero) after a hit of `dealt`.
@@ -1062,9 +1062,10 @@ mod tests {
         events.iter().filter_map(|e| match e { Event::EnemyHit { id: x, amount, source, .. } if *x == id => Some((*amount, source.clone())), _ => None }).collect()
     }
 
+    /// A proc's look as the hero shows it: triggered, so the hero plays no cast for it.
     fn look(r: &Run, spell: u32, hits: &[u32], aim: Aim, reach: f32) -> Event {
         let hits = hits.iter().map(|&t| Unit::Enemy(t)).collect();
-        Event::SpellGo { caster: Unit::Hero(r.heroes[0].id), spell, hits, aim, ammo: false, reach }
+        Event::SpellGo { caster: Unit::Hero(r.heroes[0].id), spell, hits, aim, ammo: false, reach, triggered: true }
     }
 
     fn spot(r: &Run, id: u32) -> Vec2 {

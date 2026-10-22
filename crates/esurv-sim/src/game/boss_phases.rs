@@ -137,7 +137,7 @@ impl Run {
                 let face = super::telegraphs::facing(boss, self.heroes[h].pos);
                 let clump = (boss.0 + face.cos() * ahead, boss.1 + face.sin() * ahead);
                 let id = self.enemies[k].id;
-                self.push(Event::SpellGo { caster: Unit::Enemy(id), spell: *look_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: *within });
+                self.push(Event::SpellGo { caster: Unit::Enemy(id), spell: *look_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: *within, triggered: false });
                 let mut rng = std::mem::replace(&mut self.rng, crate::rng::Rng::new(0));
                 for e in self.enemies.iter_mut().filter(|e| !e.is_boss() && !e.mech.phases.rooted) {
                     let p = e.position(now);
@@ -178,7 +178,7 @@ impl Run {
                 let e = &mut self.enemies[k];
                 e.health = (e.health + share * e.max_health * healers.len() as f32).min(e.max_health);
                 for h in healers {
-                    self.push(Event::SpellGo { caster: Unit::Enemy(h), spell: *look_spell, hits: vec![Unit::Enemy(boss)], aim: Aim::Unit(Unit::Enemy(boss)), ammo: false, reach: 0.0 });
+                    self.push(Event::SpellGo { caster: Unit::Enemy(h), spell: *look_spell, hits: vec![Unit::Enemy(boss)], aim: Aim::Unit(Unit::Enemy(boss)), ammo: false, reach: 0.0, triggered: false });
                 }
             }
             ScriptAction::ClassCall { calls, seconds } => self.class_call(source, at, calls, *seconds),
@@ -188,7 +188,7 @@ impl Run {
                 for p in spots {
                     if self.spawn_summoned(index, p) {
                         let risen = self.enemies.last().map_or(0, |e| e.id);
-                        self.push(Event::SpellGo { caster: Unit::Enemy(risen), spell: *look_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0 });
+                        self.push(Event::SpellGo { caster: Unit::Enemy(risen), spell: *look_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                     }
                 }
             }
@@ -347,7 +347,7 @@ impl Run {
         }
         e.abilities = resolved.iter().map(AbilitySlot::boss).collect::<Vec<_>>();
         if *rise_spell != 0 {
-            self.push(Event::SpellGo { caster: Unit::Enemy(id), spell: *rise_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0 });
+            self.push(Event::SpellGo { caster: Unit::Enemy(id), spell: *rise_spell, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
         }
         self.run_actions(Some(id), spot, run);
     }
@@ -392,7 +392,7 @@ impl Run {
             }
         }
         for (id, look) in looks {
-            self.push(Event::SpellGo { caster: Unit::Enemy(id), spell: look, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0 });
+            self.push(Event::SpellGo { caster: Unit::Enemy(id), spell: look, hits: vec![], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
         }
         self.enemies.retain(|e| !gone.contains(&e.id));
     }

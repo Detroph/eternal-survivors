@@ -33,6 +33,7 @@ pub mod run_frames;
 pub mod smart_numbers;
 pub mod stock;
 pub mod ui;
+pub mod update;
 pub mod zone_discovery;
 
 use std::sync::Arc;

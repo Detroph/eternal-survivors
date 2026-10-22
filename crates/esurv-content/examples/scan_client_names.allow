@@ -6,6 +6,8 @@
 # --- our own words that equal a client name
 crates/esurv/src/main.rs | Setup | our file's name, "Eternal Survivors Setup.exe" (an English word, not the spell)
 crates/esurv-setup/Cargo.toml | Setup | the crate's description names our file, "Eternal Survivors Setup.exe"; never shown in the game
+crates/esurv-setup/src/lib.rs | Setup | our file's name, "Eternal Survivors Setup.exe", which the updater reads out of the release zip (an English word, not the spell)
+crates/esurv-app/src/update/unzip.rs | Setup | test fixture: our setup's file name in a test zip (an English word, not the spell)
 crates/esurv-server/src/game/pickups.rs | Restoration | our pickup's name, the Restoration Rune (an English word, not the talent tree)
 crates/esurv-sim/src/game/lines.rs | Restoration | the Restoration Rune pickup's line, our pickup's name (an English word, not the talent tree)
 content/classes.ron | Claw | "the Claw": the Claw Tentacle, our pet (a creature, like the enemies), not the spell
@@ -16,6 +18,8 @@ crates/esurv-app/src/run_frames/class_bar.rs | Holy Power | test fixture: a bar'
 crates/esurv-protocol/src/to_client.rs | Holy Power | test fixture: a bar message's label round-tripped through the protocol
 crates/esurv-content/src/option_looks.rs | Berserk | test assertion message
 crates/esurv-server/src/game/doors.rs | Sunken Temple | test expectation message
+crates/esurv-app/src/races.rs | Bane | test assertion message (Morbent's Bane, the boss object)
+crates/esurv-server/src/game/boss_looks.rs | Bane | test fixture: finds Morbent's object by its content name
 crates/esurv-server/src/ground.rs | Dire Maul | test assertion and expectation messages
 crates/esurv-sim/src/game/kit.rs | Berserk | test assertion message
 crates/esurv-sim/src/game/kit.rs | Rip | test assertion message

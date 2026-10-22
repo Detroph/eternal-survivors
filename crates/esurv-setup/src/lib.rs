@@ -31,6 +31,56 @@ pub const MANIFEST: &str = "setup-files.txt";
 pub const VERSION_FILE: &str = "VERSION.txt";
 /// The game's executable in its folder: the file a running game holds.
 pub const GAME_EXE: &str = "Eternal Survivors.exe";
+/// The setup's own file name, as the release archive carries it.
+pub const SETUP_EXE: &str = "Eternal Survivors Setup.exe";
+/// The flag the game's updater starts the setup with: wait for the game to close
+/// ([`wait_until_closed`], up to [`GAME_CLOSE_WAIT`]), then start it again once the update is in
+/// ([`relaunch`]).
+pub const RELAUNCH_FLAG: &str = "--relaunch";
+/// How long `--relaunch` waits for the game to close before it gives up, changing nothing.
+pub const GAME_CLOSE_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// The setup's options, from its command line.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SetupArgs {
+    /// `--wow <folder>`: the WoW folder to install into, instead of the setup's own.
+    pub wow: Option<PathBuf>,
+    /// Without `--no-pause`: wait for Enter before closing, and ask before going back to an
+    /// older version.
+    pub pause: bool,
+    /// [`RELAUNCH_FLAG`]: wait for the game to close first, and start it again after.
+    pub relaunch: bool,
+}
+
+/// Reads the setup's command line (its arguments after the program's name); `Err` with what to
+/// say for an option it does not know.
+pub fn parse_args(args: impl IntoIterator<Item = String>) -> Result<SetupArgs, String> {
+    let mut out = SetupArgs {
+        wow: None,
+        pause: true,
+        relaunch: false,
+    };
+    let mut args = args.into_iter();
+    while let Some(a) = args.next() {
+        match a.as_str() {
+            "--wow" => {
+                out.wow = Some(
+                    args.next()
+                        .map(PathBuf::from)
+                        .ok_or("--wow needs the folder after it.")?,
+                )
+            }
+            "--no-pause" => out.pause = false,
+            RELAUNCH_FLAG => out.relaunch = true,
+            _ => {
+                return Err(format!(
+                    "Unknown option {a}. Options: --wow <folder>, --no-pause, {RELAUNCH_FLAG}."
+                ))
+            }
+        }
+    }
+    Ok(out)
+}
 
 /// One carried file.
 pub struct Entry {
@@ -221,13 +271,52 @@ pub fn check_not_running(game: &Path, entries: &[Entry]) -> Result<(), String> {
         }
         if let Err(err) = std::fs::OpenOptions::new().write(true).open(&exe) {
             return Err(format!(
-                "{} is in use ({err}): the game is running from this folder. Close Vanilla \
+                "{} is in use ({err}): the game is running from this folder. Close Eternal \
                  Survivors and run the setup again. Nothing was changed.",
                 exe.display()
             ));
         }
     }
     Ok(())
+}
+
+/// Waits until the game no longer runs from `game` ([`check_not_running`] passes), looking every
+/// `every`; `Err` with what to say when it still runs after `timeout`.
+pub fn wait_until_closed(
+    game: &Path,
+    entries: &[Entry],
+    timeout: std::time::Duration,
+    every: std::time::Duration,
+) -> Result<(), String> {
+    let start = std::time::Instant::now();
+    loop {
+        match check_not_running(game, entries) {
+            Ok(()) => return Ok(()),
+            Err(why) if start.elapsed() >= timeout => {
+                return Err(format!(
+                    "The game did not close within {} seconds. {why}",
+                    timeout.as_secs()
+                ))
+            }
+            Err(_) => std::thread::sleep(every),
+        }
+    }
+}
+
+/// The command that starts the game in `game` again: its executable, in its own folder, with
+/// none of the setup's console handed on.
+pub fn relaunch_command(game: &Path) -> std::process::Command {
+    let mut cmd = std::process::Command::new(game.join(GAME_EXE));
+    cmd.current_dir(game)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null());
+    cmd
+}
+
+/// Starts the game in `game` again ([`relaunch_command`]), not waiting for it.
+pub fn relaunch(game: &Path) -> io::Result<()> {
+    relaunch_command(game).spawn().map(drop)
 }
 
 /// What an install did.
@@ -480,6 +569,68 @@ mod tests {
         assert_eq!(installed(&game), Found::Unknown, "a game with no version file");
         install(&game, &[entry(GAME_EXE, b"v1"), entry(VERSION_FILE, b"v0.1.0")]).unwrap();
         assert_eq!(installed(&game), Found::Version("v0.1.0".into()));
+        std::fs::remove_dir_all(&game).ok();
+    }
+
+    #[test]
+    fn the_command_line_reads_the_folder_the_pause_and_the_relaunch() {
+        let args = |a: &[&str]| parse_args(a.iter().map(|s| s.to_string()));
+        assert_eq!(
+            args(&[]).unwrap(),
+            SetupArgs { wow: None, pause: true, relaunch: false }
+        );
+        assert_eq!(
+            args(&["--wow", "C:/WoW", "--no-pause", RELAUNCH_FLAG]).unwrap(),
+            SetupArgs { wow: Some(PathBuf::from("C:/WoW")), pause: false, relaunch: true }
+        );
+        assert!(args(&["--wow"]).is_err(), "the folder is needed");
+        assert!(args(&["--wait"]).unwrap_err().contains(RELAUNCH_FLAG), "the options are named");
+    }
+
+    /// The game started again runs from its own folder, its own executable.
+    #[test]
+    fn the_relaunch_starts_the_game_exe_in_its_folder() {
+        let game = Path::new("C:/WoW").join(GAME_FOLDER);
+        let cmd = relaunch_command(&game);
+        assert_eq!(Path::new(cmd.get_program()), game.join(GAME_EXE));
+        assert_eq!(cmd.get_current_dir(), Some(game.as_path()));
+        assert_eq!(cmd.get_args().count(), 0);
+    }
+
+    /// `--relaunch` waits for the game to close: it goes on once the executable is let go, and
+    /// gives up, saying so, when it is held past the wait.
+    #[cfg(windows)]
+    #[test]
+    fn the_relaunch_waits_for_the_game_to_close_and_gives_up_after_its_wait() {
+        use std::os::windows::fs::OpenOptionsExt;
+        use std::time::{Duration, Instant};
+        let game = std::env::temp_dir().join(format!("esurv-setup-wait-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&game);
+        install(&game, &[entry(GAME_EXE, b"v1")]).unwrap();
+        let hold = || {
+            std::fs::OpenOptions::new()
+                .read(true)
+                .share_mode(1)
+                .open(game.join(GAME_EXE))
+                .unwrap()
+        };
+        let v2 = [entry(GAME_EXE, b"v2")];
+        let every = Duration::from_millis(20);
+        assert!(wait_until_closed(&game, &v2, Duration::from_secs(5), every).is_ok(), "not running");
+
+        let held = hold();
+        let start = Instant::now();
+        let why = wait_until_closed(&game, &v2, Duration::from_millis(200), every).unwrap_err();
+        assert!(start.elapsed() >= Duration::from_millis(200));
+        assert!(why.contains("did not close within") && why.contains("Nothing was changed"), "{why}");
+
+        // the game closes while the setup waits
+        let closer = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(150));
+            drop(held);
+        });
+        assert!(wait_until_closed(&game, &v2, Duration::from_secs(5), every).is_ok());
+        closer.join().unwrap();
         std::fs::remove_dir_all(&game).ok();
     }
 

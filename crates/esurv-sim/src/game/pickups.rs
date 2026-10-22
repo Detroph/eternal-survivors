@@ -255,7 +255,7 @@ impl Run {
                     (BuffKind::Berserk, BERSERKER_RUNE, BERSERKER_RUNE_VISUAL, super::lines::BERSERKER_RUNE)
                 };
                 let me = super::run::Unit::Hero(hero);
-                self.push(Event::SpellGo { caster: me, spell: visual, hits: vec![me], aim: super::run::Aim::Caster, ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: me, spell: visual, hits: vec![me], aim: super::run::Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                 self.push(Event::Announce(line.into()));
                 // the same rune's buff starts over
                 self.heroes[h].buffs.retain(|b| b.kind != kind);
@@ -266,7 +266,7 @@ impl Run {
                 let max = self.heroes[h].stats.max_health;
                 self.heal_hero(h, max * RESTORATION_HEAL, 0);
                 let me = super::run::Unit::Hero(hero);
-                self.push(Event::SpellGo { caster: me, spell: RESTORATION_RUNE_VISUAL, hits: vec![me], aim: super::run::Aim::Caster, ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: me, spell: RESTORATION_RUNE_VISUAL, hits: vec![me], aim: super::run::Aim::Caster, ammo: false, reach: 0.0, triggered: false });
                 self.push(Event::Announce(super::lines::RESTORATION_RUNE.into()));
             }
             Pickup::Magnet => {

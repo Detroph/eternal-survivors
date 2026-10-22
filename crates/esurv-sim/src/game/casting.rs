@@ -630,7 +630,7 @@ impl Run {
         // a ranged swing shows its shot
         if let Some(look) = swing.look_spell {
             let enemy = Unit::Enemy(target);
-            self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: look, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: AMMO_SPELLS.contains(&look), reach: 0.0 });
+            self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: look, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: AMMO_SPELLS.contains(&look), reach: 0.0, triggered: false });
         }
         if hand == 1 && swing.look_spell.is_none() {
             self.push(Event::OffHandSwing { hero: self.heroes[i].id });
@@ -713,7 +713,7 @@ impl Run {
         let from_proc = self.casting_proc > 0;
         // one look per target; an effect over time shows one too when it is applied
         let (hero, enemy) = (Unit::Hero(self.heroes[i].id), Unit::Enemy(target));
-        self.push(Event::SpellGo { caster: hero, spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: AMMO_SPELLS.contains(&a.look_spell), reach: 0.0 });
+        self.push(Event::SpellGo { caster: hero, spell: a.look_spell, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: AMMO_SPELLS.contains(&a.look_spell), reach: 0.0, triggered: false });
         let (at, spell, cast) = (self.now + delay + flight, a.id.clone(), Some(self.casts_made));
         self.hits.push(PendingHit { hero: i, target, at, damage, crit, spell, dot, pet: None, from_proc, cast, burn });
     }
@@ -1023,7 +1023,7 @@ impl Run {
         // a `WhileBuff` milestone's stats count from the moment the buff starts
         self.refresh_stats(i);
         let me = Unit::Hero(self.heroes[i].id);
-        self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0 });
+        self.push(Event::SpellGo { caster: me, spell: a.look_spell, hits: vec![me], aim: Aim::Caster, ammo: false, reach: 0.0, triggered: false });
         true
     }
 
@@ -1032,7 +1032,7 @@ impl Run {
     /// it is an area.
     pub(crate) fn show_cast(&mut self, i: usize, a: &Ability, hits: &[u32], aim: Aim, reach: f32) {
         let hits = hits.iter().map(|&id| Unit::Enemy(id)).collect();
-        self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: a.look_spell, hits, aim, ammo: false, reach });
+        self.push(Event::SpellGo { caster: Unit::Hero(self.heroes[i].id), spell: a.look_spell, hits, aim, ammo: false, reach, triggered: false });
     }
 
     fn place_totem(&mut self, i: usize, a: &Ability, inst: &Instance) -> bool {
@@ -1276,7 +1276,7 @@ impl Run {
                 let reach = radius(a, &inst, stats.area);
                 let targets = self.enemies_within(t.at, reach);
                 let hits = targets.iter().map(|&id| Unit::Enemy(id)).collect();
-                self.push(Event::SpellGo { caster: totem, spell: pulse, hits, aim: Aim::Caster, ammo: false, reach });
+                self.push(Event::SpellGo { caster: totem, spell: pulse, hits, aim: Aim::Caster, ammo: false, reach, triggered: false });
                 if a.damage > 0.0 {
                     for target in targets {
                         let (h, crit) = self.roll_crit(t.hero, hit);
@@ -1290,7 +1290,7 @@ impl Run {
                 let speed = self.world.missile_speed(pulse);
                 for target in targets {
                     let enemy = Unit::Enemy(target);
-                    self.push(Event::SpellGo { caster: totem, spell: pulse, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0 });
+                    self.push(Event::SpellGo { caster: totem, spell: pulse, hits: vec![enemy], aim: Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                     if a.damage > 0.0 {
                         let (damage, crit) = self.roll_crit(t.hero, hit);
                         let flight = match self.enemy_pos(target) {
@@ -1724,7 +1724,8 @@ mod tests {
             r.drain_events();
             let inst = super::super::spells::SpellSlot::new(a, &[]).instance();
             r.cast(0, a, &inst);
-            let shown = r.drain_events().iter().any(|e| matches!(e, Event::SpellGo { spell, .. } if *spell == a.look_spell));
+            // its own cast, never a triggered one: the hero animates casting it
+            let shown = r.drain_events().iter().any(|e| matches!(e, Event::SpellGo { spell, triggered: false, .. } if *spell == a.look_spell));
             if !shown {
                 silent.push(a.id.clone());
             }

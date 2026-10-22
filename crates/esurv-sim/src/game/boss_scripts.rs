@@ -411,7 +411,7 @@ impl Run {
             self.push(Event::EnemyDied { id, by: None });
             if self.spawn_summoned(index, p) {
                 let risen = self.enemies.last().map_or(0, |e| e.id);
-                self.push(Event::SpellGo { caster: Unit::Enemy(risen), spell: look_spell, hits: vec![], aim: super::run::Aim::Caster, ammo: false, reach: 0.0 });
+                self.push(Event::SpellGo { caster: Unit::Enemy(risen), spell: look_spell, hits: vec![], aim: super::run::Aim::Caster, ammo: false, reach: 0.0, triggered: false });
             }
         }
     }

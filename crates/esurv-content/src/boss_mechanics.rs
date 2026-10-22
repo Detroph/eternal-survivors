@@ -227,6 +227,29 @@ pub struct GroundObject {
     /// totems, creatures in 1.12), an unselectable unit standing there; `display_id` unused then.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub creature_display: Option<u32>,
+    /// Shown as a weapon's model planted head up in the ground instead (a relic stuck in the
+    /// floor), standing in an unseen unselectable unit; `display_id` unused then.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub planted_item: Option<PlantedItem>,
+    /// The lasting look of this spell it wears while it stands, as an aura (only an object shown as
+    /// a unit: a planted item or a creature model).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub aura_look: Option<u32>,
+}
+
+/// A weapon's model planted head up in the ground where an object stands, like a torch stuck in
+/// the floor: the client composes it from the player's own data at run time, at the object's
+/// `scale`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct PlantedItem {
+    /// An `ItemDisplayInfo.dbc` display: its weapon model, in its own texture.
+    pub display: u32,
+    /// How deep its foot goes into the ground, yards at scale 1.
+    pub sink: f32,
+    /// How far its aura look rises on it, yards at scale 1 (negative lowers it): the unseen
+    /// unit's attachment points, which the aura's look hangs on, move by it.
+    #[serde(default)]
+    pub aura_lift: f32,
 }
 
 /// Actions on a timer: every (or after) `seconds`.
