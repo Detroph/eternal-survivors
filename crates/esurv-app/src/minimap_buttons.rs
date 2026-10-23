@@ -1,7 +1,7 @@
 //! The run's two minimap buttons, round on the stock Minimap's rim the
 //! way an addon's minimap icons sit: the boss timer bars' button flips their drag handles
-//! ([`crate::boss_alerts::HANDLES_CVAR`], the same setting as Options, Timers, "Show bar
-//! handles"), and the damage meter's button shows or hides the meter window
+//! ([`crate::boss_alerts::HANDLES_CVAR`], the same setting as Options, Interface, "Show
+//! bar handles"), and the damage meter's button shows or hides the meter window
 //! ([`crate::meter::ToggleMeter`], kept in `meter.ron`). Each has a stock tooltip.
 //!
 //! The buttons are stock frames, ours, in the interface VM ([`LUA`], `minimap_buttons.lua`), so

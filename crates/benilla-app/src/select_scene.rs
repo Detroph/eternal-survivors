@@ -980,130 +980,146 @@ pub(crate) fn publish_create_choices(
     *choices = now;
 }
 
-// ── A figure drawn alone: the embedder's mask of it ─────────────────────────────────────────────
+// ── A figure drawn alone: the embedder's masks of it ────────────────────────────────────────────
 
-/// Put on a [`SceneFigure`]: its body, gear and weapons are also drawn alone, through a camera that
-/// follows the world camera, into [`FigureMaskImage`], so an embedder can draw round the figure's
-/// silhouette (an outline, a glow). The picture is clear but where the figure is; it covers the
-/// window, pixel for pixel. Take the component off and the figure draws only in the world again.
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct SceneFigureMask;
+/// How many masks there are, each a picture of its own: an embedder gives each its own colour.
+pub const FIGURE_MASKS: usize = 3;
 
-/// The picture of the [`SceneFigureMask`] figures, window-sized; `None` until one is asked for.
+/// Put on a [`SceneFigure`] or a streamed object's entity (a unit, a game object): its body, gear
+/// and weapons are also drawn alone, through a camera that follows the world camera, into mask
+/// `.0` (below [`FIGURE_MASKS`]) of [`FigureMaskImage`], so an embedder can draw round the
+/// silhouette (an outline, a glow). Each mask is clear but where its figures are, and covers the
+/// window pixel for pixel. Take the component off and the figure draws only in the world again.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SceneFigureMask(pub usize);
+
+/// The pictures of the [`SceneFigureMask`] figures, one per mask, window-sized; a mask's is `None`
+/// until a figure first asks for it.
 #[derive(Resource, Clone, Debug, Default, PartialEq)]
-pub struct FigureMaskImage(pub Option<Handle<Image>>);
+pub struct FigureMaskImage(pub [Option<Handle<Image>>; FIGURE_MASKS]);
 
-/// The mask's own layer, on top of the booth ladder.
+/// The first mask's own layer, on top of the booth ladder; the others follow it.
 pub(crate) const FIGURE_MASK_LAYER: usize =
     crate::portrait::UI_MODEL_CAM_LAYER_BASE + crate::portrait::UI_MODEL_CAM_LAYERS;
 
-/// The mask camera, once made.
-#[derive(Resource)]
-pub(crate) struct FigureMaskCamera;
+/// The layers a batch of a figure in mask `mask` is on: the world's and the mask's.
+fn mask_layers(mask: usize) -> bevy::camera::visibility::RenderLayers {
+    bevy::camera::visibility::RenderLayers::from_layers(&[0, FIGURE_MASK_LAYER + mask])
+}
 
-/// Puts the model batches of every masked figure on the mask's layer as well as the world's, and
-/// takes them off again; only the model batches (body, gear, weapons), never their particles,
-/// whose simulation takes the first camera on their layers.
-#[allow(clippy::type_complexity)]
+/// Whether `layers` put a batch in one of the masks.
+fn in_a_mask(layers: &bevy::camera::visibility::RenderLayers) -> bool {
+    (0..FIGURE_MASKS).any(|m| layers.intersects(&bevy::camera::visibility::RenderLayers::layer(FIGURE_MASK_LAYER + m)))
+}
+
+/// Puts the model batches of every masked figure on its mask's layer as well as the world's, and
+/// takes them off again when the mask goes; only the model batches (body, gear, weapons), never
+/// their particles, whose simulation takes the first camera on their layers. Only the masked
+/// figures are walked each frame (a gear piece loads late), and those whose mask just went.
 pub(crate) fn mark_figure_masks(
     mut commands: Commands,
-    figures: Query<(Entity, Has<SceneFigureMask>), With<SceneFigure>>,
+    masked: Query<(Entity, &SceneFigureMask)>,
+    mut unmasked: RemovedComponents<SceneFigureMask>,
     children: Query<&Children>,
     batches: Query<
         Option<&bevy::camera::visibility::RenderLayers>,
         With<MeshMaterial3d<benilla_assets::materials::WowModelMaterial>>,
     >,
 ) {
-    use bevy::camera::visibility::RenderLayers;
-    for (figure, masked) in &figures {
+    for (figure, mask) in &masked {
+        let want = mask_layers(mask.0.min(FIGURE_MASKS - 1));
         for part in children.iter_descendants(figure) {
             let Ok(layers) = batches.get(part) else {
                 continue;
             };
-            let on = layers.is_some_and(|l| l.intersects(&RenderLayers::layer(FIGURE_MASK_LAYER)));
-            if masked && !on {
-                commands
-                    .entity(part)
-                    .insert(RenderLayers::from_layers(&[0, FIGURE_MASK_LAYER]));
-            } else if !masked && on {
-                commands.entity(part).remove::<RenderLayers>();
+            if layers != Some(&want) {
+                commands.entity(part).insert(want.clone());
+            }
+        }
+    }
+    for figure in unmasked.read() {
+        if masked.contains(figure) {
+            continue; // put back the same frame: walked above
+        }
+        for part in children.iter_descendants(figure) {
+            if let Ok(Some(layers)) = batches.get(part) {
+                if in_a_mask(layers) {
+                    commands.entity(part).remove::<bevy::camera::visibility::RenderLayers>();
+                }
             }
         }
     }
 }
 
-/// Keeps the mask camera on the world camera's eye and optic, its picture the window's size, and
-/// renders only while a figure is masked.
+/// Keeps each mask's camera on the world camera's eye and optic, its picture the window's size,
+/// and renders it only while a figure is in that mask. A mask's camera and picture are made the
+/// first time a figure asks for it.
 #[allow(clippy::too_many_arguments)] // one Bevy system's inputs
 pub(crate) fn drive_figure_mask_camera(
     mut commands: Commands,
-    masked: Query<(), With<SceneFigureMask>>,
+    masked: Query<&SceneFigureMask>,
     world_cam: Query<(&Transform, &Projection), (With<WorldCamera>, Without<FigureMaskCameraTag>)>,
-    mut mask_cam: Query<(&mut Camera, &mut Transform, &mut Projection), With<FigureMaskCameraTag>>,
+    mut mask_cams: Query<(&FigureMaskCameraTag, &mut Camera, &mut Transform, &mut Projection)>,
     windows: Query<&Window, With<bevy::window::PrimaryWindow>>,
     mut images: ResMut<Assets<Image>>,
     mut image: ResMut<FigureMaskImage>,
-    made: Option<Res<FigureMaskCamera>>,
 ) {
-    let want = !masked.is_empty();
-    if made.is_none() {
-        if !want {
-            return;
+    let mut want = [false; FIGURE_MASKS];
+    for m in &masked {
+        want[m.0.min(FIGURE_MASKS - 1)] = true;
+    }
+    for (mask, &wanted) in want.iter().enumerate() {
+        if !wanted || image.0[mask].is_some() {
+            continue;
         }
         let handle = images.add(crate::portrait::new_target_image_sized(1, 1));
         commands.spawn((
-            FigureMaskCameraTag,
+            FigureMaskCameraTag(mask),
             crate::portrait::booth_view_shape(),
             Camera {
-                order: -100 + FIGURE_MASK_LAYER as isize,
+                order: -100 + (FIGURE_MASK_LAYER + mask) as isize,
                 clear_color: ClearColorConfig::Custom(Color::NONE),
                 is_active: false,
                 ..default()
             },
             bevy::camera::RenderTarget::Image(handle.clone().into()),
-            bevy::camera::visibility::RenderLayers::layer(FIGURE_MASK_LAYER),
+            bevy::camera::visibility::RenderLayers::layer(FIGURE_MASK_LAYER + mask),
             Transform::default(),
             Projection::from(bevy::camera::PerspectiveProjection::default()),
         ));
-
-        commands.insert_resource(FigureMaskCamera);
-        image.0 = Some(handle);
-        return;
+        image.0[mask] = Some(handle);
     }
-    let Ok((mut cam, mut t, mut p)) = mask_cam.single_mut() else {
-        return;
-    };
     let source = world_cam.single().ok();
-    let active = want && source.is_some();
-    if cam.is_active != active {
-        cam.is_active = active;
-    }
-    let Some((wt, wp)) = source.filter(|_| active) else {
-        return;
-    };
-    if *t != *wt {
-        *t = *wt;
-    }
-    let same = match (&*p, wp) {
-        (Projection::Perspective(a), Projection::Perspective(b)) => {
-            a.fov == b.fov && a.aspect_ratio == b.aspect_ratio && a.near == b.near && a.far == b.far
-        }
-        _ => false,
-    };
-    if !same {
-        *p = wp.clone();
-    }
-    // the picture follows the window, pixel for pixel
-    let (Ok(window), Some(handle)) = (windows.single(), image.0.as_ref()) else {
-        return;
-    };
-    let size = bevy::render::render_resource::Extent3d {
+    // the pictures follow the window, pixel for pixel
+    let size = windows.single().ok().map(|window| bevy::render::render_resource::Extent3d {
         width: window.physical_width().max(1),
         height: window.physical_height().max(1),
         depth_or_array_layers: 1,
-    };
-    if let Some(img) = images.get(handle) {
-        if img.texture_descriptor.size != size {
+    });
+    for (tag, mut cam, mut t, mut p) in &mut mask_cams {
+        let active = want[tag.0] && source.is_some();
+        if cam.is_active != active {
+            cam.is_active = active;
+        }
+        let Some((wt, wp)) = source.filter(|_| active) else {
+            continue;
+        };
+        if *t != *wt {
+            *t = *wt;
+        }
+        let same = match (&*p, wp) {
+            (Projection::Perspective(a), Projection::Perspective(b)) => {
+                a.fov == b.fov && a.aspect_ratio == b.aspect_ratio && a.near == b.near && a.far == b.far
+            }
+            _ => false,
+        };
+        if !same {
+            *p = wp.clone();
+        }
+        let (Some(size), Some(handle)) = (size, image.0[tag.0].as_ref()) else {
+            continue;
+        };
+        if images.get(handle).is_some_and(|img| img.texture_descriptor.size != size) {
             if let Some(img) = images.get_mut(handle) {
                 img.resize(size);
             }
@@ -1111,9 +1127,27 @@ pub(crate) fn drive_figure_mask_camera(
     }
 }
 
-/// Marks the mask camera.
+/// Seats each active mask camera on the world camera's final pose for the frame, once the
+/// transforms are propagated: a pose set after the world stages (a held shot camera, in
+/// `PostUpdate`) would otherwise leave the masks a frame's pose apart from the world.
+pub(crate) fn seat_figure_mask_cameras(
+    world_cam: Query<&GlobalTransform, (With<WorldCamera>, Without<FigureMaskCameraTag>)>,
+    mut mask_cams: Query<(&Camera, &mut Transform, &mut GlobalTransform), With<FigureMaskCameraTag>>,
+) {
+    let Ok(world) = world_cam.single() else {
+        return;
+    };
+    for (cam, mut t, mut g) in &mut mask_cams {
+        if cam.is_active && *g != *world {
+            *g = *world;
+            *t = world.compute_transform();
+        }
+    }
+}
+
+/// Marks a mask's camera, by its mask.
 #[derive(Component)]
-pub(crate) struct FigureMaskCameraTag;
+pub(crate) struct FigureMaskCameraTag(usize);
 
 #[cfg(test)]
 mod tests {

@@ -4,7 +4,9 @@
 //! window-sized mask (`benilla_app::SceneFigureMask`, [`benilla_app::FigureMaskImage`]); a node of
 //! [`OutlineGlow`] over the window reads round each pixel outside the silhouette and adds the gold
 //! (`outline_glow.wgsl`). Only the picked hero has it, and it follows the stand-up and the
-//! greeting, as the mask is drawn every frame.
+//! greeting, as the mask is drawn every frame. The hero has mask [`HERO_MASK`] to itself; the
+//! enemies' glows in a run (`crate::enemy_glow`) draw the same way, from the other masks, in
+//! their own colours.
 //!
 //! The mask holds the hero alone, so the edge also shows where something stands in front of the
 //! hero's edge; the camp's places keep the picked hero clear of the others.
@@ -23,17 +25,20 @@ use super::{Menus, Screen};
 use crate::picker::PickerState;
 
 /// The edge's width and the glow's reach, in pixels at 1080 rows; how deep the pulse dips.
-const EDGE: f32 = 1.5;
-const GLOW: f32 = 7.0;
-const PULSE: f32 = 0.25;
+pub(crate) const EDGE: f32 = 1.5;
+pub(crate) const GLOW: f32 = 7.0;
+pub(crate) const PULSE: f32 = 0.25;
+/// The picked hero's mask (`SceneFigureMask`).
+pub(crate) const HERO_MASK: usize = 0;
 /// The gold, in gamma bytes; its alpha is the glow's strength at the edge.
 const GOLD: Vec4 = Vec4::new(1.0, 0.80, 0.38, 0.55);
 
-/// The outline's material: the mask, the gold and the sizes.
+/// The outline's material: the mask, the colour and the sizes.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]
 pub struct OutlineGlow {
+    /// In gamma bytes; its alpha is the glow's strength at the edge.
     #[uniform(0)]
-    pub gold: Vec4,
+    pub colour: Vec4,
     /// Edge width, glow reach, pulse depth, time.
     #[uniform(1)]
     pub params: Vec4,
@@ -97,21 +102,21 @@ fn mask_the_picked_hero(
     menus: Res<Menus>,
     screen: Res<SelectScreen>,
     camp: Res<PickerState>,
-    masked: Query<Entity, With<SceneFigureMask>>,
+    masked: Query<(Entity, &SceneFigureMask)>,
 ) {
     let want = if shows(&menus, &screen) {
         screen.selected.and_then(|g| camp.figure_of(g))
     } else {
         None
     };
-    for e in &masked {
-        if Some(e) != want {
+    for (e, mask) in &masked {
+        if mask.0 == HERO_MASK && Some(e) != want {
             commands.entity(e).remove::<SceneFigureMask>();
         }
     }
     if let Some(e) = want {
-        if !masked.contains(e) {
-            commands.entity(e).insert(SceneFigureMask);
+        if masked.get(e).map(|(_, m)| m.0) != Ok(HERO_MASK) {
+            commands.entity(e).insert(SceneFigureMask(HERO_MASK));
         }
     }
 }
@@ -127,12 +132,12 @@ fn draw_the_outline(
     node: Option<Res<OutlineNode>>,
     mut visibility: Query<&mut Visibility>,
 ) {
-    let Some(mask) = image.0.clone() else {
+    let Some(mask) = image.0[HERO_MASK].clone() else {
         return;
     };
     let Some(node) = node else {
         let material = materials.add(OutlineGlow {
-            gold: GOLD,
+            colour: GOLD,
             params: Vec4::new(EDGE, GLOW, PULSE, 0.0),
             mask,
         });

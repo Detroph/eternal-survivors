@@ -152,7 +152,7 @@ silhouette, its gear and weapons included (about 1.5 pixels at 1080 rows), with 
 fading outward over about 7 pixels, brightest at the edge, pulsing slowly (its brightness dips by
 a quarter, `sin` of 1.7 radians a second); nothing is drawn over the hero itself, and only the
 picked hero has it, following its stand-up and greeting. benilla draws the hero alone into a
-window-sized mask (`SceneFigureMask`, below); a node over the window (`menus::outline`,
+window-sized mask (`SceneFigureMask(0)`, below); a node over the window (`menus::outline`,
 `outline_glow.wgsl`) reads round each pixel outside the silhouette and adds the gold, in gamma
 bytes. The mask holds the hero alone, so the edge also shows over what stands in front of the
 hero's edge (grass, the campfire); the camps' places keep the heroes clear of each other. It hides
@@ -178,7 +178,7 @@ character select, so a change shows in the game and in the stock frames later.
 |---|---|---|
 | Video | the stock Video Options frame one for one: resolution (the display's list) and multisampling (the device's formats); its eighteen boxes (windowed, windowed and maximized, vertical sync, triple buffering, hardware cursor, smoother input, interface scale on, desktop brightness, film subtitles, smooth texture blending, far-off land in less detail, all shaders, shining terrain, screen glow, death effect, animated model shaders, smooth model shading, weather shaders), each greyed while the box it hangs on is off (and triple buffering where the device has none); its nine sliders with the stock ranges and steps (interface scale 0.64 to 1, view distance 177 to 777 yards, ground detail, terrain textures, texture detail, brightness −0.5 to 0.5, texture sharpness 1x to the device's top, spell effects, weather), the interface scale only with its box on, brightness only with neither desktop brightness nor windowed on. Its refresh-rate list is left out: benilla owns no exclusive display mode and offers none | on Okay, as the stock frame: each changed box and value written (All Shaders copied into `ffx`), the display rebuilt (`RestartGx`) when a display setting moved |
 | Sound | the stock Sound frame one for one: sound, ambient sound and spoken errors (both on sound), music, music without pauses, hearing from the hero, emote sounds; master, effects, music and ambience volume, 0 to 100% in tens | as moved, as the stock frame; Cancel puts them back |
-| Interface | the Interface Options settings that are plain CVars the game itself reads: invert the mouse, click to move, deselect on clicking the ground, attack on assist, self-cast, mouse sensitivity, mouse look speed, the camera following style (`cameraSmoothStyle`: only when moving 1, always 2, never 0, the three the stock 1.12 dropdown writes and the camera does; 3 shows as never, as the camera reads it), camera follow speed, camera distance, the four camera boxes, the five name boxes, show damage numbers and pet damage numbers, **Damage numbers** (Smart or All: [Damage numbers](#damage-numbers-smart-or-all); a tooltip on its label), chat bubbles and party chat bubbles, every roll in the chat, guild arrivals, the language filter, clearing away, refusing trades, loading-screen tips, tips in the game (the tutorial alerts: Show Tutorials' own calls, `TutorialsEnabled`, `ResetTutorials` and `ClearTutorials`; open only over a run, where the world session keeps them), and **Check for updates** (the game's own CVar `esurvCheckForUpdates`, `1` by default; ticked, the game checks for a newer version as soon as the setting reads on; unticked, it never asks and hides an offer: [server.md](server.md), "Updates"; a tooltip on its label). Left out: what only the Lua interface reads (tooltips, bar text, the per-character interface settings such as combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own, sent from the world), the spam filter, and the key bindings | on Okay |
+| Interface | the Interface Options settings that are plain CVars the game itself reads, with the game's own settings, in four headed sections in this order (each a heading between two gold rules over two columns; more than the panel shows scroll with the wheel and keep their place): **Mouse & Camera**: invert the mouse, click to move, the four camera boxes; mouse sensitivity, mouse look speed, the camera following style (`cameraSmoothStyle`: only when moving 1, always 2, never 0, the three the stock 1.12 dropdown writes and the camera does; 3 shows as never, as the camera reads it), camera follow speed, camera distance. **Names**: the five name boxes. **Eternal Survivors**: show damage numbers, **Damage numbers** (Smart or All: [Damage numbers](#damage-numbers-smart-or-all); a tooltip on its label), **Check for updates** (the game's own CVar `esurvCheckForUpdates`, `1` by default; ticked, the game checks for a newer version as soon as the setting reads on; unticked, it never asks and hides an offer: [server.md](server.md), "Updates"; a tooltip on its line), **Glow around elites and rares** (the CVar `esurvEnemyGlow`, `1` by default, `esurv_app::glow_option`: ticked, elites wear a purple outline glow, rares and the Rare Caches they drop a silver one; unticked, all of them hide at once; bosses and normal enemies never glow; a tooltip on its line); then the boss timers ([bosses.md](bosses.md)): boss warnings, warning sound (on boss warnings), boss timer bars, show bar handles and reset bar positions (both on the bars). **Misc**: chat bubbles, deselect on clicking the ground, clearing away, loading-screen tips, pet damage numbers. Not shown, their saved values kept as they are: party chat bubbles, every roll in the chat, guild arrivals, the language filter, refusing trades, tips in the game (the tutorial alerts), attack on assist, self-cast. Left out: what only the Lua interface reads (tooltips, bar text, the per-character interface settings such as combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own, sent from the world), the spam filter, and the key bindings | on Okay |
 | Saves | the save's export and import (design step 6): the folder the save goes to and comes from, **Export save**, **Import save**, and the saves in the folder (below) | at once; Okay and Cancel are for the other tabs |
 
 **Export and import.** The game has no file dialog, so the save goes to and comes from one fixed
@@ -409,10 +409,12 @@ no race backdrop, its picture clear behind the body, and `SelectModelImage` is t
 character breathes. `CreateChoices` says what the create screen would offer: which race may be
 which class (the stock pairs and the added ones), how many choices each look feature has per race
 and sex, and the create screen's glue tokens for the fifth feature (`NORMAL`, `PIERCINGS`,
-`TUSKS` ...) and the hair (`NORMAL`, `HORNS`). `SceneFigureMask`, put on a figure, draws its body, gear
-and weapons alone, through a camera that follows the world camera's eye and optic, into
-`FigureMaskImage`, a window-sized picture clear but where the figure is, for drawing round its
-silhouette (only the model batches take the mask's own layer, never their particles). Stock benilla never sets them, and then nothing changes.
+`TUSKS` ...) and the hair (`NORMAL`, `HORNS`). `SceneFigureMask(mask)`, put on a figure, draws its body, gear
+and weapons alone, through a camera that follows the world camera's eye and optic, into mask
+`mask` of `FigureMaskImage`, a window-sized picture clear but where its figures are, for drawing
+round their silhouettes (only the model batches take the mask's own layer, never their particles);
+there are `FIGURE_MASKS` of them, and they take a run's units and game objects too
+([Glows round elites and rares](#glows-round-elites-and-rares)). Stock benilla never sets them, and then nothing changes.
 
 ## The card screens (level-up, cache and rare cache)
 
@@ -598,7 +600,9 @@ sender that keeps totals of its own. A writer to the feed runs before the window
 
 In play the server's meter lines (`ESURVM`, the run's totals, at most every 0.2 s) fill it, with
 the run clock from the HUD line (`esurv_app::meter::server`). Damage done shows one row per
-spell (its id as words: `shadow_bolt` is "Shadow Bolt"), and one row each for all pets ("Pets"),
+spell (its id as words: `shadow_bolt` is "Shadow Bolt"), one row per assist character
+("Assist: <name>", the meter line's `assist <name>` source: its own hits, the areas and bleeds
+it left, and the pets it summoned), and one row each for all pets ("Pets"),
 Thorns, the weapon swing ("Melee") and the rest ("Other"). A
 proc counts under what gave the hero it, by the name the content gives it — a talent
 by its talent name (from the client's names, never written by us), a ring or trinket by its item
@@ -721,6 +725,44 @@ hidden or not), and reads the resource `DamageNumberFloor(Option<u32>)`: a numbe
 does not float and takes none of the unit's four slots. `None`, the default, floats every one,
 as the 1.12 client does; benilla itself never sets it.
 
+## Glows round elites and rares
+
+In a run (`esurv_app::enemy_glow`), an elite wears a **purple** outline glow, and a rare and the
+Rare Cache it drops a **silver** one; bosses and the other enemies have none. The look is the
+picked hero's outline on the warband screen (above), in another colour and from the same shader
+(`outline_glow.wgsl`): a thin edge along the silhouette, gear and weapons included (about 1.5
+pixels at 1080 rows), a soft glow fading outward over about 7 pixels, and the same slow pulse.
+Purple is `(0.74, 0.36, 1.0)` at 0.6 strength, silver `(0.92, 0.95, 1.0)` at 0.7, in gamma bytes.
+An elite or a rare is told by the rank the server gives it in the creature query (1 elite, 4 rare:
+the portrait's gold and silver dragons), read through benilla's `CreatureRanks`; a Rare Cache by
+its game-object entry (the server's `entries::RARE_CACHE`). A dead elite or rare stops glowing.
+Every one in sight glows, with no limit (its cost, below, is light).
+
+Each colour has its own mask (elites mask 1, rares and caches mask 2; the warband hero has mask 0)
+and a node over the window, over the world and under the run's own windows (the meter, the HUD,
+the card screens). The mask holds the glowing figures alone, so a glow also shows over what stands
+in front of the figure's edge (another enemy in the swarm).
+
+The glows follow one option, **Glow around elites and rares** (the CVar `esurvEnemyGlow`, `1`
+on, the default; `0` off; `esurv_app::glow_option`), on the Options panel's Interface tab:
+off, every glow hides at once, as the masks are taken off and their cameras stop. The warband
+hero's gold outline does not follow it.
+
+**Its cost**: with 40 elites round the hero, measured with `ESURV_GLOW_CHECK` (the frame time on
+and off in one run, [server.md](server.md), "Switches"): the frame held at the screen's refresh either way (16.67 ms; 17.6 and 17.5 ms at the 95th percentile), the main thread at 5.05 ms a frame on and 4.69 ms off, every thread's CPU together 11.4 and 9.9 ms, and the GPU's passes 2.3 and 1.8 ms, the two colour nodes' share 0.5 ms of it (benilla's FPS journal; RTX 4080 Super, Vulkan, 1600 x 900).
+
+### benilla's hook: several masks
+
+`SceneFigureMask(mask)`, put on a select-scene figure or on any streamed object's entity (a unit,
+a game object), draws its model batches alone into mask `mask` (below `FIGURE_MASKS`, 3), each
+mask through a camera of its own on a layer of its own, following the world camera's eye and optic;
+`FigureMaskImage` holds each mask's window-sized picture (`None` until a figure first asks for
+it). Only the masked figures are walked each frame, and those whose mask was just taken off, whose
+batches go back to the world's layer alone. A mask's camera renders only while a figure is in it.
+`CreatureRanks::rank(entity)` reads a unit's rank as the stock portrait does (`gated_rank`: 0
+for a pet or a charmed unit and until the creature query answers, which it asks once on a miss);
+`creature_rank` names the values. Stock benilla never sets a mask, and then nothing changes.
+
 ## The HUD
 
 The run's own readouts over the stock interface (`esurv_app::hud`), every text in our
@@ -781,7 +823,7 @@ reaches the world.
 
 | Button | Icon | Tooltip | A click |
 |---|---|---|---|
-| Boss timer bars | `INV_Misc_PocketWatch_01` | "Boss timer bars: show/hide drag handles", then "Drag handles shown" or "Drag handles hidden (hold Shift to drag)" | flips `esurvBossBarHandles`, the same setting as Options, Timers, "Show bar handles": show the handles, drag the bars, hide them again. Kept as that CVar is |
+| Boss timer bars | `INV_Misc_PocketWatch_01` | "Boss timer bars: show/hide drag handles", then "Drag handles shown" or "Drag handles hidden (hold Shift to drag)" | flips `esurvBossBarHandles`, the same setting as Options, Interface, "Show bar handles": show the handles, drag the bars, hide them again. Kept as that CVar is |
 | Damage meter | `INV_Sword_04` | "Damage meter: show/hide", then "Shown" or "Hidden" | shows or hides the meter window; kept in `meter.ron` (`hidden`) |
 
 A click takes hold the same frame (the game reads the buttons' clicks every frame, not only on
@@ -795,6 +837,17 @@ with a shot of each step.
 left. Each frame, a bubble whose frame overlaps an area is moved down by whole pixels until its
 top sits on that area's bottom, the areas tried in their order. Empty by default, so benilla's
 bubbles are untouched unless a crate on top fills it (`chat_bubble.rs`, `keep_clear_of`).
+
+### benilla's hook: looks that fly level
+
+`benilla_app::LevelFlight(HashSet<u32>)`: creature looks (`CreatureDisplayInfo` ids) that keep
+upright on a flying path. The stock client tilts a unit on a flying spline into its flight
+attitude (pitched by the climb, banked by the turn ahead), as a taxi flies; a listed look only
+turns to its path's facing. Empty by default, so stock flights are untouched. The game lists
+every pet that flies (`hover` in `pets.ron`, `esurv_app::level_flight`, read once at launch): the
+server keeps such a pet on short flights that bob it at its height ([server.md](server.md)), and
+the stock attitude pitched it with each bob, nearly straight up or down on a flight that barely
+moves ahead, so it showed flipped over.
 
 ### Pausing: the Escape menu
 
@@ -1212,6 +1265,13 @@ What the options look and sound like, all from the player's client:
   geyser at two thirds; Fan of Knives' thrown knives and Divine Star's holy bolt at twice their
   size), and no camera shake. An area's size per cast (Hand of
   Gul'dan's meteor) goes with each cast as before (`ESURVS`) and grows the models only.
+* **Assists** (a battle standard's ally, [assists.md](assists.md)): the standard lies as its
+  faction's battle standard (the Alliance or the Horde Battle Standard) over a short aura glow in the
+  faction's colour (blue, red), planted with its Battle Standard look, and
+  pings the minimap where it lies; the ally is a player of its hand-made character drawn at twice
+  its size, a friendly player that cannot be selected, its name over it and its yells in the chat;
+  it comes in its arrival's look, casts its steps' looks from itself, swings at what it strikes in
+  melee, and goes its leaving's way ([server.md](server.md), "What the client is told").
 * **Summons** are the run's pets with their models (`pets.ron`); the ghostly copy of the hero is a
   copy of its player, see-through and blue (the Ghost Visual aura), standing where it appeared;
   it is the one seen casting its lightning, flame and heal, with their cast animations (the run
@@ -1251,8 +1311,8 @@ What the options look and sound like, all from the player's client:
   client draws another (`dust_field`, `2`, `dust_field,0.8`). No camera shake.
 * **The tips** (1.12's tutorial alerts, the "!" buttons over the action bar) are off for a new
   save: the save keeps the tips seen (`tips_seen`, every tip seen to start) and the server sends
-  them at each entry, so none shows. **Tips in the game** on the options' Interface tab (over a run)
-  still turns them on and off; the server keeps what it is told (`CMSG_TUTORIAL_RESET`, `_CLEAR`,
+  them at each entry, so none shows. The options panel does not show the tips' box (Tips in the
+  game); the server keeps what the client tells it (`CMSG_TUTORIAL_RESET`, `_CLEAR`,
   `_FLAG`). benilla copies a bank sent after the login onto the banks its world entry zeroed, so
   the bank holds.
 * **Forms** show their model over the race's own: Cat, Bear and Moonkin, the night elf's and the

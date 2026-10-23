@@ -198,9 +198,9 @@ one): an id, a name, a race and a class (any pair our game allows), a gender, a 
 out, one is picked within its race's dials each time it shows) a `yell` (said as it arrives: a boss it plays
 yells it in place of its own), optionally a `death_yell` (said as it dies, in place of a boss's
 own death yell), optionally a `form` (`Cat`, `Bear` or `Moonkin`: shown in its faction's look of
-that druid form), an `assist` (how it assists a hero, in words, for a mechanic still
-to be designed; read by nothing yet; an assist lasts at most 10 sec unless its description gives
-another time) and gear: `Random` (its class's PvP looks, as above) or
+that druid form), an `assist` (how it assists a hero, in words) with its `assist_script` (what
+it does when a battle standard summons it for a hero of its faction: [assists.md](assists.md);
+left out, its class's default) and gear: `Random` (its class's PvP looks, as above) or
 `Picked` (pieces by look per slot and its weapons, an off-hand item `HeldInOffHand` among them; any
 slot left out takes its class's looks, unless it is listed in `bare: [Head]` and so on, which shows
 it empty). A boss with `played_by: Some(Any)` is played by one
@@ -249,17 +249,37 @@ Bolt, a hunter's Auto Shot, flying an arrow, its bow drawn or its gun or crossbo
 shoots); a cat or bear swings. Each hit is the boss formula's
 damage (weakened and enraged as a swing is) × `caster_boss_damage`, 0.5, as it cannot be stepped out of.
 
-### Sizes in the humanoid zones
+### Sizes: elites up to 6, rares 1.35× their elite, bosses 9, final bosses 12
 
-Where every enemy is a player-sized humanoid (Warsong Gulch, the
-Scarlet Monastery), each kind is drawn larger than the last, so it reads at a glance, by the
-`scale` in the zone file: normal enemies **1.0**, elites **1.2**, rares **1.62** (an elite's
-1.2 × the rares' own draw factor, 1.35, `rares::SCALE`; nothing per zone), bosses
-**1.9**, the final bosses **2.0** (Warsong's last boss; Mograine and Whitemane alike). A hand-made
-player character playing a boss takes the boss's `scale`. Collision follows the scale as everywhere
-(roster 1.2 × `scale` + 2.2: 3.4 yd normal, 3.64 elite, 4.14 rare; bosses 1.5 × `scale` +
-3.5: 6.35 yd, 6.5 final). Before: Warsong's elites 1.1 and bosses 1.3; the Scarlet Monastery's
-Defender 1.1, Champion 1.15, elites 1.35 / 1.5 / 1.8, bosses 1.5-1.6 and the final pair 1.4.
+The strong kinds are drawn larger than the rest, so they read at a glance, with a ceiling so no
+model blows up: every elite at 1.3× to 2× its model's own size and never above **6**, every rare
+at 1.35× its elite (**8.1** above a full-size elite), every boss at **9** and every final boss at
+**12** (a third bigger). Normal enemies and the adds a boss summons keep the `scale` their zone
+gives them.
+
+* **Drawn size** = the model's size × `scale`. A model's size is the cube root of the volume of
+  the vertex box in its M2 header (the x, y and z extents of the six floats at byte 0xB4..0xCC):
+  the display's model path comes from `CreatureDisplayInfo.dbc` and `CreatureModelData.dbc`, and
+  `cargo run --release -p benilla-formats --example dump_file -- 'Creature\X\X.m2' > X.m2`
+  (with `WOW_DATA` set) writes the file out. `scale` is the whole render scale: the display's own
+  DBC scale is not multiplied in.
+* **An elite's `scale`** (`kind: Elite`) is between 1.3 and 2.0, and its drawn size is never
+  above 6.0: `scale` = min(2.0, 6.0 / model size), rounded to 2 decimals. Where that falls below
+  1.3, the 6.0 ceiling wins: a big model is drawn at 6 at a `scale` under 1.3. A Kobold (1.35)
+  2.0, drawn at 2.7; a Worgen (3.88) 1.55, drawn at 6; a Flesh Golem (6.18) 0.97; a Tarantula
+  (6.72) 0.89; a human man (3.12) 1.92; a human woman (2.66) 2.0, drawn at 5.3.
+* **A rare** is its elite × `rares::SCALE` (1.35, nothing per zone): 6 × 1.35 = 8.1 for a
+  full-size elite, 3.65 for the Kobold one.
+* **A boss's `scale`** = 9 / its model's size, a final boss's 12 / size, rounded to 0.05: a human
+  man 2.90 and 3.85, an Ogre Warlord (4.74) 1.90 and 2.55.
+* **Warsong Gulch** keeps its own steps, as every enemy there is a player character and its
+  bosses are drawn at about 6: normal enemies **1.0**, elites **1.2**, rares **1.62**, bosses
+  **1.9**, the final boss **2.0**. A hand-made player character playing a boss takes the boss's
+  `scale`.
+
+Collision follows the `scale` as everywhere, not the drawn size: roster 1.2 × `scale` + 2.2
+(an elite at 2.0 is 4.6 yd round, an Ancient Protector elite at 0.48 is 2.8 yd; Warsong's
+3.4 yd normal, 3.64 elite, 4.14 rare), bosses 1.5 × `scale` + 3.5 (Warsong's 6.35 yd, 6.5 final).
 
 ## 2. Enemies (the roster)
 
@@ -588,7 +608,9 @@ does not exist, a caster without `look_spell`, or a `look_spell` on a kind that 
 2. Set the place: `map_id`, `area_id`, `spawn`, `arena_radius`, `hour`, `weather`.
 3. Build a roster of enemies: pick `display_id`s from `CreatureDisplayInfo.dbc`, pick each one's
    `kind` from the table above, and set `toughness` (normal enemies), `appears_at_minute` and,
-   for casters, `look_spell`, following the pattern in section 2.
+   for casters, `look_spell`, following the pattern in section 2. Give each elite the `scale`
+   min(2.0, 6.0 / its model's size) and each boss the one that draws it at 9 (12 the final),
+   section 1, "Sizes".
 4. Add bosses with rising `spawn_minute`; mark the last one `is_final: true`. Their abilities
    name a kind and its looks (bosses.md).
 5. Pick `difficulty`: the next whole number after the last zone, or a step between two zones (for

@@ -893,6 +893,11 @@ impl Game {
                     },
                     HitSource::Spell(a) => Source::Spell(a.clone()),
                     HitSource::WeaponSwing => Source::Swing,
+                    // a pet an ally summoned counts as that ally's
+                    HitSource::Pet(p) if self.run.pets.iter().any(|x| x.id == *p && x.assist.is_some()) => {
+                        let character = self.run.pets.iter().find(|x| x.id == *p).and_then(|x| x.assist.clone()).unwrap_or_default();
+                        Source::Assist(self.character_name(&character))
+                    }
                     HitSource::Pet(p) => {
                         let name = match self.run.pets.iter().find(|x| x.id == *p) {
                             Some(x) => x.pet.clone(),
@@ -908,6 +913,8 @@ impl Game {
                         origin: meter_origin(origin),
                     },
                     // an enemy turned on the others (Dominate Mind)
+                    // a battle standard's ally: its own row, by its character's name
+                    HitSource::Assist(character) => Source::Assist(self.character_name(character)),
                     HitSource::Enemy(_) | HitSource::Other => Source::Other,
                 };
                 count(

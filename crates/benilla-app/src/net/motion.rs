@@ -32,6 +32,7 @@ pub(super) use spline::{
 };
 pub(crate) use spline::{ground_derived, grounded_y};
 pub(crate) use spline::{CreatureSwimming, GroundClamped, Spline, SplineStopped};
+pub use spline::LevelFlight;
 
 /// The Bevy rotation of a wire yaw (radians about WoW +Z): a Bevy +Y yaw with no 180° offset,
 /// unlike doodad and WMO placement.

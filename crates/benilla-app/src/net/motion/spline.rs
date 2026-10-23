@@ -43,6 +43,16 @@ pub(crate) struct Spline {
 #[derive(Component, Debug, Clone, Copy)]
 pub(crate) struct SplineStopped(pub(crate) u32);
 
+/// Embedder hook: creature looks (`CreatureDisplayInfo` ids) whose flying paths stay level. The
+/// reference tilts a unit on a flying spline into its flight attitude (pitch from the climb, bank
+/// from the turn ahead, [`Spline::flight_attitude`]), which suits a taxi; a unit that only hovers
+/// and bobs on short flights would pitch with each bob and bank wildly at each flight's end, where
+/// the turn ahead is measured over almost no distance. A look listed here keeps upright: it turns
+/// to its path's facing and nothing more. Empty unless an embedder fills it, so stock behaviour is
+/// unchanged.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct LevelFlight(pub std::collections::HashSet<u32>);
+
 impl Spline {
     /// Average speed in yd/s (path length over duration); [`crate::creature_anim`] picks Walk or
     /// Run from it.
@@ -318,9 +328,12 @@ pub(in crate::net) fn sample_splines(
         Option<&super::super::Guid>,
         // A deck path's destination; `transport::compose_riders` carries it to the world later.
         Option<&mut crate::transport::TransportRider>,
+        // Its look, for the embedder's [`LevelFlight`].
+        Option<&NetEntity>,
     )>,
     mut trace_next: Local<f32>,
     time: Res<Time>,
+    level_flight: Option<Res<LevelFlight>>,
 ) {
     let now = Instant::now();
     // The `spl` trace ticks once a second for the whole population, so its lines share an instant.
@@ -329,7 +342,8 @@ pub(in crate::net) fn sample_splines(
     if tick {
         *trace_next = time.elapsed_secs() + SPL_TRACE_SECS;
     }
-    for (entity, spline, mut t, swimming, guid, rider) in &mut q {
+    for (entity, spline, mut t, swimming, guid, rider, net) in &mut q {
+        let level = level_flight.as_ref().is_some_and(|l| net.and_then(|n| n.display_id).is_some_and(|d| l.0.contains(&d)));
         let (wow_pos, facing, pitch) = spline.sample(now);
         // A deck path's sample is the rider's transport-local pose, composed later this frame.
         if let Some(deck) = spline.deck {
@@ -352,8 +366,11 @@ pub(in crate::net) fn sample_splines(
         t.translation = wow_to_bevy(wow_pos);
         if let Some(f) = facing {
             // A flying spline takes the full attitude, a swimming unit its travel pitch
-            // (`0x60a110`), a walker none; roll composes innermost, about the travel axis.
-            let (pitch, bank) = if !spline.grounded {
+            // (`0x60a110`), a walker none; roll composes innermost, about the travel axis. A look
+            // the embedder keeps level ([`LevelFlight`]) takes none either.
+            let (pitch, bank) = if level {
+                (0.0, 0.0)
+            } else if !spline.grounded {
                 spline.flight_attitude(now)
             } else if swimming {
                 (pitch, 0.0)
@@ -1118,6 +1135,62 @@ mod under_floor {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// A hover's short flight as the embedder sends it: a few hundredths of a yard ahead in 0.5 s
+    /// (a pet settling at its place), bobbing a quarter yard, a point every 0.125 s; `frac` of the
+    /// way through.
+    fn hover_flight(frac: f32) -> (Spline, Instant) {
+        let points = (0..=4)
+            .map(|k| {
+                let t = k as f32 / 4.0;
+                [100.0 + 0.03 * t, 50.0, 10.0 + 0.25 * (std::f32::consts::TAU * t).sin()]
+            })
+            .collect();
+        let spline = Spline {
+            deck: None,
+            points,
+            start: Instant::now() - Duration::from_secs_f32(0.5 * frac),
+            duration: Duration::from_millis(500),
+            id: 9,
+            grounded: false,
+            run_mode: true,
+        };
+        (spline, Instant::now())
+    }
+
+    /// Why a hovering creature keeps level ([`LevelFlight`]): on a short bobbing flight that barely
+    /// moves ahead, the stock attitude pitches the unit by the bob's climb, nearly straight up or
+    /// down, so it shows flipped over.
+    #[test]
+    fn a_short_bobbing_flight_tilts_a_unit_in_the_stock_attitude() {
+        let most_pitch = (0..=20).map(|k| hover_flight(k as f32 / 20.0)).map(|(s, now)| s.flight_attitude(now).0.abs()).fold(0.0f32, f32::max);
+        assert!(most_pitch > 1.2, "pitched nearly upright by the bob: {most_pitch}");
+    }
+
+    /// A look the embedder keeps level turns to its path's facing and takes no pitch or bank.
+    #[test]
+    fn a_level_flight_look_stays_upright() {
+        for (listed, upright) in [(true, true), (false, false)] {
+            let mut app = App::new();
+            app.init_resource::<Time>();
+            app.insert_resource(LevelFlight(if listed { [14710].into() } else { Default::default() }));
+            app.add_systems(Update, sample_splines);
+            let mut tilted = false;
+            for k in 0..20 {
+                let (s, _) = hover_flight(k as f32 / 20.0);
+                let e = app
+                    .world_mut()
+                    .spawn((s, Transform::default(), NetEntity { kind: EntityKind::Unit, display_id: Some(14710), scale: 1.0 }))
+                    .id();
+                app.update();
+                let r = app.world().get::<Transform>(e).unwrap().rotation;
+                let (_, x, z) = r.to_euler(EulerRot::YXZ);
+                tilted |= x.abs() > 1e-4 || z.abs() > 1e-4;
+                app.world_mut().despawn(e);
+            }
+            assert_eq!(!tilted, upright, "listed: {listed}");
+        }
+    }
 
     /// A spline `frac` of the way through its ride: 10 s duration, started `frac·10 s` ago.
     fn spline_at(points: Vec<[f32; 3]>, grounded: bool, frac: f32) -> (Spline, Instant) {

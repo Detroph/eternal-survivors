@@ -19,6 +19,9 @@ pub enum Pickup {
     BerserkerRune,
     RestorationRune,
     Magnet,
+    /// A battle standard (`game::assists`): the banner of this faction (the party's). A hero
+    /// walking over it summons an ally of the hero's own faction.
+    BattleStandard(esurv_content::Faction),
 }
 
 /// Gold per kill scales with `KILL_SCALE / density`. (Experience per kill is `balance.ron`'s.)

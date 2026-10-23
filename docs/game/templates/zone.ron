@@ -48,7 +48,7 @@
         (
             name: "Gnoll Brute",
             display_id: 377,
-            scale: 1.3,
+            scale: 1.62,               // elites: min(2.0, 6.0 / the model's size) (a Boar, 3.69), drawn at 6 at most (zones.md, "Sizes")
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 5.0,

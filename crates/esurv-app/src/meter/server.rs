@@ -1,6 +1,7 @@
 //! The meter filled from the server ([`ToClient::Meter`], the run clock from [`ToClient::Hud`]):
 //! damage done by the hero's spells, one row each, with its pets, `thorns`, melee and the rest
-//! each gathered on one row, and procs under what gave them
+//! each gathered on one row, an assist's on "Assist: <name>" per character, and procs under what
+//! gave them
 //! (a talent, ring, trinket, amulet, legendary amulet or weapon loadout
 //! by its name); damage taken by enemy, and "Area" for what no enemy dealt. The server sends run
 //! totals, so a reset keeps the totals of that moment and shows what came after.
@@ -41,6 +42,8 @@ pub fn done_row(source: &Source, content: Option<&Content>) -> String {
         Source::Spell(id) => spell_name(id),
         Source::Swing => "Melee".into(),
         Source::Pet(_) => "Pets".into(),
+        // a battle standard's ally: a row per character
+        Source::Assist(name) => format!("Assist: {name}"),
         Source::Proc { spell, origin } => match origin_name(origin, content) {
             Some(name) => name,
             None if *spell == THORNS_SPELL => spell_name("thorns"),
@@ -198,6 +201,18 @@ mod tests {
             done_row,
         );
         assert_eq!(done.get("Pets"), Some(&15), "every pet on one row");
+        // an assist's own row per character, its pets' hits on it too
+        assert_eq!(done_row(&Source::Assist("Vodu".into()), None), "Assist: Vodu");
+        let done = grouped(
+            &[
+                entry(Source::Assist("Vodu".into()), 10),
+                entry(Source::Assist("Ghorktheorc".into()), 4),
+                entry(Source::Assist("Vodu".into()), 5),
+            ],
+            None,
+            done_row,
+        );
+        assert_eq!((done.get("Assist: Vodu"), done.get("Assist: Ghorktheorc")), (Some(&15), Some(&4)));
     }
 
     /// A proc counts under what gave it, by the name the content gives

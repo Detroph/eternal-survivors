@@ -596,6 +596,9 @@ pub enum Source {
     Enemy(String),
     /// Damage taken with no enemy behind it.
     Area,
+    /// An assist (a battle standard's ally), by its character's name: its own hits and its
+    /// summoned pets'.
+    Assist(String),
 }
 
 /// What gave the hero a proc, by content id: the meter names the proc's row after it.
@@ -659,6 +662,7 @@ impl Source {
             Source::Other => o.word("other"),
             Source::Enemy(name) => o.word("enemy").text(name),
             Source::Area => o.word("area"),
+            Source::Assist(name) => o.word("assist").text(name),
         };
     }
 
@@ -671,6 +675,7 @@ impl Source {
             "other" => Source::Other,
             "enemy" => Source::Enemy(r.text()?),
             "area" => Source::Area,
+            "assist" => Source::Assist(r.text()?),
             _ => return None,
         })
     }
@@ -1873,6 +1878,7 @@ mod tests {
                 e(Source::Proc { spell: 0, origin: ProcOrigin::Loadout("sword_and_board".into()) }, 30),
                 e(Source::Proc { spell: 324, origin: ProcOrigin::Spell("lightning_shield".into()) }, 20),
                 e(Source::Other, 12),
+                e(Source::Assist("Vodu".into()), 66),
             ],
             taken: vec![
                 e(Source::Enemy("Riverpaw Gnoll".into()), 412),

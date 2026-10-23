@@ -253,6 +253,11 @@ version is screens.md in the folder above this one.
   show in the buff frame with their counts; hover one to read what it does. Burning Embers
   also float over your hero's head.
 
+  GLOWS. Elites wear a thin purple outline with a soft, slowly pulsing glow, the same look as
+  the picked hero's gold one on the warband screen; rares and the Rare Caches they drop wear it
+  in silver. Bosses and the other enemies have none, and a slain one stops glowing. The Options
+  panel's Interface tab turns them all off at once ("Glow around elites and rares").
+
 
 6. THE ARMORY AND THE CODEX
 ---------------------------
@@ -496,9 +501,24 @@ version is screens.md in the folder above this one.
                 rest), the interface scale, brightness, and the world's detail: view
                 distance, ground and texture detail, spell effects, weather and the shaders
     Sound       sound, music, ambience and their volumes; these change as you move them
-    Interface   the mouse and camera settings, the names over heads, damage numbers, chat
-                bubbles and a few more the game reads itself. "Damage numbers"
-                is Smart or All: Smart, the default, hides your small hits. Every 30
+    Interface   four headed sections, in this order (roll the mouse wheel over them if they
+                don't all fit):
+                  Mouse & Camera     inverting the mouse, click to move, the mouse and
+                                     camera speeds, how the camera follows, its distance
+                                     and the camera boxes
+                  Names              the names over heads
+                  Eternal Survivors  the game's own settings, below, and the boss
+                                     warnings: the warnings, their sound, the boss timer
+                                     bars, showing their handles (hidden, hold Shift to
+                                     drag the bars) and putting the bars back
+                  Misc               chat bubbles, clicking the ground to clear the
+                                     target, clearing away, tips on loading screens and
+                                     pet damage numbers
+                "Glow around elites and rares" (on at first): elites glow purple around
+                their outline, and rares and the Rare Caches they drop glow silver, so the
+                strong enemies stand out in a crowd. Bosses and other enemies never glow.
+                Unticked, every glow hides at once.
+                "Damage numbers" is Smart or All: Smart, the default, hides your small hits. Every 30
                 seconds the game takes the average of your hits, each counted as much as it
                 deals, and for the next 30 seconds hides the numbers below 60 % of it, so only
                 your bigger hits show (in the first 30 seconds every number shows). Crits must pass

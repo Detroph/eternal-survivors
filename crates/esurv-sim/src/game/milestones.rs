@@ -142,7 +142,7 @@ impl Run {
                 .and_then(|p| self.content.pets.iter().find(|x| x.name == p.pet))
                 .map_or((0, School::Physical), |p| (p.ranged_spell.unwrap_or(0), p.school)),
             HitSource::Proc { spell, school, .. } => (*spell, *school),
-            HitSource::WeaponSwing | HitSource::Enemy(_) | HitSource::Other => (0, School::Physical),
+            HitSource::WeaponSwing | HitSource::Enemy(_) | HitSource::Assist(_) | HitSource::Other => (0, School::Physical),
         }
     }
 

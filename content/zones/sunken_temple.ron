@@ -127,7 +127,7 @@
         (
             name: "Nightmare Wanderer",
             display_id: 181,
-            scale: 1.0,
+            scale: 1.08,
             creature_type: Dragonkin,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -135,7 +135,7 @@
         (
             name: "Nightmare Wyrmkin",
             display_id: 7863,
-            scale: 1.2,
+            scale: 1.13,
             creature_type: Dragonkin,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -143,7 +143,7 @@
         (
             name: "Spawn of Hakkar",
             display_id: 4065,
-            scale: 1.3,
+            scale: 0.70,
             creature_type: Beast,
             kind: Elite,
             appears_at_minute: 13.0,

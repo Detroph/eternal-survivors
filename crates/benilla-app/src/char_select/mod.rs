@@ -109,6 +109,11 @@ impl Plugin for CharSelectPlugin {
                     // The near plane it copies is stamped on the world camera there.
                     .after(benilla_world::view::stamp_near_clip),
             )
+            .add_systems(
+                PostUpdate,
+                crate::select_scene::seat_figure_mask_cameras
+                    .after(bevy::transform::TransformSystems::Propagate),
+            )
             .add_message::<crate::select_scene::SelectEnterWorld>()
             .add_message::<crate::select_scene::SelectCreate>()
             .add_message::<crate::select_scene::SelectDelete>()

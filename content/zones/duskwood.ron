@@ -110,7 +110,7 @@
         (
             name: "Nightbane Worgen Alpha",
             display_id: 523,
-            scale: 0.8,
+            scale: 1.55,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -118,7 +118,7 @@
         (
             name: "Carrion Recluse",
             display_id: 366,
-            scale: 2.4,
+            scale: 0.89,
             creature_type: Beast,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -126,7 +126,7 @@
         (
             name: "Flesh Eating Abomination",
             display_id: 15961,
-            scale: 0.45,
+            scale: 0.97,
             creature_type: Undead,
             kind: Elite,
             appears_at_minute: 13.0,

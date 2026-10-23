@@ -345,6 +345,7 @@ impl Game {
                 .map(|s| s.guid)
                 .or_else(|| self.clones.get(&id).filter(|c| c.created).map(|c| c.guid)),
             Unit::Totem(id) => self.totems_shown.get(&id).copied(),
+            Unit::Ally(id) => self.ally_guid_shown(id),
         }
     }
 
@@ -357,6 +358,7 @@ impl Game {
                 .find(|p| p.hero == id)
                 .map(|p| p.saved.name.clone()),
             Unit::Enemy(id) | Unit::Pet(id) => self.shown.get(&id).map(|s| s.name.clone()),
+            Unit::Ally(id) => self.ally_name(id),
             Unit::Totem(_) => Some("Totem".into()),
         }
         .unwrap_or_default()
@@ -612,6 +614,12 @@ impl Game {
                                 ));
                             }
                         }
+                        // an ally's hit: its swing, or under the look it cast
+                        (HitSource::Assist(character), _) => {
+                            if let Some(p) = self.assist_hit(character, *id, target, points(*amount), hero) {
+                                all.push(p);
+                            }
+                        }
                         // an extra life's blast shows no number
                         _ => {}
                     }
@@ -711,6 +719,13 @@ impl Game {
                         own.push((h.id, self.action_bar(h)));
                     }
                 }
+                // an ally yells as it comes and goes
+                Event::Yell { id, text } if self.ally_guid_shown(*id).is_some() => {
+                    if let Some(a) = self.ally_guid_shown(*id) {
+                        all.push(packets::monster_yell(a, &self.name_of(Unit::Ally(*id)), text));
+                    }
+                }
+                ev @ (Event::AllyMoved { .. } | Event::AllyStruck { .. } | Event::AllyLeft { .. }) => self.present_ally_event(ev, &mut all),
                 Event::Yell { id, text } => {
                     if let Some(e) = self.guid_of(Unit::Enemy(*id)) {
                         // a boss played by a hand-made character yells its own line
@@ -809,6 +824,12 @@ impl Game {
             let mut auras = hero_auras(h, now);
             auras.extend(self.stack_auras(h.id));
             auras.extend(worn_looks(&h.kit.worn_looks, now));
+            // an ally's buff on the hero, worn as its look
+            for a in self.ally_marks_on(Unit::Hero(h.id)) {
+                if !auras.iter().any(|x| x.spell == a.spell) {
+                    auras.push(a);
+                }
+            }
             auras.truncate(BUFF_SLOTS);
             let before = self.auras_shown.get(&h.id).cloned().unwrap_or_default();
             if auras == before && !retell {
@@ -902,6 +923,12 @@ impl Game {
                     stacks: 1,
                     until: 0.0,
                 });
+            }
+            // what an ally put on it (Polymorph's sheep, Blind, a bleed), while it holds
+            for a in self.ally_marks_on(Unit::Enemy(e.id)) {
+                if debuffs.len() < DEBUFF_SLOTS && !debuffs.iter().any(|d| d.spell == a.spell) {
+                    debuffs.push(Aura { until: 0.0, ..a });
+                }
             }
             let Some(s) = self.shown.get_mut(&e.id) else {
                 continue;

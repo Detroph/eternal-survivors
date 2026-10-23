@@ -95,6 +95,10 @@ pub enum HitSource {
     Proc { spell: u32, school: esurv_content::School, origin: ProcOrigin },
     /// A blow of an enemy turned on the others (`Milestone::FearedTurn`): the striker's id.
     Enemy(u32),
+    /// An ally a battle standard summoned (`game::assists`), by its character's id in
+    /// `player_characters.ron`: the meter's row "Assist: <name>". The hits of the pets it
+    /// summons stay `Pet` (their `PetUnit::assist` names the character).
+    Assist(String),
     /// Anything else.
     Other,
 }
@@ -110,6 +114,7 @@ impl std::fmt::Debug for HitSource {
             HitSource::Pet(p) => f.debug_tuple("Pet").field(p).finish(),
             HitSource::Proc { spell, school, .. } => f.debug_struct("Proc").field("spell", spell).field("school", school).finish(),
             HitSource::Enemy(e) => f.debug_tuple("Enemy").field(e).finish(),
+            HitSource::Assist(c) => f.debug_tuple("Assist").field(c).finish(),
             HitSource::Other => f.write_str("Other"),
         }
     }
@@ -1503,13 +1508,21 @@ impl Run {
     }
 
     /// Enemy at index `k` died (by hero `hero`, if any): rewards, drops, and the final boss.
-    fn kill(&mut self, k: usize, hero: Option<usize>, source: HitSource) {
+    pub(crate) fn kill(&mut self, k: usize, hero: Option<usize>, source: HitSource) {
+        // an ally's kill is the hero's for its rewards, but sets off nothing of the hero's
+        let sets_off = !matches!(source, HitSource::Assist(_));
+        self.kill_setting_off(k, hero, source, sets_off);
+    }
+
+    /// As `kill`; with `sets_off` false the kill sets off nothing of the hero's (an assist's, its
+    /// pets' too), though its rewards are the hero's.
+    pub(crate) fn kill_setting_off(&mut self, k: usize, hero: Option<usize>, source: HitSource, sets_off: bool) {
         let e = self.enemies.remove(k);
         let at = e.position(self.now);
-        if let Some(h) = hero {
+        if let (Some(h), true) = (hero, sets_off) {
             self.kit_on_kill(h, &e);
         }
-        if let (Some(h), 0) = (hero, self.casting_proc) {
+        if let (Some(h), 0, true) = (hero, self.casting_proc, sets_off) {
             let event = super::milestones::CombatEvent::Kill { at, source, max_health: e.max_health, dots: e.dots.clone() };
             self.milestone_event(h, event);
         }
@@ -1518,7 +1531,7 @@ impl Run {
         if let Some(h) = hero {
             self.heroes[h].kills += 1;
             let per_kill = self.heroes[h].stats.heal_per_kill;
-            if per_kill > 0.0 {
+            if per_kill > 0.0 && sets_off {
                 self.heal_hero(h, per_kill, 0);
             }
         }

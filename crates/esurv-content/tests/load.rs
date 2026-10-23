@@ -24,7 +24,7 @@ fn shipped_content_counts() {
     assert_eq!(c.jewelry.len(), 22);
     assert_eq!(c.jewelry.iter().filter(|j| j.slot == esurv_content::JewelrySlot::Trinket).count(), 13);
     assert_eq!(c.run_options.len(), 4);
-    assert_eq!(c.pets.len(), 25);
+    assert_eq!(c.pets.len(), 26, "25 and the assist's Gargoyle");
     assert_eq!(c.races.len(), 8);
 }
 

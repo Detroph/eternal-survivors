@@ -58,7 +58,8 @@ fn granted_offer(content: &esurv_content::Content, granted: &str) -> Option<Offe
     })
 }
 
-/// A granted rune (`Game::grant`): its kind and how many yards ahead of the hero it lies.
+/// A granted rune, battle standard or rare cache (`Game::grant`): its kind and how many yards
+/// ahead of the hero it lies.
 fn granted_rune(granted: &str) -> Option<(Pickup, f32)> {
     let (name, ahead) = match granted.split_once(':') {
         Some((n, yards)) => (n, yards.trim().parse::<f32>().ok()?),
@@ -68,9 +69,38 @@ fn granted_rune(granted: &str) -> Option<(Pickup, f32)> {
         "speed_rune" => Pickup::SpeedRune,
         "berserker_rune" => Pickup::BerserkerRune,
         "restoration_rune" => Pickup::RestorationRune,
+        // a rare's free cache, as a slain rare drops it
+        "rare_cache" => Pickup::RareCache,
+        // its faction is the party's, set as it is laid
+        "battle_standard" => Pickup::BattleStandard(esurv_content::Faction::Alliance),
         _ => return None,
     };
     Some((kind, ahead))
+}
+
+/// Granted enemies (`Game::grant`): `elites:<n>`, that many of the zone's first roster elite in a
+/// ring round the hero; `rare:<yards>`, a rare copy of it that far ahead (10 without).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum GrantedEnemies {
+    Elites(u32),
+    Rare(f32),
+}
+
+/// How far from the hero granted elites stand, yards.
+const GRANTED_ELITE_RING: f32 = 12.0;
+/// How far ahead a granted rare stands without `:<yards>`.
+const GRANTED_RARE_AHEAD: f32 = 10.0;
+
+fn granted_enemies(granted: &str) -> Option<GrantedEnemies> {
+    let (name, n) = match granted.split_once(':') {
+        Some((name, n)) => (name.trim(), Some(n.trim())),
+        None => (granted.trim(), None),
+    };
+    match name {
+        "elites" => Some(GrantedEnemies::Elites(n.map_or(Some(1), |n| n.parse().ok())?)),
+        "rare" => Some(GrantedEnemies::Rare(n.map_or(Some(GRANTED_RARE_AHEAD), |n| n.parse().ok())?)),
+        _ => None,
+    }
 }
 
 /// The player field (an equipment or backpack slot's) of equipment slot `slot`.
@@ -85,22 +115,55 @@ fn pack_field(slot: u16) -> u16 {
 
 impl Game {
     /// Gives `hero` `granted` from the start of its run (a dev switch, `ESURV_GRANT`, for a
-    /// live look): rings, trinkets and amulets put on as taking their cards does, and runes laid
-    /// on the ground (`speed_rune`, `berserker_rune`, `restoration_rune`, `:<yards>` ahead of the
-    /// hero, where it faces; at its feet without). A name that is none of these is skipped.
+    /// live look): rings, trinkets and amulets put on as taking their cards does; runes, a battle
+    /// standard or a rare's cache laid on the ground (`speed_rune`, `berserker_rune`,
+    /// `restoration_rune`, `battle_standard`, `rare_cache`, `:<yards>` ahead of the hero, where
+    /// it faces; at its feet without); and the zone's first roster elite brought in, `elites:<n>`
+    /// of them in a ring round the hero or `rare:<yards>`, a rare copy of it that far ahead. A
+    /// name that is none of these is skipped.
     pub fn grant(&mut self, hero: u32, granted: &[String]) {
         let content = self.run.content.clone();
         for g in granted {
-            if let Some((kind, ahead)) = granted_rune(g) {
+            if let Some(enemies) = granted_enemies(g) {
+                self.grant_enemies(hero, enemies);
+            } else if let Some((kind, ahead)) = granted_rune(g) {
                 if let Some(h) = self.run.heroes.iter().find(|h| h.id == hero) {
                     let at = (
                         h.pos.0 + h.facing.cos() * ahead,
                         h.pos.1 + h.facing.sin() * ahead,
                     );
+                    let kind = match kind {
+                        Pickup::BattleStandard(_) => Pickup::BattleStandard(self.run.party_faction),
+                        k => k,
+                    };
                     self.run.lay_pickup(kind, at);
                 }
             } else if let Some(offer) = granted_offer(&content, g) {
                 self.run.grant(hero, offer);
+            }
+        }
+    }
+
+    /// Brings granted elites or a rare in round `hero` (none when the zone has no elite).
+    fn grant_enemies(&mut self, hero: u32, enemies: GrantedEnemies) {
+        let zone = &self.run.content.zones[self.run.zone];
+        let Some(elite) = (0..zone.enemies.len()).find(|&i| esurv_sim::game::rares::is_elite(zone, i)) else {
+            return;
+        };
+        let Some(h) = self.run.heroes.iter().find(|h| h.id == hero) else {
+            return;
+        };
+        let (pos, facing) = (h.pos, h.facing);
+        let at = |angle: f32, yards: f32| (pos.0 + angle.cos() * yards, pos.1 + angle.sin() * yards);
+        match enemies {
+            GrantedEnemies::Elites(n) => {
+                for i in 0..n {
+                    let angle = facing + std::f32::consts::TAU * i as f32 / n.max(1) as f32;
+                    self.run.spawn_roster_enemy(elite, Some(at(angle, GRANTED_ELITE_RING)));
+                }
+            }
+            GrantedEnemies::Rare(ahead) => {
+                self.run.spawn_rare(elite, Some(at(facing, ahead)));
             }
         }
     }
@@ -253,6 +316,13 @@ mod tests {
             Some((Pickup::RestorationRune, 0.0))
         );
         assert_eq!(granted_rune("speed_rune:far"), None);
+        assert_eq!(granted_rune("rare_cache:6"), Some((Pickup::RareCache, 6.0)));
+        assert_eq!(granted_enemies("elites:30"), Some(GrantedEnemies::Elites(30)));
+        assert_eq!(granted_enemies("elites"), Some(GrantedEnemies::Elites(1)));
+        assert_eq!(granted_enemies("rare"), Some(GrantedEnemies::Rare(GRANTED_RARE_AHEAD)));
+        assert_eq!(granted_enemies("rare:7"), Some(GrantedEnemies::Rare(7.0)));
+        assert_eq!(granted_enemies("elites:many"), None);
+        assert_eq!(granted_enemies("speed_rune"), None);
         assert_eq!(granted_rune("accuria"), None);
     }
 }

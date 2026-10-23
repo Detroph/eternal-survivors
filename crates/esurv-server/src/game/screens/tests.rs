@@ -1123,3 +1123,26 @@ fn a_boss_counter_reaches_the_hud_as_a_bar_that_does_not_count() {
     assert_eq!((b.boss, b.key, b.label.as_str()), (7, 91, "Guards left 5/8"));
     assert!(b.seconds < 0.0);
 }
+
+/// An assist's hits count on a row of its own per character, by the character's name; the pets
+/// an ally summoned count on its row too.
+#[test]
+fn the_meter_counts_each_assist_on_its_own_row() {
+    let (mut game, _client, _) = game();
+    let hero = game.hero_id(0);
+    game.ask(hero, hello(Screens::default()));
+    let characters: Vec<(String, String)> = game.run.content.player_characters.iter().take(2).map(|c| (c.id.clone(), c.name.clone())).collect();
+    let hit = |amount, source| Event::EnemyHit { id: 1, amount, crit: false, by: Some(hero), source };
+    let events = [
+        hit(10.0, HitSource::Assist(characters[0].0.clone())),
+        hit(4.0, HitSource::Assist(characters[1].0.clone())),
+        hit(5.0, HitSource::Assist(characters[0].0.clone())),
+    ];
+    let t = told(&game.settle(&events));
+    let Some(ToClient::Meter(m)) = t.iter().find(|m| matches!(m, ToClient::Meter(_))) else {
+        panic!("{t:?}")
+    };
+    let mut done: Vec<(Source, u64)> = m.done.iter().map(|e| (e.source.clone(), e.amount)).collect();
+    done.sort_by_key(|(_, a)| std::cmp::Reverse(*a));
+    assert_eq!(done, [(Source::Assist(characters[0].1.clone()), 15), (Source::Assist(characters[1].1.clone()), 4)]);
+}

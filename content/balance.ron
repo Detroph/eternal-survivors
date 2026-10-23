@@ -90,4 +90,22 @@
         buffs: 1.0,
         defensive: 1.0,
     ),
+    // The battle standard (docs/game/assists.md): walked over, it summons one hand-made player
+    // character of the hero's faction (player_characters.ron, one not yet summoned this run while
+    // others remain), drawn ally_scale times its size, to assist for at most assist_seconds unless
+    // its script gives a longer time. A run lays per_run (fewest, most; picked at random each run),
+    // each at a random time between the first elite and the final boss, on the caches' ring,
+    // lying until taken; in Endless one more every endless_every seconds. Never in never_in
+    // (Warsong Gulch: there these characters are the bosses). Its look is the hero's faction's
+    // battle standard (CreatureDisplayInfo.dbc: Alliance 14541, Horde 14542), planted
+    // with its faction's Battle Standard spell's look (Spell.dbc 23034, 23035).
+    battle_standard: (
+        per_run: (1, 2),
+        endless_every: 600.0,
+        never_in: ["wsg"],
+        display: (alliance: 14541, horde: 14542),
+        planted_look: (alliance: 23034, horde: 23035),
+        ally_scale: 2.0,
+        assist_seconds: 10.0,
+    ),
 )

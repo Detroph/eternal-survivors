@@ -110,7 +110,7 @@
         (
             name: "Gurubashi Berserker",
             display_id: 591,
-            scale: 1.3,
+            scale: 1.54,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -118,7 +118,7 @@
         (
             name: "Zulian Crocolisk",
             display_id: 807,
-            scale: 1.5,
+            scale: 0.71,
             creature_type: Beast,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -126,7 +126,7 @@
         (
             name: "Gurubashi Champion",
             display_id: 593,
-            scale: 1.4,
+            scale: 1.54,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 13.0,

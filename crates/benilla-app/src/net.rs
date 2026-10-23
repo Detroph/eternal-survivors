@@ -48,6 +48,7 @@ pub(crate) use motion::{
 // Not a `cfg`: seam knowledge lives in three fixed places, and this file is not one of them.
 #[allow(unused_imports)]
 pub(crate) use motion::GroundClamped;
+pub use motion::LevelFlight;
 
 /// The net subsystem: spawns the background IO threads and drives the per-frame event drain.
 pub(crate) struct NetPlugin {

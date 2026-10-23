@@ -95,6 +95,7 @@ impl Game {
             shown.stacks.clear();
         }
         cleared.extend(self.clear_pickups());
+        cleared.extend(self.forget_allies());
         cleared.extend(self.clear_ground_looks());
         cleared.extend(self.forget_boss_looks());
         self.forget_indicators();

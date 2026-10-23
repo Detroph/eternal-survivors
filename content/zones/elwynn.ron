@@ -111,7 +111,7 @@
         (
             name: "Kobold Taskmaster",
             display_id: 163,
-            scale: 1.6,
+            scale: 2.00,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -119,7 +119,7 @@
         (
             name: "Gruff Swiftbite",
             display_id: 246,
-            scale: 1.3,
+            scale: 1.66,
             creature_type: Beast,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -127,7 +127,7 @@
         (
             name: "Bellygrub",
             display_id: 377,
-            scale: 1.8,
+            scale: 1.62,
             creature_type: Beast,
             kind: Elite,
             appears_at_minute: 13.0,
