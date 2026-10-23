@@ -170,7 +170,7 @@
         (
             name: "Crypt Beast",
             display_id: 9758,
-            scale: 1.0,
+            scale: 0.93,
             creature_type: Undead,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -178,7 +178,7 @@
         (
             name: "Bile Spewer",
             display_id: 9760,
-            scale: 1.0,
+            scale: 0.97,
             creature_type: Undead,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -190,7 +190,7 @@
             weapons: (
                 main_hand: Some((kind: TwoHandedSword, display: 23355, inventory_type: 17, sheath: 1, material: 1)),
             ),
-            scale: 1.0,
+            scale: 1.86,
             creature_type: Undead,
             kind: Elite,
             appears_at_minute: 13.0,

@@ -1321,6 +1321,8 @@ impl Run {
                 next_decision: now,
                 next_swing: now,
                 target,
+                assist: None,
+                assist_damage: None,
                 summon: Some(Summoned {
                     kind: spec.kind,
                     spells: spec.spells.clone(),

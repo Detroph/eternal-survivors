@@ -57,9 +57,9 @@ pub(super) struct PlayerShape {
     pub name: String,
     /// A hand-made character's own yell, said in place of its boss's.
     pub yell: Option<String>,
-    race: u8,
-    class: u8,
-    gender: u8,
+    pub race: u8,
+    pub class: u8,
+    pub gender: u8,
     power: u8,
     /// skin, face, hair style, hair colour, facial hair.
     looks: [u8; 5],
@@ -67,6 +67,22 @@ pub(super) struct PlayerShape {
     native: u32,
     /// (equipment slot, item entry) of every piece it shows.
     items: Vec<(u8, u32)>,
+}
+
+impl PlayerShape {
+    /// The fields that draw a player as this shape: its race, class, gender and power, its model
+    /// (a form's over its race's), every piece it shows, and its face and hair.
+    pub(super) fn dress(&self, f: &mut Fields) {
+        f.bytes(field::UNIT_BYTES_0, [self.race, self.class, self.gender, self.power]);
+        f.u32(field::UNIT_DISPLAYID, self.display).u32(field::UNIT_NATIVEDISPLAYID, self.native);
+        for &(slot, entry) in &self.items {
+            f.u32(field::PLAYER_VISIBLE_ITEM_1_0 + u16::from(slot) * field::PLAYER_VISIBLE_ITEM_STRIDE, entry);
+        }
+        let l = self.looks;
+        f.bytes(field::PLAYER_BYTES, [l[0], l[1], l[2], l[3]])
+            .bytes(field::PLAYER_BYTES_2, [l[4], 0, 0, REST_STATE_NORMAL])
+            .u32(field::PLAYER_BYTES_3, self.gender.into());
+    }
 }
 
 impl Game {
@@ -177,7 +193,7 @@ impl Game {
     /// Hand-made character `c` as a boss shown with id `id`: its race, looks, its own name (a boss
     /// carries no title) and gear, its class's PvP looks (with the rank
     /// set when ranked) under any piece written for it.
-    fn character_shape(&self, c: &PlayerCharacter, rank: Option<&esurv_content::RankTitles>, id: u32) -> Option<PlayerShape> {
+    pub(super) fn character_shape(&self, c: &PlayerCharacter, rank: Option<&esurv_content::RankTitles>, id: u32) -> Option<PlayerShape> {
         let content = &self.run.content;
         let race = content.races.iter().find(|r| r.id == c.race)?;
         let class = content.class(&c.class)?;
@@ -240,20 +256,12 @@ impl Game {
             .f32(field::OBJECT_SCALE_X, scale);
         f.u32(field::UNIT_HEALTH, whole(e.health)).u32(field::UNIT_MAXHEALTH, whole(e.max_health));
         f.u32(field::UNIT_LEVEL, self.enemy_level()).u32(field::UNIT_FACTIONTEMPLATE, ENEMY_FACTION);
-        f.bytes(field::UNIT_BYTES_0, [shape.race, shape.class, shape.gender, shape.power]);
         f.f32(field::UNIT_BOUNDINGRADIUS, e.collision_radius).f32(field::UNIT_COMBATREACH, PLAYER_COMBAT_REACH);
-        f.u32(field::UNIT_DISPLAYID, shape.display).u32(field::UNIT_NATIVEDISPLAYID, shape.native);
         f.u32(field::UNIT_BASEATTACKTIME, (e.attack_interval * 1000.0) as u32).f32(field::UNIT_MOD_CAST_SPEED, 1.0);
         if let Some(carried) = self.carried_aura(i) {
             f.extend(&carried);
         }
-        for &(slot, entry) in &shape.items {
-            f.u32(field::PLAYER_VISIBLE_ITEM_1_0 + u16::from(slot) * field::PLAYER_VISIBLE_ITEM_STRIDE, entry);
-        }
-        let l = shape.looks;
-        f.bytes(field::PLAYER_BYTES, [l[0], l[1], l[2], l[3]])
-            .bytes(field::PLAYER_BYTES_2, [l[4], 0, 0, REST_STATE_NORMAL])
-            .u32(field::PLAYER_BYTES_3, shape.gender.into());
+        shape.dress(&mut f);
         let living = Living {
             position: [at.0, at.1, self.ground_z(at)],
             facing: facing_of(&e.segment),

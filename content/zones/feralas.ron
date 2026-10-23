@@ -137,7 +137,7 @@
             weapons: (
                 main_hand: Some((kind: TwoHandedMace, display: 3879, inventory_type: 17, sheath: 1, material: 2)),
             ),
-            scale: 0.8,
+            scale: 1.26,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -145,7 +145,7 @@
         (
             name: "Warpwood Treant",
             display_id: 2078,
-            scale: 0.6,
+            scale: 1.23,
             creature_type: Elemental,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -154,7 +154,7 @@
             name: "Ironbark Protector",
             // vmangos's model, at its own size
             display_id: 13489,
-            scale: 1.0,
+            scale: 0.48,
             creature_type: Elemental,
             kind: Elite,
             appears_at_minute: 13.0,

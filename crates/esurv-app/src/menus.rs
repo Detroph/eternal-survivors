@@ -27,7 +27,7 @@ mod codex;
 mod dev;
 mod facts;
 mod options;
-mod outline;
+pub(crate) mod outline;
 mod over_the_run;
 mod preview;
 mod save_files;

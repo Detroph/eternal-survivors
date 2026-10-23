@@ -430,6 +430,8 @@ pub enum Unit {
     Enemy(u32),
     Pet(u32),
     Totem(u32),
+    /// An ally a battle standard summoned (`game::assists`), by its id in `Event::AllySummoned`.
+    Ally(u32),
 }
 
 /// Where a spell visual is aimed.
@@ -582,6 +584,33 @@ pub enum Event {
     /// A boss's counter `key` reads `label` (the adds it waits on: "Guards left 5/8"); a bar
     /// that does not count down.
     CounterShown { boss: u32, key: u32, label: String },
+    /// A battle standard summoned an ally for hero `hero` (`game::assists`, docs/game/assists.md):
+    /// hand-made player character `character` (its id in `player_characters.ron`) appears at `at`
+    /// facing `facing`, drawn `scale` times its size, arriving `how` with `look_spell` played on
+    /// it. Its `yell` (if any) follows as a `Yell` with the same id. It is `Unit::Ally(id)` in
+    /// every other event.
+    AllySummoned { id: u32, hero: u32, character: String, at: Vec2, facing: f32, how: esurv_content::Appear, look_spell: Option<u32>, scale: f32 },
+    /// The ally goes from where it stands to `to`, facing `facing`, there at run second `until`
+    /// (`Blink` and `Step`: at once); `look_spell` played on it as it goes (a charge's look).
+    AllyMoved { id: u32, to: Vec2, facing: f32, how: super::assists::AllyMove, until: f32, look_spell: Option<u32> },
+    /// The ally strikes enemy `target` in melee (the client plays its swing). Its spell looks
+    /// come as `SpellGo` with `caster: Unit::Ally(id)`.
+    AllySwing { id: u32, target: u32 },
+    /// The ally's taunt holds (`true`: the taunted enemies come at it), or no longer does.
+    AllyTaunting { id: u32, taunting: bool },
+    /// Enemy `by`, taunted, strikes the ally (it takes no damage).
+    AllyStruck { id: u32, by: u32 },
+    /// The ally left something that stays after it goes: `unit` is a `Unit::Pet` (just after its
+    /// `PetSummoned`) or a `Unit::Totem` (in `Run::totems`). Its lasting ground areas come as
+    /// `AreaShown` with `caster: Unit::Ally(id)`.
+    AllyDropped { id: u32, unit: Unit },
+    /// The ally goes, `how`, with `look_spell` (in place of the way's own look) played on it;
+    /// `to`: where it runs off to (`Leave::RunAway`), else `None`. Its `death_yell`, if it has
+    /// one, comes just before as a `Yell` with the same id.
+    AllyLeft { id: u32, how: esurv_content::Leave, look_spell: Option<u32>, to: Option<Vec2> },
+    /// `target` wears `spell`'s aura until run second `until` (an ally's marks on enemies, its
+    /// buffs' looks on the hero, its effects over time); `from` put it there.
+    AuraShown { target: Unit, spell: u32, until: f32, from: Unit },
     Defeat,
     Victory,
 }
@@ -675,6 +704,8 @@ pub struct Run {
     /// Figures to rise later (`game::boss_phases`): when, which, round where.
     pub cameos_due: Vec<(f32, esurv_content::ScriptAction, Vec2)>,
     /// The attack damage the boss whose death lines are running fell with, and its id.
+    /// Battle standards and the allies they summon (`game::assists`).
+    pub assists: super::assists::Assists,
     pub(crate) fallen_attack: f32,
     pub(crate) fallen_boss: Option<u32>,
     next_id: u32,
@@ -750,6 +781,7 @@ impl Run {
             extras: Default::default(),
             beams: Vec::new(),
             cameos_due: Vec::new(),
+            assists: Default::default(),
             fallen_attack: 0.0,
             fallen_boss: None,
             next_id: 10,
@@ -1257,6 +1289,7 @@ impl Run {
         self.spells_tick(dt);
         self.periodic_milestones_tick();
         self.pets_tick();
+        self.assists_tick();
         self.effects_tick();
         self.enemies_tick(dt);
         self.enemy_hits_tick();
@@ -1294,9 +1327,11 @@ impl Run {
         let old_max = h.stats.max_health;
         let buffs = self.milestone_buff_modifiers(i);
         let kit = self.kit_modifiers(i);
+        let assisted = self.assist_modifiers(i);
         let h = &mut self.heroes[i];
         mods.extend(buffs);
         mods.extend(kit);
+        mods.extend(assisted);
         h.stats = compute(c, h.progress.level, &mods);
         if h.stats.max_health > old_max {
             h.health += h.stats.max_health - old_max;
@@ -1395,6 +1430,8 @@ impl Run {
             }
             return;
         }
+        // an ally's taunt: it goes for the ally instead of the hero (`game::assists`)
+        let taunt = self.taunted_by(self.enemies[k].id);
         let e = &mut self.enemies[k];
         if now < e.charging_until {
             return;
@@ -1421,6 +1458,13 @@ impl Run {
             }
             return;
         }
+        if let Some((ally, at)) = taunt {
+            // a cast under way is dropped
+            e.casting_until = None;
+            self.taunted_enemy_tick(k, pos, ally, at, speed, dt);
+            return;
+        }
+        let e = &mut self.enemies[k];
         // a ranged caster stands while casting; the shot leaves when the cast ends
         if let Some(until) = e.casting_until {
             if now >= until {

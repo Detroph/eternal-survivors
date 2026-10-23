@@ -135,7 +135,7 @@
         (
             name: "Core Hound",
             display_id: 10193,
-            scale: 0.9,
+            scale: 0.65,
             creature_type: Beast,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -143,7 +143,7 @@
         (
             name: "Black Drake",
             display_id: 6377,
-            scale: 0.4,
+            scale: 0.36,
             creature_type: Dragonkin,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -151,7 +151,7 @@
         (
             name: "Molten Giant",
             display_id: 12162,
-            scale: 0.6,
+            scale: 0.56,
             creature_type: Giant,
             kind: Elite,
             appears_at_minute: 13.0,

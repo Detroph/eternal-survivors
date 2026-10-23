@@ -142,7 +142,14 @@ the lower left.
      exist only in the world session's Lua interface, which is built when a hero enters the world,
      so a panel of ours in this look stands in for them before a run, reading and writing the same
      settings through the same calls they make (key bindings need the Lua interface: they are
-     set in a run, from the Escape menu's Options, below). Its fourth tab, **Saves** (design step 6), exports and imports the save: the
+     set in a run, from the Escape menu's Options, below). Its tabs are Video, Sound, Interface
+     and Saves. The Interface tab has four headed sections, in order (they scroll with the wheel
+     when they don't fit): **Mouse & Camera**, **Names**, **Eternal Survivors** (show damage
+     numbers, Damage numbers, Check for updates, **Glow around elites and rares**, on by default:
+     elites glow purple, rares and the Rare Caches they drop silver; then the boss warnings,
+     their sound, the boss timer bars, their handles and putting them back) and **Misc** (chat
+     bubbles, deselecting on clicking the ground, clearing away, loading-screen tips, pet damage
+     numbers). Its fourth tab, **Saves** (design step 6), exports and imports the save: the
      game has no file dialog, so the save goes to and comes from one fixed folder beside it
      (`saves/exports`), shown on the tab; **Export save** writes a dated copy there, the folder's
      saves are listed newest first with how many heroes each holds (or that it is no save the game

@@ -161,6 +161,63 @@ pub struct Balance {
     /// One multiplier per spell tag; all 1 when missing.
     #[serde(default)]
     pub spell_tags: SpellTagCoefficients,
+    /// The battle standard pickup, which summons an assist.
+    #[serde(default)]
+    pub battle_standard: BattleStandardRules,
+}
+
+/// The battle standard (`balance.ron` `battle_standard`; docs/game/assists.md): a pickup lying on
+/// the caches' ring until a hero walks over it, which summons a hand-made player character of the
+/// hero's faction to assist. A run lays `per_run.0` to `per_run.1` of them (picked at random each
+/// run), each at a random time between the first elite and the final boss; in Endless one more
+/// comes every `endless_every` seconds. None ever lies in the zones `never_in`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct BattleStandardRules {
+    pub per_run: (u32, u32),
+    pub endless_every: f32,
+    #[serde(default)]
+    pub never_in: Vec<String>,
+    /// Its look, the hero's faction's Alterac battle standard planted in the ground
+    /// (`CreatureDisplayInfo.dbc`: Alliance 14541, Horde 14542).
+    pub display: FactionDisplay,
+    /// The look played on it as it is planted: its faction's Battle Standard spell (`Spell.dbc`).
+    pub planted_look: FactionDisplay,
+    /// The summoned ally is drawn this many times its normal size.
+    pub ally_scale: f32,
+    /// An assist lasts at most this long (seconds) unless its script gives a longer `seconds`.
+    pub assist_seconds: f32,
+}
+
+impl Default for BattleStandardRules {
+    /// The shipped rules, with no zone left out (content built in code may lack Warsong).
+    fn default() -> Self {
+        Self {
+            per_run: (1, 2),
+            endless_every: 600.0,
+            never_in: Vec::new(),
+            display: FactionDisplay { alliance: 14541, horde: 14542 },
+            planted_look: FactionDisplay { alliance: 23034, horde: 23035 },
+            ally_scale: 2.0,
+            assist_seconds: 10.0,
+        }
+    }
+}
+
+/// A look for each faction: `alliance` for Alliance heroes, `horde` for Horde heroes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FactionDisplay {
+    pub alliance: u32,
+    pub horde: u32,
+}
+
+impl FactionDisplay {
+    /// The look of `faction`.
+    pub fn of(self, faction: Faction) -> u32 {
+        match faction {
+            Faction::Alliance => self.alliance,
+            Faction::Horde => self.horde,
+        }
+    }
 }
 
 /// The run's experience numbers (`balance.ron`).
@@ -375,6 +432,7 @@ impl Default for Balance {
             live_cap: (60.0, 120.0),
             experience: ExperienceRules::default(),
             spell_tags: SpellTagCoefficients::default(),
+            battle_standard: BattleStandardRules::default(),
         }
     }
 }
@@ -587,8 +645,10 @@ pub struct PvpLooks {
     pub player_names: Vec<String>,
 }
 
-/// A hand-made player character (`player_characters.ron`): who it is
-/// and how it looks, for the bosses that are played by one (`played_by`) and the mechanics to come.
+/// A hand-made player character (`player_characters.ron`): who it is,
+/// how it looks and how it assists. Every one is a Warsong boss of its faction (`played_by`) and
+/// an assist a battle standard summons for heroes of its faction; this list is the only place a
+/// character lives.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PlayerCharacter {
     pub id: String,
@@ -620,12 +680,14 @@ pub struct PlayerCharacter {
     /// own death yell).
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub death_yell: String,
-    /// How it assists a hero, as described: for the
-    /// mechanic still to be designed, which will make it behaviour; read by nothing yet. An assist
-    /// lasts at most 10 sec unless its description gives another time.
+    /// How it assists a hero, described as a player reads it (`assist_script` is what it does).
     /// The client's names in it are pointers (`{Spell(1856)}`), shown as the content loads.
     #[serde(default)]
     pub assist: String,
+    /// What it does when a battle standard summons it beside a hero of its faction
+    /// (docs/game/assists.md); missing: its class's (and form's) default in `class_assists.ron`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub assist_script: Option<crate::AssistScript>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -2702,6 +2764,10 @@ pub struct Pet {
     /// state look plays on its body (the Phoenix burns).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aura: Option<u32>,
+    /// A pet that flies: it hovers this many yards above the ground, bobbing gently. Missing: it
+    /// walks on the ground.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub hover: Option<f32>,
 }
 
 impl Pet {

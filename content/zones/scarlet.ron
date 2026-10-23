@@ -172,7 +172,7 @@
             weapons: (
                 main_hand: Some((kind: OneHandedMace, display: 5224, inventory_type: 21, sheath: 3, material: 2)),
             ),
-            scale: 1.2,
+            scale: 1.92,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -185,7 +185,7 @@
                 main_hand: Some((kind: OneHandedMace, display: 7478, inventory_type: 13, sheath: 3, material: 2)),
                 off_hand: Some((kind: Shield, display: 1705, inventory_type: 14, sheath: 4, material: 1)),
             ),
-            scale: 1.2,
+            scale: 2.00,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -197,7 +197,7 @@
             weapons: (
                 main_hand: Some((kind: Polearm, display: 7437, inventory_type: 17, sheath: 2, material: 1)),
             ),
-            scale: 1.2,
+            scale: 1.92,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 13.0,

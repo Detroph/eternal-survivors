@@ -6,10 +6,11 @@ Design and reference docs for Eternal Survivors. Each reference has a plain-lang
 | Doc | Guide | What |
 |---|---|---|
 | [design.md](design.md) | | Architecture, ground rules, and the build steps |
-| [AUTHORING.md](AUTHORING.md) | | How to add or change content with data alone: a worked example for a zone, enemy kind, boss, class, spell, talent, gear, ring or trinket, amulet and race passive; the shared-number files; the rules authors must know; what is still code. Templates: [templates/](templates) |
+| [AUTHORING.md](AUTHORING.md) | | How to add or change content with data alone: a worked example for a zone, enemy kind, boss, class, spell, talent, gear, ring or trinket, amulet, race passive and player character with its assist; the shared-number files; the rules authors must know; what is still code. Templates: [templates/](templates) |
 | [zones.md](zones.md) | [guides/zones.txt](guides/zones.txt) | Zones, enemies, bosses, rares, and how difficulty rises between zones; how to add one (a file per zone; copy [templates/zone.ron](templates/zone.ron)) |
 | [enemy-weapons.md](enemy-weapons.md) | | What each creature enemy and boss holds (vmangos's equipment), and how the client shows and swings it |
 | [gear.md](gear.md) | [guides/gear.txt](guides/gear.txt) | Class gear, drops, caches, jewelry, amulets and pickups; how to add or change gear |
+| [assists.md](assists.md) | | The battle standard pickup and the assists it summons: the hand-made player characters (one list for the Warsong bosses and the assists), their scripts and the class defaults |
 | [bosses.md](bosses.md) | [guides/bosses.txt](guides/bosses.txt) | How to make a boss and add, change or remove its abilities; copy [templates/boss.ron](templates/boss.ron) |
 | [spells.md](spells.md) | [guides/spells.txt](guides/spells.txt) | How to make a spell, field by field; copy [templates/spell.ron](templates/spell.ron); spell categories and changing a whole kind of spell at once |
 | [classes.md](classes.md) | [guides/classes.txt](guides/classes.txt) | Classes, races, hero stats, spells and their delivery kinds, cards, talents; how to add them |

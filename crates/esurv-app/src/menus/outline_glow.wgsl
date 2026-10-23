@@ -5,8 +5,9 @@
 
 #import bevy_ui::ui_vertex_output::UiVertexOutput
 
-// The gold, in gamma bytes, and the strength of the glow (alpha).
-@group(1) @binding(0) var<uniform> gold: vec4<f32>;
+// The colour, in gamma bytes, and the strength of the glow (alpha): the hero's gold, or an
+// enemy's purple or silver (`enemy_glow`), each from its own mask.
+@group(1) @binding(0) var<uniform> colour: vec4<f32>;
 // x: the edge's width, y: the glow's reach (both in pixels at 1080 rows), z: the pulse's depth,
 // w: the time, seconds.
 @group(1) @binding(1) var<uniform> params: vec4<f32>;
@@ -52,7 +53,7 @@ fn fragment(in: UiVertexOutput) -> @location(0) vec4<f32> {
     }
     let pulse = 1.0 - params.z * (0.5 + 0.5 * sin(params.w * 1.7));
     let rim = select(0.0, 1.0, near <= edge);
-    let glow = exp(-2.5 * (near - 1.0) / reach) * gold.a;
+    let glow = exp(-2.5 * (near - 1.0) / reach) * colour.a;
     let strength = clamp(max(rim * 0.9, glow) * pulse, 0.0, 1.0);
-    return vec4<f32>(gold.rgb, strength);
+    return vec4<f32>(colour.rgb, strength);
 }

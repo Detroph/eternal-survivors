@@ -437,6 +437,15 @@ fn creature_info(content: &Content, entry: u32) -> Option<CreatureInfo> {
             display_id: game::BUNNY_DISPLAY,
         });
     }
+    if entry == crate::entries::BATTLE_STANDARD {
+        return Some(CreatureInfo {
+            name: game::STANDARD_NAME.into(),
+            subname: String::new(),
+            creature_type: 0,
+            rank: RANK_NORMAL,
+            display_id: content.balance.battle_standard.display.alliance,
+        });
+    }
     if entry == game::ORB_ENTRY {
         let look = game::orb_look(esurv_sim::game::loot::OrbSize::Small);
         return Some(CreatureInfo {

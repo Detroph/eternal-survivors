@@ -53,7 +53,9 @@ impl Game {
         let owner = self.run.heroes.get(t.hero)?;
         let made_by = self.guid_of(Unit::Hero(owner.id)).unwrap_or(0);
         let guid = unit_guid(TOTEM_ENTRY, t.id);
-        let display = totem_look(&self.run.content.races[owner.race], totem_display(&t.spell));
+        // an ally's totem takes its own race's look
+        let race = self.totem_race(t.id).unwrap_or(owner.race);
+        let display = totem_look(&self.run.content.races[race], totem_display(&t.spell));
         let mut f = Fields::new();
         f.u64(field::OBJECT_GUID, guid)
             .u32(field::OBJECT_TYPE, TYPE_OBJECT | TYPE_UNIT)

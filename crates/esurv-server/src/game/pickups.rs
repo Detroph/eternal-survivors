@@ -5,6 +5,7 @@
 
 use std::collections::HashSet;
 
+use esurv_content::{Faction, FactionDisplay};
 use esurv_sim::game::loot::{orb_size, OrbSize, Pickup};
 use esurv_sim::game::pickups::FieldPickup;
 
@@ -61,8 +62,9 @@ pub fn orb_look(size: OrbSize) -> Look {
     }
 }
 
-/// The look of a pickup of `kind`; `orb` sizes an experience orb and is ignored otherwise.
-pub fn look(kind: Pickup, orb: OrbSize) -> Look {
+/// The look of a pickup of `kind`; `orb` sizes an experience orb and is ignored otherwise;
+/// `standards` are the battle standards' looks (`balance.ron` `battle_standard.display`).
+pub fn look(kind: Pickup, orb: OrbSize, standards: FactionDisplay) -> Look {
     let go = |entry, display, scale, go_type, name| Look {
         entry,
         display,
@@ -81,6 +83,16 @@ pub fn look(kind: Pickup, orb: OrbSize) -> Look {
         Pickup::BerserkerRune => go(entries::BERSERKER_RUNE, 5995, 1.0, GO_TYPE_GENERIC, "Berserker Rune"),
         Pickup::RestorationRune => go(entries::RESTORATION_RUNE, 5991, 1.0, GO_TYPE_GENERIC, "Restoration Rune"),
         Pickup::Magnet => go(entries::MAGNET, 342, 1.3, GO_TYPE_GENERIC, "Magnet"),
+        // its faction's Alterac battle standard, a creature model planted in the ground: a unit
+        // that cannot be targeted, as the orb
+        Pickup::BattleStandard(f) => Look {
+            entry: entries::BATTLE_STANDARD,
+            display: standards.of(f),
+            scale: STANDARD_SCALE,
+            go_type: None,
+            flags: 0,
+            name: STANDARD_NAME,
+        },
     }
 }
 
@@ -104,8 +116,52 @@ pub const MAGNET_BEAM: [Look; 2] = [
     },
 ];
 
+/// A battle standard is drawn this size.
+pub const STANDARD_SCALE: f32 = 1.0;
+/// The soft glow under a battle standard, in its faction's colour: a short blue aura for the
+/// Alliance, a short red one for the Horde (`GameObjectDisplayInfo.dbc` 263 `AuraBlueShort`,
+/// 1308 `AuraRedShort`), drawn this size.
+pub const STANDARD_GLOW: FactionDisplay = FactionDisplay { alliance: 263, horde: 1308 };
+pub const STANDARD_GLOW_SCALE: f32 = 1.0;
+pub const STANDARD_NAME: &str = "Warband Standard";
+
+/// The glow under a battle standard, of look `display`: a game object of an entry of its own per
+/// look (`entries::BATTLE_STANDARDS_FROM`), so the game-object query answers it.
+pub fn standard_look(display: u32, scale: f32, flags: u32) -> Look {
+    Look {
+        entry: entries::BATTLE_STANDARDS_FROM + display % (entries::BATTLE_STANDARDS_END - entries::BATTLE_STANDARDS_FROM),
+        display,
+        scale,
+        go_type: Some(GO_TYPE_GENERIC),
+        flags,
+        name: STANDARD_NAME,
+    }
+}
+
+/// The glow under a battle standard of `faction`.
+pub fn standard_glow(faction: Faction) -> Look {
+    standard_look(STANDARD_GLOW.of(faction), STANDARD_GLOW_SCALE, GO_FLAG_NO_INTERACT)
+}
+
+/// The beam of light over a battle standard, in its faction's colour, each part (look, size): a
+/// very tall and a tall aura (`GameObjectDisplayInfo.dbc` 2232 `AuraBlueVeryTall` and 298
+/// `AuraBlueTall` for the Alliance, 1311 `AuraRedVeryTall` and 4831 `AuraRedTall` for the Horde),
+/// the very tall one as large as the magnet's beam; without the magnet's sparkle.
+pub const STANDARD_BEAM: [(FactionDisplay, f32); 2] =
+    [(FactionDisplay { alliance: 2232, horde: 1311 }, 1.6), (FactionDisplay { alliance: 298, horde: 4831 }, 1.0)];
+
+/// The beam of light over a battle standard of `faction`.
+pub fn standard_beam(faction: Faction) -> [Look; 2] {
+    STANDARD_BEAM.map(|(display, scale)| standard_look(display.of(faction), scale, GO_FLAG_NO_INTERACT))
+}
+
 /// Every game-object look, for the client's game-object query.
 pub fn gameobject_look(entry: u32) -> Option<Look> {
+    if (entries::BATTLE_STANDARDS_FROM..entries::BATTLE_STANDARDS_END).contains(&entry) {
+        let display = entry - entries::BATTLE_STANDARDS_FROM;
+        let beam = STANDARD_BEAM.iter().find(|(d, _)| d.alliance == display || d.horde == display);
+        return Some(standard_look(display, beam.map_or(STANDARD_GLOW_SCALE, |b| b.1), GO_FLAG_NO_INTERACT));
+    }
     let kinds = [
         Pickup::Gold,
         Pickup::BattlegroundCache,
@@ -117,7 +173,7 @@ pub fn gameobject_look(entry: u32) -> Option<Look> {
     ];
     kinds
         .into_iter()
-        .map(|k| look(k, OrbSize::Small))
+        .map(|k| look(k, OrbSize::Small, FactionDisplay { alliance: 0, horde: 0 }))
         .chain(MAGNET_BEAM)
         .find(|l| l.entry == entry)
 }
@@ -141,7 +197,7 @@ pub fn gameobject_guid(entry: u32, id: u32) -> u64 {
 /// A pickup as the clients were last told.
 pub(super) struct ShownPickup {
     guid: u64,
-    /// A magnet's beam of light.
+    /// A magnet's beam of light, a battle standard's glow and beam.
     beam: Vec<u64>,
     flying: bool,
 }
@@ -187,6 +243,7 @@ impl Game {
         let look = look(
             p.kind,
             orb_size(p.value, &self.run.content.balance.experience),
+            self.run.content.balance.battle_standard.display,
         );
         if look.go_type.is_none() {
             let guid = unit_guid(look.entry, p.id);
@@ -216,17 +273,29 @@ impl Game {
                 fields: f,
                 own: false,
             };
-            return (vec![create], guid, Vec::new());
+            let mut creates = vec![create];
+            let mut glow = Vec::new();
+            // a battle standard stands in its glow, under its beam of light
+            if let Pickup::BattleStandard(f) = p.kind {
+                for part in std::iter::once(standard_glow(f)).chain(standard_beam(f)) {
+                    let (c, g) = self.placed_object(&part, p.id, p.at);
+                    creates.push(c);
+                    glow.push(g);
+                }
+            }
+            return (creates, guid, glow);
         }
         let (create, guid) = self.placed_object(&look, p.id, p.at);
         let mut creates = vec![create];
         let mut beam = Vec::new();
-        if p.kind == Pickup::Magnet {
-            for part in &MAGNET_BEAM {
-                let (c, g) = self.placed_object(part, p.id, p.at);
-                creates.push(c);
-                beam.push(g);
-            }
+        let parts: Vec<Look> = match p.kind {
+            Pickup::Magnet => MAGNET_BEAM.to_vec(),
+            _ => Vec::new(),
+        };
+        for part in &parts {
+            let (c, g) = self.placed_object(part, p.id, p.at);
+            creates.push(c);
+            beam.push(g);
         }
         (creates, guid, beam)
     }
@@ -289,6 +358,15 @@ impl Game {
                 None => {
                     let (creates, guid, beam) = self.pickup_objects(&p);
                     objects.extend(creates);
+                    // a battle standard is planted with its faction's Battle Standard look, and
+                    // pings the minimap where it lies
+                    if let Pickup::BattleStandard(f) = p.kind {
+                        let look = self.run.content.balance.battle_standard.planted_look.of(f);
+                        if look != 0 {
+                            moves.push(packets::spell_go(guid, look, &[guid], packets::SpellTarget::Unit(guid), None));
+                        }
+                        moves.push(packets::minimap_ping(guid, p.at));
+                    }
                     self.pickups_shown
                         .insert(p.id, ShownPickup { guid, beam, flying });
                     flying

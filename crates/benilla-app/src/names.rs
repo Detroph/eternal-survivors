@@ -548,6 +548,55 @@ pub(crate) mod net {
     }
 }
 
+/// A creature's rank as the creature query tells it, the 1.12 client's numbering.
+pub mod creature_rank {
+    pub const NORMAL: u32 = 0;
+    /// The gold dragon on the portrait.
+    pub const ELITE: u32 = 1;
+    pub const RARE_ELITE: u32 = 2;
+    /// The skull for its level.
+    pub const BOSS: u32 = 3;
+    /// The silver dragon on the portrait.
+    pub const RARE: u32 = 4;
+}
+
+impl NameCache {
+    /// The rank of the unit `guid` with descriptor `store`, through [`gated_rank`]: 0 for a
+    /// player, a pet or charm, and until its creature record lands; a miss asks the creature
+    /// query once, as naming it would.
+    pub(crate) fn unit_rank(&self, guid_val: u64, store: &ObjectStore, commands: &NetCommands) -> u32 {
+        let Some(NameKey::Creature(entry)) = NameKey::of(guid_val, Some(store)) else {
+            return 0;
+        };
+        if self.creature_record(entry).is_none() {
+            let _ = self.resolve_creature(entry, guid_val, commands);
+        }
+        gated_rank(self.creature_record(entry), Some(store))
+    }
+}
+
+/// A crate on top of benilla reads a streamed unit's rank ([`creature_rank`]) through this, as
+/// the stock portrait's dragon and `UnitClassification` read it ([`gated_rank`]).
+#[derive(bevy::ecs::system::SystemParam)]
+pub struct CreatureRanks<'w, 's> {
+    names: Option<Res<'w, NameCache>>,
+    commands: Option<Res<'w, NetCommands>>,
+    units: Query<'w, 's, (&'static crate::net::Guid, &'static ObjectStore)>,
+}
+
+impl CreatureRanks<'_, '_> {
+    /// The rank of the unit `entity` streams; 0 for anything else, a player, a pet or charm, and
+    /// until the server has answered the creature query (asked once on a miss).
+    pub fn rank(&self, entity: Entity) -> u32 {
+        let (Some(names), Some(commands), Ok((guid, store))) =
+            (self.names.as_ref(), self.commands.as_ref(), self.units.get(entity))
+        else {
+            return 0;
+        };
+        names.unit_rank(guid.0, store, commands)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -929,6 +978,33 @@ mod tests {
             racial_leader: false,
             display_id: 0,
         }
+    }
+
+    /// The rank a crate on top reads (`CreatureRanks`): asked once on a miss, 0 until it lands,
+    /// then the template's; 0 for a charmed one and for a player.
+    #[test]
+    fn a_units_rank_is_asked_once_then_read_and_gated() {
+        let (cmds, rx) = commands();
+        let mut cache = NameCache::default();
+        let ogre = compose(guid::HIGH_UNIT, 1_000, 9);
+        let store = unit(&[(ENTRY, 1_000)]);
+
+        assert_eq!(cache.unit_rank(ogre, &store, &cmds), 0);
+        assert!(matches!(
+            rx.try_recv(),
+            Ok(ClientCommand::CreatureQuery { entry: 1_000, guid }) if guid == ogre
+        ));
+        assert_eq!(cache.unit_rank(ogre, &store, &cmds), 0);
+        assert!(matches!(rx.try_recv(), Err(TryRecvError::Empty)), "asked once");
+
+        let mut rare = record("Ogre");
+        rare.rank = creature_rank::RARE;
+        cache.insert_creature(1_000, Some(rare));
+        assert_eq!(cache.unit_rank(ogre, &store, &cmds), creature_rank::RARE);
+
+        let charmed = unit(&[(ENTRY, 1_000), (PETNUMBER, 55)]);
+        assert_eq!(cache.unit_rank(ogre, &charmed, &cmds), 0);
+        assert_eq!(cache.unit_rank(compose(0, 0, 7), &store, &cmds), 0);
     }
 
     /// `0x609210`'s `UNIT_FIELD_PETNUMBER == 0` leg: a vmangos companion pet's guid holds a pet

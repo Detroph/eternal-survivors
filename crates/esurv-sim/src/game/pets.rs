@@ -1,6 +1,6 @@
 //! Pets fighting beside a hero: talents summon them for a while or keep one for the whole run.
 
-use esurv_content::{Milestone, Pet, Stat};
+use esurv_content::{Damage, Milestone, Pet, Stat};
 
 use super::casting::{HitSource, PendingHit};
 use super::enemy_ai::{Segment, Vec2};
@@ -79,6 +79,12 @@ pub struct PetUnit {
     pub target: Option<u32>,
     /// A starting option's summon: what it is and does (`None`: a talent's pet).
     pub summon: Option<super::kit::Summoned>,
+    /// Summoned by an ally (`game::assists`): its character's id (the meter counts its hits as
+    /// that assist's).
+    pub assist: Option<String>,
+    /// What each of its attacks deals as its assist's (set with `assist`): the assist's own
+    /// damage, no hero bonus, no crit, nothing of the hero's set off.
+    pub assist_damage: Option<Damage>,
 }
 
 fn dist(a: Vec2, b: Vec2) -> f32 {
@@ -96,8 +102,14 @@ impl Run {
     /// A pet for the whole run is the hero's i-th of n (n = its `Pet` milestones) and appears at
     /// its share of the spread behind the hero; a summoned one appears at a random angle.
     pub fn summon_pet(&mut self, h: usize, name: &str, until: Option<f32>) {
+        self.summon_pet_at(h, name, until, None);
+    }
+
+    /// As `summon_pet`, appearing round `near` (an ally's spot) in place of the hero; returns the
+    /// pet's id (none for a name pets.ron lacks).
+    pub(crate) fn summon_pet_at(&mut self, h: usize, name: &str, until: Option<f32>, near: Option<Vec2>) -> Option<u32> {
         if !self.content.pets.iter().any(|p| p.name == name) {
-            return;
+            return None;
         }
         let appear_angle = match until {
             Some(_) => self.rng.range(0.0, std::f32::consts::TAU),
@@ -115,7 +127,8 @@ impl Run {
             .unwrap_or(PET_FOLLOW_ANGLES[taken.len() % PET_FOLLOW_ANGLES.len()]);
         let hero = &self.heroes[h];
         let a = hero.facing + appear_angle;
-        let at = (hero.pos.0 + a.cos() * PET_APPEAR_DISTANCE, hero.pos.1 + a.sin() * PET_APPEAR_DISTANCE);
+        let centre = near.unwrap_or(hero.pos);
+        let at = (centre.0 + a.cos() * PET_APPEAR_DISTANCE, centre.1 + a.sin() * PET_APPEAR_DISTANCE);
         let id = self.new_id();
         self.pets.push(PetUnit {
             id,
@@ -128,9 +141,12 @@ impl Run {
             next_swing: self.now,
             target: None,
             summon: None,
+            assist: None,
+            assist_damage: None,
         });
         let hero = self.heroes[h].id;
         self.push(Event::PetSummoned { id, hero, pet: name.to_string(), at });
+        Some(id)
     }
 
     fn pet_hit(&mut self, h: usize, pet: &Pet) -> (f32, bool) {
@@ -188,14 +204,16 @@ impl Run {
                 if now >= p.next_swing {
                     let Some(&target) = self.nearest_to(pos, PET_REACH).first() else { continue };
                     self.pets[k].next_swing = now + pet.swing;
-                    let (damage, crit) = self.pet_hit(h, pet);
-                    let speed = self.world.missile_speed(ranged_spell);
-                    let flight = match self.enemies.iter().find(|e| e.id == target) {
-                        Some(e) if speed > 0.0 => dist(pos, e.position(now)) / speed,
-                        _ => 0.0,
-                    };
                     let id = self.pets[k].id;
-                    self.hits.push(PendingHit { hero: h, target, at: now + flight, damage, crit, spell: String::new(), dot: None, pet: Some(id), from_proc: false, cast: None, burn: None });
+                    if let Some(damage) = p.assist_damage {
+                        // an assist's pet: the assist's damage, worked out as its bolt lands
+                        let flight = self.flight_to(pos, target, ranged_spell);
+                        self.assists.bolts.push(super::assists::AllyBolt { hero: h, pet: id, enemy: target, at: now + flight, damage });
+                    } else {
+                        let (damage, crit) = self.pet_hit(h, pet);
+                        let flight = self.flight_to(pos, target, ranged_spell);
+                        self.hits.push(PendingHit { hero: h, target, at: now + flight, damage, crit, spell: String::new(), dot: None, pet: Some(id), from_proc: false, cast: None, burn: None });
+                    }
                     let enemy = super::run::Unit::Enemy(target);
                     self.push(Event::SpellGo { caster: super::run::Unit::Pet(id), spell: ranged_spell, hits: vec![enemy], aim: super::run::Aim::Unit(enemy), ammo: false, reach: 0.0, triggered: false });
                 }
@@ -216,15 +234,29 @@ impl Run {
             // in reach it strikes on its own timer, and it closes in all the same
             if d <= PET_MELEE_RANGE && now >= p.next_swing {
                 self.pets[k].next_swing = now + pet.swing;
-                let (damage, crit) = self.pet_hit(h, pet);
                 let id = self.pets[k].id;
-                self.hit_enemy(Some(h), t, damage, crit, HitSource::Pet(id));
+                if let Some(damage) = p.assist_damage {
+                    let amount = self.assist_damage(t, damage);
+                    self.assist_hit_as(h, t, amount, HitSource::Pet(id));
+                } else {
+                    let (damage, crit) = self.pet_hit(h, pet);
+                    self.hit_enemy(Some(h), t, damage, crit, HitSource::Pet(id));
+                }
             }
             if d > PET_CLOSE_IN {
                 let short = PET_CHASE_STOP_SHORT / d;
                 let stop = (tp.0 + (pos.0 - tp.0) * short, tp.1 + (pos.1 - tp.1) * short);
                 self.move_pet(k, pos, stop, PET_CHASE_MIN_SPEED.max(run_speed * PET_CHASE_SPEED_SHARE));
             }
+        }
+    }
+
+    /// How long `spell`'s missile takes from `from` to enemy `target` (0 when it does not fly).
+    fn flight_to(&self, from: Vec2, target: u32, spell: u32) -> f32 {
+        let speed = self.world.missile_speed(spell);
+        match self.enemies.iter().find(|e| e.id == target) {
+            Some(e) if speed > 0.0 => dist(from, e.position(self.now)) / speed,
+            _ => 0.0,
         }
     }
 

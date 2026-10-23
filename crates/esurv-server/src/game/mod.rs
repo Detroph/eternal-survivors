@@ -15,10 +15,11 @@ mod ground_indicators;
 mod ground_looks;
 mod jewelry;
 mod pickups;
+mod assists;
 mod player_enemies;
 pub use player_enemies::{look_item_info, weapon_entry};
 pub use bunnies::BUNNY_DISPLAY;
-pub use pickups::{gameobject_look, orb_look, ORB_ENTRY};
+pub use pickups::{gameobject_look, orb_look, ORB_ENTRY, STANDARD_NAME};
 mod present;
 mod ranged_shots;
 mod screens;
@@ -67,6 +68,16 @@ const PET_UNIT_FLAGS: u32 = 0x2;
 const PET_BOUNDING_SHARE: f32 = 0.5;
 const PET_REACH_SHARE: f32 = 1.5;
 const PET_RUN_SPEED: f32 = 9.0;
+/// A pet that flies (`Pet::hover`) is always on a flight, so the client keeps its height: a bob
+/// this many yards up and down round its height, once every `HOVER_BOB_PERIOD` seconds, a point
+/// every `HOVER_STEP` seconds; standing, a flight lasts one bob, and the next is told this long
+/// before the last runs out.
+const HOVER_BOB: f32 = 0.25;
+const HOVER_BOB_PERIOD: f32 = 2.0;
+const HOVER_STEP: f32 = 0.25;
+const HOVER_RESEND_LEAD: f32 = 0.3;
+/// While the run stands, a flying pet holds its height on one still flight this long (ms).
+const HOVER_HOLD_MS: u32 = 3_600_000;
 /// `PLAYER_BYTES_2`'s rest state: normal (not rested).
 const REST_STATE_NORMAL: u8 = 2;
 /// A hero enters a run with its melee weapons in hand, and the client draws and puts them away
@@ -280,6 +291,8 @@ pub struct Game {
     pickups_shown: HashMap<u32, pickups::ShownPickup>,
     /// The totems on the field, by simulation id, and their guids.
     totems_shown: HashMap<u32, u64>,
+    /// The battle standards' allies, as the clients were told.
+    allies: assists::AlliesShown,
     /// The spell looks on the ground, by simulation id.
     looks_shown: HashMap<u32, ground_looks::ShownLook>,
     /// The bosses' marks and the objects on the ground as the clients were last told, by
@@ -322,6 +335,8 @@ pub struct Game {
     /// Each hero's jewelry items as its own client holds them, the rarity each ring or trinket
     /// was put on at (by hero and id), and the number of the last jewelry item made.
     jewelry_held: HashMap<u32, jewelry::Held>,
+    /// The pets that fly, by id: when the flight they were last told runs out (run seconds).
+    hover_until: HashMap<u32, f32>,
     jewelry_rarity: HashMap<(u32, String), u8>,
     next_jewel: u16,
     /// Whether the clients see the run moving (its units walking).
@@ -436,6 +451,7 @@ impl Game {
             channels_shown: HashMap::new(),
             pickups_shown: HashMap::new(),
             totems_shown: HashMap::new(),
+            allies: assists::AlliesShown::default(),
             looks_shown: HashMap::new(),
             data: data.cloned(),
             saves,
@@ -448,6 +464,7 @@ impl Game {
             meters: HashMap::new(),
             dressed: HashMap::new(),
             jewelry_held: HashMap::new(),
+            hover_until: HashMap::new(),
             jewelry_rarity: HashMap::new(),
             next_jewel: 0,
             marks_shown: HashMap::new(),
@@ -506,6 +523,8 @@ impl Game {
             }
         }
         objects.extend(self.units_now());
+        let (ally_names, allies) = self.allies_now();
+        objects.extend(allies);
         objects.extend(self.pickups_now());
         objects.extend(self.doors_now());
         objects.extend(self.totems_now());
@@ -513,6 +532,7 @@ impl Game {
         objects.extend(self.clones_now());
         objects.extend(self.ground_looks_now());
         welcome.extend(self.player_enemy_names_now());
+        welcome.extend(ally_names);
         welcome.push(update_object(&objects));
         welcome.extend(self.moves_now());
         welcome.push(packets::init_world_states(zone.map_id, zone.area_id));
@@ -557,6 +577,7 @@ impl Game {
                 }
             }
             self.stand_in_for_the_card_screen();
+            self.lay_standards_due();
             let events = self.run.drain_events();
             self.show(&events);
             std::thread::sleep(TICK.saturating_sub(started.elapsed()));
@@ -1084,6 +1105,45 @@ impl Game {
         Some(f)
     }
 
+    /// How high pet `i` hovers above the ground, when it flies (`Pet::hover`).
+    fn pet_hover(&self, i: usize) -> Option<f32> {
+        let p = &self.run.pets[i];
+        self.run.content.pets.iter().find(|k| k.name == p.pet)?.hover
+    }
+
+    /// Where a flying pet on `segment` is `t` seconds from now: `height` above the ground, bobbing.
+    fn hover_point(&self, segment: &Segment, height: f32, t: f32) -> [f32; 3] {
+        let when = self.run.now + t;
+        let at = segment.position(when);
+        let bob = HOVER_BOB * (std::f32::consts::TAU * when / HOVER_BOB_PERIOD).sin();
+        [at.0, at.1, self.ground_z(at) + height + bob]
+    }
+
+    /// `SMSG_MONSTER_MOVE` of flying pet `id` (guid `guid`): what is left of `segment` (standing,
+    /// one bob), `height` above the ground and bobbing; noted to be told again as it runs out.
+    fn fly(&mut self, id: u32, guid: u64, segment: &Segment, height: f32) -> Packet {
+        let now = self.run.now;
+        let left = segment.start + segment.duration - now;
+        let seconds = if left > 0.0 { left.max(HOVER_STEP) } else { HOVER_BOB_PERIOD };
+        let steps = (seconds / HOVER_STEP).ceil().max(1.0) as usize;
+        let start = self.hover_point(segment, height, 0.0);
+        let path: Vec<[f32; 3]> = (1..=steps).map(|k| self.hover_point(segment, height, seconds * k as f32 / steps as f32)).collect();
+        self.hover_until.insert(id, now + seconds);
+        let spline = self.next_spline;
+        self.next_spline = self.next_spline.wrapping_add(1);
+        packets::monster_move_flying(guid, start, spline, &path, (seconds * 1000.0).round() as u32)
+    }
+
+    /// Flying pet `id` holds where it is, at its height, while the run stands; it flies on
+    /// when the run does.
+    fn hover_hold(&mut self, id: u32, guid: u64, segment: &Segment, height: f32) -> Packet {
+        let here = self.hover_point(segment, height, 0.0);
+        self.hover_until.insert(id, f32::NEG_INFINITY);
+        let spline = self.next_spline;
+        self.next_spline = self.next_spline.wrapping_add(1);
+        packets::monster_move_flying(guid, here, spline, &[here], HOVER_HOLD_MS)
+    }
+
     fn pet_object(&self, i: usize, now: f32) -> Option<(ObjectUpdate, u64)> {
         let content = &self.run.content;
         let p = &self.run.pets[i];
@@ -1119,9 +1179,9 @@ impl Game {
             let worn = [present::Aura { spell, stacks: 1, until: 0.0 }];
             f.extend(&present::aura_fields(&worn, 0, 0));
         }
-        // it appears facing the way its hero faces
+        // it appears facing the way its hero faces (one that flies at its height)
         let living = Living {
-            position: [at.0, at.1, self.ground_z(at)],
+            position: [at.0, at.1, self.ground_z(at) + kind.hover.unwrap_or(0.0)],
             facing: owner.facing,
             speeds: Speeds::running_at(PET_RUN_SPEED),
         };
@@ -1177,8 +1237,13 @@ impl Game {
         let now = self.run.now;
         let mut objects = Vec::new();
         let mut walks = Vec::new();
+        // pets that fly: (pet id, guid, its segment, its height above the ground)
+        let mut flights = Vec::new();
         // the names of new player-looking enemies, which reach the clients before they do
         let mut names = Vec::new();
+        // the battle standards' allies: those summoned appear, those that moved go there
+        let mut ally_looks = Vec::new();
+        self.mirror_allies(events, &mut names, &mut objects, &mut ally_looks);
         // new, moved, hurt
         for i in 0..self.run.enemies.len() {
             let e = &self.run.enemies[i];
@@ -1229,12 +1294,18 @@ impl Game {
             let (id, segment) = (p.id, p.segment);
             let level = self.pet_level(i);
             let size = self.pet_size_fields(i);
+            let hover = self.pet_hover(i);
+            // a pet that flies is always on a flight: told again as its last one runs out
+            let running = self.run.phase == Phase::Running && !self.run.in_cutscene();
+            let flight_due = running && self.hover_until.get(&id).is_none_or(|&t| now >= t - HOVER_RESEND_LEAD);
             match self.shown.get_mut(&id) {
                 None => {
                     let name = p.pet.clone();
                     if let Some((create, guid)) = self.pet_object(i, now) {
                         objects.push(create);
-                        if segment.moving(now) {
+                        if let Some(h) = hover {
+                            flights.push((id, guid, segment, h));
+                        } else if segment.moving(now) {
                             walks.push((guid, segment));
                         }
                         self.shown.insert(
@@ -1252,7 +1323,12 @@ impl Game {
                     }
                 }
                 Some(s) => {
-                    if s.segment != segment {
+                    if let Some(h) = hover {
+                        if s.segment != segment || flight_due {
+                            s.segment = segment;
+                            flights.push((id, s.guid, segment, h));
+                        }
+                    } else if s.segment != segment {
                         s.segment = segment;
                         walks.push((s.guid, segment));
                     }
@@ -1299,8 +1375,15 @@ impl Game {
             out.push(update_object(&objects));
         }
         out.extend(form_looks);
+        // an ally's arrival look after its create, and its moves
+        out.append(&mut ally_looks);
         for (guid, segment) in walks {
             out.push(self.walk(guid, &segment));
+        }
+        let pets = &self.run.pets;
+        self.hover_until.retain(|id, _| pets.iter().any(|p| p.id == *id));
+        for (id, guid, segment, height) in flights {
+            out.push(self.fly(id, guid, &segment, height));
         }
         out.append(&mut pickup_moves);
         // what happened
@@ -1362,6 +1445,7 @@ impl Game {
             out.push(update_object(&fallen));
         }
         out.append(&mut pickups_gone);
+        out.extend(self.allies_gone());
         let cleared: Vec<u32> = self
             .shown
             .iter()
@@ -1381,10 +1465,23 @@ impl Game {
             self.moving_shown = moving;
             let walking: Vec<(u64, Segment)> = self
                 .shown
-                .values()
-                .filter(|s| s.corpse_until.is_none() && s.segment.moving(now))
-                .map(|s| (s.guid, s.segment))
+                .iter()
+                .filter(|(id, s)| !self.hover_until.contains_key(id) && s.corpse_until.is_none() && s.segment.moving(now))
+                .map(|(_, s)| (s.guid, s.segment))
                 .collect();
+            // a pet that flies holds its height while the run stands, and flies on with it
+            if !moving {
+                let flying: Vec<(u32, u64, Segment, f32)> = (0..self.run.pets.len())
+                    .filter_map(|i| {
+                        let p = &self.run.pets[i];
+                        let s = self.shown.get(&p.id)?;
+                        Some((p.id, s.guid, Segment::standing(p.segment.position(now), now), self.pet_hover(i)?))
+                    })
+                    .collect();
+                for (id, guid, segment, height) in flying {
+                    out.push(self.hover_hold(id, guid, &segment, height));
+                }
+            }
             for (guid, segment) in walking {
                 let go = if moving {
                     segment
@@ -2163,6 +2260,45 @@ mod tests {
         let Some((ObjectUpdate::Create { fields, .. }, _)) = game.pet_object(i, game.run.now) else { panic!("a pet create") };
         assert_eq!(fields.get(field::UNIT_AURA), Some(fire));
         assert_eq!(fields.get(field::UNIT_AURAFLAGS).map(|f| f & 0xF), Some(0x02), "its flags say it is on");
+    }
+
+    /// A pet that flies (the assist's Gargoyle, `hover` 2 yd) appears at its height and is told
+    /// as flights: the flying flag, its height kept through the points with a gentle bob, standing
+    /// still in place (no turn), and a moving one following its way.
+    #[test]
+    fn a_pet_that_flies_hovers_at_its_height_and_bobs() {
+        let (mut game, _client) = game_with_a_player();
+        let height = game.run.content.pets.iter().find(|p| p.name == "Gargoyle").and_then(|p| p.hover).expect("the Gargoyle hovers");
+        game.run.summon_pet(0, "Gargoyle", Some(game.run.now + 8.0));
+        let i = game.run.pets.iter().position(|p| p.pet == "Gargoyle").unwrap();
+        let p = game.run.pets[i].clone();
+        let Some((ObjectUpdate::Create { living, .. }, guid)) = game.pet_object(i, game.run.now) else { panic!("a pet create") };
+        let at = p.segment.position(game.run.now);
+        assert!((living.position[2] - game.ground_z(at) - height).abs() < 1e-4, "created at its height");
+        let flight = |game: &mut Game, segment: &Segment| {
+            let pk = game.fly(p.id, guid, segment, height);
+            match parse_server(pk.opcode, &pk.body) {
+                Ok(ServerPacket::MonsterMove { path, flying, duration_ms, .. }) => (path, flying, duration_ms),
+                _ => panic!("a monster move"),
+            }
+        };
+        let standing = Segment::standing(at, game.run.now);
+        let (path, flying, ms) = flight(&mut game, &standing);
+        assert!(flying, "the flying flag keeps its height");
+        assert_eq!(ms, (HOVER_BOB_PERIOD * 1000.0) as u32, "standing: one bob");
+        assert!(path.len() > 4);
+        let ground = game.ground_z(at);
+        assert!(path.iter().all(|q| q.x == at.0 && q.y == at.1), "it bobs in place");
+        assert!(path.iter().all(|q| (q.z - ground - height).abs() <= HOVER_BOB + 1e-3), "within its bob");
+        let (lo, hi) = path.iter().fold((f32::MAX, f32::MIN), |(lo, hi), q| (lo.min(q.z), hi.max(q.z)));
+        assert!(hi - lo > HOVER_BOB, "it bobs: {lo}..{hi}");
+        assert!(game.hover_until[&p.id] > game.run.now, "told again as it runs out");
+        let to = (at.0 + 6.0, at.1);
+        let moving = Segment { from: at, to, start: game.run.now, duration: 1.0 };
+        let (path, flying, ms) = flight(&mut game, &moving);
+        assert!(flying && ms == 1000);
+        let end = path.last().unwrap();
+        assert!((end.x - to.0).abs() < 1e-3 && (end.y - to.1).abs() < 1e-3, "it flies its way");
     }
 
     /// A legendary moment's look aimed at a spot plays from a short look

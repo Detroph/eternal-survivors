@@ -1,0 +1,35 @@
+// Player character template. Copy the block below into content/player_characters.ron's list.
+// The character is then a Warsong Gulch boss for heroes of the other faction (its bosses are
+// `played_by: Some(Any)`) and an assist a battle standard summons for heroes of its own faction:
+// nothing else to change. Its faction is its race's. Every field and every assist block is
+// explained in docs/game/AUTHORING.md ("A player character and its assist") and
+// docs/game/assists.md.
+(
+    id: "my_character",            // its own id, once in the list
+    name: "Mycharacter",           // our own name, shown over its head
+    race: "orc",                   // an id in races.ron
+    class: "warrior",              // an id in classes.ron (any race and class pair the game allows)
+    gender: Male,                  // or Female
+    // form: Some(Cat),            // optional: a druid shown in Cat, Bear or Moonkin Form
+    // looks: Some((skin: 0, face: 0, hair_style: 0, hair_color: 0, facial_hair: 0)),
+    //                             // optional: its face and hair (left out: picked each time it shows)
+    yell: "For the Horde!",        // yelled as it arrives (as a boss, or assisting)
+    death_yell: "Until next time!", // optional: yelled as it dies or as its assist ends
+    // What its assist does, as a player reads it. Write the numbers here that the script uses.
+    assist: "Charges into the nearest enemy, sends every enemy around it fleeing for 6 sec, then Whirlwinds through them for 6 sec, each spin 3% of its max health.",
+    // What it does (left out: its class's default in content/class_assists.ron, and the game's
+    // log names it among the characters still on a default). It lasts at most 10 sec unless
+    // `seconds: Some(...)` gives a longer time; what it leaves behind runs out on its own time.
+    assist_script: Some((
+        arrive: (how: Plain, look_spell: Some(6673)), // Plain, Blink, Stealth or Portal; beside: Some(<targets>) to appear by an enemy
+        steps: [
+            Move(to: Nearest(1), how: Charge),
+            Hit(targets: NearAlly(radius: 10.0), look_spell: Some(5246), effects: [Fear(seconds: 6.0)], wears: [5246]),
+            Repeat(every: 1.0, times: 6, steps: [
+                Hit(targets: NearAlly(radius: 8.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(1680)),
+            ]),
+        ],
+        leave: (how: Fade),        // Fade, Vanish, Hearth, RunAway or Dies
+    )),
+    gear: Random,                  // its class's PvP looks, or Picked((...)) as in player_characters.ron
+)

@@ -3,6 +3,25 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.4.2
+
+The Warband Standard update.
+
+### Patch notes
+
+**Gameplay**
+- **The Warband Standard:** keep an eye out for it during your runs, and see who answers your call.
+- **Elite sizes:** every elite now follows one size rule: a bit beefier than its model, never bigger than a rare. No more giant spiders or tiny abominations.
+
+**Quality of life**
+- **Glows round strong enemies:** elites glow purple, and rares and the Rare Caches they drop glow silver, so they stand out in a crowd. Turn them off in Options > Interface > Glow around elites and rares.
+- **Options:** the Interface tab is now sorted into Mouse & Camera, Names, Eternal Survivors and Misc. The boss timer settings moved there from the old Timers tab, and a few settings the game doesn't use were tidied away.
+
+### Changelog
+
+**Install and technical**
+- From v0.4.1, the game offers this update itself on the character screen. From v0.4.0 or older, update by hand once with the setup.
+
 ## v0.4.1
 
 Updates come to you now: the game can update itself from GitHub.

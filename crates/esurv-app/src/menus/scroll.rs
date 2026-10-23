@@ -1,5 +1,6 @@
-//! Lists that can hold more than their panel shows (the zones, the collection log's rows): they
-//! scroll with the mouse wheel over them, and keep their place when the menus are drawn anew.
+//! Lists that can hold more than their panel shows (the zones, the collection log's rows, the
+//! options' Interface tab): they scroll with the mouse wheel over them, and keep their place
+//! when the menus are drawn anew.
 
 use std::collections::HashMap;
 
@@ -17,6 +18,8 @@ pub(super) enum ScrollingList {
     CollectionLog,
     /// The talent trees with the prestige section under them.
     Talents,
+    /// The options panel's Interface tab, its four sections.
+    OptionsInterface,
 }
 
 /// A node whose children scroll up and down with the wheel when they are more than it shows.

@@ -51,6 +51,13 @@ pub fn cache_price(price: u32) -> String {
 
 pub const MAGNET_TAKEN: &str = "Magnet! All the loot on the field flies to you.";
 pub const MAGNET_APPEARED: &str = "A magnet dropped somewhere. Follow the beam of light.";
+/// A battle standard was laid on the field.
+pub const STANDARD_RAISED: &str = "A Warband Standard was raised somewhere. Follow the beam of light.";
+
+/// A hero took a battle standard and the character `name` came.
+pub fn ally_answers(name: &str) -> String {
+    format!("{name} answers your call!")
+}
 pub const LEFT_ARENA: &str = "You can't leave the fight.";
 /// The runes, as a hero takes them.
 pub const SPEED_RUNE: &str = "Speed rune: your feet feel light.";

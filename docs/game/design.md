@@ -278,7 +278,7 @@ Each step has a **goal**, **deliverables** and a **done when** test.
      `cargo run --release -p esurv-sim --example golden_run` plays every zone with every
      class and prints one hash; run it before and after a change that must not alter play;
      `-- --log <file>` also writes every event. The current hash, 6 minutes a run:
-     `fb128f077c669fea`. A change meant to alter how runs play records its new hash here.)
+     `9f0549729371920e`. A change meant to alter how runs play records its new hash here.)
   3. **Rename:** named kinds in the RON instead of numbers (`delivery: Nova`,
      not `delivery: 2`), clear property names, an item-entry numbering (with room for
      three weapon sets of two slots per class, roadmap R3), a one-time

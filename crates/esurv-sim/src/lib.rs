@@ -7,6 +7,7 @@ pub mod rng;
 pub mod game {
     pub mod abilities;
     pub mod amulets;
+    pub mod assists;
     pub mod beams;
     pub mod boss_abilities;
     pub mod boss_damage;
@@ -17,6 +18,8 @@ pub mod game {
     mod boss_rules_zones_3_to_6_tests;
     #[cfg(test)]
     mod boss_rules_stratholme_blackrock_aq_tests;
+    #[cfg(test)]
+    mod assists_tests;
     pub mod boss_script_actions;
     pub mod boss_scripts;
     pub mod boss_warnings;

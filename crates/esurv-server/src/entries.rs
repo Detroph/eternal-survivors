@@ -12,6 +12,8 @@ pub const TOTEM: u32 = CREATURES_END + 1;
 pub const BUNNY: u32 = CREATURES_END + 2;
 /// A boss's object on the ground shown as a creature model (a troll ward), unselectable.
 pub const GROUND_UNIT: u32 = CREATURES_END + 3;
+/// A battle standard lying on the field: a unit of its faction's standard's creature model.
+pub const BATTLE_STANDARD: u32 = CREATURES_END + 4;
 
 /// The first game-object entry.
 const OBJECTS_FROM: u32 = CREATURES_END + 100;
@@ -39,6 +41,12 @@ pub const GROUND_OBJECTS_FROM: u32 = 200_000;
 /// the content's first creature), so the creature query can give them the rare rank (the silver
 /// dragon) while the elite keeps the gold one. Past the zone props' range.
 pub const RARES_FROM: u32 = 300_000;
+
+/// The glow under a battle standard: this plus the glow's display id, one entry per look (each
+/// faction's colour); past the rares' range.
+pub const BATTLE_STANDARDS_FROM: u32 = 400_000;
+/// The battle standards' range ends here.
+pub const BATTLE_STANDARDS_END: u32 = BATTLE_STANDARDS_FROM + 100_000;
 
 /// The entry a rare copy of the creature `elite` shows under.
 pub fn rare(elite: u32) -> u32 {

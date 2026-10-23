@@ -205,6 +205,8 @@ pub use net::NetHandlerApp;
 pub use net::Objects;
 pub use net::SendAddonMessage;
 pub use target::Interact;
+// And read a unit's rank (elite, rare, boss), as the portrait's dragon does.
+pub use names::{creature_rank, CreatureRanks};
 // A crate on top of benilla marks its own `bevy_ui` windows with this, so they take the pointer.
 pub use ui_script::OverlayWindow;
 // And its modal screens take the keys they list from the key bindings.
@@ -215,6 +217,7 @@ pub use ui_script::{GameMenuAsked, GameMenuStandIn};
 pub use combat_text::{DamageNumberFloor, DamageNumberSpawned};
 // And keep chat bubbles off its own readouts over the world.
 pub use chat_bubble::BubbleKeepClear;
+pub use net::LevelFlight;
 // A game on top may offer race and class pairs 1.12 does not, and give a display a composed look.
 pub use benilla_formats::AddedPair;
 pub use char_create::AddedRaceClassPairs;
@@ -228,7 +231,7 @@ pub use select_scene::{
 };
 // And may replace the stock select screen with its own, a character shown in the glue booth.
 pub use select_scene::{
-    CreateChoices, FigureMaskImage, SceneFigureMask, SelectActionDone, SelectCreate, SelectDelete,
+    CreateChoices, FigureMaskImage, SceneFigureMask, FIGURE_MASKS, SelectActionDone, SelectCreate, SelectDelete,
     SelectEnterWorld, SelectModel, SelectModelImage, SelectModelView, SelectRefresh,
     SelectScreenReplaced,
 };

@@ -220,4 +220,17 @@
         swing: 2.0,
         school: Fire,
     ),
+    (
+        // an assist's gargoyle (a Naxxramas gargoyle's model), hovering 2 yd up and casting
+        // Spell(5176) every 1.5 s; its assist's script sets what each cast deals (the damage
+        // here, the Imp's, only counts where a script sets none)
+        name: "Gargoyle",
+        display_id: 14710,
+        scale: 1.0,
+        damage: 36.0,
+        swing: 1.5,
+        ranged_spell: Some(5176),
+        school: Nature,
+        hover: Some(2.0),
+    ),
 ])

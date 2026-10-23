@@ -1,0 +1,178 @@
+// Each class's default assist (docs/game/assists.md): what a hand-made player character
+// (player_characters.ron) does when a battle standard summons it and it has no `assist_script` of
+// its own. A druid shown in a form takes its form's default (`form: Some(Cat)`), else the class's
+// (`form` left out). Every class needs one without a form. The game's log names every character
+// still on a default, so the ones that need their own script are easy to find.
+//
+// Each default:
+//   (
+//       class: "rogue",                 // an id in classes.ron
+//       form: Some(Cat),                // optional: a druid form (Cat, Bear or Moonkin)
+//       text: "...",                    // what it does, as a player reads it, for a character
+//                                       // whose own `assist` text is empty
+//       script: (...),                  // the blocks (docs/game/AUTHORING.md, "A player character
+//                                       // and its assist")
+//   ),
+// The numbers are the hand-made characters' (each default follows one of them, named above it).
+([
+    (
+        // Ahlaundoh's
+        class: "warrior",
+        text: "Charges into the nearest enemy, Intimidating Shouts every enemy around him into fleeing for 6 sec, then Whirlwinds through them for 6 sec.",
+        script: (
+            steps: [
+                Move(to: Nearest(1), how: Charge),
+                Hit(targets: NearAlly(radius: 10.0), look_spell: Some(5246), effects: [Fear(seconds: 6.0)], wears: [5246]),
+                Repeat(every: 1.0, times: 6, steps: [
+                    Hit(targets: NearAlly(radius: 8.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(1680)),
+                ]),
+            ],
+        ),
+    ),
+    (
+        // Xqc's
+        class: "paladin",
+        text: "Appears with {Spell(19752)}'s look, puts {Spell(1022)} on the hero (no physical damage taken for 6 sec), then {Spell(20375)} strikes the nearest enemies for 8 sec.",
+        script: (
+            arrive: (look_spell: Some(19752)),
+            steps: [
+                Buff(seconds: 6.0, immune: true, look_spell: Some(1022)),
+                Repeat(every: 1.0, times: 8, steps: [
+                    Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.03)), look_spell: Some(20424), melee: true),
+                ]),
+            ],
+        ),
+    ),
+    (
+        // Shroud's bolts, as shots
+        class: "hunter",
+        text: "Fires {Spell(2643)} at the 3 nearest enemies twice, each shot 6% of its max health.",
+        script: (
+            steps: [
+                Repeat(every: 1.0, times: 2, steps: [
+                    Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(2643)),
+                ]),
+            ],
+        ),
+    ),
+    (
+        // Mir's
+        class: "rogue",
+        text: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, each hit 3% of its max health, then vanishes.",
+        script: (
+            arrive: (look_spell: Some(1856)),
+            steps: [
+                Cast(look_spell: 22482),
+                Repeat(every: 1.0, times: 8, steps: [
+                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03)), melee: true),
+                ]),
+            ],
+            leave: (how: Vanish),
+        ),
+    ),
+    (
+        // Cdew's heal and Snutz's fear
+        class: "priest",
+        text: "Heals the hero for 30% of their max health with {Spell(2061)} and sends up to 5 enemies near the hero fleeing with {Spell(8122)} for 8 sec.",
+        script: (
+            steps: [
+                Heal(share: 0.3, look_spell: Some(2061)),
+                Hit(targets: NearHero(radius: 10.0, most: 5), look_spell: Some(8122), effects: [Fear(seconds: 8.0)], wears: [8122]),
+            ],
+        ),
+    ),
+    (
+        // Cdevv's
+        class: "shaman",
+        text: "Appears with a crack of lightning, drops a {Spell(8512)} (the hero's swings 20% faster for 15 sec), then Stormstrikes the 3 nearest enemies, each hit 6% of its max health.",
+        script: (
+            arrive: (look_spell: Some(403)),
+            steps: [
+                Buff(stats: [(SwingSpeed, 0.2)], seconds: 15.0, totem: Some(8512)),
+                Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(17364), melee: true),
+            ],
+        ),
+    ),
+    (
+        // Xaryu's
+        class: "mage",
+        text: "Blinks in beside the hero, roots every enemy near them in a {Spell(122)} for 8 sec, then calls a {Spell(10)} on them for 8 sec, 3% of each one's max health a sec.",
+        script: (
+            arrive: (how: Blink),
+            steps: [
+                Hit(targets: NearHero(radius: 10.0), look_spell: Some(122), effects: [Root(seconds: 8.0)], wears: [122]),
+                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 10),
+            ],
+        ),
+    ),
+    (
+        // Snutz's
+        class: "warlock",
+        text: "Appears through a summoning portal, Fears up to 5 enemies near the hero for 8 sec and rains fire on the biggest pack for 10 sec, 3% of each enemy's max health a sec.",
+        script: (
+            arrive: (how: Portal, look_spell: Some(698)),
+            steps: [
+                Hit(targets: NearHero(radius: 10.0, most: 5), look_spell: Some(5782), effects: [Fear(seconds: 8.0)], wears: [5782]),
+                Area(at: BiggestPack, radius: 8.0, seconds: 10.0, damage: Some(MaxHealthShare(0.03)), look_spell: 5740),
+            ],
+        ),
+    ),
+    (
+        // Cdew's heal and Healing Stream's, as Rejuvenation
+        class: "druid",
+        text: "Heals the hero for 30% of their max health with {Spell(5185)} and puts {Spell(774)} on them, healing 2% of their max health every 2 sec for 15 sec.",
+        script: (
+            steps: [
+                Heal(share: 0.3, look_spell: Some(5185)),
+                Buff(seconds: 15.0, heal: 0.02, every: 2.0, look_spell: Some(774)),
+            ],
+        ),
+    ),
+    (
+        // Sodapoppin's
+        class: "druid",
+        form: Some(Cat),
+        text: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding 2% of its max health a sec for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
+        script: (
+            arrive: (how: Stealth, beside: Some(Nearest(1)), look_spell: Some(9005)),
+            steps: [
+                Hit(
+                    targets: NearHero(radius: 10.0, most: 5),
+                    look_spell: Some(1822),
+                    melee: true,
+                    over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(1822))),
+                ),
+                Buff(stats: [(MaxHealth, 0.1)], seconds: 30.0, look_spell: Some(1126)),
+            ],
+        ),
+    ),
+    (
+        // the tanks' taunt (Vodu's 10 sec) and Mir's strikes, as Swipe
+        class: "druid",
+        form: Some(Bear),
+        text: "Charges in with {Spell(16979)}, Growls every enemy near the hero into attacking it for 10 sec and Swipes those around it every sec for 8 sec, each 3% of its max health.",
+        script: (
+            steps: [
+                Move(to: Nearest(1), how: Charge, look_spell: Some(16979)),
+                Taunt(targets: NearHero(radius: 10.0), seconds: 10.0, look_spell: Some(6795)),
+                Repeat(every: 1.0, times: 8, steps: [
+                    Hit(targets: NearAlly(radius: 7.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(779)),
+                ]),
+            ],
+        ),
+    ),
+    (
+        // Regiss's
+        class: "druid",
+        form: Some(Moonkin),
+        text: "Roots every enemy near the hero with {Spell(339)}, then casts {Spell(2912)} 5 times on the healthiest enemy.",
+        script: (
+            steps: [
+                Hit(targets: NearHero(radius: 10.0), look_spell: Some(339), effects: [Root(seconds: 8.0)], wears: [339]),
+                Repeat(every: 2.0, times: 5, steps: [
+                    Hit(targets: Healthiest, damage: Some(MaxHealthShare(0.05)), look_spell: Some(2912)),
+                ]),
+            ],
+        ),
+    ),
+])

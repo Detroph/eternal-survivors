@@ -16,6 +16,7 @@ instead of repeating them:
 | [spells.md](spells.md) | spells field by field, delivery kinds, on-hit effects, categories and tags |
 | [gear.md](gear.md) | class gear, drops, caches, rings, trinkets, amulets |
 | [menus.md](menus.md) | the menus before a run, where zones, classes and talents show up |
+| [assists.md](assists.md) | the battle standard, the hand-made player characters it summons and their assists |
 
 Ready-to-copy blocks are in [templates/](templates):
 
@@ -29,6 +30,7 @@ Ready-to-copy blocks are in [templates/](templates):
 | [talent.ron](templates/talent.ron) | a tree's `talents` list in `content\talents.ron` |
 | [jewelry.ron](templates/jewelry.ron) | `content\jewelry.ron` (a ring or a trinket) |
 | [amulet.ron](templates/amulet.ron) | `content\amulets.ron` |
+| [player_character.ron](templates/player_character.ron) | `content\player_characters.ron` (a Warsong boss and an assist) |
 
 Every template is checked by `cargo test -p esurv-content`, so a template that stops
 loading is caught at once.
@@ -173,6 +175,7 @@ it follows.
 | `health_clock`, `damage_clock` | How much sturdier and harder-hitting enemies are by the run minute they appear: points `(minute, multiplier)`, straight lines between them, and past the last point the last step's pace goes on. |
 | `spawn_budget` | How much enemy arrives each second at 100 % density, by minute (each enemy costs its kind's `spawn_cost`). |
 | `live_cap` | Most normal enemies alive at once: at 100 % density, and at the highest density. |
+| `battle_standard` | The pickup that summons an assist (section 13a, [assists.md](assists.md)): how many a run lays (`per_run`, 1 to 2), one more every `endless_every` seconds in Endless (600), the zones it never lies in (`never_in`: `wsg`), its looks per faction, the ally's size (`ally_scale`, 2) and the longest an assist lasts (`assist_seconds`, 10). |
 | `experience` | What kills drop (normal, elite, boss), what each level costs (`level_cost`), and the orb sizes. |
 | `spell_tags` | One multiplier per spell tag (`level_1`, `nuke`, `cleave`, `dot`, `nova`, `area`, `pet`, `sustain`, `buffs`, `defensive`), all 1.0 today. A damage tag scales damage (and a hit's burn, and an area's impact), `pet` also every talent pet; `sustain` scales healing, `buffs` buff amounts, `defensive` shields, weakening and reflected damage. Never cooldowns or durations. |
 
@@ -285,7 +288,9 @@ to 5.
   Gates of Ahn'Qiraj 10; 6 is kept free between Dire Maul and the Arena).
 * `enemies`: the roster. Each has a `name`, a model (`display_id`), `scale`,
   `creature_type`, its `kind`, `toughness` (normal enemies) and `appears_at_minute`; a caster
-  (kind `Ranged`) also names the look of its spell (`look_spell`).
+  (kind `Ranged`) also names the look of its spell (`look_spell`). An elite's `scale` is
+  min(2.0, 6.0 / its model's size), to 2 decimals: 1.3× to 2× its model, never drawn above 6; a
+  boss is drawn at 9, a final boss at 12 (zones.md, "Sizes").
 * `bosses`: in arrival order by `spawn_minute`; the last one has `is_final: true` (section 6).
 
 **Example** (`content\zones\my_zone.ron`; at D 1.6 it comes between Duskwood and Warsong Gulch):
@@ -310,7 +315,7 @@ to 5.
          kind: Fodder, toughness: 0.5, appears_at_minute: 0.0),
         (name: "Test Caster", display_id: 163, scale: 1.0, creature_type: Humanoid,
          kind: Ranged, toughness: 0.5, appears_at_minute: 0.5, look_spell: Some(133)),
-        (name: "Test Brute", display_id: 377, scale: 1.3, creature_type: Humanoid,
+        (name: "Test Brute", display_id: 377, scale: 1.62, creature_type: Humanoid,
          kind: Elite, appears_at_minute: 4.0),
     ],
     bosses: [
@@ -786,7 +791,9 @@ new hero stat (section 15), and the talent point curve and experience numbers
 (`game::rewards`). A new talent pet is data: add it to `content\pets.ron` and name it in a
 `Pet(pet: "...")` or `PetOnTrigger` milestone. A beast may name its `family` (`Wolf`, `Cat`,
 `Bear`, `Raptor`): it then grows with its hero's level, its size the family's
-(`PetFamily::scale_range`, from the player's `CreatureFamily.dbc`) in place of `scale`.
+(`PetFamily::scale_range`, from the player's `CreatureFamily.dbc`) in place of `scale`. A pet
+that flies names its `hover`, yards above the ground (the assist's Gargoyle: 2): it hovers that
+high, bobbing gently.
 
 ## 10. A race passive
 
@@ -960,6 +967,95 @@ spell needs its legendary too. Its `AbilityMod` may use every upgrade kind (`Sta
 `game::amulets`: `EMPOWER_RATE`), and the offer weights
 (`game::choices`).
 
+## 13a. A player character and its assist
+
+**File:** `content\player_characters.ron`. Start from
+[templates/player_character.ron](templates/player_character.ron). Reference:
+[assists.md](assists.md); the Warsong bosses in zones.md, "Player-looking enemies".
+
+`player_characters.ron` is the only list of hand-made characters. A character added there is at
+once a Warsong Gulch boss for heroes of the other faction (its bosses are `played_by: Some(Any)`)
+and an assist a battle standard summons for heroes of its own faction (its race's). No code
+lists them and nothing else needs changing.
+
+**Fields that matter:** a unique `id`, our own `name`, `race` and `class` (ids in `races.ron` and
+`classes.ron`), `gender`, optional `form` (a druid in `Cat`, `Bear` or `Moonkin` form), `yell`
+(as it arrives) and optional `death_yell` (as it dies or its assist ends), `assist` (what its
+assist does, as a player reads it: write the script's numbers there) and `assist_script` (what it
+does). Without an `assist_script` it takes its class's default from `content\class_assists.ron`
+(its form's, for a druid in a form), and the game's log names it among the characters still on a
+default. An assist lasts at most 10 sec (`balance.ron` `battle_standard.assist_seconds`) unless
+its script's `seconds` gives a longer time; the loader refuses steps that take longer.
+
+**The script:** `arrive`, then `steps` one after the other (a step starts once the one before is
+done), then `leave`.
+
+| Part | Choices |
+|---|---|
+| `arrive` | `how`: `Plain` (it is there), `Blink`, `Stealth` (fades in), `Portal` (steps out of a summoning portal); `beside: Some(<targets>)` to appear by an enemy instead of the hero; `look_spell` played as it appears (a spell's look brings its sound: Vanish's); `sound` (a `SoundEntries.dbc` id) |
+| `leave` | `how`: `Fade` (the default), `Vanish`, `Hearth`, `RunAway`, `Dies`; `look_spell` in place of the way's own |
+
+The blocks (`steps`):
+
+| Block | What it does |
+|---|---|
+| `Move(to, how, look_spell)` | goes to the enemies `to` picks (beside one, the middle of several): `how` `Run`, `Charge` or `Blink` |
+| `Cast(look_spell)` | a look on the ally only (Sprint, Shield Wall, a potion, a portal it opens) |
+| `Hit(targets, damage, look_spell, melee, effects, wears, over_time)` | strikes the enemies `targets` picks: `damage` to each, `effects` on each (`Stun`, `Root`, `Fear`, `Slow`, `Vulnerable`, `Weaken`: the hero's own rules, a boss held for a quarter, fear never on a boss), each wearing one of `wears` while they last (Blind's, Sap's, Polymorph's look), `over_time` damage `(damage, every, seconds, look_spell)`; `melee` steps to the first one |
+| `Area(at, radius, seconds, every, damage, effects, look_spell)` | a ground area at `Hero`, `Ally` or `BiggestPack`, striking every enemy inside every `every` sec |
+| `Buff(stats, seconds, heal, every, immune, look_spell, totem)` | on the hero for `seconds`: `stats` added (`[(Damage, 0.15)]`, positive only), `heal` of max health every `every` sec, `immune` no damage taken; with `totem: Some(<spell>)` it comes from a totem dropped beside the hero |
+| `Heal(share, look_spell)` | heals the hero `share` of max health at once |
+| `Taunt(targets, seconds, look_spell)` | the enemies picked attack the ally for `seconds` (a boss for a quarter); the ally stays while it holds |
+| `Summon(pet, count, seconds, damage)` | `count` of a `pets.ron` pet fight for the hero for `seconds`; their attacks are the assist's damage, each `damage` (missing: the pet's own `damage` in points) |
+| `Repeat(every, times, steps)` | its steps `times` times, one every `every` sec (takes `every × times`) |
+| `Wait(seconds)` | waits |
+
+**Targets** (always within the screen: the zone's enemy spawn ring's inner radius, 22 yd):
+`Nearest(n)` (to the hero), `NearHero(radius, most)`, `NearAlly(radius, most)` (`most` left out:
+all), `Strongest` (a boss, else a rare, an elite, the most max health), `StrongestNotBoss`,
+`Healthiest` (most health left), `Farthest`, `OnScreen`, `Same` (the enemies the step before
+picked). **Damage:** `MaxHealthShare(0.05)` (5 % of the struck enemy's max health; on a boss or a
+rare at most what it deals a normal enemy of that zone and minute) or `Flat(120.0)`.
+
+**Example:** a rogue who strikes up to 5 enemies near the hero every second for 8 sec, then
+vanishes:
+
+```ron
+    (
+        id: "mir",
+        name: "Mir",
+        race: "orc",
+        class: "rogue",
+        gender: Male,
+        yell: "...",
+        assist: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, each hit 3% of its max health, then vanishes.",
+        assist_script: Some((
+            arrive: (look_spell: Some(1856)),
+            steps: [
+                Cast(look_spell: 22482),
+                Repeat(every: 1.0, times: 8, steps: [
+                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03)), melee: true),
+                ]),
+            ],
+            leave: (how: Vanish),
+        )),
+        gear: Random,
+    ),
+```
+
+**Rules:** an assist never harms the hero (buffs are positive, the effects land on enemies only);
+the ally cannot be hurt or targeted; `Same` needs a step before it that picked; a `Summon` names
+a pet `pets.ron` has. "Near the hero" is 10 yd unless the spell it uses has its own radius
+(Whirlwind 8, Arcane Explosion and Blizzard 9).
+
+**A class default:** `content\class_assists.ron`, one `(class, form, text, script)` per class
+(every class needs one without a form; a druid form may have its own).
+
+**How to check it:** `cargo test -p esurv-content` (every character's assist, its own or its
+class's, loads and validates).
+
+**Still code:** a new block or target rule (section 15).
+
 ## 14. Changing a whole kind of thing at once
 
 | To change | Edit |
@@ -982,6 +1078,7 @@ What data cannot do yet, and where it would go:
 | enemy behaviour | `esurv-sim` `game::enemy_ai`, `game::enemy_attacks`, `game::director` |
 | spell delivery kind | `Delivery` in `schema.rs`; `esurv-sim` `game::casting`; a legendary recipe |
 | on-hit effect | `SpellEffect` in `crates\esurv-content\src\schema.rs`; `game::casting`; `game::spell_numbers` and `text.rs` for its card numbers |
+| assist block or target rule | `AssistStep`, `Targets` in `crates\esurv-content\src\assists.rs` (and its checks there); the assists in `esurv-sim` |
 | milestone, trigger or filter | `Milestone`, `Trigger`, `SpellFilter` in `schema.rs`; `esurv-sim` `game::milestones` |
 | hero stat | `Stat` in `schema.rs`; `esurv-sim` `game::stats`; a line in `words.ron` |
 | run option | `esurv-sim` `game::rewards` (`option_bonus`) and `game::enemy` (`RunOptions`), the menus |

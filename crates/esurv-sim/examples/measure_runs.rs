@@ -135,6 +135,7 @@ fn source_name(source: &HitSource) -> String {
         HitSource::WeaponSwing => "swing".into(),
         HitSource::Pet(_) => "pet".into(),
         HitSource::Proc { spell, .. } => format!("proc {spell}"),
+        HitSource::Assist(c) => format!("assist {c}"),
         HitSource::Enemy(_) | HitSource::Other => "other".into(),
     }
 }

@@ -95,6 +95,7 @@ impl Run {
             self.spawn_roster_enemy(0, None);
         }
         self.plan_rares();
+        self.plan_standards();
         self.opening_milestones();
         for _ in 0..CACHES_AT_START {
             self.place_pickup(Pickup::BattlegroundCache, CACHE_RING);
@@ -107,7 +108,7 @@ impl Run {
     }
 
     /// Puts a pickup at a random spot `ring` yards from a hero.
-    fn place_pickup(&mut self, kind: Pickup, ring: (f32, f32)) {
+    pub(crate) fn place_pickup(&mut self, kind: Pickup, ring: (f32, f32)) {
         let Some(h) = self.anchor_hero() else { return };
         let at = self.spawn_point(h, ring);
         self.drop(kind, 0, at);
@@ -279,6 +280,12 @@ impl Run {
                 }
                 self.push(Event::Sound(MAGNET_SOUND));
                 self.push(Event::Announce(super::lines::MAGNET_TAKEN.into()));
+            }
+            Pickup::BattleStandard(_) => {
+                // taken first, then the ally comes
+                self.push(Event::PickupTaken { id: p.id, hero });
+                self.summon_ally(h);
+                return true;
             }
         }
         self.push(Event::PickupTaken { id: p.id, hero });

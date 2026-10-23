@@ -22,6 +22,7 @@ use benilla_ui::script::UiScript;
 use bevy::prelude::*;
 
 use super::look::{palette, solid, Arrow, ButtonStyle, Face, MenuLook};
+use super::scroll::ScrollingList;
 use crate::stock::{MenuLookTip, Tip, TipLine};
 use super::MenuAction;
 
@@ -31,9 +32,8 @@ pub enum OptionsTab {
     #[default]
     Video,
     Sound,
+    /// Four headed sections: Mouse & Camera, Names, Eternal Survivors, Misc.
     Interface,
-    /// The boss timers: warnings, timer bars and their handles.
-    Timers,
     /// The save's export and import ([`super::save_files`]).
     Saves,
 }
@@ -157,6 +157,12 @@ fn tip_of(s: &Setting) -> Option<&'static [&'static str]> {
             "Update downloads the new version, checks it, and restarts the game into it; your heroes and settings stay.",
             "Nothing about you is sent. Unticked, the game never asks.",
         ]),
+        crate::glow_option::CVAR => Some(&[
+            "Glow around elites and rares",
+            "Elites glow purple around their outline, and rares and the Rare Caches they drop glow silver, so the strong enemies stand out in a crowd.",
+            "Bosses and other enemies never glow.",
+            "Unticked, every glow hides at once.",
+        ]),
         _ => None,
     }
 }
@@ -169,11 +175,6 @@ fn row_tip(lines: &[&str]) -> Tip {
         .map(|(i, l)| TipLine::new(*l, if i == 0 { palette::HEADING } else { palette::VALUE }))
         .collect())
 }
-
-/// The tips box's key: no CVar but the stock calls Show Tutorials makes (`TutorialsEnabled` to
-/// read, `ResetTutorials` and `ClearTutorials` to write). The tips live with the world session,
-/// so the box is open only over a run; a new save starts with them off (the server's).
-const TIPS: &str = "@tips";
 
 /// The Video Options frame's settings, one for one (its eighteen boxes, nine sliders, resolution
 /// and multisampling; its refresh-rate list is always empty in benilla, which owns no exclusive
@@ -445,11 +446,13 @@ const SOUND: &[Setting] = &[
 ];
 
 /// The Interface Options frame's settings that are plain CVars the game itself reads (not the Lua
-/// interface): controls, camera, names over heads, chat and combat numbers. Left out: what only
-/// the Lua interface reads (tooltips, bar text, the per-character interface settings such as
-/// combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own, sent to
-/// the server in the world), the spam filter, and Key Bindings.
-const INTERFACE_CONTROLS: &[Setting] = &[
+/// interface), with the game's own settings, in four headed sections ([`INTERFACE`]). Left out:
+/// what only the Lua interface reads (tooltips, bar text, the per-character interface settings
+/// such as combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own,
+/// sent to the server in the world), the spam filter, and Key Bindings; and, not shown (their
+/// saved values kept as they are), party chat bubbles, every roll in the chat, guild arrivals,
+/// the language filter, refusing trades, the tips in the game, attack on assist and self-cast.
+const MOUSE_BOXES: &[Setting] = &[
     Check {
         cvar: "mouseInvertPitch",
         label: "Invert the mouse",
@@ -463,23 +466,32 @@ const INTERFACE_CONTROLS: &[Setting] = &[
         takes: Takes::Now,
     },
     Check {
-        cvar: "deselectOnClick",
-        label: "Clicking the ground clears the target",
+        cvar: "cameraTerrainTilt",
+        label: "Camera follows the ground",
         needs: None,
         takes: Takes::Now,
     },
     Check {
-        cvar: "assistAttack",
-        label: "Attack on assist",
+        cvar: "cameraBobbing",
+        label: "Camera bobs with steps",
         needs: None,
         takes: Takes::Now,
     },
     Check {
-        cvar: "autoSelfCast",
-        label: "Cast on yourself when nothing is targeted",
+        cvar: "cameraWaterCollision",
+        label: "Camera stays out of water",
         needs: None,
         takes: Takes::Now,
     },
+    Check {
+        cvar: "cameraPivot",
+        label: "Camera turns smartly",
+        needs: None,
+        takes: Takes::Now,
+    },
+];
+
+const MOUSE_RANGES: &[Setting] = &[
     Range {
         via: Via::Cvar("mousespeed"),
         label: "Mouse sensitivity",
@@ -519,33 +531,9 @@ const INTERFACE_CONTROLS: &[Setting] = &[
         step: 0.1,
         takes: Takes::Now,
     },
-    Check {
-        cvar: "cameraTerrainTilt",
-        label: "Camera follows the ground",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "cameraBobbing",
-        label: "Camera bobs with steps",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "cameraWaterCollision",
-        label: "Camera stays out of water",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "cameraPivot",
-        label: "Camera turns smartly",
-        needs: None,
-        takes: Takes::Now,
-    },
 ];
 
-const INTERFACE_DISPLAY: &[Setting] = &[
+const NAMES_LEFT: &[Setting] = &[
     Check {
         cvar: "UnitNamePlayer",
         label: "Player names",
@@ -564,6 +552,9 @@ const INTERFACE_DISPLAY: &[Setting] = &[
         needs: None,
         takes: Takes::Now,
     },
+];
+
+const NAMES_RIGHT: &[Setting] = &[
     Check {
         cvar: "UnitNameNPC",
         label: "Creature names",
@@ -576,6 +567,9 @@ const INTERFACE_DISPLAY: &[Setting] = &[
         needs: None,
         takes: Takes::Now,
     },
+];
+
+const GAME_NUMBERS: &[Setting] = &[
     Check {
         cvar: "CombatDamage",
         label: "Show damage numbers",
@@ -590,66 +584,6 @@ const INTERFACE_DISPLAY: &[Setting] = &[
         reads: damage_numbers_read,
         takes: Takes::Now,
     },
-    Check {
-        cvar: "PetMeleeDamage",
-        label: "Pet damage numbers",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "ChatBubbles",
-        label: "Chat bubbles",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "ChatBubblesParty",
-        label: "Party chat bubbles",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "showLootSpam",
-        label: "Every roll in the chat",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "guildMemberNotify",
-        label: "Guild arrivals in the chat",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "profanityFilter",
-        label: "Language filter",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "autoClearAFK",
-        label: "Clear away when acting",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "BlockTrades",
-        label: "Refuse trades",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: "showGameTips",
-        label: "Tips on loading screens",
-        needs: None,
-        takes: Takes::Now,
-    },
-    Check {
-        cvar: TIPS,
-        label: "Tips in the game",
-        needs: None,
-        takes: Takes::Now,
-    },
     // the updater's check at start ([`crate::update`]); on, it checks as soon as it is ticked
     Check {
         cvar: crate::update::CVAR,
@@ -657,12 +591,18 @@ const INTERFACE_DISPLAY: &[Setting] = &[
         needs: None,
         takes: Takes::Now,
     },
+    // the glows around elites, rares and Rare Caches ([`crate::glow_option`])
+    Check {
+        cvar: crate::glow_option::CVAR,
+        label: "Glow around elites and rares",
+        needs: None,
+        takes: Takes::Now,
+    },
 ];
 
-/// The Timers tab (`crate::boss_alerts`, `crate::boss_bar_places`): the
-/// boss warnings and their sound on the left, the timer bars, their drag handles and putting them
-/// back on the right.
-const TIMERS_WARNINGS: &[Setting] = &[
+/// The boss timers (`crate::boss_alerts`, `crate::boss_bar_places`): the warnings and their sound,
+/// the timer bars, their drag handles and putting them back.
+const GAME_TIMERS: &[Setting] = &[
     Check {
         cvar: crate::boss_alerts::WARNINGS_CVAR,
         label: "Boss warnings",
@@ -676,9 +616,6 @@ const TIMERS_WARNINGS: &[Setting] = &[
         needs: Some(crate::boss_alerts::WARNINGS_CVAR),
         takes: Takes::Now,
     },
-];
-
-const TIMERS_BARS: &[Setting] = &[
     Check {
         cvar: crate::boss_alerts::BARS_CVAR,
         label: "Boss timer bars",
@@ -701,20 +638,91 @@ const TIMERS_BARS: &[Setting] = &[
     },
 ];
 
-/// A tab's two columns.
-fn columns(tab: OptionsTab) -> [&'static [Setting]; 2] {
+const MISC_LEFT: &[Setting] = &[
+    Check {
+        cvar: "ChatBubbles",
+        label: "Chat bubbles",
+        needs: None,
+        takes: Takes::Now,
+    },
+    Check {
+        cvar: "deselectOnClick",
+        label: "Clicking the ground clears the target",
+        needs: None,
+        takes: Takes::Now,
+    },
+    Check {
+        cvar: "autoClearAFK",
+        label: "Clear away when acting",
+        needs: None,
+        takes: Takes::Now,
+    },
+];
+
+const MISC_RIGHT: &[Setting] = &[
+    Check {
+        cvar: "showGameTips",
+        label: "Tips on loading screens",
+        needs: None,
+        takes: Takes::Now,
+    },
+    Check {
+        cvar: "PetMeleeDamage",
+        label: "Pet damage numbers",
+        needs: None,
+        takes: Takes::Now,
+    },
+];
+
+/// A headed part of a tab: its heading (none on a tab of one part) and its two columns.
+#[derive(Clone, Copy)]
+struct Section {
+    title: Option<&'static str>,
+    columns: [&'static [Setting]; 2],
+}
+
+/// The Interface tab's sections, in order.
+const INTERFACE: &[Section] = &[
+    Section {
+        title: Some("Mouse & Camera"),
+        columns: [MOUSE_BOXES, MOUSE_RANGES],
+    },
+    Section {
+        title: Some("Names"),
+        columns: [NAMES_LEFT, NAMES_RIGHT],
+    },
+    Section {
+        title: Some("Eternal Survivors"),
+        columns: [GAME_NUMBERS, GAME_TIMERS],
+    },
+    Section {
+        title: Some("Misc"),
+        columns: [MISC_LEFT, MISC_RIGHT],
+    },
+];
+
+/// How tall the Interface tab's sections show at most before they scroll (the menus' units).
+const SECTIONS_HEIGHT: f32 = 560.0;
+
+/// The tabs that hold settings.
+const SETTING_TABS: [OptionsTab; 3] = [OptionsTab::Video, OptionsTab::Sound, OptionsTab::Interface];
+
+/// A tab's sections.
+fn sections(tab: OptionsTab) -> Vec<Section> {
+    let one = |columns| vec![Section { title: None, columns }];
     match tab {
-        OptionsTab::Video => [VIDEO_DISPLAY, VIDEO_WORLD],
-        OptionsTab::Sound => [&SOUND[..7], &SOUND[7..]],
-        OptionsTab::Interface => [INTERFACE_CONTROLS, INTERFACE_DISPLAY],
-        OptionsTab::Timers => [TIMERS_WARNINGS, TIMERS_BARS],
+        OptionsTab::Video => one([VIDEO_DISPLAY, VIDEO_WORLD]),
+        OptionsTab::Sound => one([&SOUND[..7], &SOUND[7..]]),
+        OptionsTab::Interface => INTERFACE.to_vec(),
         // export and import: no setting ([`super::save_files`])
-        OptionsTab::Saves => [&[], &[]],
+        OptionsTab::Saves => Vec::new(),
     }
 }
 
 fn all(tab: OptionsTab) -> impl Iterator<Item = &'static Setting> {
-    columns(tab).into_iter().flatten()
+    sections(tab)
+        .into_iter()
+        .flat_map(|s| s.columns.into_iter().flatten())
 }
 
 /// The stock frame's anisotropy stops (`ANISOTROPIC_VALUES`), the slider's 1 to 4 as the CVar's.
@@ -791,6 +799,7 @@ pub(super) fn read(script: &UiScript, tab: OptionsTab) -> OptionsDraft {
     // our own settings are registered as an addon's are, so they read and keep
     crate::boss_alerts::register_cvars(script);
     crate::smart_numbers::register_cvar(script);
+    crate::glow_option::register_cvar(script);
     crate::update::register_cvar(script);
     let text = |chunk: &str| script.eval::<Option<String>>(chunk).ok().flatten();
     let list = |call: &str| -> Vec<String> {
@@ -836,10 +845,9 @@ pub(super) fn read(script: &UiScript, tab: OptionsTab) -> OptionsDraft {
         over_run: false,
         key_bindings: false,
     };
-    for tab in [OptionsTab::Video, OptionsTab::Sound, OptionsTab::Interface, OptionsTab::Timers] {
+    for tab in SETTING_TABS {
         for s in all(tab) {
             let value = match s {
-                Check { cvar: TIPS, .. } => text("return TutorialsEnabled() and '1' or '0'"),
                 Check { cvar, .. } => text(&format!("return GetCVar({})", quoted(cvar))),
                 Choice { cvar, reads, .. } => text(&format!("return GetCVar({})", quoted(cvar))).map(|v| reads(&v).to_owned()),
                 Range { via, .. } => match via {
@@ -865,9 +873,7 @@ pub(super) fn read(script: &UiScript, tab: OptionsTab) -> OptionsDraft {
 
 /// A setting found by its key.
 fn find(key: &str) -> Option<&'static Setting> {
-    [OptionsTab::Video, OptionsTab::Sound, OptionsTab::Interface, OptionsTab::Timers]
-        .into_iter()
-        .flat_map(all)
+    SETTING_TABS.into_iter().flat_map(all)
         .find(|s| s.key() == key)
 }
 
@@ -879,7 +885,6 @@ pub(super) fn key_of(name: &str) -> Option<&'static str> {
 /// Whether a setting may be changed now: its box ticked where it needs one, and the device able.
 fn open(draft: &OptionsDraft, s: &Setting) -> bool {
     match s {
-        Check { cvar: TIPS, .. } => draft.over_run,
         Check { cvar, needs, .. } => {
             (*cvar != "gxTripleBuffer" || draft.triple_buffering)
                 && needs.is_none_or(|n| draft.ticked(n))
@@ -984,7 +989,8 @@ pub(super) fn apply(script: &UiScript, draft: &mut OptionsDraft) {
     let mut chunk = String::new();
     let mut display = false;
     let mut later: Vec<&'static str> = Vec::new();
-    for tab in [OptionsTab::Video, OptionsTab::Interface, OptionsTab::Timers] {
+    // Sound is written as it is moved
+    for tab in [OptionsTab::Video, OptionsTab::Interface] {
         for s in all(tab) {
             let key = s.key();
             if !draft.changed(key) {
@@ -992,10 +998,6 @@ pub(super) fn apply(script: &UiScript, draft: &mut OptionsDraft) {
             }
             let value = draft.get(key).unwrap_or("0").to_owned();
             let takes = match s {
-                Check { cvar: TIPS, takes, .. } => {
-                    chunk += if value == "1" { "ResetTutorials()\n" } else { "ClearTutorials()\n" };
-                    *takes
-                }
                 Choice { cvar, takes, .. } => {
                     chunk += &format!("SetCVar({}, {})
 ", quoted(cvar), quoted(&value));
@@ -1174,7 +1176,6 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, look: &MenuLook, draft
                         (OptionsTab::Video, "Video"),
                         (OptionsTab::Sound, "Sound"),
                         (OptionsTab::Interface, "Interface"),
-                        (OptionsTab::Timers, "Timers"),
                         (OptionsTab::Saves, "Saves"),
                     ] {
                         let style = if tab == draft.tab {
@@ -1189,34 +1190,59 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, look: &MenuLook, draft
                 if draft.tab == OptionsTab::Saves {
                     super::save_files::draw_page(p, look, &draft.saves);
                 }
-                p.spawn(Node {
-                    column_gap: look.px(24.0),
-                    align_items: AlignItems::FlexStart,
+                // the tab's sections, each under its heading; the Interface tab's scroll with the
+                // wheel when they are more than the panel shows
+                let mut body = Node {
+                    flex_direction: FlexDirection::Column,
+                    row_gap: look.px(4.0),
                     ..default()
-                })
-                .with_children(|cols| {
-                    for column in columns(draft.tab) {
-                        cols.spawn(Node {
-                            flex_direction: FlexDirection::Column,
-                            flex_grow: 1.0,
-                            flex_basis: Val::Px(0.0),
-                            row_gap: look.px(3.0),
-                            ..default()
-                        })
-                        .with_children(|col| {
-                            for s in column {
-                                row(col, look, draft, s);
-                            }
-                        });
+                };
+                let scrolls = draft.tab == OptionsTab::Interface;
+                if scrolls {
+                    body.max_height = look.px(SECTIONS_HEIGHT);
+                    body.min_height = Val::ZERO;
+                    body.overflow = Overflow::scroll_y();
+                }
+                let mut body = p.spawn(body);
+                if scrolls {
+                    body.insert(super::scroll::scrolling(ScrollingList::OptionsInterface));
+                }
+                body.with_children(|parts| {
+                    for section in sections(draft.tab) {
+                        if let Some(title) = section.title {
+                            look.heading(parts, title, 13.0);
+                        }
+                        parts
+                            .spawn(Node {
+                                column_gap: look.px(24.0),
+                                align_items: AlignItems::FlexStart,
+                                flex_shrink: 0.0,
+                                ..default()
+                            })
+                            .with_children(|cols| {
+                                for column in section.columns {
+                                    cols.spawn(Node {
+                                        flex_direction: FlexDirection::Column,
+                                        flex_grow: 1.0,
+                                        flex_basis: Val::Px(0.0),
+                                        row_gap: look.px(3.0),
+                                        ..default()
+                                    })
+                                    .with_children(|col| {
+                                        for s in column {
+                                            row(col, look, draft, s);
+                                        }
+                                    });
+                                }
+                            });
                     }
                 });
                 let hint = match draft.tab {
                     OptionsTab::Video => "Video changes apply on Okay; display changes rebuild the window.",
                     OptionsTab::Sound => "Sound changes are heard at once; Cancel puts them back.",
                     OptionsTab::Interface => {
-                        "Interface changes apply on Okay. The interface's own settings (tooltips, bars, combat text) are set in the game."
+                        "Interface changes apply on Okay; with the bar handles hidden, hold Shift to move the boss timer bars. The interface's own settings (tooltips, bars, combat text) are set in the game."
                     }
-                    OptionsTab::Timers => "Boss warnings and timer bars. Changes apply on Okay; with the handles hidden, hold Shift to move the bars.",
                     OptionsTab::Saves if draft.over_run => {
                         "An export is done at once; Okay and Cancel are for the other tabs."
                     }
@@ -1266,6 +1292,10 @@ fn row(col: &mut ChildSpawnerCommands, look: &MenuLook, draft: &OptionsDraft, s:
                 key: s.key(),
                 up: true,
             });
+            // a box with a tooltip shows it while the pointer is over its line
+            if let Some(lines) = tip_of(s) {
+                line.insert((row_tip(lines), MenuLookTip));
+            }
             line.with_children(|b| {
                 b.spawn((
                     Node {
@@ -1489,6 +1519,156 @@ mod tests {
         let tip = row_tip(tip_of(s).unwrap());
         assert_eq!(tip.0[0].text, "Check for updates");
         assert!(tip.0.iter().any(|l| l.text.contains("Nothing about you is sent")));
+    }
+
+    /// The keys of a section's rows, left column then right.
+    fn keys(section: &Section) -> Vec<&'static str> {
+        section.columns.iter().flat_map(|c| c.iter().map(Setting::key)).collect()
+    }
+
+    /// The Interface tab: four headed sections in order, each with its rows.
+    #[test]
+    fn the_interface_tab_has_its_four_sections_and_their_rows() {
+        let parts = sections(OptionsTab::Interface);
+        let titles: Vec<_> = parts.iter().map(|s| s.title).collect();
+        assert_eq!(
+            titles,
+            [Some("Mouse & Camera"), Some("Names"), Some("Eternal Survivors"), Some("Misc")]
+        );
+        assert_eq!(
+            keys(&parts[0]),
+            [
+                "mouseInvertPitch",
+                "autointeract",
+                "cameraTerrainTilt",
+                "cameraBobbing",
+                "cameraWaterCollision",
+                "cameraPivot",
+                "mousespeed",
+                "cameraYawMoveSpeed",
+                "cameraSmoothStyle",
+                "cameraYawSmoothSpeed",
+                "cameraDistanceMaxFactor",
+            ]
+        );
+        assert_eq!(
+            keys(&parts[1]),
+            ["UnitNamePlayer", "UnitNamePlayerGuild", "UnitNamePlayerPVPTitle", "UnitNameNPC", "UnitNameOwn"]
+        );
+        assert_eq!(
+            keys(&parts[2]),
+            [
+                "CombatDamage",
+                crate::smart_numbers::CVAR,
+                crate::update::CVAR,
+                crate::glow_option::CVAR,
+                crate::boss_alerts::WARNINGS_CVAR,
+                crate::boss_alerts::SOUND_CVAR,
+                crate::boss_alerts::BARS_CVAR,
+                crate::boss_alerts::HANDLES_CVAR,
+                crate::boss_bar_places::RESET_CVAR,
+            ]
+        );
+        assert_eq!(
+            keys(&parts[3]),
+            ["ChatBubbles", "deselectOnClick", "autoClearAFK", "showGameTips", "PetMeleeDamage"]
+        );
+        // the other tabs are one part with no heading
+        for tab in [OptionsTab::Video, OptionsTab::Sound] {
+            let parts = sections(tab);
+            assert!(parts.len() == 1 && parts[0].title.is_none(), "{tab:?}");
+        }
+        assert!(sections(OptionsTab::Saves).is_empty());
+    }
+
+    /// The eight settings no longer shown are on no tab, and Okay leaves their saved values as
+    /// they are.
+    #[test]
+    fn the_hidden_settings_are_gone_and_keep_their_values() {
+        const HIDDEN: [&str; 8] = [
+            "ChatBubblesParty",
+            "showLootSpam",
+            "guildMemberNotify",
+            "profanityFilter",
+            "BlockTrades",
+            "@tips",
+            "assistAttack",
+            "autoSelfCast",
+        ];
+        for key in HIDDEN {
+            assert!(find(key).is_none(), "{key} is shown");
+            assert!(key_of(key).is_none(), "{key} is a script's option");
+        }
+        let mut script = UiScript::new().unwrap();
+        // as the game keeps them: set to a value of the player's
+        script.register_cvars([("BlockTrades", "0"), ("assistAttack", "0")]);
+        script.run("SetCVar(\"BlockTrades\", \"1\") SetCVar(\"assistAttack\", \"1\")").unwrap();
+        let mut d = read(&script, OptionsTab::Interface);
+        assert!(d.get("BlockTrades").is_none());
+        change(None, &mut d, "CombatDamage", true);
+        let _ = script.take_cvar_changes();
+        apply(&script, &mut d);
+        let changes = script.take_cvar_changes();
+        for key in HIDDEN {
+            assert!(!changes.iter().any(|(k, _)| k.eq_ignore_ascii_case(key)), "{key} written");
+        }
+        assert_eq!(script.cvar("BlockTrades").as_deref(), Some("1"));
+        assert_eq!(script.cvar("assistAttack").as_deref(), Some("1"));
+    }
+
+    /// The Timers tab is gone: its rows are in the Interface tab's Eternal Survivors section, read
+    /// and written on Okay with the rest of the tab.
+    #[test]
+    fn the_timers_rows_are_on_the_interface_tab() {
+        use crate::boss_alerts::{BARS_CVAR, HANDLES_CVAR, SOUND_CVAR, WARNINGS_CVAR};
+        use crate::boss_bar_places::RESET_CVAR;
+        let game = &sections(OptionsTab::Interface)[2];
+        for key in [WARNINGS_CVAR, SOUND_CVAR, BARS_CVAR, HANDLES_CVAR, RESET_CVAR] {
+            assert!(game.columns[1].iter().any(|s| s.key() == key), "{key}");
+            assert!(SETTING_TABS.into_iter().filter(|t| all(*t).any(|s| s.key() == key)).count() == 1);
+        }
+        let mut script = UiScript::new().unwrap();
+        let mut d = read(&script, OptionsTab::Interface);
+        let was = d.ticked(HANDLES_CVAR);
+        change(None, &mut d, HANDLES_CVAR, true);
+        let _ = script.take_cvar_changes();
+        apply(&script, &mut d);
+        let want = if was { "0" } else { "1" };
+        assert!(script
+            .take_cvar_changes()
+            .iter()
+            .any(|(k, v)| k.eq_ignore_ascii_case(HANDLES_CVAR) && v == want));
+    }
+
+    /// Glow around elites and rares: on by default, a box in the Eternal Survivors section,
+    /// written on Okay as the CVar the host keeps and read back from a saved value; the box has
+    /// its tooltip.
+    #[test]
+    fn the_glow_box_defaults_to_on_and_is_saved() {
+        use crate::glow_option::{glow_on, CVAR};
+        let mut script = UiScript::new().unwrap();
+        let mut d = read(&script, OptionsTab::Interface);
+        let s = find(CVAR).unwrap();
+        assert!(matches!(s, Check { label: "Glow around elites and rares", .. }));
+        assert!(sections(OptionsTab::Interface)[2].columns[0].iter().any(|x| x.key() == CVAR));
+        assert!(d.ticked(CVAR), "on by default");
+        change(None, &mut d, CVAR, true);
+        assert!(!d.ticked(CVAR));
+        let _ = script.take_cvar_changes();
+        apply(&script, &mut d);
+        assert_eq!(script.cvar(CVAR).as_deref(), Some("0"));
+        assert!(script
+            .take_cvar_changes()
+            .iter()
+            .any(|(k, v)| k.eq_ignore_ascii_case(CVAR) && v == "0"));
+        assert!(!glow_on(script.cvar(CVAR).as_deref()));
+        // the next start: the saved value outranks the default
+        let mut again = UiScript::new().unwrap();
+        again.set_cvar_saved_base([(CVAR.to_ascii_lowercase(), "0".to_string())]);
+        assert!(!read(&again, OptionsTab::Interface).ticked(CVAR));
+        let tip = row_tip(tip_of(s).unwrap());
+        assert_eq!(tip.0[0].text, "Glow around elites and rares");
+        assert!(tip.0.iter().any(|l| l.text.contains("purple")) && tip.0.iter().any(|l| l.text.contains("silver")));
     }
 
     #[test]

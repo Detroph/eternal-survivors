@@ -1,9 +1,9 @@
 //! Where the boss timer bars' two groups sit (DBM-style bars the player
 //! places): the "soon" bars and the later bars each move as a group, dragged by a small handle
-//! over the group. The handles always show unless "Show bar handles" is off in Options (Timers),
-//! then only while Shift is held. Each group's place is kept in `boss_bars.ron` in benilla's state folder, as the meter
-//! keeps its window's, and is back after a restart; "Reset boss bar positions" in Options
-//! (Interface, beside the bars' toggles) puts both back where they start.
+//! over the group. The handles always show unless "Show bar handles" is off in Options (Interface,
+//! Eternal Survivors), then only while Shift is held. Each group's place is kept in `boss_bars.ron` in benilla's state folder, as the meter
+//! keeps its window's, and is back after a restart; "Reset bar positions" in Options
+//! (Interface, Eternal Survivors, beside the bars' toggles) puts both back where they start.
 
 use std::path::{Path, PathBuf};
 

@@ -110,7 +110,7 @@
         (
             name: "Qiraji Champion",
             display_id: 1062,
-            scale: 0.8,
+            scale: 0.99,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 4.0,
@@ -118,7 +118,7 @@
         (
             name: "Anubisath Sentinel",
             display_id: 5965,
-            scale: 0.6,
+            scale: 0.67,
             creature_type: Humanoid,
             kind: Elite,
             appears_at_minute: 8.5,
@@ -126,7 +126,7 @@
         (
             name: "Obsidian Destroyer",
             display_id: 11914,
-            scale: 0.8,
+            scale: 0.93,
             creature_type: Mechanical,
             kind: Elite,
             appears_at_minute: 13.0,

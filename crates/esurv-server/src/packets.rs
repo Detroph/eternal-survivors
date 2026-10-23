@@ -664,6 +664,29 @@ pub fn play_object_sound(sound: u32, source: u64) -> Packet {
     Body::new().u32(sound).u64(source).packet(opcode::SMSG_PLAY_OBJECT_SOUND)
 }
 
+/// `MSG_MINIMAP_PING` as a server relays it: `pinger`'s ping at world `at` (the stock pulsing
+/// ring on the minimap, held 5 s by the stock `Minimap.lua`).
+pub fn minimap_ping(pinger: u64, at: (f32, f32)) -> Packet {
+    Body::new().u64(pinger).f32(at.0).f32(at.1).packet(opcode::MSG_MINIMAP_PING)
+}
+
+/// `SMSG_ATTACKERSTATEUPDATE` of a swing that did no harm: `attacker` strikes `victim` and all of
+/// it is absorbed (the client shows "Absorb"), as an enemy's blow at a taunting ally.
+pub fn attacker_state_absorbed(attacker: u64, victim: u64) -> Packet {
+    const HITINFO_NORMALSWING2: u32 = 0x02;
+    const HITINFO_ABSORB: u32 = 0x20;
+    const VICTIMSTATE_NORMAL: u32 = 1;
+    const ABSORBED: u32 = 1;
+    let mut b = Body::new();
+    b.u32(HITINFO_NORMALSWING2 | HITINFO_ABSORB);
+    b.packed_guid(attacker).packed_guid(victim).u32(0);
+    // one physical part: school, damage as float and whole, absorbed, resisted
+    b.u8(1).u32(0).f32(0.0).u32(0).u32(ABSORBED).u32(0);
+    // victim state, attacker state, melee spell, blocked
+    b.u32(VICTIMSTATE_NORMAL).u32(0).u32(0).u32(0);
+    b.packet(opcode::SMSG_ATTACKERSTATEUPDATE)
+}
+
 /// `SMSG_NOTIFICATION`: red text across the screen.
 pub fn notification(text: &str) -> Packet {
     Body::new().cstr(text).packet(opcode::SMSG_NOTIFICATION)
@@ -701,6 +724,22 @@ pub fn monster_move(
         b.i32(
             q(end[0] - p[0], 0x7FF, 0) | q(end[1] - p[1], 0x7FF, 11) | q(end[2] - p[2], 0x3FF, 22),
         );
+    }
+    b.packet(opcode::SMSG_MONSTER_MOVE)
+}
+
+/// `SMSG_MONSTER_MOVE` of a unit that flies: from `start` through `path` (heights kept, the
+/// client draws a smooth curve through the points) in `duration_ms`, the flying flag set and every
+/// point written whole.
+pub fn monster_move_flying(guid: u64, start: [f32; 3], spline_id: u32, path: &[[f32; 3]], duration_ms: u32) -> Packet {
+    const SPLINE_FLAG_RUNMODE: u32 = 0x100;
+    const SPLINE_FLAG_FLYING: u32 = 0x200;
+    let mut b = Body::new();
+    b.packed_guid(guid).vec3(start).u32(spline_id);
+    b.u8(0).u32(SPLINE_FLAG_RUNMODE | SPLINE_FLAG_FLYING).u32(duration_ms);
+    b.u32(path.len() as u32);
+    for &p in path {
+        b.vec3(p);
     }
     b.packet(opcode::SMSG_MONSTER_MOVE)
 }

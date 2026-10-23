@@ -10,6 +10,7 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
+mod assists;
 mod boss_mechanics;
 mod categories;
 #[cfg(feature = "client")]
@@ -30,6 +31,7 @@ pub mod testing;
 pub mod text;
 #[cfg(feature = "watch")]
 pub mod watch;
+pub use assists::*;
 pub use boss_mechanics::*;
 pub use categories::apply_category_tuning;
 #[cfg(feature = "client")]
@@ -70,6 +72,9 @@ pub struct Content {
     pub pvp_looks: PvpLooks,
     /// The hand-made player characters (`player_characters.ron`).
     pub player_characters: Vec<PlayerCharacter>,
+    /// Each class's default assist (and its forms'), for a character without a script of its
+    /// own (`class_assists.ron`).
+    pub class_assists: Vec<ClassAssist>,
     /// What prestige points buy, a rank at a time (`prestige.ron`).
     pub prestige: Vec<PrestigeStat>,
     /// The words cards put around their numbers (`words.ron`).
@@ -127,9 +132,10 @@ impl Content {
         let mut words: Words = read_one(dir, "words.ron")?;
         let mut legendary_amulets: Vec<LegendaryAmulet> = read(dir, "legendary_amulets.ron")?;
         let mut player_characters: Vec<PlayerCharacter> = read(dir, "player_characters.ron")?;
+        let mut class_assists: Vec<ClassAssist> = read(dir, "class_assists.ron")?;
         show_names(names, &mut classes, &mut abilities, &mut talent_trees, &mut races, &mut words)?;
         let mut loadouts: Vec<ClassLoadouts> = read(dir, "loadouts.ron")?;
-        show_prose(names, &mut legendary_amulets, &mut player_characters, &mut loadouts)?;
+        show_prose(names, &mut legendary_amulets, &mut player_characters, &mut class_assists, &mut loadouts)?;
         let mut content = Self::from_parts(
             zones,
             classes,
@@ -154,6 +160,7 @@ impl Content {
         content.loadouts = loadouts;
         content.pvp_looks = read_one(dir, "pvp_looks.ron")?;
         content.player_characters = player_characters;
+        content.class_assists = class_assists;
         content.prestige = read(dir, "prestige.ron")?;
         content.words = words;
         content.balance = balance;
@@ -226,6 +233,7 @@ impl Content {
             loadouts: Vec::new(),
             pvp_looks: PvpLooks::default(),
             player_characters: Vec::new(),
+            class_assists: Vec::new(),
             prestige: Vec::new(),
         }
     }
@@ -519,6 +527,9 @@ impl Content {
         if self.zones.len() > entries::MAX_ZONES || self.pets.len() > entries::MAX_PETS {
             problems.push(format!("the creature entries have room for {} zones and {} pets", entries::MAX_ZONES, entries::MAX_PETS));
         }
+        for p in self.pets.iter().filter(|p| p.hover.is_some_and(|h| !(h > 0.0))) {
+            problems.push(format!("pet {} hovers {:?} yd above the ground", p.name, p.hover));
+        }
         if self.zones.len() > entries::FACTION_ROSTERS_FROM
             || entries::faction_roster_place(self.zones.len().saturating_sub(1), 1) >= entries::MAX_ZONES
         {
@@ -571,6 +582,8 @@ impl Content {
                 problems.push(format!("player character {}: race {} or class {} is not in races.ron, classes.ron and pvp_looks.ron", c.id, c.race, c.class));
             }
         }
+        self.check_assists(&mut problems);
+        self.check_battle_standard(&mut problems);
         self.check_class_boss_abilities(&mut problems);
         self.check_boss_mechanics(&mut problems);
         for b in self.zones.iter().flat_map(|z| z.every_boss()) {
@@ -767,6 +780,103 @@ impl Content {
     pub fn player_characters_of(&self, faction: Faction) -> impl Iterator<Item = &PlayerCharacter> {
         self.player_characters.iter().filter(move |c| self.races.iter().any(|r| r.id == c.race && r.faction == faction))
     }
+
+    /// The faction of hand-made character `c` (its race's).
+    pub fn character_faction(&self, c: &PlayerCharacter) -> Option<Faction> {
+        self.races.iter().find(|r| r.id == c.race).map(|r| r.faction)
+    }
+
+    /// Class `class`'s default assist in form `form`: the form's own, else the class's.
+    pub fn class_assist(&self, class: &str, form: Option<PlayerForm>) -> Option<&ClassAssist> {
+        let of = |f: Option<PlayerForm>| self.class_assists.iter().find(|a| a.class == class && a.form == f);
+        form.and_then(|f| of(Some(f))).or_else(|| of(None))
+    }
+
+    /// The assist hand-made character `c` performs: its own script, else its class's (and
+    /// form's) default.
+    pub fn assist_of<'a>(&'a self, c: &'a PlayerCharacter) -> Option<&'a AssistScript> {
+        c.assist_script.as_ref().or_else(|| self.class_assist(&c.class, c.form).map(|a| &a.script))
+    }
+
+    /// What hand-made character `c`'s assist does, as a player reads it: its own `assist` text,
+    /// else (with no text and no script of its own) its default's.
+    pub fn assist_text<'a>(&'a self, c: &'a PlayerCharacter) -> &'a str {
+        match self.class_assist(&c.class, c.form) {
+            Some(a) if c.assist.is_empty() && c.assist_script.is_none() => &a.text,
+            _ => &c.assist,
+        }
+    }
+
+    /// The hand-made characters still on their class's default assist (no script of their own),
+    /// by id, each with the default it takes ("druid (Cat)"): the ones that still need one.
+    pub fn characters_on_default_assist(&self) -> Vec<(String, String)> {
+        let on_default = self.player_characters.iter().filter(|c| c.assist_script.is_none());
+        on_default
+            .map(|c| {
+                let default = match self.class_assist(&c.class, c.form).and_then(|a| a.form) {
+                    Some(f) => format!("{} ({f:?})", c.class),
+                    None => c.class.clone(),
+                };
+                (c.id.clone(), default)
+            })
+            .collect()
+    }
+
+    /// Every class has a default assist, every default's class (and form) is written once, and
+    /// every script, the characters' own and the defaults, follows the blocks' rules.
+    fn check_assists(&self, problems: &mut Vec<String>) {
+        let longest = self.balance.battle_standard.assist_seconds;
+        let pet_known = |name: &str| self.pets.iter().any(|p| p.name == name);
+        for (k, a) in self.class_assists.iter().enumerate() {
+            if self.class(&a.class).is_none() {
+                problems.push(format!("class assist {}: classes.ron has no such class", a.class));
+            }
+            if self.class_assists[..k].iter().any(|o| o.class == a.class && o.form == a.form) {
+                problems.push(format!("class assist {} {:?} is written twice", a.class, a.form));
+            }
+            check_script(&format!("class assist {} {:?}", a.class, a.form), &a.script, longest, &pet_known, problems);
+        }
+        if !self.class_assists.is_empty() {
+            for c in &self.classes {
+                if self.class_assist(&c.id, None).is_none() {
+                    problems.push(format!("class {} has no default assist in class_assists.ron", c.id));
+                }
+            }
+        }
+        for c in &self.player_characters {
+            let what = format!("player character {}", c.id);
+            match &c.assist_script {
+                Some(s) => check_script(&what, s, longest, &pet_known, problems),
+                None if !self.class_assists.is_empty() && self.class_assist(&c.class, c.form).is_none() => {
+                    problems.push(format!("{what} has no assist script and its class {} no default", c.class))
+                }
+                None => {}
+            }
+        }
+    }
+
+    /// The battle standard's rules: a count range, positive times and size, known zones and
+    /// real looks.
+    fn check_battle_standard(&self, problems: &mut Vec<String>) {
+        let b = &self.balance.battle_standard;
+        if b.per_run.0 > b.per_run.1 || !(b.endless_every > 0.0) || !(b.ally_scale > 0.0) || !(b.assist_seconds > 0.0) {
+            problems.push(format!("balance.ron battle_standard: {b:?} needs per_run low to high and positive times and size"));
+        }
+        for z in &b.never_in {
+            if self.zone(z).is_none() {
+                problems.push(format!("balance.ron battle_standard: never_in names zone {z}, which content/zones lacks"));
+            }
+        }
+        if [b.display.alliance, b.display.horde, b.planted_look.alliance, b.planted_look.horde].contains(&0) {
+            problems.push("balance.ron battle_standard: a look is 0".into());
+        }
+    }
+
+    /// Whether a battle standard may lie in zone `zone` (never in Warsong Gulch, whose bosses the
+    /// characters it summons are).
+    pub fn battle_standards_in(&self, zone: &str) -> bool {
+        !self.balance.battle_standard.never_in.iter().any(|z| z == zone)
+    }
 }
 
 /// Shows names and texts as the game shows them, keeping every pointer the read tables lack.
@@ -800,7 +910,8 @@ impl NameShower<'_> {
     }
 }
 
-/// Shows the pointers written in the legendary amulets' texts, the player characters' assists and
+/// Shows the pointers written in the legendary amulets' texts, the player characters' and class
+/// defaults' assists and
 /// the loadouts' strengths, drawbacks and suits (`{Spell(1856)}`), as
 /// [`show_names`] does for the other records' texts. Their own names stay
 /// our text (items and characters).
@@ -808,6 +919,7 @@ fn show_prose(
     names: &ClientNames,
     legendary_amulets: &mut [LegendaryAmulet],
     player_characters: &mut [PlayerCharacter],
+    class_assists: &mut [ClassAssist],
     loadouts: &mut [ClassLoadouts],
 ) -> Result<()> {
     let mut show = NameShower { names, problems: Vec::new() };
@@ -816,6 +928,9 @@ fn show_prose(
     }
     for p in player_characters.iter_mut() {
         show.text(&format!("player character {}", p.name), &mut p.assist);
+    }
+    for a in class_assists.iter_mut() {
+        show.text(&format!("class assist {}", a.class), &mut a.text);
     }
     for c in loadouts.iter_mut() {
         for l in c.loadouts.iter_mut() {

@@ -41,7 +41,10 @@ fn main() -> benilla_app::AppExit {
     // the game's content, for the server's rules and the client's screens alike, its names read
     // from the player's client (a reload reads them the same way)
     let content = match LiveContent::load_with_names(content_dir(), Arc::new(client_names())) {
-        Ok(c) => Some(Arc::new(c)),
+        Ok(c) => {
+            report_default_assists(&c.current());
+            Some(Arc::new(c))
+        }
         Err(e) => {
             eprintln!("esurv: the game content did not load: {e:#}");
             None
@@ -96,7 +99,10 @@ fn watch_content(live: Arc<LiveContent>) -> Option<esurv_content::watch::Content
     let dir = live.dir().map(|d| d.display().to_string()).unwrap_or_default();
     let watching = esurv_content::watch::watch(live, move |reloaded| match reloaded {
         // the save keeps class gear by slot and zone id, so it needs nothing from the new content
-        Ok(_) => eprintln!("esurv: content reloaded from {dir}"),
+        Ok(c) => {
+            eprintln!("esurv: content reloaded from {dir}");
+            report_default_assists(c);
+        }
         Err(e) => eprintln!("esurv: the content did not reload, keeping what was loaded: {e:#}"),
     });
     match watching {
@@ -339,4 +345,23 @@ fn exe_dir() -> PathBuf {
         .ok()
         .and_then(|e| e.parent().map(PathBuf::from))
         .unwrap_or_default()
+}
+
+/// Names in the log every hand-made player character still on its class's default assist (no
+/// `assist_script` of its own in player_characters.ron), so the ones that need one are easy to find.
+fn report_default_assists(content: &esurv_content::Content) {
+    let on_default = content.characters_on_default_assist();
+    if !on_default.is_empty() {
+        let list: Vec<String> = on_default.iter().map(|(id, default)| format!("{id} ({default})")).collect();
+        eprintln!("esurv: {} player character(s) use their class's default assist: {}", list.len(), list.join(", "));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// The client's glow knows the Rare Cache by the server's entry for it.
+    #[test]
+    fn the_glow_knows_the_rare_cache_by_the_servers_entry() {
+        assert_eq!(esurv_app::enemy_glow::RARE_CACHE_ENTRY, esurv_server::entries::RARE_CACHE);
+    }
 }

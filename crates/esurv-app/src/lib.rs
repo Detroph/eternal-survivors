@@ -14,10 +14,12 @@ pub mod boss_bar_places;
 pub mod buff_frame;
 pub mod cards;
 pub mod embers;
+pub mod enemy_glow;
 mod ground_indicators;
 mod ground_models;
 mod window_icon;
 pub mod content_reload;
+pub mod glow_option;
 pub mod hero_sheet;
 mod hero_shots;
 pub mod hud;
@@ -45,6 +47,14 @@ use bevy::window::PrimaryWindow;
 use esurv_content::LiveContent;
 use esurv_protocol::LOOK_SIZE_PREFIX;
 
+/// The looks benilla keeps level on their flights ([`benilla_app::LevelFlight`]): every pet that
+/// flies (`hover` in `pets.ron`). The server keeps such a pet on short flights that bob it at its
+/// height, and the stock flight attitude would pitch it with each bob and bank it over at each
+/// flight's end; it hovers upright instead.
+pub fn level_flight(content: &esurv_content::Content) -> benilla_app::LevelFlight {
+    benilla_app::LevelFlight(content.pets.iter().filter(|p| p.hover.is_some()).map(|p| p.display_id).collect())
+}
+
 /// Adds the game's systems to the client app; `content` is the game's content, for the names,
 /// icons and texts the screens show (`None` leaves them to ids), which they follow as it is loaded
 /// again ([`content_reload`]); `link` is the way to the server before a run, for the character
@@ -57,6 +67,8 @@ pub fn extend(app: &mut App, content: Option<Arc<LiveContent>>, link: Option<pre
     if let Some(live) = &content {
         // the create screen's added pairs and their looks are read once, at launch
         races::register(app, &live.current());
+        // pets that fly hover upright, read once at launch
+        app.insert_resource(level_flight(&live.current()));
     }
     ui::register(app, content.as_ref().map(|live| live.current()));
     if let Some(live) = content {
@@ -71,6 +83,7 @@ pub fn extend(app: &mut App, content: Option<Arc<LiveContent>>, link: Option<pre
     boss_alerts::register(app);
     boss_bar_drag_check::register(app);
     smart_numbers::register(app);
+    enemy_glow::register(app);
     minimap_buttons::register(app);
     app.add_plugins((
         stock::StockPlugin,
@@ -164,6 +177,18 @@ fn look_size(text: &str) -> Option<(u64, u32, f32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The pets that fly (the assist's Gargoyle) are kept level on their flights; walking pets are
+    /// not listed.
+    #[test]
+    fn the_pets_that_fly_hover_upright() {
+        let content = esurv_content::Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+        let level = level_flight(&content);
+        let gargoyle = content.pets.iter().find(|p| p.name == "Gargoyle").unwrap();
+        assert!(gargoyle.hover.is_some() && level.0.contains(&gargoyle.display_id));
+        let wolf = content.pets.iter().find(|p| p.name == "Wolf").unwrap();
+        assert!(!level.0.contains(&wolf.display_id));
+    }
 
     #[test]
     fn a_look_size_reads_back() {
