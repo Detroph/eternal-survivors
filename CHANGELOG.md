@@ -29,7 +29,7 @@ Updates come to you now: the game can update itself from GitHub.
 ### Patch notes
 
 **Gameplay**
-- **Morbent Fel:** his shield is a purple shadow bubble, and Morbent's Bane is the Torch of Holy Flame planted in the ground inside a golden bubble, so it is easy to spot.
+- **Morbent Fel:** his shield and what breaks it are now much easier to spot.
 
 **Quality of life**
 - **Updates in the game:** when a new version is out, the character screen offers it with an Update button that downloads it, checks it and installs it, then restarts the game; your heroes and settings stay. Turn it off in Options > Interface > Check for updates.
@@ -87,7 +87,7 @@ The boss update: every boss now fights with its own mechanics from WoW, reshaped
 - **Ground markings like FF14:** every boss area attack is marked on the ground in orange before it lands (circles, rings with a safe middle, cones and lines), with a fill that shows when it hits. Drifting zones and sweeping beams show arrows.
 - **Charges run the whole line:** a charging boss runs through its marked line; stand in it and you're hit as it passes.
 - **Boss warnings and timer bars:** big warnings with the raid warning sound, and timer bars for each boss's next abilities.
-- **Scripted moments:** for example, Morbent Fel raises the dead (only undead follow), VanCleef calls his lapdogs, Whitemane revives Mograine, Hakkar drains everyone with Blood Siphon, Majordomo stays immune until his guards fall and Ragnaros rises, and Nefarian makes class calls.
+- **Scripted moments:** some bosses bring a moment from their original fight. Which ones, you find out in the run.
 - **Things to walk over:** break eggs, cocoons and totems, put out blood fires, and grab relics and crystals by standing on them.
 - **Boss voices:** many bosses speak their original lines.
 - **Bosses never stun, fear, root or slow you.** The only exceptions are two short scripted cutscenes.
