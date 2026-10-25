@@ -5,7 +5,10 @@
 // Afflict, the effect it puts on an enemy (Stun, Fear, Silence...), with the Spell.dbc id it shows.
 // As the content loads, each look goes into the matching milestones of that legendary, over any
 // look legendary_amulets.ron gives them; numbers and words stay in legendary_amulets.ron.
-// How each kind shows: docs/game/screens.md "Looks". The ids are pointers only.
+// A legendary may list its looks drawn smaller (small: a rank of the spell no hero casts, styled at
+// 0.6) and those that pulse on an enemy (pulsing: played again every 2 sec while the effect
+// lasts). How each kind shows: docs/game/screens.md "Looks". The ids are pointers
+// only.
 ([
     // ---- Warrior ----
     // Gruul's Shatter: turned to stone (a basilisk's Petrify), then shattering into rock
@@ -22,10 +25,10 @@
     (legendary: "mortal_strike", moments: [(ExtraTargets, 9633)]),
     // Gorehowl: Bloodlust while the kills stack
     (legendary: "execute", moments: [(TimedBuff, 6742)]),
-    // Bellowing Roar: Onyxia's roar of fear on each enemy
-    (legendary: "demo_shout", moments: [(Fear, 18431)]),
-    // Endurance Aura: an aura's ring at the hero's feet while the shout lasts
-    (legendary: "battle_shout", moments: [(WhileBuff, 7069)]),
+    // Bellowing Roar: Onyxia's roar of fear on each enemy; exposed: Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "demo_shout", moments: [(Fear, 18431), (Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Endurance Aura: an aura's ring at the hero's feet while the shout lasts; each blow landing again: a smaller heroic strike on the enemy hit
+    (legendary: "battle_shout", moments: [(WhileBuff, 7069), (StrikeAgain, 284)], small: [284]),
     // Vampiric Bite: the vampiric embrace on each heal, a frenzy's red while it stacks
     (legendary: "bloodthirst", moments: [(HealOnTrigger, 15290), (TimedBuff, 26041)]),
     // Corrupted Blood: Hakkar's blood bursting on each enemy it passes to
@@ -46,18 +49,18 @@
     (legendary: "divine_shield", moments: [(WhileBuff, 11011), (HealOnTrigger, 15237)]),
 
     // ---- Hunter ----
-    // Rocket Strike: a rocket's blast at the struck spot
-    (legendary: "explosive_shot", moments: [(Burst, 1940)]),
+    // Rocket Strike: Hunter's Mark on the enemy while the rocket comes, then a rocket's blast at the struck spot
+    (legendary: "explosive_shot", moments: [(Burst, 1940), (BurstMark, 14323)]),
     // Serpent's Brood: the snakes hatch from a burst of green
     (legendary: "serpent_sting", moments: [(PetOnTrigger, 6587)]),
     // Lava Bomb: heated, burning ground
     (legendary: "explosive_trap", moments: [(LeaveArea, 22191)]),
-    // Silence: the silencing hush on the enemy
-    (legendary: "concussive_shot", moments: [(Silence, 15487)]),
+    // Silence: the silencing hush on the enemy; exposed: Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "concussive_shot", moments: [(Silence, 15487), (Vulnerable, 7405)], small: [7405], pulsing: [7405]),
     // Lava Splash: Emberseer's great fire burst where the enemy dies
     (legendary: "immolation_trap", moments: [(ExplodeOnDeath, 16049)]),
-    // Flash Freeze: frozen solid in ice (Sapphiron's Icebolt)
-    (legendary: "frost_trap", moments: [(Stun, 28522)]),
+    // Flash Freeze: frozen solid in ice (Sapphiron's Icebolt); exposed: Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "frost_trap", moments: [(Stun, 28522), (Vulnerable, 7405)], small: [7405], pulsing: [7405]),
 
     // ---- Rogue ----
     // Poison Cloud: Grobbulus's poison cloud
@@ -66,16 +69,16 @@
     (legendary: "sinister_strike", moments: [(PetOnTrigger, 27249)]),
     // VanCleef's Whirling Blades: a whirl round the hero
     (legendary: "blade_flurry", moments: [(LeaveArea, 11568)]),
-    // Blinding Powder: the blind's daze on each enemy
-    (legendary: "gouge", moments: [(Fear, 2094)]),
-    // Mirror Image: the hero shimmers while Adrenaline Rush lasts
-    (legendary: "adrenaline_rush", moments: [(WhileBuff, 4511)]),
+    // Blinding Powder: the blind's daze on each enemy; exposed: Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "gouge", moments: [(Fear, 2094), (Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Mirror Image: the hero shimmers while Adrenaline Rush lasts; the images' strikes: a smaller sinister strike on the enemy hit
+    (legendary: "adrenaline_rush", moments: [(WhileBuff, 4511), (StrikeAgain, 1757)], small: [1757]),
     // Critical Strike: an ambush's stab on each critical blow
     (legendary: "backstab", moments: [(StrikeAgain, 8676)]),
-    // Wind Walk: the hero fades while Slice and Dice lasts
-    (legendary: "slice_and_dice", moments: [(WhileBuff, 885)]),
-    // Silent Strangler: the silencing hush on the enemy
-    (legendary: "garrote", moments: [(Silence, 15487)]),
+    // Wind Walk: the hero fades while Slice and Dice lasts; each strike hitting again: a smaller sinister strike on the enemy hit
+    (legendary: "slice_and_dice", moments: [(WhileBuff, 885), (StrikeAgain, 1757)], small: [1757]),
+    // Silent Strangler: the silencing hush on the enemy; Silent Strangler: a smaller garrote on each enemy it spreads to
+    (legendary: "garrote", moments: [(Silence, 15487), (SpreadOnDeath, 8631)], small: [8631]),
 
     // ---- Priest ----
     // Shadow Spike: shadow fissures bursting from the ground
@@ -84,8 +87,8 @@
     (legendary: "sw_pain", moments: [(DotBurst, 7067)]),
     // Divine Aegis: Smite's holy bolt at each enemy struck while it holds, a holy nova as it breaks
     (legendary: "pw_shield", moments: [(Barrage, 585), (ShieldBurst, 15237)]),
-    // Dominate Mind: the turned enemy wears Mind Control
-    (legendary: "psychic_scream", moments: [(FearedTurn, 605)]),
+    // Dominate Mind: the turned enemy wears Mind Control; exposed: Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "psychic_scream", moments: [(FearedTurn, 605), (Vulnerable, 7405)], small: [7405], pulsing: [7405]),
     // Inevitable Doom: a great burst of shadow as the plague runs out
     (legendary: "devouring_plague", moments: [(DotBurst, 12151)]),
     // Deplete: Vampiric Embrace's shadow on each enemy that pays for the heal
@@ -110,8 +113,8 @@
     (legendary: "fireball", moments: [(PetOnTrigger, 16049)]),
     // Frostbolt Volley: Kel'Thuzad-like volley, a frostbolt at each further enemy
     (legendary: "frostbolt", moments: [(ExtraTargets, 8398)]),
-    // Ice Tomb: encased in ice (Kel'Thuzad's Frost Blast)
-    (legendary: "frost_nova", moments: [(Stun, 27808)]),
+    // Ice Tomb: encased in ice (Kel'Thuzad's Frost Blast); exposed: Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "frost_nova", moments: [(Stun, 27808), (Vulnerable, 7405)], small: [7405], pulsing: [7405]),
     // Magnetic Pull: Thaddius's pull onto the enemies drawn in
     (legendary: "arcane_explosion", moments: [(PullEveryNth, 28337)]),
     // Living Bomb: Baron Geddon's bomb burns on the enemy, then his explosion
@@ -148,10 +151,10 @@
     (legendary: "claw", moments: [(PetOnTrigger, 24223)]),
     // Force of Nature: the treants grow out of tangling roots
     (legendary: "friend_of_the_forest", moments: [(PetOnTrigger, 4931)]),
-    // Lifebinder's Gift: an ancient glyph of nature where the hero stands
-    (legendary: "rejuvenation", moments: [(Burst, 24815)]),
-    // Frenzy: a beast's frenzy on the claws while Tiger's Fury lasts
-    (legendary: "tigers_fury", moments: [(WhileBuff, 23128)]),
+    // Lifebinder's Gift: an ancient glyph of nature where the hero stands; the bloom: Holy Light's glow on the hero as it heals
+    (legendary: "rejuvenation", moments: [(Burst, 24815), (HealOnTrigger, 639)]),
+    // Frenzy: a beast's frenzy on the claws while Tiger's Fury lasts; each hit striking again: a smaller shred on the enemy hit
+    (legendary: "tigers_fury", moments: [(WhileBuff, 23128), (StrikeAgain, 6800)], small: [6800]),
     // Sprint of the Wild: Sprint's trail while Dash lasts
     (legendary: "dash", moments: [(WhileBuff, 2983)]),
     // War Stomp: the tauren's stomp round the hero
@@ -162,4 +165,76 @@
     (legendary: "powershift", moments: [(Burst, 2120), (LeaveArea, 2120)]),
     // Surge: Demoralizing Roar's roar round the bear
     (legendary: "enrage", moments: [(Burst, 99)]),
+
+    // ---- Looks given later: the moments that showed none ----
+    // Deafening Roar: the exposed enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "demoralizing_roar", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Iron Roots: the exposed enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "entangling_roots", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Moonglow: the marked enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "faerie_fire_feral", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Mark of the Naaru: the judged enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "judgement", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Cheap Shot: the exposed enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "kidney_shot", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Mangle: the mauled enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "maul", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Lunatic Gaze: the exposed enemy wears Sunder Armor's purple strike, small, pulsing while it lasts
+    (legendary: "mind_flay", moments: [(Vulnerable, 7405)], small: [7405], pulsing: [7405]),
+    // Holy Fire: Exorcism's holy burn on each enemy the burn spreads to, pulsing while it burns; the burning enemy wears Sunder Armor's purple strike, small, pulsing
+    (legendary: "holy_fire", moments: [(DotSpread, 5614), (Vulnerable, 7405)], small: [7405], pulsing: [5614, 7405]),
+    // Righteous Fire: Exorcism's holy burn on each enemy the fire jumps to, pulsing while it burns
+    (legendary: "exorcism", moments: [(DotSpread, 5614)], pulsing: [5614]),
+    // Death Coil: a smaller coil (its shadow bolt look) on each enemy it bounces to
+    (legendary: "death_coil", moments: [(ExtraTargets, 705)], small: [705]),
+    // Feast: a smaller bite on each enemy it tears into, a short splash of blood on the hero as it heals
+    (legendary: "ferocious_bite", moments: [(ExtraTargets, 22827), (HealOnTrigger, 17348)], small: [22827]),
+    // Hammer of Uther: a smaller hammer on each enemy it bounces to
+    (legendary: "hammer_of_justice", moments: [(ExtraTargets, 5588)], small: [5588]),
+    // Holy Wrath: a smaller holy wrath on each further enemy
+    (legendary: "holy_wrath", moments: [(ExtraTargets, 10318)], small: [10318]),
+    // Silithid Swarm: a smaller swarm on each enemy bitten, Healing Touch's nature glow on the hero as it heals
+    (legendary: "insect_swarm", moments: [(ExtraTargets, 24974), (HealOnTrigger, 5186)], small: [24974]),
+    // Thrall's Doomhammer: a smaller bolt on each enemy the fork reaches
+    (legendary: "lightning_bolt", moments: [(ExtraTargets, 548)], small: [548]),
+    // Static Charge: a smaller lightning shield's strike on each enemy it arcs to
+    (legendary: "lightning_shield", moments: [(ExtraTargets, 325)], small: [325]),
+    // Eye Beam: a smaller mind blast on each enemy it chains to
+    (legendary: "mind_blast", moments: [(ExtraTargets, 8102)], small: [8102]),
+    // Windrunner's Volley: a smaller arrow on each enemy an arrow ricochets to
+    (legendary: "multi_shot", moments: [(ExtraTargets, 14288)], small: [14288]),
+    // Pounce: a smaller ravage on each enemy near the target
+    (legendary: "ravage", moments: [(ExtraTargets, 6787)], small: [6787]),
+    // Saber Lash: a smaller shred on each enemy it cuts
+    (legendary: "shred", moments: [(ExtraTargets, 6800)], small: [6800]),
+    // Penance of Light: a smaller smite on each further enemy the beam strikes
+    (legendary: "smite", moments: [(ExtraTargets, 598)], small: [598]),
+    // Doomwinds: a smaller Thunderfury chain on each enemy it reaches
+    (legendary: "windfury_weapon", moments: [(ExtraTargets, 27648)], small: [27648]),
+    // Light's Barrage: a smaller holy shock on the enemy hit again
+    (legendary: "holy_shock", moments: [(StrikeAgain, 25902)], small: [25902]),
+    // Wrath of Cenarius: a smaller wrath on the enemy struck again
+    (legendary: "wrath", moments: [(StrikeAgain, 5177)], small: [5177]),
+    // Magma Blast: a smaller flame shock on each enemy it spreads to
+    (legendary: "flame_shock", moments: [(SpreadOnDeath, 8052)], small: [8052]),
+    // Blood Siphon: a smaller hemorrhage on each enemy it spreads to, a short splash of blood on the hero as it heals
+    (legendary: "hemorrhage", moments: [(SpreadOnDeath, 17347), (HealOnTrigger, 17348)], small: [17347]),
+    // Brutal Swipe: a smaller rend on each enemy it spreads to
+    (legendary: "lacerate", moments: [(SpreadOnDeath, 6546)], small: [6546]),
+    // Moonfire: a smaller moonfire on each enemy it spreads to
+    (legendary: "moonfire", moments: [(SpreadOnDeath, 8924)], small: [8924]),
+    // Rend Flesh: a smaller rake on each enemy it spreads to
+    (legendary: "rake", moments: [(SpreadOnDeath, 1823)], small: [1823]),
+    // Light of the Naaru: Holy Light's glow on the hero as each leap heals
+    (legendary: "denounce", moments: [(HealOnTrigger, 639)]),
+    // Holy Nova: Holy Light's glow on the hero as it heals
+    (legendary: "holy_nova", moments: [(HealOnTrigger, 639)]),
+    // Thori'dal, the Stars' Fury: a glowing arcane arrow flying the line
+    (legendary: "steady_shot", moments: [(LineHit, 14281)]),
+    // Netherstrand Longbow: an aimed shot flying the line behind the target
+    (legendary: "aimed_shot", moments: [(LineHit, 20901)]),
+    // Blink Strike: a reflection of the hero strikes the further enemy with Ghostly Strike (the hero stays put)
+    (legendary: "ghostly_strike", moments: [(StrikeOne, 14278)]),
+    // Prophet's Infusion: Holy Strength's glow on the hero while Power Infusion lasts
+    (legendary: "power_infusion", moments: [(WhileBuff, 20007)]),
 ])

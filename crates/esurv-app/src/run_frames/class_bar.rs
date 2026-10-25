@@ -81,9 +81,12 @@ pub fn bar_chunk(bar: &ClassBar) -> String {
     chunk
 }
 
-/// The Lua table of the buff icons shown in place of their auras' own.
-pub fn icons_chunk() -> String {
-    let rows: Vec<String> = icon_overrides()
+/// The Lua table of the buff icons shown in place of their auras' own: the stock looks' and,
+/// with the content, each legendary counter buff's (the legendary's own icon).
+pub fn icons_chunk(content: Option<&esurv_content::Content>) -> String {
+    let mut icons: Vec<(u32, String)> = icon_overrides().into_iter().map(|(a, i)| (a, i.to_owned())).collect();
+    icons.extend(content.into_iter().flat_map(|c| c.counter_buffs()).map(|b| (b.aura, b.icon)));
+    let rows: Vec<String> = icons
         .into_iter()
         .map(|(aura, icon)| format!("[{aura}] = {}", lua_string(&format!(r"Interface\Icons\{icon}"))))
         .collect();
@@ -104,6 +107,7 @@ fn hand_the_bar_to_the_lua(
     script: Option<NonSend<UiScript>>,
     objects: Objects,
     bar: Res<ClassBar>,
+    content: Option<Res<crate::ui::GameContent>>,
     mut handed: Local<Handed>,
     mut warned: Local<bool>,
 ) {
@@ -123,7 +127,7 @@ fn hand_the_bar_to_the_lua(
         match script.eval::<bool>(LUA) {
             Ok(true) => {
                 handed.installed = true;
-                if let Err(e) = script.run(&icons_chunk()) {
+                if let Err(e) = script.run(&icons_chunk(content.as_ref().map(|c| &*c.0))) {
                     warn!("class bar: the buff icons: {e}");
                 }
             }
@@ -170,7 +174,7 @@ mod tests {
 
     #[test]
     fn the_icons_read_as_a_lua_table() {
-        let chunk = icons_chunk();
+        let chunk = icons_chunk(None);
         assert!(chunk.contains("INV_Hammer_05"), "{chunk}");
         assert!(chunk.starts_with("ESURV_CLASS_BAR.set_icons({["));
     }
@@ -187,7 +191,7 @@ mod tests {
             pips: Some((2.0, 5.0)),
         };
         lua.load(&bar_chunk(&bar)).exec().unwrap();
-        lua.load(&icons_chunk()).exec().unwrap();
+        lua.load(&icons_chunk(None)).exec().unwrap();
         let painted: (f32, String, bool, bool, String, bool) = lua
             .load(
                 "return ManaBarColor[0].r, EsurvClassBarText.text, \

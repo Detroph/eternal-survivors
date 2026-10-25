@@ -8,7 +8,7 @@
 use bevy::prelude::*;
 use bevy::text::LineBreak;
 
-use crate::stock::{load_stock_art, Stock, StockFont, StockScale};
+use crate::stock::{Stock, StockFont, StockScale};
 use crate::ui::{layer, UiFonts, GOLD_TEXT, RED_TEXT, WHITE_TEXT};
 
 use super::lines::LineLook;
@@ -21,7 +21,6 @@ pub(super) const TOAST_SLOTS: usize = 3;
 // 122 to 282: `UIErrorsFrame` (60 tall at 122), then 10 below it `RaidWarningFrame` (40 tall),
 // then 10 below that `RaidBossEmoteFrame` (40 tall).
 const READOUTS_TOP: f32 = 8.0;
-const BOSS_BAR_TOP: f32 = 62.0;
 const BANNERS_TOP: f32 = 292.0;
 const TOASTS_TOP: f32 = 352.0;
 
@@ -30,25 +29,9 @@ const TOASTS_TOP: f32 = 352.0;
 const HUGE_FONT: f32 = 20.0;
 const READOUT_GAP: f32 = 28.0;
 const READOUT_SIDE_WIDTH: f32 = 90.0;
-/// The boss bar: the stock casting bar's size, under a name backing the stock target frame's
-/// size (`TargetFrameNameBackground`, 119 by 19, in the hostile colour).
-const BOSS_BAR_WIDTH: f32 = 195.0;
-const BOSS_BAR_HEIGHT: f32 = 13.0;
-const NAME_BACKING_WIDTH: f32 = 119.0;
-const NAME_BACKING_HEIGHT: f32 = 19.0;
-const NAME_BACKING: &str = r"Interface\TargetingFrame\UI-TargetingFrame-LevelBackground";
-/// The stock casting bar's border, 256 by 64, its top 28 over the bar's.
-const BAR_BORDER: &str = r"Interface\CastingBar\UI-CastingBar-Border";
-const BAR_BORDER_WIDTH: f32 = 256.0;
-const BAR_BORDER_HEIGHT: f32 = 64.0;
-const BAR_BORDER_RISE: f32 = 28.0;
 /// The stock centre lines' width.
 const LINE_WIDTH: f32 = 512.0;
 
-/// The stock health bar's green (`HealthBar_OnValueChanged` at full health).
-const HEALTH_GREEN: Color = Color::srgb(0.0, 1.0, 0.0);
-/// A hostile unit's name backing on the stock target frame (`UnitSelectionColor`, hostile).
-const HOSTILE_RED: Color = Color::srgb(1.0, 0.0, 0.0);
 /// The stock raid warning's colour (`ChatTypeInfo["RAID_WARNING"]`).
 const WARNING_ORANGE: Color = Color::srgb(1.0, 0.28, 0.0);
 /// The stock info message's yellow (`UI_INFO_MESSAGE` in `UIErrorsFrame`).
@@ -79,10 +62,8 @@ pub(super) struct HudParts {
     pub kills: Entity,
     pub gold: Entity,
     pub cache: Entity,
+    /// The bosses' bars' root, drawn by [`super::boss_stack`].
     pub boss: Entity,
-    pub boss_name: Entity,
-    pub boss_bar: Entity,
-    pub boss_health: Entity,
     pub banners: [Entity; BANNER_SLOTS],
     pub toasts: [Entity; TOAST_SLOTS],
     pub hint: Entity,
@@ -100,7 +81,6 @@ pub(super) fn build(
     commands: &mut Commands,
     stock: &Stock,
     fonts: &UiFonts,
-    assets: &AssetServer,
     look: &crate::menus::look::MenuLook,
 ) -> HudParts {
     let scale = stock.scale();
@@ -209,79 +189,8 @@ pub(super) fn build(
         });
     });
 
-    // ── the boss bar: its name on the target frame's hostile backing, over a status bar in the
-    // casting bar's border, its health on it ──
-    let boss = root(commands, "hud boss bar", BOSS_BAR_TOP, None);
-    let mut boss_name = Entity::PLACEHOLDER;
-    let mut boss_bar = Entity::PLACEHOLDER;
-    let mut boss_health = Entity::PLACEHOLDER;
-    commands.entity(boss).with_children(|c| {
-        c.spawn((
-            Node {
-                width: u(NAME_BACKING_WIDTH),
-                height: u(NAME_BACKING_HEIGHT),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                margin: UiRect::bottom(u(10.0)),
-                overflow: Overflow::visible(),
-                ..default()
-            },
-            ImageNode {
-                image: load_stock_art(assets, NAME_BACKING),
-                color: HOSTILE_RED,
-                image_mode: NodeImageMode::Stretch,
-                ..default()
-            },
-        ))
-        .with_children(|n| {
-            boss_name = n
-                .spawn((
-                    stock.text(StockFont::GameFontNormal, ""),
-                    one_line(Justify::Center),
-                ))
-                .id();
-        });
-        boss_bar = c
-            .spawn(stock.status_bar(HEALTH_GREEN, 1.0, BOSS_BAR_WIDTH, BOSS_BAR_HEIGHT))
-            .with_children(|bar| {
-                bar.spawn((
-                    Node {
-                        position_type: PositionType::Absolute,
-                        top: u(-BAR_BORDER_RISE),
-                        left: Val::Percent(50.0),
-                        margin: UiRect::left(u(-BAR_BORDER_WIDTH / 2.0)),
-                        width: u(BAR_BORDER_WIDTH),
-                        height: u(BAR_BORDER_HEIGHT),
-                        ..default()
-                    },
-                    ImageNode {
-                        image: load_stock_art(assets, BAR_BORDER),
-                        image_mode: NodeImageMode::Stretch,
-                        ..default()
-                    },
-                ));
-                // the health, centred on the bar
-                bar.spawn(Node {
-                    position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
-                    right: Val::Px(0.0),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(0.0),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                })
-                .with_children(|t| {
-                    boss_health = t
-                        .spawn((
-                            stock.text(StockFont::NumberFontNormalSmall, ""),
-                            one_line(Justify::Center),
-                        ))
-                        .id();
-                });
-            })
-            .id();
-    });
+    // ── the bosses' bars: drawn by `boss_stack` as the bosses come and go ──
+    let boss = root(commands, "hud boss bars", super::boss_stack::STACK_TOP, None);
 
     // ── banners, toasts and the start hint: centred lines that fade ──
     // `n` lines in `GameFontNormalLarge` (16: `ErrorFont`, as `UIErrorsFrame`'s), or in
@@ -328,9 +237,6 @@ pub(super) fn build(
         gold,
         cache,
         boss,
-        boss_name,
-        boss_bar,
-        boss_health,
         banners: banner_slots.try_into().expect("banner slots"),
         toasts: toast_slots.try_into().expect("toast slots"),
         hint: hint_slots[0],

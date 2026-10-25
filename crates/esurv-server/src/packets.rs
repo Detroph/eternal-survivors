@@ -776,6 +776,36 @@ pub fn force_run_speed_change(guid: u64, counter: u32, speed: f32) -> Packet {
         .packet(opcode::SMSG_FORCE_RUN_SPEED_CHANGE)
 }
 
+/// The `MovementInfo` flags a relayed move of a player-looking unit carries: strafing left or
+/// right, and in the air after a jump (vmangos `MovementInfo.h`).
+pub const MOVEFLAG_STRAFE_LEFT: u32 = 0x4;
+pub const MOVEFLAG_STRAFE_RIGHT: u32 = 0x8;
+pub const MOVEFLAG_JUMPING: u32 = 0x2000;
+/// A 1.12 player's take-off speed (yd/s), down-positive in the jump's tail as the client sends it.
+pub const JUMP_TAKE_OFF: f32 = -7.955_547;
+
+/// A unit's jump as a relayed move's tail carries it: the way it flies (`angle`, radians) and how
+/// fast over the ground (yd/s); it takes off at `JUMP_TAKE_OFF`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct JumpTail {
+    pub angle: f32,
+    pub ground_speed: f32,
+}
+
+/// A `MSG_MOVE_*` as a server relays one player's move to the others (`op`, the movement verb:
+/// a strafe's start or stop, a jump, a landing): `guid`, its movement `flags` at `time` (ms),
+/// standing at `position` facing `facing`, `fall_time` ms in the air, and with `jump` the jump's
+/// tail (`MOVEFLAG_JUMPING` must be in `flags`).
+#[allow(clippy::too_many_arguments)]
+pub fn relayed_move(op: u16, guid: u64, flags: u32, time: u32, position: [f32; 3], facing: f32, fall_time: u32, jump: Option<JumpTail>) -> Packet {
+    let mut b = Body::new();
+    b.packed_guid(guid).u32(flags).u32(time).vec3(position).f32(facing).u32(fall_time);
+    if let Some(j) = jump {
+        b.f32(JUMP_TAKE_OFF).f32(j.angle.cos()).f32(j.angle.sin()).f32(j.ground_speed);
+    }
+    b.packet(op)
+}
+
 /// `MSG_MOVE_SET_RUN_SPEED`: the other clients learn that `guid`, standing at `position` facing
 /// `facing`, runs at `speed` yards a second from now.
 pub fn move_set_run_speed(guid: u64, position: [f32; 3], facing: f32, speed: f32) -> Packet {

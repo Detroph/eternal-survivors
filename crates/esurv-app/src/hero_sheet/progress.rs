@@ -270,6 +270,8 @@ mod tests {
             loadout: String::new(),
             new_gear: false,
             new_points: false,
+            challenge_open: false,
+            challenge_news: false,
         }
     }
 
@@ -351,6 +353,7 @@ mod tests {
                 health: 100,
                 damage: 100,
                 speed: 110,
+                ..Default::default()
             },
             bonus: 1.2,
         });

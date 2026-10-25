@@ -26,7 +26,7 @@ mod to_server;
 
 pub use prerun::{PreRunAsk, SeenView, PRE_RUN_PREFIX};
 pub use to_client::{
-    Banner, BossBar, BossTimer, BossWarning, BuffKind, BuffTip, Choices, Ending, Experience, GearDrop, GroundIndicator, HeroFacts, Hud, IndicatorShape, Kit, LookStyle, SheathHold,
+    Banner, BossBar, BossCast, BossPhase, BossTimer, BossWarning, BuffKind, BuffTip, Choices, Ending, Experience, GearDrop, GroundIndicator, HeroFacts, Hud, IndicatorShape, Kit, LookStyle, SheathHold,
     KnownSpell, Meter, MeterEntry, Offer, OfferKind, OfferValue, Phase, PrestigeProgress, Progress, Ready, RunEnd,
     ProcOrigin, SaveFileFacts, ScreenKind, Source, SpellTip, TipKind, ToClient, Worn,
 };

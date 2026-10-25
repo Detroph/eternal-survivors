@@ -445,7 +445,7 @@ impl Run {
     fn rank(e: &super::run::EnemyUnit) -> u8 {
         if e.is_boss() {
             0
-        } else if e.elite || e.is_rare() {
+        } else if e.ranks_as_elite() || e.is_rare() {
             1
         } else {
             2
@@ -1322,7 +1322,6 @@ impl Run {
                 next_swing: now,
                 target,
                 assist: None,
-                assist_damage: None,
                 summon: Some(Summoned {
                     kind: spec.kind,
                     spells: spec.spells.clone(),

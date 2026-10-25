@@ -29,3 +29,7 @@ benilla-formats = { path = "../benilla-formats", default-features = false, optio
 [[example]]
 name = "scan_client_names"
 required-features = ["client"]
+
+[[example]]
+name = "check_assist_spells"
+required-features = ["client"]

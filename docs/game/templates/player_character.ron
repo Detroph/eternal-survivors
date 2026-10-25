@@ -18,18 +18,24 @@
     // What its assist does, as a player reads it. Write the numbers here that the script uses.
     assist: "Charges into the nearest enemy, sends every enemy around it fleeing for 6 sec, then Whirlwinds through them for 6 sec, each spin 3% of its max health.",
     // What it does (left out: its class's default in content/class_assists.ron, and the game's
-    // log names it among the characters still on a default). It lasts at most 10 sec unless
-    // `seconds: Some(...)` gives a longer time; what it leaves behind runs out on its own time.
+    // log names it among the characters still on a default). It stays 15 sec unless
+    // `seconds: Some(...)` gives another time; what it leaves behind runs out on its own time.
     assist_script: Some((
         arrive: (how: Plain, look_spell: Some(6673)), // Plain, Blink, Stealth or Portal; beside: Some(<targets>) to appear by an enemy
         steps: [
             Move(to: Nearest(1), how: Charge),
             Hit(targets: NearAlly(radius: 10.0), look_spell: Some(5246), effects: [Fear(seconds: 6.0)], wears: [5246]),
             Repeat(every: 1.0, times: 6, steps: [
-                Hit(targets: NearAlly(radius: 8.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(1680)),
+                Hit(targets: NearAlly(radius: 8.0), damage: true, look_spell: Some(1680)),
             ]),
         ],
         leave: (how: Fade),        // Fade, Vanish, Hearth, RunAway or Dies
     )),
+    // What it does after its assist until it leaves (left out: its class's default in
+    // content/class_assists.ron): how it moves (Melee, ErraticMelee, Caster, NovaKiteCaster,
+    // Healer or LeavesAfterScript) and the spells it loops, each a row in
+    // content/assist_spells.ron (none: a melee style only auto attacks). Each cast strikes
+    // the script's damaging picks again (docs/game/assists.md, "Its rotation").
+    behaviour: Some((style: Melee, rotation: [21553, 1680, 25286])), // Mortal Strike, Whirlwind, Heroic Strike
     gear: Random,                  // its class's PvP looks, or Picked((...)) as in player_characters.ron
 )

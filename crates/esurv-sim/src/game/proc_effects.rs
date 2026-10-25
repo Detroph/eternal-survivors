@@ -87,6 +87,19 @@ pub struct ProcEffects {
     /// The cast under way is a `CastAgain` with `elsewhere`: a ground area keeps off these spots
     /// (where its first fell, and how far it reached).
     pub avoid: Vec<(Vec2, f32)>,
+    /// The pulsing looks on enemies (`legendary_looks.ron` `pulsing`).
+    pub pulsing: Vec<PulsingLook>,
+}
+
+/// A legendary look pulsing on an enemy: hero `hero`'s look `look` on enemy `enemy`, played again at
+/// `next`, until `until`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PulsingLook {
+    pub hero: usize,
+    pub enemy: u32,
+    pub look: u32,
+    pub until: f32,
+    pub next: f32,
 }
 
 impl Run {
@@ -263,7 +276,7 @@ impl Run {
                     slot.timer = 0.0;
                 }
             }
-            Milestone::StrikeOne { pick, reach, share, effects, look_spell, .. } => {
+            Milestone::StrikeOne { pick, reach, share, effects, look_spell, reflection, .. } => {
                 let Some(target) = target else { return };
                 let reach = match (*reach, source) {
                     (r, _) if r > 0.0 => r,
@@ -296,7 +309,12 @@ impl Run {
                         (look, shown)
                     }
                 };
-                self.show_proc(h, look, &[t], Aim::Unit(Unit::Enemy(t)), 0.0);
+                if *reflection {
+                    // the hero's reflection strikes it, not the hero
+                    self.push(Event::ReflectionStrikes { hero: self.heroes[h].id, target: t, spell: look });
+                } else {
+                    self.show_proc(h, look, &[t], Aim::Unit(Unit::Enemy(t)), 0.0);
+                }
                 if let Some(d) = self.hit_enemy(Some(h), t, share * dealt, false, shown) {
                     for x in effects {
                         self.afflict(h, Some(t), x, d);
@@ -379,7 +397,13 @@ impl Run {
                 let look = look_spell.unwrap_or(look);
                 for t in &lacking {
                     self.add_dot(*t, Dot { per_tick: dot.per_tick * (1.0 + growth), next: now + dot.interval, from_proc: false, ..dot.clone() });
-                    self.show_proc(h, look, &[*t], Aim::Unit(Unit::Enemy(*t)), 0.0);
+                    // a pulsing look plays while the burn lasts there, any other once
+                    if self.content.is_pulsing_look(look) {
+                        let until = now + dot.interval * dot.ticks_left as f32;
+                        self.enemy_wears_or_pulses_look(h, *t, look, until);
+                    } else {
+                        self.show_proc(h, look, &[*t], Aim::Unit(Unit::Enemy(*t)), 0.0);
+                    }
                 }
                 if *moves {
                     if let Some(x) = self.enemies.iter_mut().find(|x| x.id == target) {
@@ -387,14 +411,14 @@ impl Run {
                     }
                 }
             }
-            Milestone::LeaveArea { share, of, seconds, radius, at, count, scatter, slow, poisons, follows_hero, rides_target, look_spell, .. } => {
+            Milestone::LeaveArea { share, of, seconds, radius, at, count, scatter, slow, poisons, follows_hero, rides_target, look_spell, spirits, .. } => {
                 let per_tick = share * self.base_amount(h, *of, e, source);
                 let (look, shown) = self.proc_shown(*look_spell, source);
                 let centre = match at {
                     Spot::Target => spot,
                     Spot::Hero => self.heroes[h].pos,
                 };
-                let left = super::casting::LeftArea { slow: *slow, slow_seconds: LEFT_AREA_SLOW_SECONDS, poisons: *poisons, rides: if *rides_target { target } else { None } };
+                let left = super::casting::LeftArea { slow: *slow, slow_seconds: LEFT_AREA_SLOW_SECONDS, poisons: *poisons, rides: if *rides_target { target } else { None }, spirits: spirits.clone() };
                 for p in self.scattered(centre, *count, *scatter) {
                     self.leave_area(h, p, *radius, per_tick, *seconds, *follows_hero, left.clone(), look, shown.clone());
                 }
@@ -455,6 +479,9 @@ impl Run {
         let id = self.new_id();
         let until = self.now + seconds + super::casting::AREA_LOOK_AFTER;
         self.push(Event::AreaShown { id, caster: Unit::Hero(self.heroes[h].id), spell: look, at, radius, until: Some(until) });
+        if let Some(spirits) = &left.spirits {
+            self.push(Event::SpiritsAppeared { area: id, hero: self.heroes[h].id, until: self.now + seconds, spirits: spirits.clone() });
+        }
         let ticks_left = (seconds / LEFT_AREA_INTERVAL).round().max(1.0) as u32;
         let next = self.now + LEFT_AREA_FIRST_TICK;
         self.areas.push(Area { id, hero: h, spell: String::new(), at, radius, per_tick, ticks_left, interval: LEFT_AREA_INTERVAL, next, from_proc: true, base_radius: radius, growth: None, follows, proc_hit, shown_at: at, shown_radius: radius, left: Some(left) });
@@ -570,6 +597,7 @@ impl Run {
 
     /// What the milestones left to happen later: delayed bursts, barrages, second casts.
     pub(crate) fn proc_effects_tick(&mut self) {
+        self.pulse_looks_tick();
         let now = self.now;
         let (due, later): (Vec<PendingBurst>, Vec<PendingBurst>) = std::mem::take(&mut self.procs.bursts).into_iter().partition(|b| b.at <= now);
         self.procs.bursts = later;
@@ -818,7 +846,7 @@ mod tests {
 
     #[test]
     fn a_left_area_strikes_and_slows_once_a_second() {
-        let m = Milestone::LeaveArea { share: 1.0, of: BurstBase::Hit, seconds: 2.0, radius: 4.0, at: Spot::Target, count: 1, scatter: 0.0, slow: 0.5, poisons: false, follows_hero: false, rides_target: false, look_spell: None, trigger: Trigger::Hit, filter: fb() };
+        let m = Milestone::LeaveArea { share: 1.0, of: BurstBase::Hit, seconds: 2.0, radius: 4.0, at: Spot::Target, count: 1, scatter: 0.0, slow: 0.5, poisons: false, follows_hero: false, rides_target: false, look_spell: None, spirits: None, trigger: Trigger::Hit, filter: fb() };
         let mut r = run(vec![m]);
         let a = enemy(&mut r, 10.0);
         r.hit_enemy(Some(0), a, 10.0, false, spell("fireball"));
@@ -827,6 +855,67 @@ mod tests {
         r.effects_tick();
         assert!(r.enemies.iter().find(|e| e.id == a).unwrap().slow.is_some(), "slowed");
         assert!(lost(&r, a) >= 20.0 - 0.01, "the hit and the area's first strike");
+    }
+
+    /// A pulsing look (Sunder Armor's strike on an exposed enemy) plays at once and
+    /// again every 2 sec while the effect lasts, is never worn as an aura, and stops with it.
+    #[test]
+    fn a_pulsing_look_plays_again_while_the_effect_lasts() {
+        let look = 7405;
+        let m = Milestone::Afflict { look_spell: Some(look), chance: 1.0, effect: AfflictEffect::Vulnerable { amount: 0.5, seconds: 5.0 }, trigger: Trigger::Hit, filter: fb() };
+        let mut r = run(vec![m]);
+        assert!(r.content.is_pulsing_look(look));
+        let a = enemy(&mut r, 5.0);
+        let plays = |r: &mut Run| r.drain_events().iter().filter(|e| matches!(e, Event::SpellGo { spell, hits, .. } if *spell == look && hits == &vec![Unit::Enemy(a)])).count();
+        r.hit_enemy(Some(0), a, 1.0, false, spell("fireball"));
+        assert_eq!(plays(&mut r), 1, "at once");
+        assert!(r.enemies.iter().find(|e| e.id == a).unwrap().kit.worn_looks.iter().all(|(l, _)| *l != look), "not worn");
+        let mut later = 0;
+        for _ in 0..12 {
+            r.now += 0.5;
+            r.proc_effects_tick();
+            later += plays(&mut r);
+        }
+        assert_eq!(later, 2, "at 2 and 4 sec, then the effect is over");
+    }
+
+    /// Blink Strike: with `reflection`, the hero's reflection strikes the further
+    /// enemy, the hero shows nothing there, and the damage is the milestone's.
+    #[test]
+    fn a_reflection_strikes_the_further_enemy_in_the_hero_s_place() {
+        let one = Milestone::StrikeOne { pick: Pick::Nearest, reach: 15.0, share: 1.5, effects: vec![], look_spell: Some(14278), reflection: true, trigger: Trigger::Hit, filter: fb() };
+        let mut r = run(vec![one]);
+        let (a, b) = (enemy(&mut r, 3.0), enemy(&mut r, 6.0));
+        let hero_at = r.heroes[0].pos;
+        r.hit_enemy(Some(0), a, 10.0, false, spell("fireball"));
+        let ev = r.drain_events();
+        let hero = r.heroes[0].id;
+        assert!(ev.iter().any(|e| matches!(e, Event::ReflectionStrikes { hero: h, target, spell: 14278 } if *h == hero && *target == b)), "{ev:?}");
+        assert!(!ev.iter().any(|e| matches!(e, Event::SpellGo { spell: 14278, .. })), "the hero strikes nothing there");
+        assert!((lost(&r, b) - 15.0).abs() < 0.01);
+        assert_eq!(r.heroes[0].pos, hero_at, "the hero stays put");
+    }
+
+    /// An area with spirits (Sprint of the Wild) says they set off with it, and as it strikes,
+    /// whom each strikes; the damage is the area's.
+    #[test]
+    fn spirits_set_off_with_their_area_and_strike_what_it_strikes() {
+        let spirits = esurv_content::AreaSpirits { count: 2, form: esurv_content::PlayerForm::Cat, scale: 0.6, strike_look: 6800 };
+        let m = Milestone::LeaveArea { share: 1.0, of: BurstBase::Hit, seconds: 3.0, radius: 5.0, at: Spot::Hero, count: 1, scatter: 0.0, slow: 0.0, poisons: false, follows_hero: true, rides_target: false, look_spell: None, spirits: Some(spirits.clone()), trigger: Trigger::Hit, filter: fb() };
+        let mut r = run(vec![m]);
+        let (a, b, c) = (enemy(&mut r, 2.0), enemy(&mut r, 3.0), enemy(&mut r, 4.0));
+        r.hit_enemy(Some(0), a, 10.0, false, spell("fireball"));
+        let ev = r.drain_events();
+        let area = ev.iter().find_map(|e| if let Event::SpiritsAppeared { area, spirits: s, .. } = e { Some((*area, s.clone())) } else { None });
+        let Some((area, told)) = area else { panic!("{ev:?}") };
+        assert_eq!(told, spirits);
+        r.now += 0.3;
+        r.effects_tick();
+        let strikes: Vec<Vec<u32>> = r.drain_events().into_iter().filter_map(|e| if let Event::SpiritsStrike { area: x, targets } = e { (x == area).then_some(targets) } else { None }).collect();
+        let [targets] = &strikes[..] else { panic!("{strikes:?}") };
+        assert_eq!(targets.len(), 2, "one enemy each");
+        assert!(targets.iter().all(|t| [a, b, c].contains(t)));
+        assert!(lost(&r, c) > 0.0, "the area struck all three");
     }
 
     #[test]
@@ -851,7 +940,7 @@ mod tests {
     #[test]
     fn small_rules_reset_strike_recast_strike_back_and_echo() {
         let reset = Milestone::ResetOnTrigger { chance: 1.0, min_interval: 0.0, trigger: Trigger::Crit, filter: SpellFilter::Spell("fire_blast".into()) };
-        let one = Milestone::StrikeOne { pick: Pick::Healthiest, reach: 20.0, share: 2.0, effects: vec![], look_spell: None, trigger: Trigger::Hit, filter: fb() };
+        let one = Milestone::StrikeOne { pick: Pick::Healthiest, reach: 20.0, share: 2.0, effects: vec![], look_spell: None, reflection: false, trigger: Trigger::Hit, filter: fb() };
         let again = Milestone::CastAgain { delay: 0.5, opposite: false, elsewhere: false, filter: SpellFilter::Spell("frost_nova".into()) };
         let back = Milestone::Retaliate { share: 0.25, look_spell: None };
         let echo = Milestone::HealAfter { share: 0.5, seconds: 6.0, filter: SpellFilter::Spell("healing_wave".into()) };

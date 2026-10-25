@@ -288,6 +288,7 @@ mod tests {
             rank: None,
             weapons: Default::default(),
             only_summoned: false,
+            focus_as_elite: false,
         }
     }
 

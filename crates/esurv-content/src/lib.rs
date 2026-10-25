@@ -17,6 +17,7 @@ mod categories;
 mod client_tables;
 pub mod entries;
 mod kinds;
+pub mod legendary_counters;
 pub mod legendary_looks;
 pub mod live;
 mod loadouts;
@@ -35,7 +36,7 @@ pub use assists::*;
 pub use boss_mechanics::*;
 pub use categories::apply_category_tuning;
 #[cfg(feature = "client")]
-pub use client_tables::{ClientTables, SpellNameRow};
+pub use client_tables::{read_spell_times, ClientTables, SpellNameRow, SpellTimes};
 pub use kinds::*;
 pub use legendary_looks::{LegendaryLook, Moment};
 pub use live::{LiveContent, ReloadOutcome};
@@ -75,6 +76,8 @@ pub struct Content {
     /// Each class's default assist (and its forms'), for a character without a script of its
     /// own (`class_assists.ron`).
     pub class_assists: Vec<ClassAssist>,
+    /// The rotation spells' cast times and cooldowns (`assist_spells.ron`, from `Spell.dbc`).
+    pub assist_spells: Vec<AssistSpell>,
     /// What prestige points buy, a rank at a time (`prestige.ron`).
     pub prestige: Vec<PrestigeStat>,
     /// The words cards put around their numbers (`words.ron`).
@@ -161,6 +164,7 @@ impl Content {
         content.pvp_looks = read_one(dir, "pvp_looks.ron")?;
         content.player_characters = player_characters;
         content.class_assists = class_assists;
+        content.assist_spells = read(dir, "assist_spells.ron")?;
         content.prestige = read(dir, "prestige.ron")?;
         content.words = words;
         content.balance = balance;
@@ -234,6 +238,7 @@ impl Content {
             pvp_looks: PvpLooks::default(),
             player_characters: Vec::new(),
             class_assists: Vec::new(),
+            assist_spells: Vec::new(),
             prestige: Vec::new(),
         }
     }
@@ -363,6 +368,13 @@ impl Content {
         if health.len() < 2 || health.windows(2).any(|w| w[1].0 <= w[0].0) || health.iter().any(|p| !(p.1.is_finite() && p.1 > 0.0)) {
             problems.push("balance zone_scaling normal_health needs two or more points in rising D with multipliers above 0".into());
         }
+        let damage = &s.normal_damage;
+        if !damage.is_empty() && (damage.len() < 2 || damage.windows(2).any(|w| w[1].0 <= w[0].0) || damage.iter().any(|p| !(p.1.is_finite() && p.1 > 0.0))) {
+            problems.push("balance zone_scaling normal_damage needs none, or two or more points in rising D with multipliers above 0".into());
+        }
+        if [s.elite_damage_power, s.boss_damage_power].iter().any(|v| !(v.is_finite() && *v >= 0.0)) {
+            problems.push("balance zone_scaling elite_damage_power and boss_damage_power need to be 0 or more".into());
+        }
         if s.gear_tier_starts.windows(2).any(|w| w[1] <= w[0]) {
             problems.push("balance zone_scaling gear_tier_starts need rising difficulties".into());
         }
@@ -476,6 +488,15 @@ impl Content {
             }
             for n in l.spells.iter().chain(l.effects.iter().flat_map(|e| e.spells())).filter(|n| self.ability(n).is_none()) {
                 problems.push(format!("legendary amulet {} names unknown ability {n}", l.name));
+            }
+            // a line's runners: some looks, a row of one or more, a pace
+            for e in &l.effects {
+                if let TalentEffect::Milestone(Milestone::LineHit { runners: Some(r), .. }) = e {
+                    let (least, most) = r.count;
+                    if r.displays.is_empty() || r.displays.iter().any(|(_, s)| !(s.is_finite() && *s > 0.0)) || least == 0 || least > most || !(r.speed.is_finite() && r.speed > 0.0) {
+                        problems.push(format!("legendary amulet {} needs runners with looks (each scaled above 0), a count of 1 or more (least first) and a speed above 0", l.name));
+                    }
+                }
             }
         }
         let mut wanted: Vec<&str> = Vec::new();
@@ -734,8 +755,8 @@ impl Content {
                     }
                 }
                 for l in &b.script {
-                    if (l.on == crate::ScriptTrigger::AddDied) != l.add.is_some() {
-                        problems.push(format!("zone {}: boss {}'s script line on {:?} names an add only for AddDied", z.id, b.name, l.on));
+                    if matches!(l.on, crate::ScriptTrigger::AddDied | crate::ScriptTrigger::LastAddDied) != l.add.is_some() {
+                        problems.push(format!("zone {}: boss {}'s script line on {:?} names an add only for AddDied and LastAddDied", z.id, b.name, l.on));
                     }
                 }
                 // a class call names classes there are
@@ -811,19 +832,38 @@ impl Content {
     /// by id, each with the default it takes ("druid (Cat)"): the ones that still need one.
     pub fn characters_on_default_assist(&self) -> Vec<(String, String)> {
         let on_default = self.player_characters.iter().filter(|c| c.assist_script.is_none());
-        on_default
-            .map(|c| {
-                let default = match self.class_assist(&c.class, c.form).and_then(|a| a.form) {
-                    Some(f) => format!("{} ({f:?})", c.class),
-                    None => c.class.clone(),
-                };
-                (c.id.clone(), default)
-            })
-            .collect()
+        on_default.map(|c| (c.id.clone(), self.default_name(c))).collect()
+    }
+
+    /// Hand-made character `c`'s rotation and movement after its assist: its own `behaviour`,
+    /// else its class's (and form's) default.
+    pub fn behaviour_of<'a>(&'a self, c: &'a PlayerCharacter) -> Option<&'a AssistBehaviour> {
+        c.behaviour.as_ref().or_else(|| self.class_assist(&c.class, c.form).map(|a| &a.behaviour))
+    }
+
+    /// Rotation spell `spell`'s row in `assist_spells.ron`.
+    pub fn assist_spell(&self, spell: u32) -> Option<&AssistSpell> {
+        self.assist_spells.iter().find(|s| s.spell == spell)
+    }
+
+    /// The hand-made characters still on their class's default behaviour (no `behaviour` of their
+    /// own), by id, each with the default it takes ("druid (Cat)").
+    pub fn characters_on_default_behaviour(&self) -> Vec<(String, String)> {
+        self.player_characters.iter().filter(|c| c.behaviour.is_none()).map(|c| (c.id.clone(), self.default_name(c))).collect()
+    }
+
+    /// The name of the class default character `c` takes: its class, with its form when the
+    /// form has a default of its own ("druid (Cat)").
+    fn default_name(&self, c: &PlayerCharacter) -> String {
+        match self.class_assist(&c.class, c.form).and_then(|a| a.form) {
+            Some(f) => format!("{} ({f:?})", c.class),
+            None => c.class.clone(),
+        }
     }
 
     /// Every class has a default assist, every default's class (and form) is written once, and
-    /// every script, the characters' own and the defaults, follows the blocks' rules.
+    /// every script, the characters' own and the defaults, follows the blocks' rules; every
+    /// behaviour casts spells `assist_spells.ron` has.
     fn check_assists(&self, problems: &mut Vec<String>) {
         let longest = self.balance.battle_standard.assist_seconds;
         let pet_known = |name: &str| self.pets.iter().any(|p| p.name == name);
@@ -834,8 +874,11 @@ impl Content {
             if self.class_assists[..k].iter().any(|o| o.class == a.class && o.form == a.form) {
                 problems.push(format!("class assist {} {:?} is written twice", a.class, a.form));
             }
-            check_script(&format!("class assist {} {:?}", a.class, a.form), &a.script, longest, &pet_known, problems);
+            let what = format!("class assist {} {:?}", a.class, a.form);
+            check_script(&what, &a.script, longest, &pet_known, problems);
+            check_behaviour(&what, &a.behaviour, &self.assist_spells, problems);
         }
+        check_assist_spells(&self.assist_spells, problems);
         if !self.class_assists.is_empty() {
             for c in &self.classes {
                 if self.class_assist(&c.id, None).is_none() {
@@ -845,6 +888,9 @@ impl Content {
         }
         for c in &self.player_characters {
             let what = format!("player character {}", c.id);
+            if let Some(b) = &c.behaviour {
+                check_behaviour(&what, b, &self.assist_spells, problems);
+            }
             match &c.assist_script {
                 Some(s) => check_script(&what, s, longest, &pet_known, problems),
                 None if !self.class_assists.is_empty() && self.class_assist(&c.class, c.form).is_none() => {
@@ -861,6 +907,10 @@ impl Content {
         let b = &self.balance.battle_standard;
         if b.per_run.0 > b.per_run.1 || !(b.endless_every > 0.0) || !(b.ally_scale > 0.0) || !(b.assist_seconds > 0.0) {
             problems.push(format!("balance.ron battle_standard: {b:?} needs per_run low to high and positive times and size"));
+        }
+        let rates = b.assist_damage_per_second;
+        if ![rates.normal, rates.elite_rare_boss].iter().all(|r| *r > 0.0 && *r <= 1.0) {
+            problems.push(format!("balance.ron battle_standard: assist_damage_per_second {rates:?} needs shares above 0, at most 1"));
         }
         for z in &b.never_in {
             if self.zone(z).is_none() {

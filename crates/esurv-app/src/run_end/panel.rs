@@ -906,11 +906,11 @@ mod tests {
             },
         );
         let start = r.at(0.0);
-        assert_eq!(bar_text(&start), "70 / 80");
+        assert_eq!(bar_text(&start), "70 / 110");
         assert_eq!(points_text(&start), "Talent points: 0");
         let end = r.at(r.length());
-        assert_eq!(bar_text(&end), "74 / 86");
-        assert_eq!(points_text(&end), "Talent points: 3 (+3)");
+        assert_eq!(bar_text(&end), "97 / 115");
+        assert_eq!(points_text(&end), "Talent points: 2 (+2)");
         let all = Reveal::new(u32::MAX - 10, &Experience::default()).at(0.0);
         assert_eq!(bar_text(&all), "Every talent point earned");
     }

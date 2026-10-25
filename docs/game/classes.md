@@ -423,7 +423,7 @@ spell the client names as `{Spell(id)}`. A talent's effects:
   | `Periodic(interval, spell)` | casts `spell` by itself every `interval` s (0: its cooldown as a cast sets it), times the hero's cooldown factor, never under 1 s; 0.3 s after a cast that found nothing to do; the first cast comes as soon as an enemy is in its reach | Killing Spree |
   | `StartWith(spell)` | every run starts with `spell` known | Mortal Wounds |
   | `Pet(pet)` | a pet from `pets.ron` fights beside the hero | Tame Beast |
-  | `LineHit(every, `**`share`**`, length, width, behind, hits_target, look_spell, trigger, filter)` | every `every`-th event (1: each) also strikes every enemy in a line from the hero through the struck one, `length` yd from the hero and `width` yd either side, for `share` of the hit; `behind: true` only past the struck enemy, `hits_target: true` the struck one too; `look_spell` (else the hit's spell) flies from the hero to the line's end and names the damage | Thori'dal, Stampede, Netherstrand Longbow |
+  | `LineHit(every, `**`share`**`, length, width, behind, hits_target, look_spell, runners, trigger, filter)` | every `every`-th event (1: each) also strikes every enemy in a line from the hero through the struck one, `length` yd from the hero and `width` yd either side, for `share` of the hit; `behind: true` only past the struck enemy, `hits_target: true` the struck one too; `look_spell` (else the hit's spell) flies from the hero to the line's end and names the damage; `runners: Some((displays: [(display, scale), ..], count: (least, most), speed))`, a look only, sends a row of that many creatures of those looks, each drawn at its scale running the line's length at `speed` yd/s ([screens.md](screens.md), "Looks") | Thori'dal, Stampede, Netherstrand Longbow |
   | `MarkAttackers(seconds, `**`bonus`**`, heal, look_spell, filter)` | an enemy that strikes the hero in melee is marked for `seconds` (aura `look_spell` on it); matching hits deal `bonus` more to it and each heals `heal` of max health | Mark of the Fallen Champion |
   | `GrowingArea(`**`per_hit`**`, max, filter)` | a matching lasting area grows `per_hit` of its first radius per enemy it damages, up to `max` more; its look is put down again each 10 % it grows | Sanctified Ground |
   | `AreaFollowsHero(filter)` | a matching lasting area lands on the hero (with an enemy within the spell's range) and moves with the hero; its look is put down again every 2 yd | Ranger-General's Barrage |
@@ -432,11 +432,11 @@ spell the client names as `{Spell(id)}`. A talent's effects:
   | `FearedTurn(`**`chance`**`, filter)` | an enemy a matching fear spell hits (never a boss) has `chance` to turn on the others for the fear's time: it chases the nearest other enemy and strikes it with its own blow (its swing shown, counted as the hero's other damage, setting off no milestones), never the hero | Dominate Mind |
   | `Every(count, per, per_enemy, chance, first_only, filter, then)` | every `count`-th cast (`per: Casts`, its own casts, counted as they start; the counted cast's hits until the next cast) or hit or tick (`per: Hits`; with `per_enemy` counted on each enemy apart) of a matching spell also sets off the milestones in `then`, on their own triggers; `chance` (1 when left out) for each counted time; `first_only`: only the counted cast's first event that sets one off | Gruul's Shatter, Arcane Bomb, Silithid Swarm |
   | `ResetOnTrigger(`**`chance`**`, min_interval, trigger, filter)` | the matching spell that set it off is ready again | Incinerate Flesh |
-  | `StrikeOne(pick, reach, `**`share`**`, effects, look_spell, trigger, filter)` | one more enemy within `reach` of the hero (0: the spell's range or radius), `Nearest`, `Healthiest` or `Farthest`, takes `share` of the hit and `effects` | Hateful Strike, Blink Strike |
+  | `StrikeOne(pick, reach, `**`share`**`, effects, look_spell, reflection, trigger, filter)` | one more enemy within `reach` of the hero (0: the spell's range or radius), `Nearest`, `Healthiest` or `Farthest`, takes `share` of the hit and `effects`; with `reflection: true`, a look only, a see-through reflection of the hero strikes it instead of the hero ([screens.md](screens.md) "Looks") | Hateful Strike, Blink Strike |
   | `Burst(`**`share`**`, of, radius, at, delay, count, scatter, effects, look_spell, trigger, filter)` | `count` bursts at the struck enemy (`Target`, following it for a `delay`) or the hero (`Hero`), spread up to `scatter` yd, each `share` of `of` (`Hit`: the hit, or a broken shield's absorbed amount × damage; `SpellHit`: one hit of the spell; `MaxHealth`: max health × damage) on every enemy within `radius`, with `effects` | Living Bomb, Rocket Strike, War Stomp |
   | `DotBurst(`**`share`**`, radius, on_end, on_death, spreads, look_spell, filter)` | a matching effect over time bursts when it runs out on a living enemy and/or when its carrier dies: `share` of its whole damage on every enemy within `radius`; `spreads`: each struck gets it | Whisper of Death, Inevitable Doom |
   | `DotSpread(count, reach, max_carriers, every, moves, growth, trigger, filter)` | on a tick, the ticking effect passes to the `count` nearest lacking it (on a hit: the spell's burn), `growth` stronger; `moves`: it leaves the first; at most `max_carriers` carry it, at most once every `every` s | Corrupted Blood, Unbound Plague |
-  | `LeaveArea(`**`share`**`, of, seconds, radius, at, count, scatter, slow, poisons, follows_hero, rides_target, look_spell, trigger, filter)` | lasting areas that strike every enemy inside once a second for `share` of `of` (as `Burst`), slowing by `slow`, putting the option's poison on with `poisons`; moving with the hero or riding with the struck enemy | Lava Bomb, Earthquake, Tornado |
+  | `LeaveArea(`**`share`**`, of, seconds, radius, at, count, scatter, slow, poisons, follows_hero, rides_target, look_spell, spirits, trigger, filter)` | lasting areas that strike every enemy inside once a second for `share` of `of` (as `Burst`), slowing by `slow`, putting the option's poison on with `poisons`; moving with the hero or riding with the struck enemy; `spirits: Some((count, form, scale, strike_look))`, a look only, runs that many see-through druid-form creatures beside the hero while it lasts, each striking with `strike_look` as it strikes (Sprint of the Wild) | Lava Bomb, Earthquake, Tornado |
   | `WhileBuff(spell, stats, then, once)` | while the buff `spell` left is up, `stats` added and the milestones in `then` on; `once`: one of them once a buff | Endurance Aura, Mirror Image, Wind Walk |
   | `Spree(every, seconds, interval, spell, stats)` | every `every` s (with an enemy within 30 yd), for `seconds`, `spell` cast for free every `interval` and `stats` added | Bladestorm |
   | `Barrage(seconds, interval, reach, `**`share`**`, of, look_spell, trigger, filter)` | for `seconds`, every `interval` a random enemy within `reach` takes `share` of `of` | Starfall |
@@ -485,22 +485,21 @@ mage starter's gain from the capstone where the pet version had it (`balance_che
 Frost spells +9 %, Frostbolt +90 %. The talent keeps its id, so saved points stay.
 
 **Talent experience**, earned by each run for the hero's class:
-`minutes survived × 10 + kills ÷ density × 0.05 + 40 per boss + 250 for a win`, then × √D, the
-zone's difficulty (Elwynn ×1 … Ahn'Qiraj ×1.48; `balance.ron` `zone_scaling` `talent_exponent`),
+`minutes survived × 10 + kills ÷ density × 0.05 + 40 per boss + 250 for a win`, then × the zone bonus D^0.7
+(`balance.ron` `zone_scaling` `talent_exponent` 0.7, ×1, 1.62, 2.16, 2.64, 3.09, 3.51, 3.9, 4.29, 4.66, 5.01 for D 1-10),
 then × the run-option bonus (up to ×2). The numbers are ours
 (`rewards.rs`), set so a player who wins each zone once, in order, follows the talent schedule of
-the power budgets (AUTHORING.md, "Power budgets"): 11 points after Duskwood (the row 2 milestone in
-Warsong), the 21st point in the Scarlet Monastery's run (row 4 in the Sunken Temple), the 31st
-during Dire Maul's run (row 6 in the Arena), and all 51 after Blackrock, so the zones after it add
-no talent power.
-**Talent points:** the n-th point costs `80 × 1.024^(n − 1)`, rounded (80, 82, 84 … 262 for the 51st; about 990 for 11 points, 2,150 for 21, 3,620 for 31, 7,840 for all 51); at most 51 per class. With the zone bonus below, the expected hero has its 31st point after the Scarlet Monastery run and its 51st after the Stratholme run (D 8).
+the power budgets (AUTHORING.md, "Power budgets"): at least 11 points arriving in Warsong Gulch
+(D 3), 31 arriving in the Sunken Temple (D 5), 41 arriving in Feralas (D 6), and all 51 first on
+arriving in Blackrock (D 9), so Ahn'Qiraj and the zones after it add no talent power.
+**Talent points:** the n-th point costs `110 × 1.024^(n − 1)`, rounded (110, 113, 115 … 360 for the 51st; about 1,370 for 11 points, 2,960 for 21, 4,980 for 31, 10,780 for all 51); at most 51 per class. With the zone bonus, the expected hero arrives with 6 points in Duskwood, 15 in Warsong Gulch, 24 in the Scarlet Monastery, 33-34 in the Sunken Temple, 41-43 in Feralas, 50-51 in the Arena and 51 from Stratholme on: the 51st point comes one zone early, in the Arena (the smooth zone bonus; the schedule asks for it in Stratholme).
 
 **Prestige points.** Talent points stop at 51, but talent experience
 keeps coming, and past the 51st point it buys **prestige points**, more slowly each time: the
 first costs what a 52nd talent point would (`FIRST_TALENT_POINT_COST × TALENT_POINT_COST_GROWTH^51`,
-268 at today's 80 × 1.024), each next one 5 % more than the one before
-(`PRESTIGE_POINT_COST_GROWTH`, `esurv-sim` `game::rewards`: about 268, 282, 296 … 416 for
-the 10th, 678 for the 20th). There is no last one. One point buys one rank of a stat of
+369 at today's 110 × 1.024), each next one 5 % more than the one before
+(`PRESTIGE_POINT_COST_GROWTH`, `esurv-sim` `game::rewards`: about 369, 387, 407 … 572 for
+the 10th, 932 for the 20th). There is no last one. One point buys one rank of a stat of
 `content\prestige.ron`; prestige ranks are the class's, like its talents: kept in its save
 (`ClassProgress::prestige`), brought into every run as the talents' stat effects are
 (`HeroSetup::add_prestige`), bought and taken back on the hero sheet's Talents tab (free, one at a

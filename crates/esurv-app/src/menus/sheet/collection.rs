@@ -650,6 +650,8 @@ mod tests {
             loadout: String::new(),
             new_gear: false,
             new_points: false,
+            challenge_open: false,
+            challenge_news: false,
         };
         let look = |zone, row| gear.set.look_of(zone, row).unwrap() as u32;
         assert_eq!(row_head_line(&gear, &progress, look("elwynn", 0), 2, 8), "Common  2/8");
@@ -687,6 +689,8 @@ mod tests {
             loadout: String::new(),
             new_gear: false,
             new_points: false,
+            challenge_open: false,
+            challenge_news: false,
         };
         let head = gear.entry(0, zone);
         let found = progress(vec![], vec![head]);

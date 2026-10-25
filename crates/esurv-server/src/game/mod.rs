@@ -7,6 +7,7 @@ mod again;
 mod boss_looks;
 mod bunnies;
 mod channels;
+mod counter_buffs;
 mod doors;
 pub use boss_looks::object_info;
 pub use doors::door_info;
@@ -14,6 +15,7 @@ mod form_shifts;
 mod ground_indicators;
 mod ground_looks;
 mod jewelry;
+mod line_runners;
 mod pickups;
 mod assists;
 mod player_enemies;
@@ -22,7 +24,9 @@ pub use bunnies::BUNNY_DISPLAY;
 pub use pickups::{gameobject_look, orb_look, ORB_ENTRY, STANDARD_NAME};
 mod present;
 mod ranged_shots;
+mod reflections;
 mod screens;
+mod spirits;
 mod starting_looks;
 mod totems;
 pub use totems::{totem_info, TOTEM_ENTRY};
@@ -309,6 +313,17 @@ pub struct Game {
     /// The invisible target units boss looks play on, with when each goes (`bunnies`).
     bunnies: Vec<(u64, f32)>,
     next_bunny: u32,
+    /// A line's runners on the field (Stampede's beasts, `line_runners`), with when each goes, and the
+    /// rows sent so far (their picks' seed).
+    line_runners: Vec<(u64, f32)>,
+    next_runner_row: u32,
+    /// The heroes' reflections on the field (`reflections`), with when each goes, and how many so far.
+    reflections: Vec<(u64, f32)>,
+    next_reflection: u32,
+    /// The spirits running with the heroes' areas (`spirits`).
+    spirits: Vec<spirits::SpiritsShown>,
+    /// The heroes' legendary counters that have counted once, by hero and legendary (`counter_buffs`).
+    counters_seen: HashSet<(u32, String)>,
     /// Each hero's stacks a boss left on it, as its debuffs were last shown.
     hero_debuffs_shown: HashMap<u32, Vec<present::Aura>>,
     /// The player's game data, for the spells' own radii.
@@ -325,6 +340,9 @@ pub struct Game {
     told: HashMap<u32, screens::Told>,
     /// The bosses' health bars as the clients were last told, by simulation id.
     bars: HashMap<u32, screens::Bar>,
+    /// The player-looking elites, rares and bosses whose rank the clients were told, by
+    /// simulation id (`screens`, `ToClient::EnemyRanks`).
+    ranks_told: HashSet<u32>,
     /// The gear pieces won, by item entry: their names, and whether they were new to the
     /// collection.
     drops: HashMap<u32, (String, bool)>,
@@ -424,7 +442,7 @@ impl Game {
         let run = Run::new(
             content.clone(),
             &z.id,
-            saves.run_options().run_options(&content.run_options),
+            saves.run_options_for(&content, &saved.class),
             &[hero_setup(
                 &content,
                 saved,
@@ -460,6 +478,7 @@ impl Game {
             left: HashSet::new(),
             told: HashMap::new(),
             bars: HashMap::new(),
+            ranks_told: HashSet::new(),
             drops: HashMap::new(),
             meters: HashMap::new(),
             dressed: HashMap::new(),
@@ -475,6 +494,12 @@ impl Game {
             indicators_still: false,
             bunnies: Vec::new(),
             next_bunny: 0,
+            line_runners: Vec::new(),
+            next_runner_row: 0,
+            reflections: Vec::new(),
+            next_reflection: 0,
+            spirits: Vec::new(),
+            counters_seen: HashSet::new(),
             hero_debuffs_shown: HashMap::new(),
             moving_shown: true,
             rooted: false,
@@ -1398,6 +1423,9 @@ impl Game {
         self.mirror_boss_looks(&mut out);
         own.extend(self.mirror_indicators());
         self.mirror_bunnies(&mut out);
+        self.mirror_line_runners(&mut out);
+        self.mirror_reflections(&mut out);
+        self.mirror_spirits(&mut out);
         // the dead lie down where they stand; pets that left vanish
         let died: HashSet<u32> = events
             .iter()
@@ -1770,6 +1798,140 @@ mod tests {
         game.mirror_bunnies(&mut out);
         assert!(game.bunnies.is_empty());
         assert_eq!(out.iter().filter(|p| p.opcode == benilla_protocol::messages::opcode::SMSG_DESTROY_OBJECT).count(), bunnies.len());
+    }
+
+    /// Blink Strike's reflection: a see-through player copy of the hero appears at the
+    /// enemy and plays the strike on it; a second later it goes.
+    /// A counting legendary's counter buff: none before the first count, then an aura
+    /// of its own with the count as its stacks, still there at 0 after it goes off, and a
+    /// tooltip naming the legendary.
+    #[test]
+    fn a_counting_legendary_shows_its_count_as_a_buff_from_the_first_count() {
+        use esurv_sim::game::choices::Offer;
+        let (mut game, _client) = game_with_a_player();
+        let hero = game.run.heroes[0].id;
+        let content = game.run.content.clone();
+        let tornado = content.legendary_amulets.iter().find(|l| l.main_spell() == "wellspring").expect("Tornado");
+        assert!(game.run.grant(hero, Offer::Amulet { amulet: Box::new(esurv_sim::game::amulets::legendary_for(tornado)) }));
+        let aura = content.counter_buff(&tornado.id()).expect("it counts").aura;
+        let k = game.run.heroes[0].milestones.iter().position(|m| esurv_content::legendary_counters::counted_every(m).is_some()).unwrap();
+        let shown = |game: &mut Game| {
+            let (mut objects, mut own) = (Vec::new(), Vec::new());
+            game.auras(&mut objects, &mut own, false);
+            game.auras_shown.get(&hero).and_then(|a| a.iter().find(|x| x.spell == aura).map(|x| x.stacks))
+        };
+        assert_eq!(shown(&mut game), None, "not before the first count");
+        let state = &mut game.run.heroes[0].milestone_state;
+        state.resize(state.len().max(k + 1), Default::default());
+        state[k].counter = 2;
+        assert_eq!(shown(&mut game), Some(2));
+        game.run.heroes[0].milestone_state[k].counter = 0;
+        assert_eq!(shown(&mut game), Some(0), "it went off: back to 0, still shown");
+        let tips = game.counter_tips(hero);
+        assert!(matches!(&tips[..], [t] if t.look == aura && t.spell == tornado.id() && t.value == 3.0), "{tips:?}");
+    }
+
+    #[test]
+    fn a_reflection_appears_strikes_and_goes() {
+        use benilla_protocol::messages::opcode::{SMSG_DESTROY_OBJECT, SMSG_SPELL_GO, SMSG_UPDATE_OBJECT};
+        let (mut game, _client) = game_with_a_player();
+        let p = game.run.heroes[0].pos;
+        assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 6.0, p.1))));
+        let target = game.run.enemies.last().unwrap().id;
+        game.units_now();
+        let hero = game.run.heroes[0].id;
+        let (told, _) = game.present(&[Event::ReflectionStrikes { hero, target, spell: 14278 }]);
+        let made: Vec<SessionEvent> = told.iter().filter(|t| t.opcode == SMSG_UPDATE_OBJECT).flat_map(creates).collect();
+        let [SessionEvent::ObjectCreate { guid, .. }] = &made[..] else { panic!("{made:?}") };
+        assert!(super::starting_looks::clone_of(*guid).is_some(), "a copy of the hero");
+        assert_eq!(told.iter().filter(|t| t.opcode == SMSG_SPELL_GO).count(), 1, "its strike");
+        let mut out = Vec::new();
+        game.run.now += super::reflections::REFLECTION_STAYS + 0.1;
+        game.mirror_reflections(&mut out);
+        assert_eq!(out.iter().filter(|t| t.opcode == SMSG_DESTROY_OBJECT).count(), 1);
+    }
+
+    /// Sprint of the Wild's spirits: two small see-through cats in the hero's
+    /// faction's cat form beside it, running after it when it moves, striking as the area strikes,
+    /// gone when the area ends.
+    #[test]
+    fn spirits_run_beside_the_hero_strike_and_go() {
+        use benilla_protocol::messages::opcode::{SMSG_DESTROY_OBJECT, SMSG_MONSTER_MOVE, SMSG_SPELL_GO, SMSG_UPDATE_OBJECT};
+        let (mut game, _client) = game_with_a_player();
+        let p = game.run.heroes[0].pos;
+        assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 2.0, p.1))));
+        let enemy = game.run.enemies.last().unwrap().id;
+        game.units_now();
+        let hero = game.run.heroes[0].id;
+        let spirits = esurv_content::AreaSpirits { count: 2, form: esurv_content::PlayerForm::Cat, scale: 0.6, strike_look: 6800 };
+        let until = game.run.now + 5.0;
+        let (told, _) = game.present(&[Event::SpiritsAppeared { area: 9, hero, until, spirits }]);
+        let looks: Vec<Option<u32>> = told
+            .iter()
+            .filter(|t| t.opcode == SMSG_UPDATE_OBJECT)
+            .flat_map(creates)
+            .map(|e| match e {
+                SessionEvent::ObjectCreate { display_id, .. } => display_id,
+                _ => None,
+            })
+            .collect();
+        assert_eq!(looks, [Some(8571), Some(8571)], "an orc's: the tauren cat");
+        let (told, _) = game.present(&[Event::SpiritsStrike { area: 9, targets: vec![enemy] }]);
+        assert_eq!(told.iter().filter(|t| t.opcode == SMSG_SPELL_GO).count(), 1, "one strike for the one enemy");
+        let mut out = Vec::new();
+        game.mirror_spirits(&mut out);
+        assert!(out.is_empty(), "the hero stood still");
+        game.run.heroes[0].pos = (p.0 + 5.0, p.1);
+        game.mirror_spirits(&mut out);
+        assert_eq!(out.iter().filter(|t| t.opcode == SMSG_MONSTER_MOVE).count(), 2, "both run after it");
+        out.clear();
+        game.run.now = until;
+        game.mirror_spirits(&mut out);
+        assert_eq!(out.iter().filter(|t| t.opcode == SMSG_DESTROY_OBJECT).count(), 2);
+        assert!(game.spirits.is_empty());
+    }
+
+    /// A line's runners (Stampede's beasts): a row of units of the runners' looks appears, each
+    /// sent running, none of them an enemy of the simulation; at the line's end they go, and a
+    /// cleared field takes any still running.
+    #[test]
+    fn a_line_s_runners_appear_run_and_go_at_its_end() {
+        use esurv_content::LineRunners;
+        let (mut game, _client) = game_with_a_player();
+        let p = game.run.heroes[0].pos;
+        let runners = LineRunners { displays: vec![(604, 0.55), (503, 0.54), (2548, 0.23)], count: (5, 7), speed: 14.0 };
+        let ran = Event::LineRunners { from: p, to: (p.0 + 30.0, p.1), width: 2.0, runners: runners.clone() };
+        let enemies_before = game.run.enemies.len();
+        let (told, _) = game.present(std::slice::from_ref(&ran));
+        let looks: Vec<u32> = told
+            .iter()
+            .filter(|t| t.opcode == benilla_protocol::messages::opcode::SMSG_UPDATE_OBJECT)
+            .flat_map(creates)
+            .filter_map(|e| match e {
+                SessionEvent::ObjectCreate { display_id, .. } => display_id,
+                _ => None,
+            })
+            .collect();
+        assert!((5..=7).contains(&looks.len()), "{looks:?}");
+        assert!(looks.iter().all(|d| runners.displays.iter().any(|(x, _)| x == d)), "{looks:?}");
+        let moves = told.iter().filter(|t| t.opcode == benilla_protocol::messages::opcode::SMSG_MONSTER_MOVE).count();
+        assert_eq!(moves, looks.len(), "each one runs");
+        assert_eq!(game.line_runners.len(), looks.len());
+        assert_eq!(game.run.enemies.len(), enemies_before, "the simulation has no unit for them");
+        // about 33 yd at 14 yd a second: still running at 2 s, gone by 2.5 s
+        game.run.now += 2.0;
+        let mut out = Vec::new();
+        game.mirror_line_runners(&mut out);
+        assert!(out.is_empty(), "still running");
+        game.run.now += 0.5;
+        game.mirror_line_runners(&mut out);
+        assert_eq!(out.iter().filter(|p| p.opcode == benilla_protocol::messages::opcode::SMSG_DESTROY_OBJECT).count(), looks.len());
+        assert!(game.line_runners.is_empty());
+        // a cleared field takes the ones still running
+        game.present(std::slice::from_ref(&ran));
+        let n = game.line_runners.len();
+        assert_eq!(game.forget_line_runners().len(), n);
+        assert!(game.line_runners.is_empty());
     }
 
     /// Where an `SMSG_SPELL_GO`'s spell id sits (after its two packed guids).

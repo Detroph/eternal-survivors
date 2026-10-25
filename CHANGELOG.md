@@ -3,6 +3,72 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.5.0
+
+The Challenge Mode update.
+
+### Patch notes
+
+**Gameplay**
+- **Challenge Mode:** clearing Ahn'Qiraj with a class unlocks a Challenge tab. Every zone plays at Ahn'Qiraj's difficulty, plus a 1x-5x challenge slider; a one-time box explains it.
+- **Guide:** a new Guide button on the warband screen, with Stats, Enemies, Upgrades and Loot tabs.
+- **Warband Standard allies fight like real players now**, and they stay longer.
+- **Boss fights last longer:** about 35-55 s for normal bosses and 1.5-2.5 minutes for final bosses, growing from zone to zone. Later bosses in a zone are no longer much tougher than the first.
+- **Boss heals are halved.**
+- **Some final bosses were reworked** and should feel fairer.
+- **Nightmare Suppressors and Black Guard Sentries** are targeted like elites, glow and are elite-sized.
+- **Spawns near walls:** standing by a wall or the edge of the map, enemies now come in closer on that side instead of only from the open side.
+- **Divine Shield:** its cooldown starts when the shield ends.
+
+**Balance**
+- **Talent milestones** at 11 / 21 / 31 points give about +5 % / +10 % / +25 % damage, measured for every starting spell.
+- **Redesigned milestones:**
+  - Felguard; Force of Nature (Treants); Summon Imp.
+  - Tame Beast (a chance on crit, 30 s cooldown).
+  - Arcane Concentration (Clearcasting); Rampage (stacking damage).
+  - Nightfall (a free Shadow Bolt on ticks); Seed of Corruption (spreading Corruption).
+  - Bestial Wrath; Totemic Call; Berserker Rage; Vengeance.
+  - Twin Totems (a free Magma Totem on crit).
+  - Nature's Grace; Tree of Life; Piercing Shots; Trap Launcher.
+  - Bulwark (Defiance); Divine Aegis; Shadow Weaving.
+- Many other milestones re-tuned; the tooltips show the numbers.
+- **Legendary amulets** give about +30 % damage.
+- **Talent experience:**
+  - Each zone gives more than the one before.
+  - Talent points cost 110, growing 2.4 % a point.
+  - About 11 points in Duskwood, 31 after the Scarlet Monastery, 41 after the Sunken Temple, 51 by the end.
+- **Enemy health** is re-tuned in every zone; enemies hit as hard as before. **Rares** have less health.
+
+**Quality of life**
+- **New boss bar:** a wide health bar with phase marks, a cast bar, and a thin bar for each further boss.
+- **Compact action bar:**
+  - Gryphons and 8 buttons, the race spell on the 8th.
+  - Character, Spellbook, Talents and Options buttons.
+  - An XP bar in 10 segments.
+- **Glows:**
+  - Bosses glow orange; Warsong's elites and rares glow too.
+  - The option is now "Glow around elites, rares and bosses".
+- **News pulses:** Collection, Talents and the update offer pulse when something is new.
+- **Legendary amulet effects:**
+  - Every effect has a look, and counting amulets show a counter buff.
+  - Stampede sends a herd of beasts.
+  - Blink Strike sends a reflection instead of blinking you.
+  - Sprint of the Wild brings two spirit cats.
+
+### Changelog
+
+**Fixes**
+- Mangle's legendary no longer surges every 2nd Maul to the farthest enemy.
+- Warsong bosses show their right names on the boss bar.
+- Stampede's beasts are all one size.
+- Divine Aegis's tooltip matches its effect.
+
+**Details**
+- Challenge Mode rewards are talent experience (as in Ahn'Qiraj x1.1) and normal armour drops. Records, wins, discoveries and codex entries are off in it.
+
+**Install and technical**
+- Version 0.5.0; the game offers this update itself on the character screen (from v0.4.1). From v0.4.0 or older, update by hand once with the setup.
+
 ## v0.4.2
 
 The Warband Standard update.

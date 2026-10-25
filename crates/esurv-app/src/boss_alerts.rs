@@ -49,6 +49,9 @@ const OPTIONS_EVERY: f32 = 1.0;
 // Where the parts sit, in the stock interface's units: the warnings under the boss bar, above
 // the stock centre lines (where the run's own lines show), the bars down the left side under the player frame (clear of the damage meter on the right).
 const WARNINGS_TOP: f32 = 128.0;
+/// With bosses up the warnings go at least this far under their bars (the stack grows a thin bar
+/// for each further boss).
+const WARNINGS_BELOW_BOSSES: f32 = 10.0;
 const WARNING_FONT: f32 = 20.0;
 const WARNING_ICON: f32 = 26.0;
 const BARS_LEFT: f32 = 24.0;
@@ -237,7 +240,25 @@ pub(crate) fn register(app: &mut App) {
     crate::boss_bar_places::register(app);
     app.init_resource::<BossAlerts>()
         .init_resource::<AlertOptions>()
-        .add_systems(Update, (build_parts, read_alerts, read_options, count_down, place_groups, draw).chain().before(StockSystems));
+        .add_systems(Update, (build_parts, read_alerts, read_options, count_down, place_groups, place_warnings, draw).chain().before(StockSystems));
+}
+
+/// Where the warnings go with `bosses` bosses up (stock units down): under the bosses' bars.
+pub fn warnings_top(bosses: usize) -> f32 {
+    if bosses == 0 {
+        return WARNINGS_TOP;
+    }
+    WARNINGS_TOP.max(crate::hud::boss_stack::stack_bottom(bosses) + WARNINGS_BELOW_BOSSES)
+}
+
+/// The warnings move down as the bosses' bars grow, so nothing overlaps.
+fn place_warnings(stock: Stock, run: Res<RunHud>, parts: Option<Res<AlertParts>>, mut nodes: Query<&mut Node>) {
+    let Some(parts) = parts else { return };
+    let Ok(mut node) = nodes.get_mut(parts.warnings) else { return };
+    let top = stock.px(warnings_top(run.bosses.len()));
+    if node.top != top {
+        node.top = top;
+    }
 }
 
 /// The later bars start this far (stock units) under the soon bars: room for four of them.
@@ -531,5 +552,14 @@ mod tests {
         assert_eq!(off, AlertOptions { bars: false, warnings: true, sound: false, handles: false });
         let no_warnings = AlertOptions::from_values(Some("1"), Some("0"), Some("1"), None);
         assert!(!no_warnings.warnings && !no_warnings.sound, "no warnings: no sound");
+    }
+
+    #[test]
+    fn the_warnings_stay_under_the_bosses_bars() {
+        assert_eq!(warnings_top(0), WARNINGS_TOP);
+        for n in 1..=4 {
+            assert!(warnings_top(n) >= crate::hud::boss_stack::stack_bottom(n) + WARNINGS_BELOW_BOSSES, "{n} bosses");
+        }
+        assert!(warnings_top(2) > warnings_top(1), "a second boss pushes them down");
     }
 }

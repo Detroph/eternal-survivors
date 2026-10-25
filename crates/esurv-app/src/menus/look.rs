@@ -76,8 +76,9 @@ pub enum ButtonStyle {
     Text,
     /// The framed text button that is on (a tab chosen, a sex picked): filled dark red.
     Active,
-    /// A framed text button with news behind it (the warband screen's
-    /// Collection and Talents): the gold border and the soft glow of what is picked.
+    /// A framed text button with news behind it (the warband screen's Collection and Talents):
+    /// the gold border and the soft glow of what is picked, the glow
+    /// pulsing ([`news_pulse`]).
     TextGlow,
     /// The call to act on a screen (Create, Start run): gold-framed, a little larger.
     Primary,
@@ -228,6 +229,19 @@ impl MenuLook<'_> {
                 Val::ZERO,
                 self.px(8.0),
             ),
+            solid(),
+        )
+    }
+
+    /// A panel with news in it (the update notice's offer): the gold border and glow of a
+    /// [`ButtonStyle::TextGlow`] button, pulsing as it does ([`NewsPulse`]).
+    pub fn news_box(&self, node: Node) -> impl Bundle {
+        (
+            node,
+            BackgroundColor(palette::PANEL),
+            BorderColor::all(palette::HEADING),
+            BoxShadow::new(palette::GLOW.with_alpha(0.6), Val::ZERO, Val::ZERO, self.px(1.0), self.px(7.0)),
+            NewsPulse,
             solid(),
         )
     }
@@ -658,6 +672,47 @@ pub(super) fn light_buttons(
     }
 }
 
+/// A box with news in it (the update notice's "vX is available"): its border gold and its glow
+/// pulsing as a [`ButtonStyle::TextGlow`] button's does ([`MenuLook::news_box`]).
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct NewsPulse;
+
+/// How long one beat of the news glow takes (seconds), and how far its strength dips.
+pub const NEWS_PULSE_PERIOD: f32 = 1.6;
+pub const NEWS_PULSE_DEPTH: f32 = 0.6;
+
+/// The news glow's strength at `seconds`: 1 at the top of each beat, dipping to
+/// `1 - NEWS_PULSE_DEPTH` halfway through it.
+pub fn news_pulse(seconds: f32) -> f32 {
+    let beat = (seconds / NEWS_PULSE_PERIOD).fract();
+    1.0 - NEWS_PULSE_DEPTH * (0.5 - 0.5 * (beat * std::f32::consts::TAU).cos())
+}
+
+/// Every news glow beats: a [`ButtonStyle::TextGlow`] button's (on top of what the pointer made
+/// it, [`light_buttons`]) and a [`NewsPulse`] box's, their strength and reach together.
+#[allow(clippy::type_complexity)]
+pub(super) fn pulse_news_glows(
+    time: Res<Time>,
+    scale: Res<StockScale>,
+    mut glows: Query<(&mut BoxShadow, Option<&MenuButton>, Option<&Interaction>, Has<NewsPulse>), Or<(With<MenuButton>, With<NewsPulse>)>>,
+) {
+    let pulse = news_pulse(time.elapsed_secs());
+    for (mut shadow, button, interaction, boxed) in &mut glows {
+        let hovered = match button {
+            Some(b) if b.style == ButtonStyle::TextGlow => b.enabled && interaction.is_some_and(|i| *i != Interaction::None),
+            Some(_) if !boxed => continue,
+            _ => false,
+        };
+        let Some(s) = shadow.0.first_mut() else { continue };
+        let strength = if hovered { 0.85 } else { 0.6 };
+        let want = palette::GLOW.with_alpha(strength * pulse);
+        if s.color != want {
+            s.color = want;
+            s.blur_radius = scale.px(4.0 + 5.0 * pulse);
+        }
+    }
+}
+
 /// A button's fill, border and glow.
 fn button_colours(
     style: ButtonStyle,
@@ -737,5 +792,31 @@ fn button_colours(
             Color::NONE,
             hovered.then_some(palette::GLOW.with_alpha(0.3)),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The news glow beats: full at the top of each beat, at its dip halfway, the same each beat.
+    #[test]
+    fn the_news_glow_beats() {
+        assert!((news_pulse(0.0) - 1.0).abs() < 1e-5);
+        assert!((news_pulse(NEWS_PULSE_PERIOD / 2.0) - (1.0 - NEWS_PULSE_DEPTH)).abs() < 1e-5);
+        assert!((news_pulse(0.3) - news_pulse(0.3 + NEWS_PULSE_PERIOD)).abs() < 1e-4);
+        for i in 0..100 {
+            let p = news_pulse(i as f32 * 0.037);
+            assert!((1.0 - NEWS_PULSE_DEPTH - 1e-5..=1.0 + 1e-5).contains(&p), "{p}");
+        }
+    }
+
+    /// A news button and a news box wear the gold border and a glow at rest.
+    #[test]
+    fn news_wears_the_gold_border_and_a_glow() {
+        let (_, edge, glow) = button_colours(ButtonStyle::TextGlow, false, false, true);
+        assert_eq!(edge, palette::HEADING);
+        assert!(glow.is_some());
+        assert_eq!(button_colours(ButtonStyle::Text, false, false, true).2, None);
     }
 }

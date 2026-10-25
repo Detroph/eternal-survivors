@@ -32,7 +32,7 @@ pub(crate) const JEWELRY_SLOTS: u32 = 2;
 
 /// The icon a card without one of its own shows, and the gold card's.
 const UNKNOWN_ICON: &str = "INV_Misc_QuestionMark";
-const GOLD_ICON: &str = "INV_Misc_Coin_01";
+pub(crate) const GOLD_ICON: &str = "INV_Misc_Coin_01";
 
 /// The item quality names, common to legendary.
 pub(crate) const RARITY_NAMES: [&str; 5] = ["Common", "Uncommon", "Rare", "Epic", "Legendary"];

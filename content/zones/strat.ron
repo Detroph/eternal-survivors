@@ -224,12 +224,15 @@
             weapons: (
                 main_hand: Some((kind: Polearm, display: 22492, inventory_type: 17, sheath: 2, material: 1)),
             ),
-            scale: 1.2,
+            // focused, glowing and sized as an elite (a Skeleton, 3.23: min(2.0, 6.0 / 3.23)),
+            // its health, damage and rewards its own kind's
+            scale: 1.86,
             creature_type: Undead,
             kind: ToughMid,
             toughness: 2.0,
             appears_at_minute: 0.0,
             only_summoned: true,
+            focus_as_elite: true,
         ),
         (
             name: "Mindless Skeleton",
@@ -315,6 +318,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(1.25), // lived 41 s against a 49 s goal
         ),
         (
             name: "Nerub'enkan",
@@ -405,7 +409,7 @@
                     on: Every(15.0),
                     from_health: Some(60.0),
                     warn: Some((text: "{Spell(17238)}: he heals!", colour: Yellow, icon_spell: Some(17238), bar: Some("{Spell(17238)}"))),
-                    run: [Heal(on: Myself, share: 0.04, look_spell: 17238)],
+                    run: [Heal(on: Myself, share: 0.02, look_spell: 17238)],
                 ),
             ],
             is_final: false,

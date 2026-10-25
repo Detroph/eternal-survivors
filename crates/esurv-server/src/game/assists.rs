@@ -8,7 +8,9 @@
 
 use std::collections::HashMap;
 
+use benilla_protocol::messages::opcode;
 use esurv_content::{Appear, Leave};
+use esurv_sim::game::assists::AllyMove;
 use esurv_sim::game::enemy_ai::{Segment, Vec2};
 use esurv_sim::game::run::{Event, Unit};
 
@@ -63,6 +65,18 @@ pub(super) struct ShownAlly {
     race: Option<usize>,
     /// Gone from the run: it is removed from the clients at this run time.
     gone_at: Option<f32>,
+    /// A strafe or a jump the clients were told of as a player's relayed move, until it ends.
+    relay: Option<RelayedMove>,
+}
+
+/// A strafe or a jump an ally is making, as the clients were told: how, when it ends and where,
+/// and how long it lasts.
+#[derive(Clone, Copy)]
+struct RelayedMove {
+    how: AllyMove,
+    ends: f32,
+    to: Vec2,
+    seconds: f32,
 }
 
 /// What the clients are told of the run's allies.
@@ -217,7 +231,7 @@ impl Game {
         eprintln!("esurv: assist {} ({}) comes at {:.1} s", shape.name, character, self.run.now);
         self.allies.allies.insert(
             *id,
-            ShownAlly { guid, name: shape.name.clone(), character: character.clone(), segment: Segment::standing(*at, self.run.now), race, gone_at: None },
+            ShownAlly { guid, name: shape.name.clone(), character: character.clone(), segment: Segment::standing(*at, self.run.now), race, gone_at: None, relay: None },
         );
         Some((name, create, looks))
     }
@@ -258,22 +272,79 @@ impl Game {
         }
         let now = self.run.now;
         self.allies.marks.retain(|(_, _, until)| *until > now);
+        // a strafe or a jump whose time is up ends where it went
+        let ended: Vec<(u32, u64, RelayedMove)> =
+            self.allies.allies.iter().filter_map(|(id, s)| s.relay.filter(|r| now >= r.ends).map(|r| (*id, s.guid, r))).collect();
+        for (id, guid, r) in ended {
+            let facing = self.run.assists.allies.iter().find(|a| a.id == id).map_or(0.0, |a| a.facing);
+            after.push(self.relay_ends(guid, r, r.to, facing));
+            if let Some(s) = self.allies.allies.get_mut(&id) {
+                s.relay = None;
+            }
+        }
         // where each ally on the field is going
-        let moved: Vec<(u64, Segment)> = self
+        let moved: Vec<(u32, Segment, AllyMove, f32)> = self
             .run
             .assists
             .allies
             .iter()
             .filter_map(|a| {
-                let s = self.allies.allies.get_mut(&a.id)?;
-                (s.segment != a.segment).then(|| {
-                    s.segment = a.segment;
-                    (s.guid, a.segment)
-                })
+                let s = self.allies.allies.get(&a.id)?;
+                (s.segment != a.segment).then_some((a.id, a.segment, a.moving, a.facing))
             })
             .collect();
-        for (guid, segment) in moved {
-            after.push(self.walk(guid, &segment));
+        for (id, segment, how, facing) in moved {
+            let Some(s) = self.allies.allies.get_mut(&id) else { continue };
+            let (guid, was, relay) = (s.guid, s.segment, s.relay.take());
+            s.segment = segment;
+            let from = segment.position(now);
+            // a strafe or a jump cut short ends where it is; a run still going stops
+            if let Some(r) = relay {
+                after.push(self.relay_ends(guid, r, from, facing));
+            } else if was.moving(now) && matches!(how, AllyMove::StrafeLeft | AllyMove::StrafeRight | AllyMove::Jump) {
+                after.push(self.walk(guid, &Segment::standing(from, now)));
+            }
+            match how {
+                AllyMove::StrafeLeft | AllyMove::StrafeRight | AllyMove::Jump => {
+                    after.push(self.relay_begins(guid, how, &segment, facing));
+                    let r = RelayedMove { how, ends: segment.start + segment.duration, to: segment.to, seconds: segment.duration };
+                    if let Some(s) = self.allies.allies.get_mut(&id) {
+                        s.relay = Some(r);
+                    }
+                }
+                _ => after.push(self.walk(guid, &segment)),
+            }
+        }
+    }
+
+    /// The relayed move that starts ally `guid`'s strafe or jump along `segment`, facing
+    /// `facing`: a strafe's start (the client moves it sideways at its run speed until the stop),
+    /// or a jump's take-off with its flight (the client flies its arc).
+    fn relay_begins(&mut self, guid: u64, how: AllyMove, segment: &Segment, facing: f32) -> Packet {
+        let from = segment.from;
+        let at = [from.0, from.1, self.ground_z(from)];
+        let time = (self.run.now * 1000.0) as u32;
+        match how {
+            AllyMove::StrafeLeft => packets::relayed_move(opcode::MSG_MOVE_START_STRAFE_LEFT, guid, packets::MOVEFLAG_STRAFE_LEFT, time, at, facing, 0, None),
+            AllyMove::StrafeRight => packets::relayed_move(opcode::MSG_MOVE_START_STRAFE_RIGHT, guid, packets::MOVEFLAG_STRAFE_RIGHT, time, at, facing, 0, None),
+            _ => {
+                let length = dist(from, segment.to);
+                let angle = (segment.to.1 - from.1).atan2(segment.to.0 - from.0);
+                let ground_speed = if segment.duration > 0.0 { length / segment.duration } else { 0.0 };
+                let jump = packets::JumpTail { angle, ground_speed };
+                packets::relayed_move(opcode::MSG_MOVE_JUMP, guid, packets::MOVEFLAG_JUMPING, time, at, facing, 0, Some(jump))
+            }
+        }
+    }
+
+    /// The relayed move that ends ally `guid`'s strafe or jump `r` at `at`, facing `facing`: the
+    /// strafe's stop, or the jump's landing.
+    fn relay_ends(&mut self, guid: u64, r: RelayedMove, at: Vec2, facing: f32) -> Packet {
+        let spot = [at.0, at.1, self.ground_z(at)];
+        let time = (self.run.now * 1000.0) as u32;
+        match r.how {
+            AllyMove::Jump => packets::relayed_move(opcode::MSG_MOVE_FALL_LAND, guid, 0, time, spot, facing, (r.seconds * 1000.0) as u32, None),
+            _ => packets::relayed_move(opcode::MSG_MOVE_STOP_STRAFE, guid, 0, time, spot, facing, 0, None),
         }
     }
 
@@ -299,6 +370,13 @@ impl Game {
                 if let Some(look) = look.filter(|&l| l != 0) {
                     all.push(packets::spell_go(guid, look, &[], SpellTarget::Caster, None));
                 }
+            }
+            // a rotation spell with a cast time: its cast bar and the caster's cast; it goes off
+            // as a spell go
+            Event::AllyCastStarted { id, spell, seconds, aim } => {
+                let Some(guid) = self.ally_guid_shown(*id) else { return };
+                let target = self.spell_target(aim.clone()).unwrap_or(SpellTarget::Caster);
+                all.push(packets::spell_start(guid, *spell, (seconds * 1000.0) as u32, target));
             }
             // an enemy taunted by the ally strikes it, and it takes nothing
             Event::AllyStruck { id, by } => {

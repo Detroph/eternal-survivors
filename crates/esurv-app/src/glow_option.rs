@@ -1,8 +1,8 @@
-//! The enemy glow option (screens.md, "Options"): one box, "Glow around elites and rares", on the
+//! The enemy glow option (screens.md, "Options"): one box, "Glow around elites, rares and bosses", on the
 //! options panel's Interface tab, in its Eternal Survivors section. Ticked (the default), elites
-//! wear a purple outline glow, rares and the Rare Caches they drop a silver one; unticked, all of
-//! them hide at once. Bosses and normal enemies never glow, and the warband screen's hero glow
-//! does not follow it.
+//! wear a purple outline glow, rares and the Rare Caches they drop a silver one, bosses an orange
+//! one; unticked, all of them hide at once. Normal enemies never glow, and the warband screen's
+//! hero glow does not follow it.
 //!
 //! The option is the CVar [`CVAR`] (`"1"` on, the default; `"0"` off), kept with the game's
 //! other settings.

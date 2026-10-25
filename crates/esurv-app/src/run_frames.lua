@@ -10,7 +10,10 @@
 --     reputation, skills, honor and pet tabs, the bags and the keyring, the pet spellbook, the
 --     battlefield minimap and scores, the macro window, the help window, and the right-click
 --     menus of the unit frames; the micro buttons and bag buttons that open them are hidden, and
---     so is the minimap's world map button;
+--     so is the minimap's world map button (the main menu's micro button stays: it opens the
+--     run's Escape menu, as Escape does);
+--   * the main bar is compact (`action_bar.lua`): eight buttons, its ninth to twelfth and its
+--     latency bar hidden here;
 --   * ours: the tooltips of the hero's spells on the action bar and in the spellbook, and their
 --     names and ranks in the spellbook (what the spell does in the run, with the hero's numbers).
 --
@@ -82,11 +85,14 @@ end)
 
 -- ── Buttons hidden in a run ──────────────────────────────────────────────────────────────────
 local HIDDEN = {
-    "QuestLogMicroButton", "SocialsMicroButton", "WorldMapMicroButton", "MainMenuMicroButton",
+    "QuestLogMicroButton", "SocialsMicroButton", "WorldMapMicroButton",
     "HelpMicroButton", "MainMenuBarBackpackButton", "CharacterBag0Slot", "CharacterBag1Slot",
     "CharacterBag2Slot", "CharacterBag3Slot", "KeyRingButton", "MiniMapWorldMapButton",
     "MiniMapBattlefieldFrame", "CharacterFrameTab2", "CharacterFrameTab3", "CharacterFrameTab4",
     "CharacterFrameTab5", "SpellBookFrameTabButton2",
+    -- the main bar past its eighth button, and its latency bar (`action_bar.lua`)
+    "ActionButton9", "ActionButton10", "ActionButton11", "ActionButton12",
+    "MainMenuBarPerformanceBarFrame",
 }
 -- What was shown when a run hid it, to show again after.
 local hid = {}
@@ -853,6 +859,10 @@ function M.apply()
     end
     if UpdateTalentButton and TalentMicroButton then
         UpdateTalentButton()
+    end
+    -- the main bar, compact in a run (`action_bar.lua`, installed right after this file)
+    if ESURV_ACTION_BAR then
+        ESURV_ACTION_BAR.apply()
     end
     if SpellBookFrame and SpellBookFrame:IsVisible() and SpellBookFrame_Update then
         SpellBookFrame_Update()

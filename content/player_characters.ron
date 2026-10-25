@@ -20,10 +20,16 @@
 //       assist_script: Some((            // optional: what it does (left out: its class's default in
 //           arrive: (look_spell: Some(1856)), //    class_assists.ron); the blocks are in
 //           steps: [                     // docs/game/AUTHORING.md, "A player character and its assist"
-//               Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03))),
+//               Hit(targets: NearHero(radius: 10.0, most: 5), damage: true),
 //           ],
 //           leave: (how: Vanish),
-//       )),                              // it lasts at most 10 sec unless `seconds` gives a longer time
+//       )),                              // it stays 15 sec unless `seconds` gives another time
+//       behaviour: Some((style: ErraticMelee, rotation: [11294, 31016])),
+//                                        // optional: what it does after its assist until it leaves
+//                                        //   (left out: its class's default in class_assists.ron): a
+//                                        //   move style (Melee, ErraticMelee, Caster, NovaKiteCaster,
+//                                        //   Healer, LeavesAfterScript) and a rotation of spells in
+//                                        //   assist_spells.ron (empty: a melee style only auto attacks)
 //       gear: Random,                    // its class's PvP looks, or:
 //       // gear: Picked((
 //       //     armor: [(slot: Head, display: 12345), (slot: Chest, display: 23456, robe: true)],
@@ -42,15 +48,17 @@
         // create-screen dials 1, 9, 2, 8, 7, counted from 1
         looks: Some((skin: 0, face: 8, hair_style: 1, hair_color: 7, facial_hair: 6)),
         yell: "Stun, kick, bim bam POPPING OFF",
-        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and procs {Spell(21992)} on each of them, its debuff on them for 15 sec.",
+        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and procs {Spell(21992)} on the 5 nearest of them, its debuff on them for 15 sec.",
         assist_script: Some((
             arrive: (look_spell: Some(1856)),
             steps: [
                 Cast(look_spell: 2983),
                 Hit(targets: OnScreen, effects: [Stun(seconds: 6.0)], wears: [1833, 2094, 1776]),
-                Hit(targets: Same, damage: Some(MaxHealthShare(0.06)), look_spell: Some(21992), effects: [Slow(amount: 0.5, seconds: 15.0)], wears: [21992]),
+                Hit(targets: Nearest(5), damage: true, look_spell: Some(21992), effects: [Slow(amount: 0.5, seconds: 15.0)], wears: [21992]),
             ],
         )),
+        // then: Sinister Strike twice, Eviscerate, Kidney Shot
+        behaviour: Some((style: ErraticMelee, rotation: [11294, 11294, 31016, 8643])),
         // tier 1 (its 1.12 looks) but the head, engineer's goggles there; the
         // legendary sword in the main hand, the legendary dagger in the off hand
         gear: Picked((
@@ -76,15 +84,17 @@
         gender: Male,
         // a face picked within its race's dials each time it shows
         yell: "fUgC eTärnEL",
-        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and garrotes them all.",
+        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and garrotes the 5 nearest of them.",
         assist_script: Some((
             arrive: (look_spell: Some(1856)),
             steps: [
                 Cast(look_spell: 2983),
                 Hit(targets: OnScreen, effects: [Stun(seconds: 6.0)], wears: [1833, 2094, 1776]),
-                Hit(targets: Same, look_spell: Some(703), over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(703)))),
+                Hit(targets: Nearest(5), look_spell: Some(703), over_time: Some((seconds: 10.0, look_spell: Some(703)))),
             ],
         )),
+        // then: Sinister Strike, Rupture, Eviscerate
+        behaviour: Some((style: ErraticMelee, rotation: [11294, 11275, 31016])),
         // tier 2; Blackwing Lair's swords in both hands and its crossbow
         gear: Picked((
             armor: [
@@ -116,6 +126,8 @@
                 Hit(targets: OnScreen, look_spell: Some(8647), effects: [Vulnerable(amount: 0.2, seconds: 15.0)], wears: [8647]),
             ],
         )),
+        // then: auto attacks only, a swing every 2 sec
+        behaviour: Some((style: Melee, rotation: [])),
         // tier 3; two Naxxramas daggers
         gear: Picked((
             armor: [
@@ -140,15 +152,17 @@
         gender: Male,
         // a face picked within its race's dials each time it shows
         yell: "hehe HEHEHE",
-        assist: "Appears with Vanish's sound, then strikes enemies with {Spell(1752)}'s look, one every 2 sec, each hit 5% of its max health.",
+        assist: "Appears with Vanish's sound, then strikes enemies with {Spell(1752)}'s look, one every 2 sec.",
         assist_script: Some((
             arrive: (look_spell: Some(1856)),
             steps: [
                 Repeat(every: 2.0, times: 5, steps: [
-                    Hit(targets: Nearest(1), damage: Some(MaxHealthShare(0.05)), look_spell: Some(1752), melee: true),
+                    Hit(targets: Nearest(1), damage: true, look_spell: Some(1752), melee: true),
                 ]),
             ],
         )),
+        // then: Sinister Strike twice, Eviscerate
+        behaviour: Some((style: ErraticMelee, rotation: [11294, 11294, 31016])),
         // tier 1; Dal'Rend's pair, each sword in its own hand
         gear: Picked((
             armor: [
@@ -173,14 +187,16 @@
         class: "shaman",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Appears with a crack of lightning, drops a {Spell(8512)} (the hero's swings 20% faster for 15 sec), then Stormstrikes the 3 nearest enemies, each hit 6% of its max health.",
+        assist: "Appears with a crack of lightning, drops a {Spell(8512)} (the hero's swings 20% faster for 15 sec), then Stormstrikes the 3 nearest enemies.",
         assist_script: Some((
             arrive: (look_spell: Some(403)),
             steps: [
                 Buff(stats: [(SwingSpeed, 0.2)], seconds: 15.0, totem: Some(8512)),
-                Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(17364), melee: true),
+                Hit(targets: Nearest(3), damage: true, look_spell: Some(17364), melee: true),
             ],
         )),
+        // then: Stormstrike, Earth Shock, Flame Shock
+        behaviour: Some((style: Melee, rotation: [17364, 10414, 29228])),
         // an enhancement shaman as a boss: Stormstrike, Chain Lightning, Fire Nova
         boss_abilities: [Stomp(look_spell: 17364), Volley(look_spell: 421), Stomp(look_spell: 8349)],
         // a face picked within its race's dials each time it shows; its yell to come
@@ -214,6 +230,8 @@
                 Buff(seconds: 15.0, heal: 0.02, every: 2.0, totem: Some(5394)),
             ],
         )),
+        // then: Chain Heal, Lesser Healing Wave, Healing Wave
+        behaviour: Some((style: Healer, rotation: [10623, 10468, 25357])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -238,14 +256,16 @@
         class: "warlock",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Appears through a summoning portal, Fears up to 5 enemies near the hero for 8 sec and rains fire on the biggest pack for 10 sec, 3% of each enemy's max health a sec.",
+        assist: "Appears through a summoning portal, Fears up to 5 enemies near the hero for 8 sec and rains fire on the biggest pack for 10 sec, on up to 5 enemies in it at a time.",
         assist_script: Some((
             arrive: (how: Portal, look_spell: Some(698)),
             steps: [
                 Hit(targets: NearHero(radius: 10.0, most: 5), look_spell: Some(5782), effects: [Fear(seconds: 8.0)], wears: [5782]),
-                Area(at: BiggestPack, radius: 8.0, seconds: 10.0, damage: Some(MaxHealthShare(0.03)), look_spell: 5740),
+                Area(at: BiggestPack, radius: 8.0, seconds: 10.0, damage: true, look_spell: 5740, most: 5),
             ],
         )),
+        // then: Corruption, Curse of Agony, Shadow Bolt, Death Coil
+        behaviour: Some((style: Caster, rotation: [25311, 11713, 25307, 17926])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -269,17 +289,19 @@
         class: "rogue",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, each hit 3% of its max health, then vanishes.",
+        assist: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, then vanishes.",
         assist_script: Some((
             arrive: (look_spell: Some(1856)),
             steps: [
                 Cast(look_spell: 22482),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03)), melee: true),
+                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: true, melee: true),
                 ]),
             ],
             leave: (how: Vanish),
         )),
+        // then: Blade Flurry, Sinister Strike, Eviscerate
+        behaviour: Some((style: ErraticMelee, rotation: [13877, 11294, 31016])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -311,10 +333,12 @@
                 Move(to: Nearest(1), how: Charge),
                 Hit(targets: NearAlly(radius: 10.0), look_spell: Some(5246), effects: [Fear(seconds: 6.0)], wears: [5246]),
                 Repeat(every: 1.0, times: 6, steps: [
-                    Hit(targets: NearAlly(radius: 8.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(1680)),
+                    Hit(targets: NearAlly(radius: 8.0), damage: true, look_spell: Some(1680)),
                 ]),
             ],
         )),
+        // then: Mortal Strike, Whirlwind, Heroic Strike
+        behaviour: Some((style: Melee, rotation: [21553, 1680, 25286])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -339,15 +363,17 @@
         class: "rogue",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Appears out of stealth, Cheap Shots then Kidney Shots the strongest enemy for 6 sec, Ambushes it for 10% of its max health and vanishes.",
+        assist: "Appears out of stealth, Cheap Shots then Kidney Shots the strongest enemy for 6 sec, Ambushes it and vanishes.",
         assist_script: Some((
             arrive: (how: Stealth, beside: Some(Strongest)),
             steps: [
                 Hit(targets: Strongest, look_spell: Some(1833), melee: true, effects: [Stun(seconds: 6.0)], wears: [408]),
-                Hit(targets: Same, damage: Some(MaxHealthShare(0.1)), look_spell: Some(8676), melee: true),
+                Hit(targets: Same, damage: true, look_spell: Some(8676), melee: true),
             ],
             leave: (how: Vanish),
         )),
+        // then: Hemorrhage twice, Eviscerate, Kidney Shot
+        behaviour: Some((style: ErraticMelee, rotation: [17348, 17348, 31016, 8643])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -373,14 +399,16 @@
         class: "mage",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Blinks in beside the hero, roots every enemy near them in a {Spell(122)} for 8 sec, then calls a {Spell(10)} on them for 8 sec, 3% of each one's max health a sec.",
+        assist: "Blinks in beside the hero, roots every enemy near them in a {Spell(122)} for 8 sec, then calls a {Spell(10)} on them for 8 sec.",
         assist_script: Some((
             arrive: (how: Blink),
             steps: [
                 Hit(targets: NearHero(radius: 10.0), look_spell: Some(122), effects: [Root(seconds: 8.0)], wears: [122]),
-                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 10),
+                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: true, look_spell: 10),
             ],
         )),
+        // then: Frost Nova, Blizzard, Frostbolt
+        behaviour: Some((style: NovaKiteCaster, rotation: [10230, 10187, 25304])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -404,16 +432,18 @@
         class: "mage",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Appears in a flash of {Spell(12042)}, Polymorphs the strongest enemy that is not a boss for 10 sec and blasts every enemy near the hero with {Spell(1449)} three times, each 5% of its max health.",
+        assist: "Appears in a flash of {Spell(12042)}, Polymorphs the strongest enemy that is not a boss for 10 sec and blasts every enemy near the hero with {Spell(1449)} three times.",
         assist_script: Some((
             arrive: (look_spell: Some(12042)),
             steps: [
                 Hit(targets: StrongestNotBoss, look_spell: Some(118), effects: [Stun(seconds: 10.0)], wears: [118]),
                 Repeat(every: 1.0, times: 3, steps: [
-                    Hit(targets: NearHero(radius: 9.0), damage: Some(MaxHealthShare(0.05)), look_spell: Some(1449)),
+                    Hit(targets: NearHero(radius: 9.0), damage: true, look_spell: Some(1449)),
                 ]),
             ],
         )),
+        // then: Frost Nova, Frostbolt, Cone of Cold
+        behaviour: Some((style: NovaKiteCaster, rotation: [10230, 25304, 10161])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -439,7 +469,7 @@
         // in Cat Form
         form: Some(Cat),
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding 2% of its max health a sec for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
+        assist: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
         assist_script: Some((
             arrive: (how: Stealth, beside: Some(Nearest(1)), look_spell: Some(9005)),
             steps: [
@@ -447,11 +477,13 @@
                     targets: NearHero(radius: 10.0, most: 5),
                     look_spell: Some(1822),
                     melee: true,
-                    over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(1822))),
+                    over_time: Some((seconds: 10.0, look_spell: Some(1822))),
                 ),
                 Buff(stats: [(MaxHealth, 0.1)], seconds: 30.0, look_spell: Some(1126)),
             ],
         )),
+        // then: Rake, Claw, Ferocious Bite
+        behaviour: Some((style: Melee, rotation: [9904, 9850, 31018])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -475,15 +507,17 @@
         class: "shaman",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Drops a {Spell(8835)} (the hero moves 15% faster and dodges more for 15 sec) and casts {Spell(421)} at the 3 nearest enemies twice, each bolt 6% of its max health.",
+        assist: "Drops a {Spell(8835)} (the hero moves 15% faster and dodges more for 15 sec) and casts {Spell(421)} at the 3 nearest enemies twice.",
         assist_script: Some((
             steps: [
                 Buff(stats: [(MoveSpeed, 0.15), (DamageReduction, 0.15)], seconds: 15.0, totem: Some(8835)),
                 Repeat(every: 1.0, times: 2, steps: [
-                    Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(421)),
+                    Hit(targets: Nearest(3), damage: true, look_spell: Some(421)),
                 ]),
             ],
         )),
+        // then: Chain Lightning, Lightning Bolt, Frost Shock
+        behaviour: Some((style: Caster, rotation: [10605, 15208, 10473])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -508,16 +542,18 @@
         class: "warrior",
         gender: Male,
         // a generic assist for its class and spec (a first proposal; numbers to tune)
-        assist: "Appears with {Spell(6673)} (the hero deals 15% more damage for 15 sec), Charges the farthest enemy, Mortal Strikes it for 10% of its max health and Cleaves those around it.",
+        assist: "Appears with {Spell(6673)} (the hero deals 15% more damage for 15 sec), Charges the farthest enemy, Mortal Strikes it and Cleaves those around it.",
         assist_script: Some((
             arrive: (look_spell: Some(6673)),
             steps: [
                 Buff(stats: [(Damage, 0.15)], seconds: 15.0, look_spell: Some(6673)),
                 Move(to: Farthest, how: Charge),
-                Hit(targets: Same, damage: Some(MaxHealthShare(0.1)), look_spell: Some(12294), melee: true),
-                Hit(targets: NearAlly(radius: 10.0, most: 3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(845)),
+                Hit(targets: Same, damage: true, look_spell: Some(12294), melee: true),
+                Hit(targets: NearAlly(radius: 10.0, most: 3), damage: true, look_spell: Some(845)),
             ],
         )),
+        // then: Mortal Strike, Whirlwind, Cleave
+        behaviour: Some((style: Melee, rotation: [21553, 1680, 20569])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -548,10 +584,12 @@
             steps: [
                 Buff(seconds: 6.0, immune: true, look_spell: Some(1022)),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.03)), look_spell: Some(20424), melee: true),
+                    Hit(targets: Nearest(3), damage: true, look_spell: Some(20424), melee: true),
                 ]),
             ],
         )),
+        // then: Seal of Command, Judgement, Hammer of Justice
+        behaviour: Some((style: Melee, rotation: [20920, 20271, 10308])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the High Warlord look: the class's rank 13 epic set and rank 14 weapons (waist and wrists
         // its class's looks)
@@ -575,7 +613,7 @@
         class: "druid",
         gender: Female,
         form: Some(Cat),
-        assist: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding 2% of its max health a sec for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
+        assist: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
         assist_script: Some((
             arrive: (how: Stealth, beside: Some(Nearest(1)), look_spell: Some(9005)),
             steps: [
@@ -583,11 +621,13 @@
                     targets: NearHero(radius: 10.0, most: 5),
                     look_spell: Some(1822),
                     melee: true,
-                    over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(1822))),
+                    over_time: Some((seconds: 10.0, look_spell: Some(1822))),
                 ),
                 Buff(stats: [(MaxHealth, 0.1)], seconds: 30.0, look_spell: Some(1126)),
             ],
         )),
+        // then: Rake, Claw, Ferocious Bite
+        behaviour: Some((style: Melee, rotation: [9904, 9850, 31018])),
         // a face picked within its race's dials each time it shows; its yell to come
         // the Grand Marshal look: the druid's rank 13 epic set and rank 14 staff (wrists and waist
         // its class's looks), hidden while in Cat Form
@@ -616,11 +656,13 @@
             steps: [
                 Move(to: Nearest(1), how: Charge),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: Nearest(1), damage: Some(MaxHealthShare(0.03)), melee: true),
-                    Hit(targets: NearAlly(radius: 12.0, most: 5), damage: Some(MaxHealthShare(0.06)), look_spell: Some(21992), effects: [Slow(amount: 0.5, seconds: 15.0)], wears: [21992]),
+                    Hit(targets: Nearest(1), damage: true, melee: true),
+                    Hit(targets: NearAlly(radius: 12.0, most: 5), damage: true, look_spell: Some(21992), effects: [Slow(amount: 0.5, seconds: 15.0)], wears: [21992]),
                 ]),
             ],
         )),
+        // then: Mortal Strike, Whirlwind, Hamstring
+        behaviour: Some((style: Melee, rotation: [21553, 1680, 7373])),
         // Naxxramas fury warrior best in slot; the Naxxramas sword in the main hand,
         // the legendary sword in the off hand, the Naxxramas crossbow
         gear: Picked((
@@ -654,10 +696,12 @@
             steps: [
                 Buff(stats: [(Damage, 0.15)], seconds: 15.0, look_spell: Some(19740)),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03)), look_spell: Some(20424), melee: true),
+                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: true, look_spell: Some(20424), melee: true),
                 ]),
             ],
         )),
+        // then: Seal of Command, Judgement, Hammer of Justice
+        behaviour: Some((style: Melee, rotation: [20920, 20271, 10308])),
         // a retribution paladin in tier 2.5, the Naxxramas Grand Crusader belt, the
         // Molten Core gauntlets (wrists her class's looks); the corrupted Naxxramas two-hander
         gear: Picked((
@@ -682,14 +726,16 @@
         // create-screen dials 3, 3, 8, 7, 4 (piercings in the facial hair's place), counted from 1
         looks: Some((skin: 2, face: 2, hair_style: 7, hair_color: 6, facial_hair: 3)),
         yell: "Good night!",
-        assist: "Buffs the hero with {Spell(1459)} (faster cooldowns), casts a portal the players cannot click, then hearthstones away.",
+        assist: "Buffs the hero with {Spell(1459)} (15% more damage for 60 sec), casts a portal the players cannot click, then hearthstones away.",
         assist_script: Some((
             steps: [
-                Buff(stats: [(CooldownRecovery, 0.15)], seconds: 15.0, look_spell: Some(1459)),
+                Buff(stats: [(Damage, 0.15)], seconds: 60.0, look_spell: Some(1459)),
                 Cast(look_spell: 10059),
             ],
             leave: (how: Hearth),
         )),
+        // then: nothing: she hearths away as soon as her portal is cast
+        behaviour: Some((style: LeavesAfterScript, rotation: [])),
         // mage tier 3 (the robe and shoulderpads from a gear macro, the rest of
         // the set in the slots whose macro items are newer than 1.12, no helmet) and
         // the mage's Atiesh
@@ -724,10 +770,12 @@
         assist_script: Some((
             steps: [
                 Hit(targets: NearHero(radius: 10.0), look_spell: Some(122), effects: [Root(seconds: 8.0)], wears: [122]),
-                Area(at: Hero, radius: 8.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 2120),
-                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 10),
+                Area(at: Hero, radius: 8.0, seconds: 8.0, damage: true, look_spell: 2120),
+                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: true, look_spell: 10),
             ],
         )),
+        // then: Frost Nova, Flamestrike, Blizzard
+        behaviour: Some((style: NovaKiteCaster, rotation: [10230, 10216, 10187])),
         // a fire mage as a boss: Pyroblast, Fire Blast, Flamestrike
         boss_abilities: [Volley(look_spell: 11366), Volley(look_spell: 2136), GroundBurst(telegraph_spell: 2120, impact_spell: 2120)],
         // Eggmike's tier 3 and Atiesh, no helmet
@@ -761,11 +809,13 @@
             steps: [
                 Move(to: NearHero(radius: 10.0)),
                 Cast(look_spell: 13813),
-                Hit(targets: NearAlly(radius: 9.0), damage: Some(MaxHealthShare(0.05)), look_spell: Some(14314)),
-                Hit(targets: NearAlly(radius: 9.0, most: 1), damage: Some(MaxHealthShare(0.1)), look_spell: Some(2973), melee: true),
+                Hit(targets: NearAlly(radius: 9.0), damage: true, look_spell: Some(14314)),
+                Hit(targets: NearAlly(radius: 9.0, most: 1), damage: true, look_spell: Some(2973), melee: true),
             ],
             leave: (how: Dies),
         )),
+        // then: Arcane Shot, Multi-Shot, Serpent Sting, Aimed Shot
+        behaviour: Some((style: Caster, rotation: [14287, 25294, 25295, 20904])),
         // the rank 14 hunter set as 1.12 has it (no belt or bracers), the Blackwing
         // Lair crossbow and Ashkandi
         gear: Picked((
@@ -801,6 +851,8 @@
             ],
             leave: (how: Dies),
         )),
+        // then: nothing; he dies once his taunt is over
+        behaviour: Some((style: LeavesAfterScript, rotation: [])),
         // paladin tier 3, Death's Bargain and the Scepter of the False Prophet
         gear: Picked((
             armor: [
@@ -830,12 +882,14 @@
         assist_script: Some((
             steps: [
                 Cast(look_spell: 2983),
-                Hit(targets: Healthiest, look_spell: Some(1079), melee: true, over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(1079)))),
+                Hit(targets: Healthiest, look_spell: Some(1079), melee: true, over_time: Some((seconds: 10.0, look_spell: Some(1079)))),
                 Repeat(every: 1.0, times: 10, steps: [
-                    Hit(targets: Same, damage: Some(MaxHealthShare(0.03)), look_spell: Some(5221), melee: true),
+                    Hit(targets: Same, damage: true, look_spell: Some(5221), melee: true),
                 ]),
             ],
         )),
+        // then: Shred twice, Rip, Ferocious Bite
+        behaviour: Some((style: Melee, rotation: [9830, 9830, 9896, 31018])),
         // its class's PvP looks (no gear named; Cat Form hides it)
         gear: Random,
     ),
@@ -855,11 +909,13 @@
             steps: [
                 Move(to: NearHero(radius: 10.0), how: Charge),
                 Repeat(every: 1.0, times: 3, steps: [
-                    Hit(targets: NearHero(radius: 10.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(7386), effects: [Vulnerable(amount: 0.2, seconds: 15.0)], wears: [7386]),
+                    Hit(targets: NearHero(radius: 10.0), damage: true, look_spell: Some(7386), effects: [Vulnerable(amount: 0.2, seconds: 15.0)], wears: [7386]),
                 ]),
             ],
             leave: (how: RunAway),
         )),
+        // then: Mortal Strike, Sunder Armor, Whirlwind
+        behaviour: Some((style: Melee, rotation: [21553, 11597, 1680])),
         // Blackwing Lair fury warrior best in slot, but for the Miner's Hat of the
         // Deep from Uldaman's rare (Digmaster Shovelphlange); Crul'shorukh in the main hand, Doom's
         // Edge in the off hand
@@ -893,6 +949,8 @@
                 Taunt(targets: NearHero(radius: 10.0), seconds: 10.0, look_spell: Some(355)),
             ],
         )),
+        // then: auto attacks only, a swing every 2 sec
+        behaviour: Some((style: Melee, rotation: [])),
         // a tank as a boss: Charge, Revenge, Shield Slam
         boss_abilities: [Charge(look_spell: 100), Stomp(look_spell: 6572), Stomp(look_spell: 23922)],
         // Naxxramas tank warrior best in slot (the Dreadnaught set), Thunderfury
@@ -928,6 +986,8 @@
                 Taunt(targets: NearHero(radius: 10.0), seconds: 10.0, look_spell: Some(355)),
             ],
         )),
+        // then: auto attacks only, a swing every 2 sec
+        behaviour: Some((style: Melee, rotation: [])),
         // a tank as a boss: Charge, Revenge, Shield Slam
         boss_abilities: [Charge(look_spell: 100), Stomp(look_spell: 6572), Stomp(look_spell: 23922)],
         // Naxxramas tank warrior best in slot (the Dreadnaught set) but for the
@@ -961,10 +1021,12 @@
         assist_script: Some((
             steps: [
                 Hit(targets: NearHero(radius: 10.0), look_spell: Some(122), effects: [Root(seconds: 8.0)], wears: [122]),
-                Area(at: Hero, radius: 8.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 2120),
-                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 10),
+                Area(at: Hero, radius: 8.0, seconds: 8.0, damage: true, look_spell: 2120),
+                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: true, look_spell: 10),
             ],
         )),
+        // then: Frost Nova, Blizzard, Frostbolt
+        behaviour: Some((style: NovaKiteCaster, rotation: [10230, 10187, 25304])),
         // Naxxramas mage best in slot with a sword and an off-hand item, not Atiesh,
         // and no helmet
         gear: Picked((
@@ -992,15 +1054,17 @@
         // a face picked within its race's dials each time it shows
         yell: " What the fuck man",
         // Doogz's, a Horde rogue's
-        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and garrotes them all.",
+        assist: "Appears with Vanish's sound, uses {Spell(2983)}, then stuns, blinds or gouges every enemy on screen and garrotes the 5 nearest of them.",
         assist_script: Some((
             arrive: (look_spell: Some(1856)),
             steps: [
                 Cast(look_spell: 2983),
                 Hit(targets: OnScreen, effects: [Stun(seconds: 6.0)], wears: [1833, 2094, 1776]),
-                Hit(targets: Same, look_spell: Some(703), over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(703)))),
+                Hit(targets: Nearest(5), look_spell: Some(703), over_time: Some((seconds: 10.0, look_spell: Some(703)))),
             ],
         )),
+        // then: Sinister Strike, Rupture, Eviscerate
+        behaviour: Some((style: ErraticMelee, rotation: [11294, 11275, 31016])),
         // Naxxramas-phase PvP rogue best in slot: the rank 14 set, Naxxramas's
         // tier 3 waistguard and bracers where the set has none, the rank 14 swords
         gear: Picked((
@@ -1032,10 +1096,12 @@
             steps: [
                 Hit(targets: NearHero(radius: 10.0), look_spell: Some(339), effects: [Root(seconds: 8.0)], wears: [339]),
                 Repeat(every: 2.0, times: 5, steps: [
-                    Hit(targets: Healthiest, damage: Some(MaxHealthShare(0.05)), look_spell: Some(2912)),
+                    Hit(targets: Healthiest, damage: true, look_spell: Some(2912)),
                 ]),
             ],
         )),
+        // then: Moonfire, Insect Swarm, Starfire
+        behaviour: Some((style: Caster, rotation: [9835, 24977, 25298])),
         // Lok'amir il Romathis and an off-hand of the second phase (Dire Maul's
         // Brightly Glowing Stone, our pick); the rest its class's PvP looks (Moonkin Form hides it all)
         gear: Picked((
@@ -1057,10 +1123,12 @@
         assist_script: Some((
             steps: [
                 Move(to: NearHero(radius: 10.0)),
-                Area(at: Ally, radius: 8.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 26573),
-                Hit(targets: NearAlly(radius: 10.0), damage: Some(MaxHealthShare(0.05)), look_spell: Some(12760)),
+                Area(at: Ally, radius: 8.0, seconds: 8.0, damage: true, look_spell: 26573),
+                Hit(targets: NearAlly(radius: 10.0), damage: true, look_spell: Some(12760)),
             ],
         )),
+        // then: Consecration, Judgement, Hammer of Wrath
+        behaviour: Some((style: Melee, rotation: [20924, 20271, 24239])),
         // tier 2.5 (waist, wrists and hands her class's looks, the set has none)
         // and Sulfuras, Hand of Ragnaros
         gear: Picked((
@@ -1089,9 +1157,11 @@
         assist_script: Some((
             steps: [
                 Move(to: NearHero(radius: 10.0)),
-                Hit(targets: NearAlly(radius: 10.0), damage: Some(MaxHealthShare(0.05)), look_spell: Some(15237)),
+                Hit(targets: NearAlly(radius: 10.0), damage: true, look_spell: Some(15237)),
             ],
         )),
+        // then: Flash Heal, Holy Nova, Renew
+        behaviour: Some((style: Healer, rotation: [10917, 27801, 25315])),
         // tier 2, Lok'amir il Romathis and the Alterac Valley flower (Lei of the
         // Lifegiver)
         gear: Picked((
@@ -1117,16 +1187,18 @@
         gender: Male,
         // a face picked within its race's dials each time it shows
         yell: "I'm supposed to be an UH DK",
-        assist: "Summons a hovering gargoyle that casts {Spell(5176)} at the nearest enemy every 1.5 sec, then runs in and swings at the enemies near the hero once a sec for 10 sec; each hit 3% of its max health.",
+        assist: "Summons a hovering gargoyle that casts {Spell(5176)} at the nearest enemy every 1.5 sec, then runs in and swings at the enemies near the hero once a sec for 10 sec.",
         assist_script: Some((
             steps: [
-                Summon(pet: "Gargoyle", seconds: 10.0, damage: Some(MaxHealthShare(0.03))),
+                Summon(pet: "Gargoyle", seconds: 10.0),
                 Move(to: Nearest(1)),
                 Repeat(every: 1.0, times: 10, steps: [
-                    Hit(targets: Nearest(1), damage: Some(MaxHealthShare(0.03)), melee: true),
+                    Hit(targets: Nearest(1), damage: true, melee: true),
                 ]),
             ],
         )),
+        // then: Mortal Strike, Whirlwind, Heroic Strike
+        behaviour: Some((style: Melee, rotation: [21553, 1680, 25286])),
         // tier 3 (the Dreadnaught set) and The Hungering Cold in each hand
         gear: Picked((
             armor: [
@@ -1159,11 +1231,13 @@
                 Move(to: Nearest(1), how: Charge),
                 Cast(look_spell: 871),
                 Taunt(targets: NearHero(radius: 10.0), seconds: 10.0, look_spell: Some(355)),
-                Hit(targets: NearAlly(radius: 10.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(6343), effects: [Slow(amount: 0.5, seconds: 3.0)]),
+                Hit(targets: NearAlly(radius: 10.0), damage: true, look_spell: Some(6343), effects: [Slow(amount: 0.5, seconds: 3.0)]),
                 Hit(targets: Same, look_spell: Some(7386), effects: [Vulnerable(amount: 0.2, seconds: 15.0)], wears: [7386]),
-                Hit(targets: Same, damage: Some(MaxHealthShare(0.03)), look_spell: Some(8516), melee: true),
+                Hit(targets: Same, damage: true, look_spell: Some(8516), melee: true),
             ],
         )),
+        // then: Thunder Clap, Sunder Armor, Shield Slam, Revenge
+        behaviour: Some((style: Melee, rotation: [11581, 11597, 23925, 25288])),
         // a tank as a boss: Charge, Revenge, Shield Slam
         boss_abilities: [Charge(look_spell: 100), Stomp(look_spell: 6572), Stomp(look_spell: 23922)],
         // a tank in tier 2 without the helm, Chromatic Boots and Edgemaster's
@@ -1200,10 +1274,12 @@
                 Hit(targets: NearAlly(radius: 10.0), effects: [Stun(seconds: 6.0)], wears: [1833]),
                 Cast(look_spell: 22482),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: NearAlly(radius: 7.0), damage: Some(MaxHealthShare(0.03)), melee: true),
+                    Hit(targets: NearAlly(radius: 7.0), damage: true, melee: true),
                 ]),
             ],
         )),
+        // then: Blade Flurry, Sinister Strike, Eviscerate
+        behaviour: Some((style: ErraticMelee, rotation: [13877, 11294, 31016])),
         // tier 3 (the Bonescythe set), the Chromatically Tempered Sword in the main
         // hand and Maladath in the off hand
         gear: Picked((

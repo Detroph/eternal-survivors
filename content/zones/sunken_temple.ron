@@ -149,16 +149,20 @@
             appears_at_minute: 13.0,
         ),
         // Only the bosses bring these (the Nightmare Suppressors that
-        // heal the Shade of Eranikus); they never spawn by themselves.
+        // heal the Shade of Eranikus); they never spawn by themselves. Heroes and
+        // assists pick them as elites, they glow and are sized as elites (focus them), their
+        // health, damage and rewards their own kind's.
         (
             name: "Nightmare Suppressor",
             display_id: 7974,
-            scale: 1.0,
+            // the elite size: a Dragonspawn caster (5.30), min(2.0, 6.0 / 5.30)
+            scale: 1.13,
             creature_type: Humanoid,
             kind: Mid,
             toughness: 0.75,
             appears_at_minute: 0.0,
             only_summoned: true,
+            focus_as_elite: true,
         ),
     ],
     // The bosses' mechanics (docs/game/bosses.md "Building blocks"):
@@ -224,7 +228,7 @@
                         creature_display: Some(2030),
                         scale: 1.0,
                         glow_spell: 20922,
-                        pulse: Some((seconds: 3.0, run: [Heal(on: Near(12.0), share: 0.04, look_spell: 12492)])),
+                        pulse: Some((seconds: 3.0, run: [Heal(on: Near(12.0), share: 0.02, look_spell: 12492)])),
                     ),
                     near: Boss(5.0),
                     count: Some(1),
@@ -284,6 +288,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.8), // lived 49 s against a 41 s goal
         ),
         (
             name: "Avatar of Hakkar",
@@ -339,6 +344,7 @@
             spawn_minute: 18.0,
             yell: "The nightmare has me, and now it has you.",
             swing_mult: Some(1.771),
+            health_share: Some(0.3), // shielded while his Suppressors live; lived 142 s against a 110 s goal at 0.4
             abilities: [
                 // Thrash: a flurry of blows marked round him
                 Marked(
@@ -359,18 +365,27 @@
                 ),
             ],
             script: [
-                // Nightmare Suppressors come and heal him: kill them
+                // three Nightmare Suppressors come once with him and
+                // channel on him, wrapping him in a green bubble (Gift of Arthas's poison shield) that
+                // lets a tenth of each hit through, as Morbent Fel's; it falls with the last of them
                 (
-                    on: Every(25.0),
-                    warn: Some((text: "Nightmare Suppressors: kill them before they heal him!", colour: Orange, icon_spell: Some(12623), bar: Some("Suppressors"))),
+                    on: Arrival,
+                    warn: Some((text: "Nightmare Suppressors shield him: kill them!", colour: Green, icon_spell: Some(12623))),
                     run: [
                         Emote(text: "%s calls his Nightmare Suppressors!"),
                         Wave(enemy: "Nightmare Suppressor", count: 3, at: Ring(12.0)),
+                        Shield(damage_taken: 0.1, look_spell: 11371),
                     ],
                 ),
+                // their channel beams on him every 3 s, a look only (no healing)
                 (
                     on: Every(3.0),
-                    run: [Heal(on: Myself, share: 0.01, look_spell: 0, beam_spell: 12623, beam_seconds: 3.5, from: Some("Nightmare Suppressor"))],
+                    run: [Heal(on: Myself, share: 0.0, look_spell: 0, beam_spell: 12623, beam_seconds: 3.5, from: Some("Nightmare Suppressor"))],
+                ),
+                (
+                    on: LastAddDied,
+                    add: Some("Nightmare Suppressor"),
+                    run: [Unshield, Emote(text: "%s's nightmare shield falls!")],
                 ),
             ],
             is_final: true,

@@ -33,13 +33,17 @@ fn the_enemy_stat_formula_loads() {
     let c = content();
     let b = &c.balance;
     assert_eq!((b.base_health, b.base_damage, b.zone_scaling.damage_share, b.zone_scaling.elite_boss_damage_share), (240.0, 8.0, 0.6, 0.45));
-    assert_eq!((b.zone_scaling.normal_health.len(), b.zone_scaling.normal_health_at(10.0)), (12, 8.55));
+    assert_eq!((b.zone_scaling.normal_health.len(), b.zone_scaling.normal_health_at(10.0)), (12, 11.0));
     assert_eq!(b.zone_scaling.gear_drop_chance.first(), Some(&(1.0, 1.0)));
     assert_eq!(b.zone_scaling.gear_tier_starts, [2.0, 4.0, 7.0, 9.0]);
     let kinds = [EnemyType::Normal, EnemyType::Elite, EnemyType::Rare, EnemyType::Boss, EnemyType::FinalBoss]
         .map(|k| b.multipliers(k))
         .map(|m| (m.health, m.damage));
-    assert_eq!(kinds, [(1.0, 1.0), (10.0, 3.0), (16.0, 3.0), (24.0, 2.0), (28.0, 1.0)]);
+    assert_eq!(kinds, [(1.0, 1.0), (10.0, 3.0), (10.0, 3.0), (30.0, 2.0), (75.0, 1.0)]);
+    assert_eq!((b.zone_scaling.boss_health_power, b.boss_clock_power), (0.7, 0.3));
+    // blows follow their own table, the old health table's
+    assert_eq!((b.zone_scaling.normal_damage.len(), b.zone_scaling.damage_factor(EnemyType::Normal, 10.0)), (12, 3.75));
+    assert_eq!((b.zone_scaling.elite_damage_power, b.zone_scaling.boss_damage_power), (0.65, 0.5));
     assert_eq!(b.health_clock, [(0.0, 1.0), (4.0, 2.5), (8.0, 7.0), (12.0, 18.0), (16.0, 36.0), (20.0, 65.0)]);
     assert_eq!(b.damage_clock, [(0.0, 1.0), (4.0, 1.5), (8.0, 2.5), (12.0, 4.5), (16.0, 7.0)]);
     let d: Vec<f32> = c.zones.iter().map(|z| z.difficulty).collect();
@@ -101,14 +105,20 @@ fn the_scarlet_monastery_walls_its_courtyard_and_opens_its_cathedral() {
     assert_eq!(sm.doors[0].opens_at_minute, 10.0);
     let finals: Vec<_> = sm.bosses.iter().filter(|b| b.is_final).collect();
     assert!(finals.iter().all(|b| b.at.is_some()));
-    assert_eq!(finals.iter().map(|b| (b.health_share, b.called)).collect::<Vec<_>>(), [(0.5, false), (0.75, true)]);
+    assert_eq!(finals.iter().map(|b| (b.health_share, b.called)).collect::<Vec<_>>(), [(0.75, false), (0.6, true)]);
     // every other boss has no spot of its own and its whole health, but those fighting in a pair
-    // (Cho'Rush joining King Gordok, Mandokir beside Ohgan)
-    let pairs = [("Cho'Rush the Observer", 0.35), ("Bloodlord Mandokir", 0.7), ("Ohgan", 0.3)];
-    for b in c.zones.iter().flat_map(|z| &z.bosses).filter(|b| b.at.is_none()) {
+    // (Cho'Rush joining King Gordok, Mandokir beside Ohgan), the Shade of Eranikus (0.3) and the
+    // bosses fitted to their goals; Warsong's first and final player bosses below
+    let pairs = [("Cho'Rush the Observer", 0.35), ("Bloodlord Mandokir", 0.85), ("Ohgan", 0.3), ("Shade of Eranikus", 0.3),
+        ("Houndmaster Loksey", 0.75), ("Arcanist Doan", 0.8), ("Herod", 0.75), ("High Inquisitor Fairbanks", 0.6),
+        ("Morphaz", 0.8), ("Zevrim Thornhoof", 1.1),
+        ("King Gordok", 0.6), ("Jin'do the Hexxer", 1.5), ("Baroness Anastari", 1.25), ("Nefarian", 0.6), ("C'Thun", 1.2)];
+    for b in c.zones.iter().filter(|z| z.id != "wsg").flat_map(|z| &z.bosses).filter(|b| b.at.is_none()) {
         let share = pairs.iter().find(|(n, _)| *n == b.name).map_or(1.0, |p| p.1);
         assert_eq!(b.health_share, share, "{}", b.name);
     }
+    let wsg: Vec<f32> = c.zone("wsg").unwrap().bosses.iter().map(|b| b.health_share).collect();
+    assert_eq!(wsg, [0.8, 1.0, 1.0, 1.0, 0.5]);
 }
 
 #[test]
@@ -629,4 +639,80 @@ fn hand_of_justice_hits_twice_by_its_double_cast() {
     assert!((hoj.double_hit_at(0.6) - 0.125).abs() < 1e-5);
     assert_eq!(hoj.text_at(0.075), "7.5% chance for a spell to cast twice, 2% chance for a weapon attack to hit twice");
     assert!(c.jewelry.iter().filter(|j| j.id != "hoj").all(|j| j.double_hit.is_none() && j.double_hit_at(1.0) == 0.0));
+}
+
+/// Stampede's line sends a row of five to seven 1.12 beasts along it; its numbers stay the line's
+/// (70 % to each, every 9th command, 30 yd by 2 yd).
+#[test]
+fn stampede_s_line_runs_a_row_of_beasts() {
+    let c = content();
+    let stampede = c.legendary_amulets.iter().find(|l| l.name == "Stampede").unwrap();
+    let line = stampede
+        .effects
+        .iter()
+        .find_map(|e| match e {
+            TalentEffect::Milestone(m @ esurv_content::Milestone::LineHit { .. }) => Some(m),
+            _ => None,
+        })
+        .unwrap();
+    let esurv_content::Milestone::LineHit { every, share, length, width, runners: Some(r), .. } = line else { panic!("{line:?}") };
+    assert_eq!((*every, *share, *length, *width), (9, 0.4, 30.0, 2.0));
+    assert_eq!(r.count, (5, 7));
+    let ids: Vec<u32> = r.displays.iter().map(|(d, _)| *d).collect();
+    assert!(ids.len() >= 5 && ids.contains(&604) && ids.contains(&2548) && !ids.contains(&1230), "{ids:?}");
+    // one drawn size, a Timber Wolf's: each model's size (the cube root of its M2
+    // vertex box, measured as zones.md says) times its scale
+    let model = [(604, 3.595), (503, 3.693), (2548, 8.494), (1744, 6.417), (1973, 3.996), (1058, 3.825), (8837, 4.530)];
+    let wolf = 3.595 * 0.55;
+    for (d, scale) in &r.displays {
+        let size = model.iter().find(|(m, _)| m == d).map(|(_, s)| *s).expect("a measured model");
+        assert!((size * scale - wolf).abs() < 0.05, "{d} drawn at {}", size * scale);
+    }
+    assert!(r.speed > 0.0);
+}
+
+/// The legendaries' own designs: Blink Strike's further strike is a reflection's (the
+/// hero does not blink), Mangle has no surge to the farthest enemy, Sprint of the Wild's
+/// spirits are two small cats; their numbers are the +30 % budget's.
+#[test]
+fn blink_strike_mangle_and_the_wild_spirits_follow_their_designs() {
+    use esurv_content::Milestone;
+    let c = content();
+    let milestones = |name: &str| -> Vec<Milestone> {
+        let l = c.legendary_amulets.iter().find(|l| l.name == name).unwrap();
+        l.effects.iter().filter_map(|e| if let TalentEffect::Milestone(m) = e { Some(m.clone()) } else { None }).collect()
+    };
+    let blink = milestones("Blink Strike");
+    assert!(blink.iter().any(|m| matches!(m, Milestone::StrikeOne { reflection: true, share, reach, .. } if *share == 1.05 && *reach == 15.0)));
+    let blink_text = &c.legendary_amulets.iter().find(|l| l.name == "Blink Strike").unwrap().text;
+    assert!(blink_text.contains("reflection") && !blink_text.contains("blink"), "{blink_text}");
+    let mangle = milestones("Mangle");
+    assert!(!mangle.iter().any(|m| matches!(m, Milestone::Every { .. } | Milestone::StrikeOne { .. })), "{mangle:?}");
+    assert!(mangle.iter().any(|m| matches!(m, Milestone::Afflict { .. })), "the mauled enemies still take more");
+    let wild = milestones("Sprint of the Wild");
+    let spirits = wild.iter().find_map(|m| if let Milestone::LeaveArea { spirits: Some(s), share, .. } = m { Some((s.clone(), *share)) } else { None }).unwrap();
+    assert_eq!((spirits.0.count, spirits.0.form, spirits.1), (2, esurv_content::PlayerForm::Cat, 0.1));
+}
+
+/// The ones to focus (`focus_as_elite`) take the elite size, as every elite does (zones.md,
+/// "Sizes"): `scale` = min(2.0, 6.0 / the model's size), to 2 decimals, their own kind's numbers
+/// kept. The Black Guard Sentry shares its Skeleton with the Black Guard Swordsmith elite.
+#[test]
+fn ones_to_focus_take_the_elite_size() {
+    let c = content();
+    // each model's size: the cube root of its M2 vertex box, measured as zones.md says
+    let model = [(775, 3.233), (7974, 5.304)];
+    let focus: Vec<_> = c.zones.iter().flat_map(|z| &z.enemies).filter(|e| e.focus_as_elite).collect();
+    assert_eq!(focus.len(), 2, "{:?}", focus.iter().map(|e| &e.name).collect::<Vec<_>>());
+    for e in &focus {
+        let size = model.iter().find(|(m, _)| *m == e.display_id).map(|(_, s)| *s).expect("a measured model");
+        let elite_scale = ((2.0_f32).min(6.0 / size) * 100.0).round() / 100.0;
+        assert!((e.scale - elite_scale).abs() < 1e-4, "{} at {} (elite {elite_scale})", e.name, e.scale);
+        assert!(!e.elite);
+    }
+    let strat = c.zones.iter().find(|z| z.id == "strat").unwrap();
+    let find = |n: &str| strat.enemies.iter().find(|e| e.name == n).unwrap();
+    let (sentry, swordsmith) = (find("Black Guard Sentry"), find("Black Guard Swordsmith"));
+    assert!(sentry.focus_as_elite && swordsmith.elite);
+    assert_eq!((sentry.scale, sentry.toughness), (swordsmith.scale, 2.0));
 }

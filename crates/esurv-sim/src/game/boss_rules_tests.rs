@@ -250,7 +250,7 @@ fn morbent_raises_the_dead_swaps_the_roster_and_is_shielded_until_his_bane() {
     let k = boss_index(&r);
     assert!((health - r.enemies[k].health - 100.0).abs() < 1.0, "shielded");
     assert!(ev.iter().any(|e| matches!(e, Event::Warning { text, .. } if text.contains("relic"))), "the relic is announced");
-    // the hero takes Morbent's Bane: mortal for 15 s
+    // the hero takes Morbent's Bane: mortal for 25 s, the relic back after 15 s
     assert_eq!(r.ground_objects.len(), 1);
     let (id, at) = (r.heroes[0].id, r.ground_objects[0].at);
     r.hero_moved(id, at, 0.0, 0.0);
@@ -262,15 +262,15 @@ fn morbent_raises_the_dead_swaps_the_roster_and_is_shielded_until_his_bane() {
     r.hit_enemy(None, boss, 1000.0, false, super::casting::HitSource::Proc { spell: 1, school: esurv_content::School::Holy, origin: Default::default() });
     let k = boss_index(&r);
     assert!((health - r.enemies[k].health - 1000.0).abs() < 1.0, "mortal");
+    // the relic drops again 15 s after it was taken, while he is still mortal
     r.now += 15.1;
+    r.ground_objects_tick(0.0);
+    assert_eq!(r.ground_objects.len(), 1);
+    r.now += 10.0;
     let health = r.enemies[k].health;
     r.hit_enemy(None, boss, 1000.0, false, super::casting::HitSource::Proc { spell: 1, school: esurv_content::School::Holy, origin: Default::default() });
     let k = boss_index(&r);
     assert!((health - r.enemies[k].health - 100.0).abs() < 1.0, "shielded again");
-    // and the relic drops again later
-    r.now += 15.0;
-    r.ground_objects_tick(0.0);
-    assert_eq!(r.ground_objects.len(), 1);
 }
 
 /// Morbent's Touch of Death: a slow bolt at the hero's spot, its mark laid for 2.5 s.
@@ -473,4 +473,28 @@ fn a_charge_marks_the_line_it_runs() {
     let slot = rush_slot(&r);
     cast(&mut r, slot);
     assert_eq!(r.telegraphs[0].shape, Shape::Line { length: 25.0, width: 4.0 });
+}
+
+/// A boss's wind-up shows on its boss bar as a cast: Rhahk'Zor's slam, labelled as its timer bar,
+/// for its 1.8 s wind-up; a roster add laying the same mark does not.
+#[test]
+fn a_boss_wind_up_is_told_as_its_cast() {
+    let mut r = run_in("elwynn");
+    let k = boss_near(&mut r, "Rhahk'Zor");
+    let id = r.enemies[k].id;
+    r.drain_events();
+    cast(&mut r, 0);
+    let casts: Vec<_> = r
+        .drain_events()
+        .into_iter()
+        .filter_map(|e| match e {
+            Event::BossCasting { boss, label, spell, seconds } => Some((boss, label, spell, seconds)),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(casts.len(), 1, "one cast: {casts:?}");
+    let (boss, label, spell, seconds) = &casts[0];
+    assert_eq!(*boss, id);
+    assert_eq!(*seconds, 1.8);
+    assert!(!label.is_empty() && *spell != 0, "labelled and with an icon: {label:?} {spell}");
 }

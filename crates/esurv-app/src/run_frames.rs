@@ -9,8 +9,11 @@
 //!   bought talents of our own trees (`talents.ron`) on the stock tree art, with our tooltips.
 //!
 //! Everything else the stock interface would open is blocked, keys and buttons alike, and its
-//! micro and bag buttons are hidden ([`LUA`] lists it all). Besides:
+//! micro and bag buttons are hidden ([`LUA`] lists it all); the main menu's micro button stays and
+//! opens the run's Escape menu. Besides:
 //!
+//! * the main action bar is compact ([`action_bar`]): eight buttons, the page arrows, four micro
+//!   buttons, a gryphon at each end, the experience bar over it in ten segments;
 //! * the character pane's stat rows show the run's numbers (the server's `ESURV` line, read
 //!   through the addon message event) and what worn gear adds, each row with a tooltip of ours;
 //! * the stock interface's level cap (`MAX_PLAYER_LEVEL`) is the run's
@@ -46,6 +49,7 @@ use crate::protocol::ServerEvent;
 use crate::stock::TipLine;
 use crate::ui::{in_world, GameContent, GOLD_TEXT, GRAY_TEXT, GREEN_TEXT, WHITE_TEXT};
 
+pub mod action_bar;
 pub mod buff_tips;
 pub mod class_bar;
 mod key_presses;
@@ -171,6 +175,12 @@ fn keep_the_frames(
                 told.installed = true;
                 if let Err(e) = script.run(&limits_chunk()) {
                     warn!("run frames: the run's limits: {e}");
+                }
+                // the compact bar, switched with the frames (their `apply`)
+                match script.eval::<bool>(action_bar::LUA) {
+                    Ok(true) => {}
+                    Ok(false) => warn!("run frames: the action bar: the stock bar is not loaded"),
+                    Err(e) => warn!("run frames: the action bar did not load: {e}"),
                 }
             }
             Ok(false) => return,
@@ -394,6 +404,8 @@ mod tests {
             loadout: String::new(),
             new_gear: false,
             new_points: false,
+            challenge_open: false,
+            challenge_news: false,
         }
     }
 
@@ -556,6 +568,10 @@ mod tests {
             .load("return QuestLogMicroButton:IsShown()")
             .eval::<bool>()
             .unwrap());
+        assert!(
+            lua.load("return MainMenuMicroButton:IsShown()").eval::<bool>().unwrap(),
+            "the main menu button stays: it opens the run's Escape menu"
+        );
         lua.load("ESURV_RUN_FRAMES_ON = nil; ESURV_RUN_FRAMES.apply()")
             .exec()
             .unwrap();
@@ -942,6 +958,7 @@ mod tests {
             return f
         end
         QuestLogMicroButton = frame(true)
+        MainMenuMicroButton = frame(true)
         TalentMicroButton = frame(false)
         function UpdateTalentButton() TalentMicroButton:Hide() end
         local show = TalentMicroButton.Show

@@ -410,7 +410,7 @@ fn creature_info(content: &Content, entry: u32) -> Option<CreatureInfo> {
                 name: e.name.clone(),
                 subname: String::new(),
                 creature_type: e.creature_type.dbc_id(),
-                rank: if e.elite { RANK_ELITE } else { RANK_NORMAL },
+                rank: if e.elite || e.focus_as_elite { RANK_ELITE } else { RANK_NORMAL },
                 display_id: e.display_id,
             });
         }
@@ -427,8 +427,9 @@ fn creature_info(content: &Content, entry: u32) -> Option<CreatureInfo> {
     if entry == game::TOTEM_ENTRY {
         return Some(game::totem_info());
     }
-    // the invisible target unit boss looks play on: no name to show
-    if entry == crate::entries::BUNNY || entry == crate::entries::GROUND_UNIT {
+    // the invisible target unit boss looks play on, a boss's object shown as a unit and a line's
+    // runner (a stampede's beast) and a spirit by the hero: no name to show, the model their own
+    if [crate::entries::BUNNY, crate::entries::GROUND_UNIT, crate::entries::LINE_RUNNER, crate::entries::SPIRIT].contains(&entry) {
         return Some(CreatureInfo {
             name: String::new(),
             subname: String::new(),
@@ -482,8 +483,8 @@ fn enter_world(
     // the run takes the content as it is now and keeps it to its end, whatever is loaded meanwhile
     let content = shared.content();
     let zone = shared.zone_of(&content, &saved);
-    // a class enters only the zones it has opened (the first is always open)
-    if !shared.saves.zone_open(&content, &saved.class, zone) {
+    // a class enters only the zones it has opened (the first is always open), or any in Challenge Mode
+    if !shared.saves.zone_open_for_next_run(&content, &saved.class, zone) {
         return Err(code::CHAR_LOGIN_DISABLED);
     }
     let (host, inputs) = mpsc::channel();
@@ -556,6 +557,21 @@ mod tests {
         // a normal enemy has no rare copy
         let normal = content.zones[0].enemies.iter().find(|e| !e.elite).unwrap();
         assert_eq!(creature_info(&content, crate::entries::rare(normal.entry)), None);
+    }
+
+    /// The ones to focus (the Nightmare Suppressors, the Black Guard Sentries) are answered elite,
+    /// so they glow purple.
+    #[test]
+    fn ones_to_focus_are_answered_elite() {
+        let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");
+        let content = Content::load(dir).expect("content loads");
+        let focus: Vec<_> = content.zones.iter().flat_map(|z| z.enemies.iter()).filter(|e| e.focus_as_elite).collect();
+        let names: Vec<&str> = focus.iter().map(|e| e.name.as_str()).collect();
+        assert!(names.contains(&"Nightmare Suppressor") && names.contains(&"Black Guard Sentry"), "{names:?}");
+        for s in focus {
+            assert!(!s.elite);
+            assert_eq!(creature_info(&content, s.entry).unwrap().rank, RANK_ELITE, "{}", s.name);
+        }
     }
 
     /// A writer to a connection nobody reads, for a run's packets (few enough to buffer).

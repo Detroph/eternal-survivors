@@ -180,6 +180,7 @@ mod tests {
             name: format!("Boss {boss}"),
             health,
             max_health: 1000,
+            phases: Vec::new(),
         }
     }
 

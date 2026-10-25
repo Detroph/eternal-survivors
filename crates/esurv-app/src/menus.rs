@@ -26,6 +26,7 @@ mod class_picker;
 mod codex;
 mod dev;
 mod facts;
+mod guide;
 mod options;
 pub(crate) mod outline;
 mod over_the_run;
@@ -162,6 +163,16 @@ pub enum MenuAction {
         slider: usize,
         up: bool,
     },
+    /// The zone select's mode tabs, once the class has cleared Ahn'Qiraj: Normal Mode or
+    /// Challenge Mode; and a step of the challenge slider.
+    PickMode {
+        challenge: bool,
+    },
+    ChallengeStep {
+        up: bool,
+    },
+    /// The box telling that Challenge Mode is open, closed: never shown again for the save.
+    CloseChallengeNews,
     StartRun,
     /// Pick the hero of this name (a dev script's press; a click on a hero in the camp picks it
     /// through benilla's scene).
@@ -171,6 +182,10 @@ pub enum MenuAction {
     CodexList(CodexList),
     CodexPage(bool),
     CloseCodex,
+    /// The guide (the warband screen's Guide button): open it, a tab, close it.
+    OpenGuide,
+    GuideTab(guide::GuideTab),
+    CloseGuide,
     /// The game's settings ([`options`]), and closing the game.
     OpenGameOptions,
     QuitGame,
@@ -284,6 +299,8 @@ pub struct Menus {
     last_piece: Option<(MenuAction, f64)>,
     /// The codex open: the list and page shown.
     pub codex: Option<(CodexList, usize)>,
+    /// The guide open: the tab shown.
+    pub guide: Option<guide::GuideTab>,
     /// The options panel open, with what it is changing.
     pub game_options: Option<options::OptionsDraft>,
     /// Over a paused run: what the options panel's Okay left for later, which the run's Escape
@@ -322,8 +339,8 @@ pub struct MenusPlugin;
 impl Plugin for MenusPlugin {
     fn build(&self, app: &mut App) {
         // the look's buttons light as the pointer finds them, wherever they are (the run's Escape
-        // menu wears the look too)
-        app.add_systems(Update, look::light_buttons.after(StockSystems));
+        // menu wears the look too), and the news glows beat
+        app.add_systems(Update, (look::light_buttons, look::pulse_news_glows).chain().after(StockSystems));
         // the run's Escape menu writes presses too (its Options, Escape over the panel)
         app.add_message::<MenuPress>();
         if !menus_on() {
@@ -527,6 +544,7 @@ fn see(asks: &mut Asks, s: &Sheet) {
     let has_news = asks.facts.progress(&s.draft.class).is_none_or(|p| match view {
         esurv_protocol::SeenView::Collection => p.new_gear,
         esurv_protocol::SeenView::Talents => p.new_points,
+        esurv_protocol::SeenView::Challenge => p.challenge_news,
     });
     if has_news {
         asks.ask(&PreRunAsk::Seen {
@@ -652,6 +670,9 @@ fn act(
                 }
             }
             MenuAction::CloseCodex => menus.codex = None,
+            MenuAction::OpenGuide => menus.guide = Some(guide::GuideTab::default()),
+            MenuAction::GuideTab(tab) => menus.guide = Some(*tab),
+            MenuAction::CloseGuide => menus.guide = None,
             MenuAction::OpenGameOptions => {
                 // with the select screen gone, the hero is in a run: the panel opens over it,
                 // from its Escape menu
@@ -744,6 +765,36 @@ fn act(
             MenuAction::OptionStep { slider, up } => {
                 if let Some((o, _)) = asks.facts.run_options() {
                     let o = warband::options_stepped(content, o, *slider, *up);
+                    menus.notice = asks.ask(&PreRunAsk::RunOptions(o));
+                }
+            }
+            MenuAction::PickMode { challenge } => {
+                if let Some((mut o, _)) = asks.facts.run_options() {
+                    o.challenge = *challenge;
+                    menus.notice = asks.ask(&PreRunAsk::RunOptions(o));
+                }
+                // back in Normal Mode, a zone picked in Challenge Mode that is locked there gives
+                // way to the hardest zone the class has open
+                let back = picked.as_ref().filter(|_| !*challenge).and_then(|c| {
+                    Some((c.guid, warband::normal_mode_zone(content, &asks.facts, c)?))
+                });
+                if let Some((hero, zone)) = back {
+                    menus.notice = asks.ask(&PreRunAsk::Zone { hero, zone });
+                    asks.refresh.write(SelectRefresh);
+                }
+            }
+            MenuAction::CloseChallengeNews => {
+                let class = picked.as_ref().and_then(|c| class_of(content, c.class)).map(|c| c.id.clone());
+                if let Some(class) = class {
+                    menus.notice = asks.ask(&PreRunAsk::Seen {
+                        class,
+                        view: esurv_protocol::SeenView::Challenge,
+                    });
+                }
+            }
+            MenuAction::ChallengeStep { up } => {
+                if let Some((mut o, _)) = asks.facts.run_options() {
+                    o.challenge_pct = esurv_sim::game::challenge::slider_stepped(o.challenge_pct, *up);
                     menus.notice = asks.ask(&PreRunAsk::RunOptions(o));
                 }
             }
@@ -1068,7 +1119,7 @@ fn escape_goes_back(
         presses.write(MenuPress(MenuAction::OptionsCancel));
         return;
     }
-    if menus.codex.take().is_some() {
+    if menus.codex.take().is_some() || menus.guide.take().is_some() {
         return;
     }
     if menus.run_options_open {
@@ -1242,6 +1293,7 @@ fn view_key(menus: &Menus, ctx: &Ctx, scale: StockScale) -> u64 {
     (ctx.camp == Faction::Horde).hash(&mut h);
     (menus.run_options_open, menus.confirm_delete).hash(&mut h);
     format!("{:?}", menus.codex).hash(&mut h);
+    menus.guide.hash(&mut h);
     format!("{:?}", menus.game_options).hash(&mut h);
     // the notice's phase, not its progress (the progress line changes in place)
     ctx.update.and_then(|u| u.view()).hash(&mut h);
@@ -1343,6 +1395,9 @@ fn draw(
             if let Some((list, page)) = menus.codex {
                 codex::draw(&mut commands, root, &look, &ctx, list, page);
             }
+            if let Some(tab) = menus.guide {
+                guide::draw(&mut commands, root, &look, &ctx, tab);
+            }
             if let Some(d) = &menus.game_options {
                 options::draw(&mut commands, root, &look, d);
                 if let (true, Some(file)) = (d.saves.confirm, d.saves.importable()) {
@@ -1354,6 +1409,15 @@ fn draw(
                 .and_then(|g| screen.characters.iter().find(|c| c.guid == g))
             {
                 warband::draw_delete_confirm(&mut commands, root, &look, &c.name);
+            }
+            // back at the warband after the first clear of Ahn'Qiraj: the Challenge Mode box, once
+            // per save, over nothing else
+            let overlay = menus.run_options_open
+                || menus.codex.is_some()
+                || menus.game_options.is_some()
+                || menus.confirm_delete.is_some();
+            if ctx.facts.challenge_news() && !overlay {
+                warband::draw_challenge_news(&mut commands, root, &look, ctx.content);
             }
         }
         Screen::Sheet(s) => sheet::draw(
@@ -1393,6 +1457,11 @@ pub(crate) fn script_action(words: &str) -> Option<MenuAction> {
         ("loadout", Some(l)) => MenuAction::PickLoadout(l.into()),
         ("run-options", None) => MenuAction::OpenRunOptions,
         ("done", None) => MenuAction::CloseRunOptions,
+        ("mode", Some("normal")) => MenuAction::PickMode { challenge: false },
+        ("mode", Some("challenge")) => MenuAction::PickMode { challenge: true },
+        ("challenge-up", None) => MenuAction::ChallengeStep { up: true },
+        ("challenge-down", None) => MenuAction::ChallengeStep { up: false },
+        ("challenge-okay", None) => MenuAction::CloseChallengeNews,
         ("codex", None) => MenuAction::OpenCodex,
         ("codex-list", Some(l)) => MenuAction::CodexList(match l {
             "rings" => CodexList::Rings,
@@ -1403,6 +1472,9 @@ pub(crate) fn script_action(words: &str) -> Option<MenuAction> {
         }),
         ("codex-page", Some(d)) => MenuAction::CodexPage(d == "next"),
         ("close-codex", None) => MenuAction::CloseCodex,
+        ("guide", None) => MenuAction::OpenGuide,
+        ("guide-tab", Some(t)) => MenuAction::GuideTab(guide::GuideTab::named(t)?),
+        ("close-guide", None) => MenuAction::CloseGuide,
         ("game-options", None) => MenuAction::OpenGameOptions,
         ("quit-game", None) => MenuAction::QuitGame,
         ("update", None) => MenuAction::UpdateGame,
@@ -1552,6 +1624,13 @@ mod tests {
         assert_eq!(script_action("choose"), Some(MenuAction::ChooseClass));
         assert_eq!(script_action("loadout:shield"), Some(MenuAction::PickLoadout("shield".into())));
         assert_eq!(script_action("loadout"), None);
+        assert_eq!(script_action("guide"), Some(MenuAction::OpenGuide));
+        assert_eq!(
+            script_action("guide-tab:loot"),
+            Some(MenuAction::GuideTab(guide::GuideTab::Loot))
+        );
+        assert_eq!(script_action("guide-tab:nothing"), None);
+        assert_eq!(script_action("close-guide"), Some(MenuAction::CloseGuide));
         assert_eq!(script_action("fly"), None);
     }
 

@@ -61,18 +61,120 @@ pub enum Moment {
     Knockback,
 }
 
+impl Moment {
+    /// Every moment.
+    pub const ALL: [Moment; 33] = [
+        Moment::Burst,
+        Moment::BurstMark,
+        Moment::LeaveArea,
+        Moment::StrikeOne,
+        Moment::Barrage,
+        Moment::LineHit,
+        Moment::MarkAttackers,
+        Moment::ShieldBurst,
+        Moment::Splash,
+        Moment::DotBurst,
+        Moment::ExplodeOnDeath,
+        Moment::PullEveryNth,
+        Moment::FireTrail,
+        Moment::Retaliate,
+        Moment::ExtraTargets,
+        Moment::StrikeAgain,
+        Moment::DotSpread,
+        Moment::SpreadOnDeath,
+        Moment::TimedBuff,
+        Moment::Spree,
+        Moment::WhileBuff,
+        Moment::HealOnTrigger,
+        Moment::PetOnTrigger,
+        Moment::FearedTurn,
+        Moment::GrowingArea,
+        Moment::DotFromHeal,
+        Moment::Stun,
+        Moment::Fear,
+        Moment::Silence,
+        Moment::Vulnerable,
+        Moment::Root,
+        Moment::Slow,
+        Moment::Knockback,
+    ];
+}
+
+/// The moments of legendary `l`'s milestones (those an `Every` or a `WhileBuff` holds too) that
+/// still have no look once the table is applied, each once, in [`Moment::ALL`]'s order. A burst
+/// with no delay needs no mark (nothing waits to go off), a line with runners and an area with
+/// spirits show them.
+pub fn moments_without_looks(l: &LegendaryAmulet) -> Vec<Moment> {
+    fn walk(ms: &mut [Milestone], moment: Moment) -> bool {
+        ms.iter_mut().any(|m| {
+            let none = match (&*m, moment) {
+                (Milestone::Burst { delay, mark_spell: None, .. }, Moment::BurstMark) => *delay > 0.0,
+                (Milestone::LineHit { runners: Some(_), .. }, Moment::LineHit) | (Milestone::LeaveArea { spirits: Some(_), .. }, Moment::LeaveArea) => false,
+                _ => slot(m, moment).is_some_and(|s| s.is_none()),
+            };
+            let held = match m {
+                Milestone::Every { then, .. } | Milestone::WhileBuff { then, .. } => walk(then, moment),
+                _ => false,
+            };
+            none || held
+        })
+    }
+    let mut ms: Vec<Milestone> = l
+        .effects
+        .iter()
+        .filter_map(|e| match e {
+            crate::TalentEffect::Milestone(m) => Some(m.clone()),
+            _ => None,
+        })
+        .collect();
+    let mut out = Vec::new();
+    for moment in Moment::ALL {
+        if !out.contains(&moment) && walk(&mut ms, moment) {
+            out.push(moment);
+        }
+    }
+    out
+}
+
 /// One legendary's looks: its main spell (`LegendaryAmulet::main_spell`) and the look of each of
 /// its moments.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct LegendaryLook {
     pub legendary: String,
     pub moments: Vec<(Moment, u32)>,
+    /// Looks among its moments' drawn smaller, at [`SMALL_LOOK_SCALE`] (a smaller
+    /// version of the spell's own look on each further enemy). Each is a rank of the spell no
+    /// hero casts, so the spell's own look keeps its size.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub small: Vec<u32>,
+    /// Looks among its moments' that pulse: on an enemy, played again every
+    /// [`PULSE_EVERY`] seconds while the effect lasts, instead of worn as an aura.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub pulsing: Vec<u32>,
 }
+
+/// How big a `small` look is drawn.
+pub const SMALL_LOOK_SCALE: f32 = 0.6;
+/// How often a pulsing look plays again (seconds).
+pub const PULSE_EVERY: f32 = 2.0;
 
 impl crate::Content {
     /// Whether `spell` is a look `legendary_looks.ron` gives a legendary's moment.
     pub fn is_legendary_look(&self, spell: u32) -> bool {
         spell != 0 && self.legendary_looks.iter().any(|l| l.moments.iter().any(|(_, s)| *s == spell))
+    }
+
+    /// Every look a legendary draws smaller, each once.
+    pub fn small_looks(&self) -> Vec<u32> {
+        let mut out: Vec<u32> = self.legendary_looks.iter().flat_map(|l| l.small.iter().copied()).collect();
+        out.sort_unstable();
+        out.dedup();
+        out
+    }
+
+    /// Whether `spell` is a look a legendary plays as a pulse.
+    pub fn is_pulsing_look(&self, spell: u32) -> bool {
+        spell != 0 && self.legendary_looks.iter().any(|l| l.pulsing.contains(&spell))
     }
 }
 
@@ -198,7 +300,7 @@ mod tests {
             growth: crate::Growth::Slowest,
         };
         assert_eq!((moment_count(&l, Moment::Stun), moment_count(&l, Moment::Slow), moment_count(&l, Moment::Burst)), (1, 1, 0));
-        let looks = [LegendaryLook { legendary: "slam".into(), moments: vec![(Moment::Stun, 11020)] }, LegendaryLook { legendary: "nothing".into(), moments: vec![] }];
+        let looks = [LegendaryLook { legendary: "slam".into(), moments: vec![(Moment::Stun, 11020)], small: vec![], pulsing: vec![] }, LegendaryLook { legendary: "nothing".into(), moments: vec![], small: vec![], pulsing: vec![] }];
         let problems = apply(std::slice::from_mut(&mut l), &looks);
         assert_eq!(problems.len(), 1, "an unknown legendary is a problem");
         let crate::TalentEffect::Milestone(Milestone::Every { then, .. }) = &l.effects[0] else { panic!() };
@@ -241,5 +343,36 @@ mod tests {
             _ => None,
         });
         assert!(held.flatten().any(|m| matches!(m, Milestone::Afflict { look_spell: Some(s), .. } if *s == stun)));
+    }
+}
+
+#[cfg(test)]
+mod every_moment_has_a_look {
+    use super::*;
+
+    /// The moments allowed to show no look of their own, by legendary (its main spell): Gruul's
+    /// Shatter's burst waits on enemies turned to stone, which is their mark.
+    const ALLOWED_WITHOUT: &[(&str, Moment)] = &[("slam", Moment::BurstMark)];
+
+    /// Every moment of every legendary's milestones (those an `Every` or a `WhileBuff` holds
+    /// too) has a look once the table is applied, so none goes off unseen; its small and pulsing
+    /// looks are looks of its own moments.
+    #[test]
+    fn every_moment_of_every_legendary_has_a_look() {
+        let c = crate::Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+        let mut missing = Vec::new();
+        for l in &c.legendary_amulets {
+            for m in moments_without_looks(l) {
+                if !ALLOWED_WITHOUT.contains(&(l.main_spell(), m)) {
+                    missing.push(format!("{} ({}): {m:?}", l.name, l.main_spell()));
+                }
+            }
+        }
+        assert!(missing.is_empty(), "moments with no look:\n{}", missing.join("\n"));
+        for look in &c.legendary_looks {
+            for s in look.small.iter().chain(&look.pulsing) {
+                assert!(look.moments.iter().any(|(_, x)| x == s), "{}: {s} is no look of its moments", look.legendary);
+            }
+        }
     }
 }

@@ -441,22 +441,43 @@ fn the_avatar_is_shielded_until_the_four_blood_fires_are_out() {
     assert!(before - r.enemies[boss(&r, "Avatar of Hakkar").unwrap()].health > 900.0);
 }
 
-/// The Shade of Eranikus: Nightmare Suppressors come and heal him with beams; his Nightmare
-/// clouds drift after the hero.
+/// The Shade of Eranikus: three Nightmare Suppressors come once with
+/// him and channel on him, shielding him (a tenth of each hit) until the last of them dies; they
+/// heal him no more. His Nightmare clouds drift after the hero.
 #[test]
-fn eranikus_s_suppressors_heal_him_and_his_clouds_drift() {
+fn eranikus_is_shielded_while_his_suppressors_live_and_his_clouds_drift() {
     let mut r = run_in("sunken_temple");
     boss_near(&mut r, "Shade of Eranikus");
-    timer_due(&mut r, "Shade of Eranikus", 0);
-    assert_eq!(roster_count(&r, "Nightmare Suppressor"), 3);
+    assert_eq!(roster_count(&r, "Nightmare Suppressor"), 3, "they come with him, once");
     let k = boss(&r, "Shade of Eranikus").unwrap();
-    r.enemies[k].health = r.enemies[k].max_health * 0.5;
-    let before = r.enemies[k].health;
+    let (me, max) = (r.enemies[k].id, r.enemies[k].max_health);
+    let hit = |r: &mut Run| {
+        let k = boss(r, "Shade of Eranikus").unwrap();
+        let before = r.enemies[k].health;
+        r.hit_enemy(None, me, 1000.0, false, super::casting::HitSource::Proc { spell: 1, school: esurv_content::School::Nature, origin: Default::default() });
+        let k = boss(r, "Shade of Eranikus").unwrap();
+        before - r.enemies[k].health
+    };
+    assert!((hit(&mut r) - 100.0).abs() < 1.0, "shielded: a tenth");
+    // their beams on him heal nothing
+    r.enemies[k].health = max * 0.5;
     timer_due(&mut r, "Shade of Eranikus", 1);
     let k = boss(&r, "Shade of Eranikus").unwrap();
-    assert!((r.enemies[k].health - before - 0.03 * r.enemies[k].max_health).abs() < 1.0, "1 % from each of three");
-    let me = r.enemies[k].id;
+    assert_eq!(r.enemies[k].health, max * 0.5, "no healing");
     assert_eq!(r.extras.beams.iter().filter(|b| b.target == Unit::Enemy(me) && b.spell == 12623).count(), 3, "a beam from each");
+    // two die: still shielded; the last: the shield falls
+    let zone = r.content.zones[r.zone].clone();
+    let suppressors: Vec<u32> = r.enemies.iter().filter(|e| matches!(e.kind, EnemyKind::Roster(i) if zone.enemies[i].name == "Nightmare Suppressor")).map(|e| e.id).collect();
+    for id in &suppressors[..2] {
+        r.hit_enemy(None, *id, f32::MAX, false, super::casting::HitSource::Other);
+    }
+    assert!((hit(&mut r) - 100.0).abs() < 1.0, "one still lives");
+    r.hit_enemy(None, suppressors[2], f32::MAX, false, super::casting::HitSource::Other);
+    assert!((hit(&mut r) - 1000.0).abs() < 1.0, "the shield fell with the last");
+    // none come again
+    r.now += 60.0;
+    r.tick(0.05);
+    assert_eq!(roster_count(&r, "Nightmare Suppressor"), 0);
     // a cloud drifts after the hero
     cast(&mut r, "Shade of Eranikus", 1);
     let z = r.ground_zones.iter().find(|z| z.spec.drift > 0.0).unwrap().clone();
@@ -484,14 +505,14 @@ fn zevrim_s_sacrifice_heals_him_unless_the_hero_stands_on_its_altar() {
     r.ground_objects_tick(0.0);
     let k = boss(&r, "Zevrim Thornhoof").unwrap();
     assert_eq!(r.enemies[k].health, r.enemies[k].max_health * 0.5, "no sacrifice");
-    // left alone: he heals a tenth
+    // left alone: he heals a twentieth (halved)
     cast(&mut r, "Zevrim Thornhoof", 1);
     let (h, p) = (r.heroes[0].id, r.heroes[0].pos);
     r.hero_moved(h, (p.0 + 30.0, p.1), 0.0, 0.0);
     r.now += 8.1;
     r.ground_objects_tick(0.1);
     let k = boss(&r, "Zevrim Thornhoof").unwrap();
-    assert!((r.enemies[k].health - r.enemies[k].max_health * 0.6).abs() < 1.0, "healed by the sacrifice");
+    assert!((r.enemies[k].health - r.enemies[k].max_health * 0.55).abs() < 1.0, "healed by the sacrifice");
 }
 
 /// Alzzin: tree form with a withering aura; at 66 % a fast wolf with charges (the aura gone); at
@@ -556,15 +577,17 @@ fn immol_thar_s_eyes_fire_marked_lines() {
     assert_eq!(roster_count(&r, "Eye of Immol'thar"), 3);
 }
 
-/// King Gordok: at 50 % Cho'Rush the Observer joins (a caster that never swings); at 25 % Gordok
+/// King Gordok: at 35 % Cho'Rush the Observer joins (a caster that never swings); at 25 % Gordok
 /// enrages; his fall alone wins the run.
 #[test]
-fn cho_rush_joins_king_gordok_at_half_health() {
+fn cho_rush_joins_king_gordok_at_35_percent() {
     let mut r = run_in("feralas");
     r.next_boss = r.content.zones[r.zone].bosses.len();
     boss_near(&mut r, "King Gordok");
     assert!(boss(&r, "Cho'Rush the Observer").is_none());
     set_health(&mut r, "King Gordok", 49.0);
+    assert!(boss(&r, "Cho'Rush the Observer").is_none(), "not yet at 49 %");
+    set_health(&mut r, "King Gordok", 34.0);
     let k = boss(&r, "Cho'Rush the Observer").expect("he joins");
     assert_eq!(r.enemies[k].mech.swing_mult, 0.0);
     // he never swings, even standing by the hero

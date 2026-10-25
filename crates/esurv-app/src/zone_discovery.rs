@@ -67,6 +67,8 @@ mod tests {
             loadout: String::new(),
             new_gear: false,
             new_points: false,
+            challenge_open: false,
+            challenge_news: false,
         }
     }
 

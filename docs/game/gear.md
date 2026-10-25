@@ -177,10 +177,10 @@ The content check holds every such spell to exactly one legendary.
 **The pool** on a legendary roll holds the legendaries of the spells the hero knows (its class,
 its level-1 pick and the cards it took; a form's card pool brings its own), once each.
 
-**Budget**: a damage legendary adds **+50 %** to the hero's total damage; a heal
+**Budget**: a damage legendary adds **+30 %** to the hero's total damage; a heal
 legendary **+100 %** to what its spell heals (and shields absorb), a defensive buff's (Divine Shield)
 +100 % to its uptime; ±20 % counts as in budget. Shields and buffs that add power (damage, haste,
-speed, rage or energy) are held to the damage budget, +50 % total damage: kiting, the hero's own
+speed, rage or energy) are held to the damage budget, +30 % total damage: kiting, the hero's own
 shield already takes most of the damage struck at it, so what a shield absorbs cannot double, and a
 buff's uptime is near full already. Measured with the balance check's `--legendaries` mode
 (AUTHORING.md, "Power budgets"); the numbers below are tuned to it. A heal or shield grows with the
@@ -190,132 +190,132 @@ to settle.
 
 | Class | Spell | Legendary | What it does |
 |---|---|---|---|
-| warrior | `slam` | Gruul's Shatter | Slam deals 40% more. Every 4th Slam turns the enemies it hits to stone for 1 sec, then they shatter, each dealing 50% of its hit to enemies within 5 yd of it. |
-| warrior | `whirlwind` | Blademaster's Bladestorm | Whirlwind deals 70% more. Every 15 sec you Bladestorm for 3 sec: Whirlwind spins every 0.5 sec and you move 30% faster. |
+| warrior | `slam` | Gruul's Shatter | Slam deals 30% more. Every 4th Slam turns the enemies it hits to stone for 1 sec, then they shatter, each dealing 35% of its hit to enemies within 5 yd of it. |
+| warrior | `whirlwind` | Blademaster's Bladestorm | Whirlwind deals 35% more. Every 15 sec you Bladestorm for 3 sec: Whirlwind spins every 0.5 sec and you move 30% faster. |
 | warrior | `revenge` | Mark of the Fallen Champion | Revenge deals 260% more. Enemies that hit you are marked for 5 sec; Revenge deals 650% more to marked enemies and each of its hits on one heals you 7% of your health. |
-| warrior | `cleave` | Hateful Strike | Cleave deals 120% more. Every 2nd Cleave also hits the healthiest enemy in reach for 870%. |
-| warrior | `thunder_clap` | Hammer of the Mountain King | Thunder Clap deals 110% more and reaches 50% farther. Each clap throws a Storm Bolt at the healthiest enemy it hit: 550% and a 2 sec stun. |
+| warrior | `cleave` | Hateful Strike | Cleave deals 75% more. Every 2nd Cleave also hits the healthiest enemy in reach for 550%. |
+| warrior | `thunder_clap` | Hammer of the Mountain King | Thunder Clap deals 60% more and reaches 50% farther. Each clap throws a Storm Bolt at the healthiest enemy it hit: 300% and a 2 sec stun. |
 | warrior | `mortal_strike` | Blade Dance | Mortal Strike deals 25% more. After the strike you dash through 3 more enemies, striking each for 35%. |
 | warrior | `execute` | Gorehowl | Execute deals 130% more. A kill readies it again and gives Bloodlust: 20% more damage for 20 sec, up to 5 times. |
-| warrior | `demo_shout` | Bellowing Roar | Demoralizing Shout fears the enemies it hits for 2 sec, and they take 120% more damage from you for 6 sec. |
+| warrior | `demo_shout` | Bellowing Roar | Demoralizing Shout fears the enemies it hits for 2 sec, and they take 95% more damage from you for 6 sec. |
 | warrior | `battle_shout` | Endurance Aura | Battle Shout lasts twice as long. While it lasts your swings are 30% faster and give 3 more rage, and every blow you strike lands again for 25%. |
-| warrior | `bloodthirst` | Vampiric Bite | Bloodthirst deals 55% more. Each hit heals you 7% of your health and gives Essence of the Blood Queen: 30% more damage for 10 sec, up to 3 times. |
-| warrior | `rend` | Corrupted Blood | Rend deals 120% more. Each tick passes the bleed to an enemy near the target, up to 5 enemies bleeding. |
+| warrior | `bloodthirst` | Vampiric Bite | Bloodthirst deals 35% more. Each hit heals you 7% of your health and gives Essence of the Blood Queen: 20% more damage for 10 sec, up to 3 times. |
+| warrior | `rend` | Corrupted Blood | Rend deals 90% more. Each tick passes the bleed to an enemy near the target, up to 5 enemies bleeding. |
 | warrior | `shield_slam` | Storm Bolt | Shield Slam deals 20% more. The shield bounces to 3 more enemies for 60%, stunning each for 1 sec. |
-| paladin | `denounce` | Light of the Naaru | Denounce deals 200% more and leaps 3 more times; its leaps lose no damage and each heals you 4% of your health. |
-| paladin | `holy_shield` | Reflective Shield | Holy Shield has 2 more stacks and strikes back 270% harder. When its last stack breaks, a holy nova hits everything within 10 yd for 1670% of its strike. |
-| paladin | `seal_of_command` | The Ashbringer | Seal of Command deals 20% more. Every 11th proc bursts in holy flame around the target: 65% to every enemy within 8 yd. |
-| paladin | `consecration` | Sanctified Ground | Consecration deals 40% more. It grows 5% each time it damages an enemy, up to twice as wide. |
+| paladin | `denounce` | Light of the Naaru | Denounce deals 110% more and leaps 3 more times; its leaps lose no damage and each heals you 4% of your health. |
+| paladin | `holy_shield` | Reflective Shield | Holy Shield has 2 more stacks and strikes back 185% harder. When its last stack breaks, a holy nova hits everything within 10 yd for 1150% of its strike. |
+| paladin | `seal_of_command` | The Ashbringer | Seal of Command deals 15% more. Every 11th proc bursts in holy flame around the target: 50% to every enemy within 8 yd. |
+| paladin | `consecration` | Sanctified Ground | Consecration deals 15% more. It grows 5% each time it damages an enemy, up to 50% wider. |
 | paladin | `exorcism` | Righteous Fire | Exorcism deals 45% more. The target burns for 70% over 4 sec, and the fire jumps to enemies that touch it. (pick: "touch" is 3 yd) |
-| paladin | `hammer_of_wrath` | Hand of Ragnaros | Hammer of Wrath deals 10% more. The hammer explodes on impact: 15% to enemies within 6 yd, knocking them back. (pick: knocked back 6 yd) |
-| paladin | `holy_shock` | Light's Barrage | Holy Shock deals 65% more and fires 2 more bolts. Each bolt that crits fires another for 150%. |
-| paladin | `holy_wrath` | Holy Wrath | Holy Wrath deals 35% more. Each hit also strikes one more enemy near its target for as much. |
+| paladin | `hammer_of_wrath` | Hand of Ragnaros | Hammer of Wrath deals 8% more. The hammer explodes on impact: 10% to enemies within 6 yd, knocking them back. (pick: knocked back 6 yd) |
+| paladin | `holy_shock` | Light's Barrage | Holy Shock deals 50% more and fires 2 more bolts. Each bolt that crits fires another for 120%. |
+| paladin | `holy_wrath` | Holy Wrath | Holy Wrath deals 20% more. Each hit also strikes one more enemy near its target for half as much. |
 | paladin | `judgement` | Mark of the Naaru | Judgement deals 45% more. The target takes 25% more damage from you for 8 sec; if Judgement kills it, it leaps to the next. |
-| paladin | `hammer_of_justice` | Hammer of Uther | Hammer of Justice deals 140% more. The hammer bounces to 2 more enemies for 350%, stunning each for 1.5 sec. |
+| paladin | `hammer_of_justice` | Hammer of Uther | Hammer of Justice deals 80% more. The hammer bounces to 2 more enemies for 200%, stunning each for 1.5 sec. |
 | paladin | `holy_light` | Light of Uther | Holy Light heals twice as much; healing past your health becomes a shield of up to 2% of your health. (a heal grows with the square root of its power: 3 more power heals twice as much) |
 | paladin | `divine_shield` | Avatar of the Light | Divine Shield lasts 240% longer. While it lasts you deal 30% more, and every blow against you strikes its attacker back for 510% of the blow. When it ends you heal 100% of your health. |
 | hunter | `steady_shot` | Thori'dal, the Stars' Fury | Steady Shot deals 25% more. Every 5th shot is an arrow of light that pierces every enemy in a line for 60%. |
-| hunter | `kill_command` | Stampede | Kill Command deals 20% more and you have one more pet. Every 9th command sends a stampede of beasts through the enemies ahead: 70% to each. |
-| hunter | `explosive_shot` | Rocket Strike | Explosive Shot deals 35% more. Each blast marks the spot; 2 sec later a rocket lands there for 130% within 6 yd. |
-| hunter | `arcane_shot` | Searing Arrows | Arcane Shot deals 45% more. Its arrows ignite for 60% over 3 sec, and it has a 35% chance to fire again. |
-| hunter | `multi_shot` | Windrunner's Volley | Multi-Shot deals 40% more and hits 3 more targets; each arrow ricochets once to an enemy near its target. |
-| hunter | `serpent_sting` | Serpent's Brood | Serpent Sting deals 110% more. Each sting releases 2 snakes that bite nearby enemies for 8 sec. (pick: at most 6 snakes at once (what a sting every 3 sec keeps up)) |
-| hunter | `volley` | Ranger-General's Barrage | Volley deals 65% more and lasts 80% longer. The arrows fall around you and move with you. |
-| hunter | `explosive_trap` | Lava Bomb | Explosive Trap deals 90% more. It leaves 3 burning patches for 4 sec, each burning for 65% a second. (pick: patches 3 yd wide, up to 4 yd apart) |
+| hunter | `kill_command` | Stampede | Kill Command deals 10% more and you have one more pet. Every 9th command sends a stampede of beasts through the enemies ahead: 40% to each. |
+| hunter | `explosive_shot` | Rocket Strike | Explosive Shot deals 25% more. Each blast marks the spot; 2 sec later a rocket lands there for 95% within 6 yd. |
+| hunter | `arcane_shot` | Searing Arrows | Arcane Shot deals 70% more. Its arrows ignite for 90% over 3 sec, and it has a 35% chance to fire again. |
+| hunter | `multi_shot` | Windrunner's Volley | Multi-Shot deals 20% more and hits 3 more targets; each arrow ricochets once to an enemy near its target for 50%. |
+| hunter | `serpent_sting` | Serpent's Brood | Serpent Sting deals 20% more. Each sting releases 2 snakes that bite nearby enemies for 8 sec. (pick: at most 6 snakes at once (what a sting every 3 sec keeps up)) |
+| hunter | `volley` | Ranger-General's Barrage | Volley deals 30% more and lasts 80% longer. The arrows fall around you and move with you. |
+| hunter | `explosive_trap` | Lava Bomb | Explosive Trap deals 50% more. It leaves 3 burning patches for 4 sec, each burning for 35% a second. (pick: patches 3 yd wide, up to 4 yd apart) |
 | hunter | `concussive_shot` | Silence | Concussive Shot deals 170% more and hits 2 more targets. Dazed enemies take 110% more damage from you and cannot cast. |
 | hunter | `aimed_shot` | Netherstrand Longbow | Aimed Shot deals 7% more. It pierces every enemy in a line behind the target for 25%. |
-| hunter | `immolation_trap` | Lava Splash | Immolation Trap deals 20% more and lasts 20% longer. Enemies dying in it erupt for 15% of their max health. (pick: the eruption reaches 7 yd, the trap's own size) |
+| hunter | `immolation_trap` | Lava Splash | Immolation Trap deals 8% more and lasts 20% longer. Enemies dying in it erupt for 6% of their max health. (pick: the eruption reaches 7 yd, the trap's own size) |
 | hunter | `frost_trap` | Flash Freeze | Enemies that stay in Frost Trap are frozen for 2 sec, and frozen enemies take 110% more damage from you. ("3 sec in it" is its second strike on the enemy (it strikes every 2.1 sec)) |
-| rogue | `mutilate` + `envenom` | Poison Cloud | Mutilate and Envenom deal 40% more. Envenom leaves a poison cloud on each target for 4 sec that poisons enemies in it. (pick: the cloud is 5 yd wide) |
-| rogue | `sinister_strike` + `eviscerate` | Vengeance | Sinister Strike and Eviscerate deal 240% more. A kill with Eviscerate calls an avatar of vengeance that fights for 6 sec, up to 2. |
-| rogue | `hemorrhage` + `rupture` | Blood Siphon | Hemorrhage and Rupture deal 200% more. Each Rupture tick heals you 5% of your health, and it spreads to 1 more enemy when its target dies. |
-| rogue | `blade_flurry` | VanCleef's Whirling Blades | Blade Flurry deals 50% more. It throws two blades that circle you for 6 sec, cutting everything they touch for 40% a second. (the glaives' ring is Blade Flurry's own 7 yd) |
+| rogue | `mutilate` + `envenom` | Poison Cloud | Mutilate and Envenom deal 10% more. Envenom leaves a poison cloud on each target for 4 sec that poisons enemies in it. (pick: the cloud is 5 yd wide) |
+| rogue | `sinister_strike` + `eviscerate` | Vengeance | Sinister Strike and Eviscerate deal 185% more. A kill with Eviscerate calls an avatar of vengeance that fights for 6 sec, up to 2. |
+| rogue | `hemorrhage` + `rupture` | Blood Siphon | Hemorrhage and Rupture deal 55% more. Each Rupture tick heals you 5% of your health, and it spreads to 1 more enemy when its target dies. |
+| rogue | `blade_flurry` | VanCleef's Whirling Blades | Blade Flurry deals 30% more. It throws two blades that circle you for 6 sec, cutting everything they touch for 25% a second. (the glaives' ring is Blade Flurry's own 7 yd) |
 | rogue | `kidney_shot` | Cheap Shot | Kidney Shot deals 610% more and hits 2 more targets. Stunned enemies take 400% more damage from you. |
-| rogue | `gouge` | Blinding Powder | Gouge deals 420% more and hits 2 more targets. Gouged enemies stumble blind for the stun and take 280% more damage from you. |
-| rogue | `ghostly_strike` | Blink Strike | Ghostly Strike deals 75% more. After it you blink to another enemy within 15 yd and strike it for 150%. |
+| rogue | `gouge` | Blinding Powder | Gouge deals 325% more and hits 2 more targets. Gouged enemies stumble blind for the stun and take 210% more damage from you. |
+| rogue | `ghostly_strike` | Blink Strike | Ghostly Strike deals 55% more. After it a reflection of you appears at another enemy within 15 yd, strikes it for 105% and fades. |
 | rogue | `adrenaline_rush` | Mirror Image | Adrenaline Rush lasts twice as long. While it lasts two images copy your strikes for 130% each. |
-| rogue | `backstab` | Critical Strike | Backstab deals 150% more and has a 75% chance to strike again for 1090%; a kill readies it again. |
+| rogue | `backstab` | Critical Strike | Backstab deals 70% more and has a 75% chance to strike again for 500%; a kill readies it again. |
 | rogue | `slice_and_dice` | Wind Walk | Slice and Dice lasts twice as long. While it lasts you wind-walk: you move 30% faster and every strike hits again for 260%; the first strike after it starts hits again for 500%. |
 | rogue | `fan_of_knives` | Fan of Knives | A second ring of Fan of Knives follows 0.5 sec later, and every knife applies your poison. (the poison is the starting option's (Mutilate's); other options have none) |
-| rogue | `garrote` | Silent Strangler | Garrote deals 40% more and hits 2 more targets. Garroted enemies cannot cast, and it spreads on death. |
-| priest | `smite` | Penance of Light | Smite deals 150% more. Every 2nd Smite becomes a beam that also strikes 2 more enemies near the target for 360%. |
-| priest | `holy_fire` | Holy Fire | Holy Fire deals 170% more. Its burn spreads to 2 enemies near the target, and burning enemies take 35% more damage from you. ("10 % more holy damage" is 10 % more damage (a vulnerability is not by school)) |
-| priest | `mind_spike` | Shadow Spike | Mind Spike deals 15% more. Each spike calls 3 shadow spikes onto spots near the target, 25% within 3 yd each. (pick: the spots are up to 5 yd from the target) |
-| priest | `sw_pain` | Whisper of Death | Shadow Word: Pain deals 9% more and hits 1 more target. When a pained enemy dies, shadow bursts from it: 15% within 6 yd, and every enemy hit is pained. |
+| rogue | `garrote` | Silent Strangler | Garrote deals 10% more and hits 2 more targets. Garroted enemies cannot cast, and it spreads on death. |
+| priest | `smite` | Penance of Light | Smite deals 90% more. Every 2nd Smite becomes a beam that also strikes 2 more enemies near the target for 215%. |
+| priest | `holy_fire` | Holy Fire | Holy Fire deals 300% more. Its burn spreads to 2 enemies near the target, and burning enemies take 65% more damage from you. ("10 % more holy damage" is 10 % more damage (a vulnerability is not by school)) |
+| priest | `mind_spike` | Shadow Spike | Mind Spike deals 10% more. Each spike calls 3 shadow spikes onto spots near the target, 20% within 3 yd each. (pick: the spots are up to 5 yd from the target) |
+| priest | `sw_pain` | Whisper of Death | Shadow Word: Pain deals 1% more and hits 1 more target. When a pained enemy dies, shadow bursts from it: 2% within 6 yd, and every enemy hit is pained. |
 | priest | `mind_blast` | Eye Beam | Mind Blast deals 30% more. It chains to 2 more enemies within 8 yd for 95%, 20% stronger each. |
-| priest | `holy_nova` | Holy Nova | Holy Nova deals 150% more and reaches 50% farther. It heals you 1% of your health per enemy hit. |
-| priest | `pw_shield` | Divine Aegis | Power Word: Shield absorbs 60% more. Each time it forms, for 15 sec holy light strikes a random enemy within 20 yd every 0.5 sec for 160% of your max health; when it breaks it bursts for its value within 10 yd. (a shield grows with the square root of its power: 1.56 more power absorbs 60 % more; pick: the burst reaches 10 yd (as Ironbranch's)) |
+| priest | `holy_nova` | Holy Nova | Holy Nova deals 90% more and reaches 50% farther. It heals you 1% of your health per enemy hit. |
+| priest | `pw_shield` | Divine Aegis | Power Word: Shield absorbs 60% more. Each time it forms, for 15 sec holy light strikes a random enemy within 20 yd every 0.5 sec for 65% of your max health; when it breaks it bursts for 40% of its value within 10 yd. (a shield grows with the square root of its power: 1.56 more power absorbs 60 % more; pick: the burst reaches 10 yd (as Ironbranch's)) |
 | priest | `renew` | Light's Blessing | Renew is cast whenever it is ready and an enemy is within 30 yd. Each Renew also casts Deplete on 3 enemies within 30 yd, bosses, elites and rares first, then the nearest, dealing 5000% of that Renew's healing to each as damage over 10 sec. (a damage legendary, set to 5000 % although under budget; the Deplete look is Vampiric Embrace, 15286) |
-| priest | `mind_flay` | Lunatic Gaze | Mind Flay deals 65% more and reaches 50% farther. Flayed enemies take 25% more damage from you. |
+| priest | `mind_flay` | Lunatic Gaze | Mind Flay deals 50% more and reaches 50% farther. Flayed enemies take 20% more damage from you. |
 | priest | `psychic_scream` | Dominate Mind | Psychic Scream reaches 50% farther. Feared enemies take 85% more damage from you, and 60% of them turn on the others for the fear. |
-| priest | `devouring_plague` | Inevitable Doom | Devouring Plague deals 20% more and hits 2 more targets. When it ends it detonates for 45% within 6 yd. |
-| priest | `divine_star` | Halo of Elune | Divine Star deals 140% more. You throw 2 stars at once, in two directions. |
-| priest | `power_infusion` | Prophet's Infusion | Power Infusion lasts twice as long. While it lasts each spell has an 80% chance to cast twice. |
-| shaman | `lightning_bolt` | Thrall's Doomhammer | Lightning Bolt deals 80% more and has a 55% chance to fork into a chain lightning at 3 more enemies for 110%. |
+| priest | `devouring_plague` | Inevitable Doom | Devouring Plague deals 7% more and hits 2 more targets. When it ends it detonates for 15% within 6 yd. |
+| priest | `divine_star` | Halo of Elune | Divine Star deals 100% more. You throw 2 stars at once, in two directions. |
+| priest | `power_infusion` | Prophet's Infusion | Power Infusion lasts twice as long. While it lasts each spell has a 45% chance to cast twice. |
+| shaman | `lightning_bolt` | Thrall's Doomhammer | Lightning Bolt deals 60% more and has a 55% chance to fork into a chain lightning at 3 more enemies for 85%. |
 | shaman | `windfury_weapon` | Doomwinds | Windfury Weapon deals 55% more. Each proc also throws chain lightning at 3 enemies for 85% and slows them. (each extra hit of a proc throws it; pick: the slow lasts 2 sec (Wellspring's), 40 %) |
-| shaman | `wellspring` | Tornado | Wellspring deals 45% more. Every 3rd Wellspring raises a tornado that wanders through the enemies for 6 sec, 45% a second. (the tornado rides along with the enemy it rose on; pick: 4 yd wide) |
-| shaman | `chain_lightning` | Forked Lightning | Chain Lightning deals 150% more and jumps 3 more times; its jumps lose nothing. |
-| shaman | `earth_shock` | Earthquake | Earth Shock deals 7% more. It leaves a quake on the target's spot for 4 sec: 4% a second and 50% slower. (pick: the quake is 6 yd wide) |
-| shaman | `flame_shock` | Magma Blast | Flame Shock deals 45% more and hits 2 more targets. It spreads on death. |
-| shaman | `frost_shock` | Frost Nova | Frost Shock deals 7% more. It bursts around the target: 15% to enemies within 8 yd, freezing them for 2 sec. |
+| shaman | `wellspring` | Tornado | Wellspring deals 30% more. Every 3rd Wellspring raises a tornado that wanders through the enemies for 6 sec, 30% a second. (the tornado rides along with the enemy it rose on; pick: 4 yd wide) |
+| shaman | `chain_lightning` | Forked Lightning | Chain Lightning deals 95% more and jumps 3 more times; its jumps lose nothing. |
+| shaman | `earth_shock` | Earthquake | Earth Shock deals 5% more. It leaves a quake on the target's spot for 4 sec: 3% a second and 50% slower. (pick: the quake is 6 yd wide) |
+| shaman | `flame_shock` | Magma Blast | Flame Shock deals 30% more and hits 2 more targets. It spreads on death. |
+| shaman | `frost_shock` | Frost Nova | Frost Shock deals 4% more. It bursts around the target: 8% to enemies within 8 yd, freezing them for 2 sec. |
 | shaman | `lightning_shield` | Static Charge | Lightning Shield strikes back 220% harder and lasts 450% longer, and each strike arcs on to 2 more enemies for 450%. |
-| shaman | `magma_totem` | Lava Spawn | Magma Totem deals 80% more and lasts 210% longer. The totem spawns 2 lava spawns that fight for 8 sec. |
+| shaman | `magma_totem` | Lava Spawn | Magma Totem deals 35% more and lasts 210% longer. The totem spawns 2 lava spawns that fight for 8 sec. |
 | shaman | `searing_totem` | Serpent Wards | Searing Totem deals 280% more. You plant 2 totems instead of 1. |
-| shaman | `fire_nova` | Wrath of Ragnaros | Fire Nova deals 30% more and reaches 50% farther. It knocks enemies back and leaves the ring burning for 3 sec, 25% a second. (the ring is the nova's reach (12 yd, 50 % farther); pick: knocked back 6 yd, the ring burns for 25 % a second) |
+| shaman | `fire_nova` | Wrath of Ragnaros | Fire Nova deals 15% more and reaches 50% farther. It knocks enemies back and leaves the ring burning for 3 sec, 10% a second. (the ring is the nova's reach (12 yd, 50 % farther); pick: knocked back 6 yd, the ring burns for 25 % a second) |
 | shaman | `healing_wave` | Healing Wave | Healing Wave heals 50% more, then 60% more over 6 sec. |
 | mage | `arcane_blast` | Arcane Bomb | Arcane Blast deals 25% more. Every 6th blast is an arcane bomb: 70% to every enemy within 8 yd of the target. |
-| mage | `fireball` | Phoenix | Fireball deals 190% more. A crit calls a phoenix that fights for 8 sec, up to 2. |
+| mage | `fireball` | Phoenix | Fireball deals 215% more. A crit calls a phoenix that fights for 8 sec, up to 2. |
 | mage | `frostbolt` | Frostbolt Volley | Frostbolt deals 55% more. Every 3rd bolt is a volley that also strikes 4 more enemies for 140%. |
 | mage | `arcane_missiles` | Shade's Missiles | Arcane Missiles deals 170% more and fires 3 more missiles. |
 | mage | `frost_nova` | Ice Tomb | Frost Nova reaches 50% farther. Frozen enemies are entombed for 3 sec and take 100% more damage from you. |
-| mage | `arcane_explosion` | Magnetic Pull | Arcane Explosion deals 250% more. Every 3rd explosion first pulls the enemies within 15 yd to you. |
-| mage | `blizzard` | Blizzard | Blizzard deals 30% more, is 50% wider and lasts 40% longer. |
-| mage | `flamestrike` | Flame Strike | Flamestrike deals 65% more. A second pillar falls on the next thickest crowd. |
-| mage | `fire_blast` | Living Bomb | Fire Blast deals 25% more. Every 4th blast makes its target a living bomb: 3 sec later it explodes for 100% within 6 yd. |
-| mage | `cone_of_cold` | Frost Breath | Cone of Cold deals 280% more and reaches 50% farther. It leaves frost on the ground for 3 sec: 5% of its hit a second, and 60% slower. (the frost slows as the cone does (60 %) and deals 5 % of the hit a second; pick: 6 yd wide, on the first enemy hit) |
-| mage | `blast_wave` | Flame Wreath | Blast Wave deals 50% more and reaches 50% farther. It leaves a ring of fire for 4 sec that burns enemies in it. (the ring is the wave's reach (10 yd, 50 % farther); pick: it burns for 30 % a second) |
-| mage | `pyroblast` | Pyroblast | Pyroblast deals 15% more. The impact explodes for 20% within 8 yd. |
-| mage | `ice_barrier` | Frozen Shell | Ice Barrier absorbs 60% more. Each time it forms, for 20 sec a shard of ice strikes a random enemy within 20 yd every 0.5 sec for 140% of your max health. When it breaks, enemies within 10 yd are frozen for 2 sec and take 15% of what it absorbed. (a shield grows with the square root of its power: 1.56 more power absorbs 60 % more) |
-| warlock | `drain_soul` | Harvest Soul | Drain Soul deals 120% more. A kill while draining harvests the soul: 15% more damage for 20 sec, up to 5 times, and the drain goes on. (the drain goes on to the next enemy by itself) |
-| warlock | `hand_of_guldan` | Skull of Gul'dan | Hand of Gul'dan deals 120% more, is 50% wider and calls 2 more imps. |
+| mage | `arcane_explosion` | Magnetic Pull | Arcane Explosion deals 140% more. Every 3rd explosion first pulls the enemies within 15 yd to you. |
+| mage | `blizzard` | Blizzard | Blizzard deals 15% more, is 50% wider and lasts 40% longer. |
+| mage | `flamestrike` | Flame Strike | Flamestrike deals 25% more. A second pillar falls on the next thickest crowd. |
+| mage | `fire_blast` | Living Bomb | Fire Blast deals 15% more. Every 4th blast makes its target a living bomb: 3 sec later it explodes for 55% within 6 yd. |
+| mage | `cone_of_cold` | Frost Breath | Cone of Cold deals 145% more and reaches 50% farther. It leaves frost on the ground for 3 sec: 3% of its hit a second, and 60% slower. (the frost slows as the cone does (60 %) and deals 5 % of the hit a second; pick: 6 yd wide, on the first enemy hit) |
+| mage | `blast_wave` | Flame Wreath | Blast Wave deals 40% more and reaches 50% farther. It leaves a ring of fire for 4 sec that burns enemies in it. (the ring is the wave's reach (10 yd, 50 % farther); pick: it burns for 30 % a second) |
+| mage | `pyroblast` | Pyroblast | Pyroblast deals 15% more. The impact explodes for 10% within 8 yd. |
+| mage | `ice_barrier` | Frozen Shell | Ice Barrier absorbs 60% more. Each time it forms, for 20 sec a shard of ice strikes a random enemy within 20 yd every 0.5 sec for 55% of your max health. When it breaks, enemies within 10 yd are frozen for 2 sec and take 6% of what it absorbed. (a shield grows with the square root of its power: 1.56 more power absorbs 60 % more) |
+| warlock | `drain_soul` | Harvest Soul | Drain Soul deals 85% more. A kill while draining harvests the soul: 10% more damage for 20 sec, up to 5 times, and the drain goes on. (the drain goes on to the next enemy by itself) |
+| warlock | `hand_of_guldan` | Skull of Gul'dan | Hand of Gul'dan deals 60% more, is 50% wider and calls 2 more imps. |
 | warlock | `shadow_bolt` | Shadow Bolt Volley | Shadow Bolt deals 50% more. Every 3rd bolt is a volley that also strikes 4 more enemies for 120%. |
-| warlock | `corruption` | Unbound Plague | Corruption deals 280% more. Every 3 sec it jumps to another enemy, 20% stronger each jump. |
-| warlock | `immolate` | Legion Flame | Immolate deals 150% more. Burning enemies leave a trail of fire that burns others for 100% a second. |
-| warlock | `curse_of_agony` | Doom | Curse of Agony deals 590% more. A cursed enemy that dies rises as a doomguard that fights for 10 sec, up to 1. |
-| warlock | `rain_of_fire` | Rain of Fire | Rain of Fire deals 55% more, is 50% wider and lasts 75% longer. |
-| warlock | `hellfire` | Immolation | Hellfire deals 100% more and goes off 4 more times, and never harms you. (Hellfire never harms the hero here already; 4 more novas: 3 become 7) |
+| warlock | `corruption` | Unbound Plague | Corruption deals 215% more. Every 3 sec it jumps to another enemy, 20% stronger each jump. |
+| warlock | `immolate` | Legion Flame | Immolate deals 90% more. Burning enemies leave a trail of fire that burns others for 60% a second. |
+| warlock | `curse_of_agony` | Doom | Curse of Agony deals 775% more. A cursed enemy that dies rises as a doomguard that fights for 10 sec, up to 1. |
+| warlock | `rain_of_fire` | Rain of Fire | Rain of Fire deals 25% more, is 50% wider and lasts 75% longer. |
+| warlock | `hellfire` | Immolation | Hellfire deals 35% more and goes off 4 more times, and never harms you. (Hellfire never harms the hero here already; 4 more novas: 3 become 7) |
 | warlock | `death_coil` | Death Coil | Death Coil deals 65% more. It bounces to 2 more enemies for 160% and heals you 50% of its damage. |
 | warlock | `searing_pain` | Incinerate Flesh | Searing Pain deals 20% more and hits 1 more target. Its crits ready it again. |
-| warlock | `drain_life` | Blood Siphon | Drain Life drains every enemy within 10 yd of its target at once, for 15% as much. (each tick drains everything within 10 yd of the target, healing as the drain does) |
+| warlock | `drain_life` | Blood Siphon | Drain Life drains every enemy within 10 yd of its target at once, for 8% as much. (each tick drains everything within 10 yd of the target, healing as the drain does) |
 | warlock | `fear` | Sleep | Fear hits 2 more targets. Feared enemies take 270% more damage from you. |
-| druid | `starfire` | Starfall | Starfire deals 100% more. Every 2nd Starfire rains stars around you for 4 sec, one a second on an enemy within 30 yd. (pick: a star strikes for 50 % of a Starfire) |
-| druid | `claw` + `rip` | Mark of Arlokk | Claw and Rip deal 230% more. A Rip kill calls a panther that fights for 8 sec, up to 2. |
-| druid | `maul` | Mangle | Maul deals 75% more. Mauled enemies take 40% more damage from you; every 2nd Maul you surge to the farthest enemy within 20 yd and maul it for 180%. (pick: mauled for 6 sec (Maul's own stacks last 6)) |
-| druid | `friend_of_the_forest` | Force of Nature | Friend of the Forest deals 35% more. Every cast also calls 2 treants that fight for 10 sec. |
-| druid | `wrath` | Wrath of Cenarius | Wrath deals 75% more and hits 1 more target, with a 55% chance to strike again for 180%. |
-| druid | `moonfire` | Moonfire | Moonfire deals 40% more and hits 2 more targets. It spreads on death. |
-| druid | `hurricane` | Eye of the Storm | Hurricane deals 25% more, is 50% wider and lasts 30% longer. |
-| druid | `insect_swarm` | Silithid Swarm | Insect Swarm deals 210% more. Every 2 sec insects leave each swarmed enemy, biting the nearest other enemy for 210% and healing you 6% of your health. ("every 2 sec" is every second tick on an enemy (it ticks every 1.05 sec)) |
-| druid | `entangling_roots` | Iron Roots | Entangling Roots deals 250% more and hits 2 more targets. Rooted enemies take 160% more damage from you. |
+| druid | `starfire` | Starfall | Starfire deals 65% more. Every 2nd Starfire rains stars around you for 4 sec, one a second on an enemy within 30 yd. (pick: a star strikes for 75 % of a Starfire) |
+| druid | `claw` + `rip` | Mark of Arlokk | Claw and Rip deal 185% more. A Rip kill calls a panther that fights for 8 sec, up to 2. |
+| druid | `maul` | Mangle | Maul deals 75% more. Mauled enemies take 40% more damage from you. (pick: mauled for 6 sec (Maul's own stacks last 6)) |
+| druid | `friend_of_the_forest` | Force of Nature | Friend of the Forest deals 15% more. Every cast also calls 2 treants that fight for 10 sec. |
+| druid | `wrath` | Wrath of Cenarius | Wrath deals 65% more and hits 1 more target, with a 55% chance to strike again for 165%. |
+| druid | `moonfire` | Moonfire | Moonfire deals 25% more and hits 2 more targets. It spreads on death. |
+| druid | `hurricane` | Eye of the Storm | Hurricane deals 6% more, is 50% wider and lasts 30% longer. |
+| druid | `insect_swarm` | Silithid Swarm | Insect Swarm deals 160% more. Every 2 sec insects leave each swarmed enemy, biting the nearest other enemy for 160% and healing you 6% of your health. ("every 2 sec" is every second tick on an enemy (it ticks every 1.05 sec)) |
+| druid | `entangling_roots` | Iron Roots | Entangling Roots deals 150% more and hits 2 more targets. Rooted enemies take 95% more damage from you. |
 | druid | `rejuvenation` | Lifebinder's Gift | Rejuvenation heals 90% more. When it ends, a bloom heals you 10% of your health and hits enemies within 8 yd for as much. ("hits for 100 %" is 100 % of the bloom's heal) |
 | druid | `regrowth` | Nature's Fury | Regrowth heals 40% more, then 50% more over 6 sec. |
-| druid | `thorns` | Thorns Aura | Thorns strikes back twice as hard. While it lasts, thorny vines lash a random enemy within 15 yd every 0.5 sec for 80% of your max health. |
+| druid | `thorns` | Thorns Aura | Thorns strikes back 30% harder. While it lasts, thorny vines lash a random enemy within 15 yd every 0.5 sec for 30% of your max health. |
 | druid | `rake` | Rend Flesh | Rake deals 95% more and hits 2 more targets. It spreads on death. |
 | druid | `shred` | Saber Lash | Shred deals 45% more. Each shred also cuts 2 enemies near the target for 60%. |
-| druid | `tigers_fury` | Frenzy | Tiger's Fury lasts twice as long. While it lasts your swings are 30% faster, and every hit and tick you deal strikes again for 40%. |
+| druid | `tigers_fury` | Frenzy | Tiger's Fury lasts twice as long. While it lasts your swings are 30% faster, and every hit and tick you deal strikes again for 30%. |
 | druid | `pounce` | Ravage | Pounce deals 450% more and leaps to 2 more enemies, stunning each. |
-| druid | `ravage` | Pounce | Ravage deals 50% more. It also hits 2 enemies near the target for 65%. |
-| druid | `faerie_fire_feral` | Moonglow | Faerie Fire hits 2 more targets. Marked enemies take 220% more damage from you. |
-| druid | `dash` | Sprint of the Wild | Dash lasts twice as long. While it lasts your swings are 20% faster, and wild spirits run with you, striking every enemy within 5 yd for 8% of your max health each sec. |
-| druid | `swipe` | Swipe | Swipe deals 80% more and reaches 50% farther. |
+| druid | `ravage` | Pounce | Ravage deals 60% more. It also hits 2 enemies near the target for 45%. |
+| druid | `faerie_fire_feral` | Moonglow | Faerie Fire hits 2 more targets. Marked enemies take 165% more damage from you. |
+| druid | `dash` | Sprint of the Wild | Dash lasts twice as long. While it lasts your swings are 20% faster, and wild spirits run with you, striking every enemy within 5 yd for 10% of your max health each sec. |
+| druid | `swipe` | Swipe | Swipe deals 50% more and reaches 50% farther. |
 | druid | `ferocious_bite` | Feast | Ferocious Bite deals 430% more and tears into 2 more enemies near the target for 110%. It heals you 5% of your health and gives back 2 combo points. |
-| druid | `powershift` | Shapeshift | Powershift gives twice the energy and comes back twice as fast. Each shift you leap out in flame: 5% of your max health to enemies within 8 yd, and the ground there burns for 4 sec, 2% a sec. |
-| druid | `demoralizing_roar` | Deafening Roar | Demoralizing Roar reaches twice as far. Enemies it hits take 35% more damage from you for 6 sec, and each one gives you 9 rage. |
-| druid | `bash` | War Stomp | Bash deals 40% more and becomes a stomp: every enemy within 8 yd takes its hit, is stunned for 1.5 sec and takes 25% more damage from you. (the stomp strikes for Bash's hit; its enemies take more for the stun's 1.5 sec) |
-| druid | `enrage` | Surge | Enrage gives twice the rage. Each time it fires you surge with a roar: 20% of your max health to enemies within 8 yd, and your next 3 swings are 30% faster. |
+| druid | `powershift` | Shapeshift | Powershift gives twice the energy and comes back twice as fast. Each shift you leap out in flame: 4% of your max health to enemies within 8 yd, and the ground there burns for 4 sec, 2% a sec. |
+| druid | `demoralizing_roar` | Deafening Roar | Demoralizing Roar reaches twice as far. Enemies it hits take 15% more damage from you for 6 sec, and each one gives you 9 rage. |
+| druid | `bash` | War Stomp | Bash deals 20% more and becomes a stomp: every enemy within 8 yd takes 45% of its hit, is stunned for 1.5 sec and takes 10% more damage from you. (the stomp strikes for Bash's hit; its enemies take more for the stun's 1.5 sec) |
+| druid | `enrage` | Surge | Enrage gives twice the rage. Each time it fires you surge with a roar: 10% of your max health to enemies within 8 yd, and your next 3 swings are 30% faster. |
 | druid | `frenzied_regeneration` | Roar of the Ancients | Frenzied Regeneration heals 180% more. |
-| druid | `barkskin` | Ironbranch | Barkskin absorbs 60% more, and it bursts for half its value within 10 yd when it breaks. (a shield grows with the square root of its power: 1.56 more power absorbs 60 % more) |
-| druid | `lacerate` | Brutal Swipe | Lacerate deals 50% more and hits 2 more targets. It spreads on death. |
+| druid | `barkskin` | Ironbranch | Barkskin absorbs 60% more, and it bursts for 30% of its value within 10 yd when it breaks. (a shield grows with the square root of its power: 1.56 more power absorbs 60 % more) |
+| druid | `lacerate` | Brutal Swipe | Lacerate deals 25% more and hits 2 more targets. It spreads on death. |
 
 All legendary amulets are `Legendary` with growth `Slowest`.
 

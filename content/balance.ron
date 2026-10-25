@@ -6,6 +6,7 @@
 // zone health(D) is zone_scaling's normal_health at D for normal enemies, to elite_health_power for
 // elites and rares, to boss_health_power for bosses; share is damage_share for normal enemies,
 // elite_boss_damage_share for the rest. `toughness` is per normal enemy (in its zone file), on health only.
+// In Challenge Mode D is Ahn'Qiraj's in every zone, and both lines end × challenge_factor × slider (at the end).
 (
     // Every enemy's movement speed times this (normal enemies, bosses, rares): the one knob
     // for how fast the game's enemies run: 5 % slower.
@@ -17,20 +18,29 @@
     // never on a hero's actual power.
     zone_scaling: (
         // Normal enemy health by D (Elwynn = 1), points joined by straight lines, past the last at the
-        // last step's pace. Bigger steps where the expected hero gains a milestone row (D 3, 5, 7),
-        // taking back about half of it so it is still felt. Tuned (buffs at
-        // 40 % uptime) with every level-1 spell × weapon loadout and the milestones, no amulets: normal enemies' kill time climbs
-        // about 5 % a step of D from Elwynn's (Gurubashi Arena, D 7, still slower: its row kept just above D 6).
-        normal_health: [(1.0, 1), (2.0, 1.25), (3.0, 1.8), (4.0, 3.25), (5.0, 4.4), (6.0, 5.25),
-                        (7.0, 5.3), (8.0, 6.9), (9.0, 6.95), (10.0, 8.55), (11.0, 10.8), (12.0, 14.4)],
+        // last step's pace. Fitted so the baseline hero (rare and epic amulets as offered, bought
+        // caches, kiting, every level-1 spell × weapon loadout) kills normal enemies in the original
+        // game's kill seconds over minutes 5-18 (AUTHORING.md, "Power budgets"); a row that wanted
+        // less than the one before is kept just above it (Gurubashi Arena, D 7, still slower; Blackrock).
+        normal_health: [(1.0, 1), (2.0, 1.4), (3.0, 2.25), (4.0, 4.0), (5.0, 5.75), (6.0, 6.75),
+                        (7.0, 7.25), (8.0, 8.75), (9.0, 9.0), (10.0, 11.0), (11.0, 12.0), (12.0, 17.25)],
         // Elites and rares take that multiplier to this power, bosses to the second: gentler,
-        // so their fights keep their length.
+        // so their fights keep their length. The bosses' power is fitted with boss_clock_power below.
         elite_health_power: 0.87,
-        boss_health_power: 0.66,
+        boss_health_power: 0.7,
         // Damage multiplier = the enemy's own health multiplier to this power: normal enemies, then
         // elites, rares and bosses (gentler blows).
         damage_share: 0.6,
         elite_boss_damage_share: 0.45,
+        // Normal enemy damage by D, read as normal_health is: the blows the old health table
+        // gave (its multiplier^0.6), kept when the health table was refitted, so enemies hit as hard
+        // as before; elites and rares take it to elite_damage_power, bosses to boss_damage_power (the
+        // old 0.87 × 0.45 and 0.66 × 0.45 over 0.6). damage_share and elite_boss_damage_share are not
+        // read while this table is set.
+        normal_damage: [(1.0, 1), (2.0, 1.15), (3.0, 1.4), (4.0, 2.05), (5.0, 2.45), (6.0, 2.7),
+                        (7.0, 2.7), (8.0, 3.25), (9.0, 3.25), (10.0, 3.75), (11.0, 4.25), (12.0, 5.0)],
+        elite_damage_power: 0.65,
+        boss_damage_power: 0.5,
         // Gear stats: first-zone value × D^gear_exponent, rounded up; past D gear_steeper_from, × gear_growth_after more per step of D.
         gear_exponent: 0.55,
         gear_steeper_from: 9.0,
@@ -38,20 +48,27 @@
         // Boss gear drop chance per piece, by steps of D (less grinding for gear):
         // each (D, chance) holds from its D until the next step, no blending; × the run-option bonus.
         gear_drop_chance: [(1.0, 1.0), (2.0, 0.8), (4.0, 0.7), (6.0, 0.6), (8.0, 0.4)],
-        // Talent experience zone bonus: × D^talent_exponent.
-        talent_exponent: 0.17,
+        // Talent experience zone bonus: × D^talent_exponent. 0.7 (0.17 before): with the
+        // point cost (rewards.rs) a player who wins each zone once, in order, gets the 11th talent
+        // point during Duskwood, the 31st during the Scarlet Monastery, 41 by Feralas and the 51st
+        // as Stratholme begins (AUTHORING.md "Power budgets").
+        talent_exponent: 0.7,
         // The D at which gear tiers 1, 2, 3 and 4 begin (a piece's name and look).
         gear_tier_starts: [2.0, 4.0, 7.0, 9.0],
     ),
     // What each kind multiplies the base health and damage by.
     normal: (health: 1.0, damage: 1.0),
     elite: (health: 10.0, damage: 3.0),
-    rare: (health: 16.0, damage: 3.0),
-    boss: (health: 24.0, damage: 2.0),
-    final_boss: (health: 28.0, damage: 1.0),
+    rare: (health: 10.0, damage: 3.0),
+    boss: (health: 30.0, damage: 2.0),
+    final_boss: (health: 75.0, damage: 1.0),
     // The run clocks, read at the minute the enemy appears: (minute, multiplier) points joined by
     // straight lines; past the last point the last step's pace goes on.
     health_clock: [(0.0, 1.0), (4.0, 2.5), (8.0, 7.0), (12.0, 18.0), (16.0, 36.0), (20.0, 65.0)],
+    // Bosses and final bosses read the health clock to this power: a boss that comes late grows
+    // less than the swarm, so a zone's bosses last about as long as each other (fitted with the
+    // boss and final_boss health above to the boss-time goals, AUTHORING.md "Power budgets").
+    boss_clock_power: 0.3,
     damage_clock: [(0.0, 1.0), (4.0, 1.5), (8.0, 2.5), (12.0, 4.5), (16.0, 7.0)],
     // Spawn budget per second at 100 % density (an enemy costs its spawn_cost from it), by minute.
     spawn_budget: [(0.0, 0.5), (4.0, 1.5), (8.0, 3.0), (12.0, 5.0), (16.0, 7.5), (20.0, 10.5)],
@@ -92,8 +109,8 @@
     ),
     // The battle standard (docs/game/assists.md): walked over, it summons one hand-made player
     // character of the hero's faction (player_characters.ron, one not yet summoned this run while
-    // others remain), drawn ally_scale times its size, to assist for at most assist_seconds unless
-    // its script gives a longer time. A run lays per_run (fewest, most; picked at random each run),
+    // others remain), drawn ally_scale times its size, to assist for assist_seconds (15) unless
+    // its script gives another time: its assist, then its rotation until it goes. A run lays per_run (fewest, most; picked at random each run),
     // each at a random time between the first elite and the final boss, on the caches' ring,
     // lying until taken; in Endless one more every endless_every seconds. Never in never_in
     // (Warsong Gulch: there these characters are the bosses). Its look is the hero's faction's
@@ -106,6 +123,16 @@
         display: (alliance: 14541, horde: 14542),
         planted_look: (alliance: 23034, horde: 23035),
         ally_scale: 2.0,
-        assist_seconds: 10.0,
+        assist_seconds: 15.0,
+        // What every assist deals a second, as a share of the struck enemy's max health: 5% on a
+        // normal enemy, 1% on an elite, a rare or a boss. Each damage event (a hit, a swing, a tick,
+        // a pulse, a pet's attack) deals the rate × the enemy's max health × the seconds it stands
+        // for (docs/game/assists.md, "Its damage").
+        assist_damage_per_second: (normal: 0.05, elite_rare_boss: 0.01),
     ),
+    // Challenge Mode (docs/game/zones.md, "Challenge Mode"): every enemy takes Ahn'Qiraj's D
+    // in the formula above, then its final health and damage are × challenge_factor × the challenge
+    // slider (1x-5x): one flat factor on every kind, outside the kind and zone powers. A challenge
+    // run pays the talent experience the same run in Ahn'Qiraj would, × challenge_factor (never the slider).
+    challenge_factor: 1.1,
 )

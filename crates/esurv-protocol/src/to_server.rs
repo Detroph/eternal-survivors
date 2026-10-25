@@ -15,16 +15,36 @@ pub struct Screens {
     pub hud: bool,
 }
 
-/// The run options, as whole percentages.
+/// The run options, as whole percentages, and the mode the next run is in: Normal Mode, or
+/// Challenge Mode (open to a class that has cleared Ahn'Qiraj) at its own slider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RunOptions {
     pub density: u16,
     pub health: u16,
     pub damage: u16,
     pub speed: u16,
+    /// The Challenge Mode tab is picked (the server runs Normal Mode for a class without it open).
+    pub challenge: bool,
+    /// The challenge slider, 100 (1x) to 500 (5x) in steps of 25.
+    pub challenge_pct: u16,
+}
+
+impl Default for RunOptions {
+    fn default() -> Self {
+        Self {
+            density: 100,
+            health: 100,
+            damage: 100,
+            speed: 100,
+            challenge: false,
+            challenge_pct: 100,
+        }
+    }
 }
 
 impl RunOptions {
+    /// The four sliders' values; the mode follows on its own ([`RunOptions::write_mode`]), last on
+    /// its line, so a line without it still reads.
     pub(crate) fn write(&self, o: &mut Out) {
         o.num(self.density)
             .num(self.health)
@@ -32,13 +52,28 @@ impl RunOptions {
             .num(self.speed);
     }
 
+    /// The mode: the Challenge Mode tab picked, and the challenge slider.
+    pub(crate) fn write_mode(&self, o: &mut Out) {
+        o.flag(self.challenge).num(self.challenge_pct);
+    }
+
+    /// The four sliders' values, the mode Normal Mode until [`RunOptions::read_mode`] reads it.
     pub(crate) fn read(r: &mut In) -> Option<Self> {
         Some(Self {
             density: r.num()?,
             health: r.num()?,
             damage: r.num()?,
             speed: r.num()?,
+            ..Self::default()
         })
+    }
+
+    /// The mode, when the line has it (an older line has not: Normal Mode at 1x).
+    pub(crate) fn read_mode(&mut self, r: &mut In) {
+        if let (Some(challenge), Some(pct)) = (r.flag(), r.num()) {
+            self.challenge = challenge;
+            self.challenge_pct = pct;
+        }
     }
 }
 
@@ -67,7 +102,8 @@ pub enum ToServer {
     Reset,
     /// `leave`: end the run here.
     Leave,
-    /// `options <density> <health> <damage> <speed>`: the run options for the next run.
+    /// `options <density> <health> <damage> <speed> <challenge> <challenge %>`: the run options and
+    /// the mode (Challenge Mode or not, and its slider) for the next run.
     RunOptions(RunOptions),
     /// `learn <talent>` and `unlearn <talent>`: one rank more or less.
     LearnTalent(String),
@@ -144,7 +180,10 @@ impl Wire for ToServer {
             ToServer::Choose(n) => {
                 o.num(n);
             }
-            ToServer::RunOptions(options) => options.write(&mut o),
+            ToServer::RunOptions(options) => {
+                options.write(&mut o);
+                options.write_mode(&mut o);
+            }
             ToServer::LearnTalent(id)
             | ToServer::UnlearnTalent(id)
             | ToServer::LearnPrestige(id)
@@ -201,7 +240,11 @@ impl Wire for ToServer {
             "again" => ToServer::Again,
             "reset" => ToServer::Reset,
             "leave" => ToServer::Leave,
-            "options" => ToServer::RunOptions(RunOptions::read(r)?),
+            "options" => {
+                let mut options = RunOptions::read(r)?;
+                options.read_mode(r);
+                ToServer::RunOptions(options)
+            }
             "learn" => ToServer::LearnTalent(r.text()?),
             "unlearn" => ToServer::UnlearnTalent(r.text()?),
             "prestige" => ToServer::LearnPrestige(r.text()?),
@@ -261,6 +304,8 @@ mod tests {
             health: 125,
             damage: 110,
             speed: 105,
+            challenge: true,
+            challenge_pct: 175,
         }));
         round_trip(ToServer::LearnTalent("improved_fireball".into()));
         round_trip(ToServer::UnlearnTalent("arcane_focus".into()));

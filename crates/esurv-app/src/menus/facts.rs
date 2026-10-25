@@ -35,6 +35,11 @@ impl PreRunFacts {
         self.progress.values().next().map_or(&[], |p| p.zones_discovered.as_slice())
     }
 
+    /// Whether the box telling that Challenge Mode is open is due (once per save).
+    pub fn challenge_news(&self) -> bool {
+        self.progress.values().any(|p| p.challenge_news)
+    }
+
     pub fn run_options(&self) -> Option<(RunOptions, f32)> {
         self.options
     }
@@ -53,6 +58,10 @@ impl PreRunFacts {
         for m in told {
             match m {
                 ToClient::Progress(p) => {
+                    // the Challenge Mode box is the whole save's: closed for one class, closed for all
+                    if !p.challenge_news {
+                        self.progress.values_mut().for_each(|q| q.challenge_news = false);
+                    }
                     self.progress.insert(p.class.clone(), p);
                 }
                 ToClient::RunOptions { options, bonus } => self.options = Some((options, bonus)),

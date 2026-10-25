@@ -2,10 +2,11 @@
 // that family's (`PetFamily::scale_range`) in place of `scale`.
 ([
     (
+        // Tame Beast's wolf (the only one that calls it): half its blow
         name: "Wolf",
         display_id: 165,
         scale: 1.0,
-        damage: 67.0,
+        damage: 33.5,
         swing: 1.2,
         school: Physical,
         family: Some(Wolf),

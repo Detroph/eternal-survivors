@@ -271,6 +271,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.75), // lived 51 s against a 38 s goal
         ),
         (
             name: "Arcanist Doan",
@@ -317,6 +318,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.8), // lived 49 s against a 38 s goal
         ),
         (
             name: "Herod",
@@ -374,6 +376,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.75), // lived 52 s against a 38 s goal
         ),
         (
             name: "High Inquisitor Fairbanks",
@@ -410,10 +413,11 @@
                 // green beams heal the enemies near him
                 (
                     on: Every(5.0),
-                    run: [Heal(on: Near(15.0), share: 0.05, look_spell: 12039, beam_spell: 13540, beam_seconds: 3.0)],
+                    run: [Heal(on: Near(15.0), share: 0.025, look_spell: 12039, beam_spell: 13540, beam_seconds: 3.0)],
                 ),
             ],
             is_final: false,
+            health_share: Some(0.6), // lived 64 s against a 38 s goal
         ),
         // Mograine fights alone and falls; Whitemane arrives, puts all
         // to sleep (the scripted pause) and raises him ("Arise, my champion!"); then both fight
@@ -450,7 +454,7 @@
             ],
             is_final: true,
             at: Some((x: 1154.015381, y: 1398.447144, z: 32.527908, facing: 3.230044)),
-            health_share: Some(0.5),
+            health_share: Some(0.75), // 0.5 before; lived 79 s against a 100 s goal
         ),
         (
             name: "High Inquisitor Whitemane",
@@ -502,12 +506,12 @@
                 // and heals him with a beam
                 (
                     on: Every(8.0),
-                    run: [Heal(on: Boss("Scarlet Commander Mograine"), share: 0.04, look_spell: 12039, beam_spell: 13540, beam_seconds: 2.5)],
+                    run: [Heal(on: Boss("Scarlet Commander Mograine"), share: 0.02, look_spell: 12039, beam_spell: 13540, beam_seconds: 2.5)],
                 ),
             ],
             is_final: true,
             at: Some((x: 1201.884277, y: 1398.897217, z: 29.010046, facing: 3.139704)),
-            health_share: Some(0.75),
+            health_share: Some(0.6), // 0.75 before; lived 118 s against a 100 s goal
         ),
     ],
 )

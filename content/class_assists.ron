@@ -12,6 +12,9 @@
 //                                       // whose own `assist` text is empty
 //       script: (...),                  // the blocks (docs/game/AUTHORING.md, "A player character
 //                                       // and its assist")
+//       behaviour: (style: Melee, rotation: [21553, 1680]), // what it does after the script, until
+//                                       // it leaves: a move style and a rotation of spells in
+//                                       // assist_spells.ron (docs/game/assists.md, "Its rotation")
 //   ),
 // The numbers are the hand-made characters' (each default follows one of them, named above it).
 ([
@@ -24,10 +27,12 @@
                 Move(to: Nearest(1), how: Charge),
                 Hit(targets: NearAlly(radius: 10.0), look_spell: Some(5246), effects: [Fear(seconds: 6.0)], wears: [5246]),
                 Repeat(every: 1.0, times: 6, steps: [
-                    Hit(targets: NearAlly(radius: 8.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(1680)),
+                    Hit(targets: NearAlly(radius: 8.0), damage: true, look_spell: Some(1680)),
                 ]),
             ],
         ),
+        // Mortal Strike, Whirlwind, Heroic Strike
+        behaviour: (style: Melee, rotation: [21553, 1680, 25286]),
     ),
     (
         // Xqc's
@@ -38,37 +43,43 @@
             steps: [
                 Buff(seconds: 6.0, immune: true, look_spell: Some(1022)),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.03)), look_spell: Some(20424), melee: true),
+                    Hit(targets: Nearest(3), damage: true, look_spell: Some(20424), melee: true),
                 ]),
             ],
         ),
+        // Seal of Command, Judgement, Hammer of Justice
+        behaviour: (style: Melee, rotation: [20920, 20271, 10308]),
     ),
     (
         // Shroud's bolts, as shots
         class: "hunter",
-        text: "Fires {Spell(2643)} at the 3 nearest enemies twice, each shot 6% of its max health.",
+        text: "Fires {Spell(2643)} at the 3 nearest enemies twice.",
         script: (
             steps: [
                 Repeat(every: 1.0, times: 2, steps: [
-                    Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(2643)),
+                    Hit(targets: Nearest(3), damage: true, look_spell: Some(2643)),
                 ]),
             ],
         ),
+        // Arcane Shot, Multi-Shot, Serpent Sting
+        behaviour: (style: Caster, rotation: [14287, 25294, 25295]),
     ),
     (
         // Mir's
         class: "rogue",
-        text: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, each hit 3% of its max health, then vanishes.",
+        text: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, then vanishes.",
         script: (
             arrive: (look_spell: Some(1856)),
             steps: [
                 Cast(look_spell: 22482),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03)), melee: true),
+                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: true, melee: true),
                 ]),
             ],
             leave: (how: Vanish),
         ),
+        // Sinister Strike twice, Eviscerate
+        behaviour: (style: ErraticMelee, rotation: [11294, 11294, 31016]),
     ),
     (
         // Cdew's heal and Snutz's fear
@@ -80,42 +91,50 @@
                 Hit(targets: NearHero(radius: 10.0, most: 5), look_spell: Some(8122), effects: [Fear(seconds: 8.0)], wears: [8122]),
             ],
         ),
+        // Flash Heal, Renew, Smite
+        behaviour: (style: Healer, rotation: [10917, 25315, 10934]),
     ),
     (
         // Cdevv's
         class: "shaman",
-        text: "Appears with a crack of lightning, drops a {Spell(8512)} (the hero's swings 20% faster for 15 sec), then Stormstrikes the 3 nearest enemies, each hit 6% of its max health.",
+        text: "Appears with a crack of lightning, drops a {Spell(8512)} (the hero's swings 20% faster for 15 sec), then Stormstrikes the 3 nearest enemies.",
         script: (
             arrive: (look_spell: Some(403)),
             steps: [
                 Buff(stats: [(SwingSpeed, 0.2)], seconds: 15.0, totem: Some(8512)),
-                Hit(targets: Nearest(3), damage: Some(MaxHealthShare(0.06)), look_spell: Some(17364), melee: true),
+                Hit(targets: Nearest(3), damage: true, look_spell: Some(17364), melee: true),
             ],
         ),
+        // Stormstrike, Earth Shock, Flame Shock
+        behaviour: (style: Melee, rotation: [17364, 10414, 29228]),
     ),
     (
         // Xaryu's
         class: "mage",
-        text: "Blinks in beside the hero, roots every enemy near them in a {Spell(122)} for 8 sec, then calls a {Spell(10)} on them for 8 sec, 3% of each one's max health a sec.",
+        text: "Blinks in beside the hero, roots every enemy near them in a {Spell(122)} for 8 sec, then calls a {Spell(10)} on them for 8 sec.",
         script: (
             arrive: (how: Blink),
             steps: [
                 Hit(targets: NearHero(radius: 10.0), look_spell: Some(122), effects: [Root(seconds: 8.0)], wears: [122]),
-                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: Some(MaxHealthShare(0.03)), look_spell: 10),
+                Area(at: Hero, radius: 9.0, seconds: 8.0, damage: true, look_spell: 10),
             ],
         ),
+        // Frost Nova, Blizzard, Frostbolt
+        behaviour: (style: NovaKiteCaster, rotation: [10230, 10187, 25304]),
     ),
     (
         // Snutz's
         class: "warlock",
-        text: "Appears through a summoning portal, Fears up to 5 enemies near the hero for 8 sec and rains fire on the biggest pack for 10 sec, 3% of each enemy's max health a sec.",
+        text: "Appears through a summoning portal, Fears up to 5 enemies near the hero for 8 sec and rains fire on the biggest pack for 10 sec.",
         script: (
             arrive: (how: Portal, look_spell: Some(698)),
             steps: [
                 Hit(targets: NearHero(radius: 10.0, most: 5), look_spell: Some(5782), effects: [Fear(seconds: 8.0)], wears: [5782]),
-                Area(at: BiggestPack, radius: 8.0, seconds: 10.0, damage: Some(MaxHealthShare(0.03)), look_spell: 5740),
+                Area(at: BiggestPack, radius: 8.0, seconds: 10.0, damage: true, look_spell: 5740),
             ],
         ),
+        // Corruption, Curse of Agony, Shadow Bolt
+        behaviour: (style: Caster, rotation: [25311, 11713, 25307]),
     ),
     (
         // Cdew's heal and Healing Stream's, as Rejuvenation
@@ -127,12 +146,14 @@
                 Buff(seconds: 15.0, heal: 0.02, every: 2.0, look_spell: Some(774)),
             ],
         ),
+        // Healing Touch, Rejuvenation, Regrowth
+        behaviour: (style: Healer, rotation: [25297, 25299, 9858]),
     ),
     (
         // Sodapoppin's
         class: "druid",
         form: Some(Cat),
-        text: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding 2% of its max health a sec for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
+        text: "Pounces out of {Spell(5215)} in {Spell(768)}, Rakes up to 5 enemies near the hero, each bleeding for 10 sec, and gives the hero {Spell(1126)} (+10% max health) for 30 sec.",
         script: (
             arrive: (how: Stealth, beside: Some(Nearest(1)), look_spell: Some(9005)),
             steps: [
@@ -140,26 +161,30 @@
                     targets: NearHero(radius: 10.0, most: 5),
                     look_spell: Some(1822),
                     melee: true,
-                    over_time: Some((damage: MaxHealthShare(0.02), seconds: 10.0, look_spell: Some(1822))),
+                    over_time: Some((seconds: 10.0, look_spell: Some(1822))),
                 ),
                 Buff(stats: [(MaxHealth, 0.1)], seconds: 30.0, look_spell: Some(1126)),
             ],
         ),
+        // Rake, Claw, Ferocious Bite
+        behaviour: (style: Melee, rotation: [9904, 9850, 31018]),
     ),
     (
         // the tanks' taunt (Vodu's 10 sec) and Mir's strikes, as Swipe
         class: "druid",
         form: Some(Bear),
-        text: "Charges in with {Spell(16979)}, Growls every enemy near the hero into attacking it for 10 sec and Swipes those around it every sec for 8 sec, each 3% of its max health.",
+        text: "Charges in with {Spell(16979)}, Growls every enemy near the hero into attacking it for 10 sec and Swipes those around it every sec for 8 sec.",
         script: (
             steps: [
                 Move(to: Nearest(1), how: Charge, look_spell: Some(16979)),
                 Taunt(targets: NearHero(radius: 10.0), seconds: 10.0, look_spell: Some(6795)),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: NearAlly(radius: 7.0), damage: Some(MaxHealthShare(0.03)), look_spell: Some(779)),
+                    Hit(targets: NearAlly(radius: 7.0), damage: true, look_spell: Some(779)),
                 ]),
             ],
         ),
+        // Maul, Swipe, Demoralizing Roar
+        behaviour: (style: Melee, rotation: [9881, 9908, 9898]),
     ),
     (
         // Regiss's
@@ -170,9 +195,11 @@
             steps: [
                 Hit(targets: NearHero(radius: 10.0), look_spell: Some(339), effects: [Root(seconds: 8.0)], wears: [339]),
                 Repeat(every: 2.0, times: 5, steps: [
-                    Hit(targets: Healthiest, damage: Some(MaxHealthShare(0.05)), look_spell: Some(2912)),
+                    Hit(targets: Healthiest, damage: true, look_spell: Some(2912)),
                 ]),
             ],
         ),
+        // Moonfire, Starfire, Wrath
+        behaviour: (style: Caster, rotation: [9835, 25298, 9912]),
     ),
 ])

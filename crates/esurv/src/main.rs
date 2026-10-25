@@ -348,12 +348,18 @@ fn exe_dir() -> PathBuf {
 }
 
 /// Names in the log every hand-made player character still on its class's default assist (no
-/// `assist_script` of its own in player_characters.ron), so the ones that need one are easy to find.
+/// `assist_script` of its own in player_characters.ron), and every one on its class's default rotation
+/// (no `behaviour`), so the ones that need one are easy to find.
 fn report_default_assists(content: &esurv_content::Content) {
     let on_default = content.characters_on_default_assist();
     if !on_default.is_empty() {
         let list: Vec<String> = on_default.iter().map(|(id, default)| format!("{id} ({default})")).collect();
         eprintln!("esurv: {} player character(s) use their class's default assist: {}", list.len(), list.join(", "));
+    }
+    let on_default = content.characters_on_default_behaviour();
+    if !on_default.is_empty() {
+        let list: Vec<String> = on_default.iter().map(|(id, default)| format!("{id} ({default})")).collect();
+        eprintln!("esurv: {} player character(s) use their class's default rotation: {}", list.len(), list.join(", "));
     }
 }
 

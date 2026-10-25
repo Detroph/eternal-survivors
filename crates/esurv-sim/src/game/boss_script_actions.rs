@@ -372,15 +372,22 @@ impl Run {
         }
     }
 
-    /// A roster enemy (`roster`) died at `at`: the bosses' lines waiting for it run there.
+    /// A roster enemy (`roster`) died at `at` (already off the field): the bosses' lines waiting
+    /// for it run there, `LastAddDied` ones only when none of its name is left.
     pub(crate) fn add_died(&mut self, roster: usize, at: Vec2) {
         let content = self.content.clone();
         let zone = &content.zones[self.zone];
         let name = &zone.enemies[roster].name;
+        let last = !self.enemies.iter().any(|e| matches!(e.kind, EnemyKind::Roster(r) if zone.enemies[r].name == *name));
         let bosses: Vec<(u32, usize)> = self.enemies.iter().filter_map(|e| if let EnemyKind::Boss(b) = e.kind { Some((e.id, b)) } else { None }).collect();
         for (id, b) in bosses {
             for (i, line) in zone.bosses[b].script.iter().enumerate() {
-                if line.on == ScriptTrigger::AddDied && line.add.as_ref() == Some(name) {
+                let waits = match line.on {
+                    ScriptTrigger::AddDied => true,
+                    ScriptTrigger::LastAddDied => last,
+                    _ => false,
+                };
+                if waits && line.add.as_ref() == Some(name) {
                     if let Some(w) = &line.warn {
                         self.announce_warning(w, 0);
                     }

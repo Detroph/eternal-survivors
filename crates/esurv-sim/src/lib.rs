@@ -7,6 +7,7 @@ pub mod rng;
 pub mod game {
     pub mod abilities;
     pub mod amulets;
+    pub mod assist_rotation;
     pub mod assists;
     pub mod beams;
     pub mod boss_abilities;
@@ -24,6 +25,7 @@ pub mod game {
     pub mod boss_scripts;
     pub mod boss_warnings;
     pub mod casting;
+    pub mod challenge;
     pub mod choices;
     pub mod damage;
     pub mod director;

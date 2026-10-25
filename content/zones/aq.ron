@@ -574,6 +574,7 @@
                 ),
             ],
             is_final: true,
+            health_share: Some(1.2), // lived 147 s against a 150 s goal, 124 s with the new formula
         ),
     ],
 )

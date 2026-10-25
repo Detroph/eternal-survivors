@@ -106,6 +106,10 @@ impl Run {
                 self.cast_building_block(k, h, &kind, damage * harder);
                 continue;
             }
+            // a ground burst's delay shows on the boss's bar as a cast
+            if self.enemies[k].is_boss() {
+                self.boss_casting(id, &kind);
+            }
             let hero = self.heroes[h].pos;
             let missiles = |spell: u32| self.world.missile_speed(spell);
             let mut rng = std::mem::replace(&mut self.rng, crate::rng::Rng::new(0));

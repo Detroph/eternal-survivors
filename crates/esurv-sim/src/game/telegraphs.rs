@@ -150,6 +150,10 @@ impl Run {
         if let Some(w) = kind.warning() {
             self.announce_warning(w, kind_look(kind));
         }
+        // the boss's own wind-up shows on its bar as a cast (not an add's or an object's)
+        if spot.is_none() && from_adds.is_none() && self.enemies[k].is_boss() {
+            self.boss_casting(id, kind);
+        }
         match kind {
             BossAbilityKind::Marked { shape, at, wind_up, damage_mult, impact_spell, warning_spell, fill_spell, leaves, leaves_object, missile, impact_on_bunny, chain, brings, sweep, .. } => {
                 let by_adds = from_adds.is_some();
@@ -262,6 +266,14 @@ impl Run {
             }
             _ => {}
         }
+    }
+
+    /// Boss `boss` starts winding up `kind`, when it has a wind-up: [`Event::BossCasting`].
+    pub(crate) fn boss_casting(&mut self, boss: u32, kind: &BossAbilityKind) {
+        let Some(seconds) = wind_up_of(kind) else { return };
+        let label = kind.warning().map(|w| w.bar_label().to_string()).unwrap_or_default();
+        let spell = kind.warning().and_then(|w| w.icon_spell).unwrap_or_else(|| kind_look(kind));
+        self.push(Event::BossCasting { boss, label, spell, seconds });
     }
 
     /// Puts mark `t` down (numbered now) and tells the client its shape and looks.
@@ -445,6 +457,17 @@ pub fn kind_look(kind: &BossAbilityKind) -> u32 {
         BossAbilityKind::Volley { look_spell, .. } | BossAbilityKind::Stomp { look_spell, .. } | BossAbilityKind::Charge { look_spell, .. } => *look_spell,
         BossAbilityKind::Summon { .. } => 0,
     }
+}
+
+/// How long `kind` winds up before it lands, for the kinds that do (marks, rushes, ground
+/// bursts); a chain's last mark lands `chain` seconds apart, but the cast is its first's.
+pub fn wind_up_of(kind: &BossAbilityKind) -> Option<f32> {
+    match kind {
+        BossAbilityKind::Marked { wind_up, .. } | BossAbilityKind::Rush { wind_up, .. } => Some(*wind_up),
+        BossAbilityKind::GroundBurst { delay, .. } => Some(*delay),
+        _ => None,
+    }
+    .filter(|s| *s > 0.0)
 }
 
 /// Whether `kind` is one of the building blocks (cast by [`Run::cast_building_block`]).

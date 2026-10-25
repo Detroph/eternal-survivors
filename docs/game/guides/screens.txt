@@ -255,8 +255,8 @@ version is screens.md in the folder above this one.
 
   GLOWS. Elites wear a thin purple outline with a soft, slowly pulsing glow, the same look as
   the picked hero's gold one on the warband screen; rares and the Rare Caches they drop wear it
-  in silver. Bosses and the other enemies have none, and a slain one stops glowing. The Options
-  panel's Interface tab turns them all off at once ("Glow around elites and rares").
+  in silver, bosses in orange. The other enemies have none, and a slain one stops glowing. The
+  Options panel's Interface tab turns them all off at once ("Glow around elites, rares and bosses").
 
 
 6. THE ARMORY AND THE CODEX
@@ -472,7 +472,12 @@ version is screens.md in the folder above this one.
       forms). Hover one to read what it does, with its numbers, and its passive; click it to
       pick it. The hero keeps the pick for its next runs (the first one until you pick).
       Below it a place kept for later (choosing its weapons)
-    - top middle: the armour it wears (hover a piece for its name)
+    - top middle: a row of buttons, "Collection", "Talents", a dimmed "TBD" kept for later,
+      and "Guide"; under them the armour it wears (hover a piece for its name). "Guide" opens
+      a panel over the screen that explains the game in four tabs: Stats (what each stat
+      does), Enemies (normal enemies, elites, rares and bosses: when they come, how they glow,
+      what they drop), Upgrades (the level-up cards) and Loot (what you pick up, and what
+      caches give). Its numbers are the game's own. "Close" or Escape closes it.
     - right: the zones. The zone of the hero's next run is open as a card: what it is, its
       enemies and its bosses with the time each one comes. Click another zone to send the
       hero there; a zone your class has not opened says which boss to beat, and where, to
@@ -489,7 +494,7 @@ version is screens.md in the folder above this one.
     - under the campfire: "New character", "Modify character" and "Delete character".
       Deleting asks first ("No" is the default); after a delete the camp picks the next hero.
     - bottom-left corner: "Options" above "Quit game". Quit game closes the game. When a newer
-      version of the game is out, a small panel above them says "v0.5.0 is available" with an
+      version of the game is out, a small glowing, pulsing panel above them says "v0.5.0 is available" with an
       "Update" button: it downloads the new version, checks it and restarts the game into it,
       your heroes and settings kept (server.txt, UPDATES). If it fails, the panel says why and
       nothing changes; Update tries again.
@@ -514,9 +519,9 @@ version is screens.md in the folder above this one.
                   Misc               chat bubbles, clicking the ground to clear the
                                      target, clearing away, tips on loading screens and
                                      pet damage numbers
-                "Glow around elites and rares" (on at first): elites glow purple around
-                their outline, and rares and the Rare Caches they drop glow silver, so the
-                strong enemies stand out in a crowd. Bosses and other enemies never glow.
+                "Glow around elites, rares and bosses" (on at first): elites glow purple around
+                their outline, rares and the Rare Caches they drop silver, and bosses
+                orange, so the strong enemies stand out in a crowd. Other enemies never glow.
                 Unticked, every glow hides at once.
                 "Damage numbers" is Smart or All: Smart, the default, hides your small hits. Every 30
                 seconds the game takes the average of your hits, each counted as much as it

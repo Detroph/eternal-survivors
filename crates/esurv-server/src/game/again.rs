@@ -100,6 +100,10 @@ impl Game {
         cleared.extend(self.forget_boss_looks());
         self.forget_indicators();
         cleared.extend(self.forget_bunnies());
+        cleared.extend(self.forget_line_runners());
+        cleared.extend(self.forget_reflections());
+        cleared.extend(self.forget_spirits());
+        self.counters_seen.clear();
         self.hero_debuffs_shown.clear();
         self.run = fresh;
         // the doors stand shut again
@@ -190,7 +194,11 @@ impl Game {
             .collect();
         let ids: Vec<u32> = self.run.heroes.iter().map(|h| h.id).collect();
         let zone = content.zones[self.run.zone].id.clone();
-        let options = self.saves.run_options().run_options(&content.run_options);
+        // the mode follows the first hero playing's class (Challenge Mode when it has it open)
+        let options = match self.players.iter().find(|p| !self.left.contains(&p.hero)) {
+            Some(p) => self.saves.run_options_for(&content, &p.saved.class),
+            None => self.saves.run_options().run_options(&content.run_options),
+        };
         let ground = std::mem::replace(&mut self.run.world, Box::new(Flat));
         let mut fresh = Run::new(content, &zone, options, &setups, ground, run_seed())?;
         let fresh_ids: Vec<u32> = fresh.heroes.iter().map(|h| h.id).collect();

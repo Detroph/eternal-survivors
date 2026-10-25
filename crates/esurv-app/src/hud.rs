@@ -1,6 +1,6 @@
 //! The run's HUD (design step 6; docs/game/screens.md, "The HUD"): the
 //! run clock, kills, gold and the next cache's price, when the next boss comes (or Endless), the
-//! first living boss's health bar, big banners as a boss arrives and as a boss or a rare
+//! bosses' health bars and casts ([`boss_stack`]), big banners as a boss arrives and as a boss or a rare
 //! falls, the server's small HUD messages (toasts), a hint before the first step, and the Escape
 //! menu ([`escape_menu`]). The server's `Ready`, `Hud`, `BossBar`, `Banner` and `Toast` messages
 //! feed it; it asks `pause`, `resume`, `reset` and `leave`. The server sends the HUD when it
@@ -17,9 +17,10 @@ use esurv_protocol::{Phase, ToClient, ToServer};
 
 use crate::menus::{MenuAction, MenuPress, Menus};
 use crate::protocol::{ClientScreens, Request, ServerEvent};
-use crate::stock::{StatusBar, Stock, StockClick, StockSystems};
+use crate::stock::{Stock, StockClick, StockSystems};
 use crate::ui::{in_world, UiFonts};
 
+pub mod boss_stack;
 pub mod escape_menu;
 mod escape_menu_look;
 mod escape_presses;
@@ -54,6 +55,7 @@ impl Plugin for HudPlugin {
         app.init_resource::<ClientScreens>();
         app.world_mut().resource_mut::<ClientScreens>().0.hud = true;
         app.init_resource::<RunHud>()
+            .init_resource::<boss_stack::BossCasts>()
             .init_resource::<HudLines>()
             .init_resource::<MenuState>()
             .init_resource::<MenuHere>()
@@ -69,6 +71,9 @@ impl Plugin for HudPlugin {
                     press_menu_buttons,
                     quit_once_out,
                     refresh_readouts,
+                    boss_stack::read_casts,
+                    boss_stack::count_casts,
+                    boss_stack::draw_stack,
                     refresh_lines,
                     show_parts,
                     say_what_options_left_for_later,
@@ -127,7 +132,6 @@ fn build_for_the_window(
     mut commands: Commands,
     stock: Stock,
     fonts: Res<UiFonts>,
-    assets: Res<AssetServer>,
     parts: Option<Res<HudParts>>,
     mut run: ResMut<RunHud>,
     look: crate::menus::look::MenuLook,
@@ -140,7 +144,7 @@ fn build_for_the_window(
             commands.entity(root).despawn();
         }
     }
-    let parts = view::build(&mut commands, &stock, &fonts, &assets, &look);
+    let parts = view::build(&mut commands, &stock, &fonts, &look);
     commands.insert_resource(parts);
     // the new parts are filled at once
     run.set_changed();
@@ -311,12 +315,11 @@ fn quit_once_out(objects: Objects, menu: Res<MenuState>, mut exit: MessageWriter
     }
 }
 
-/// The readouts and the boss bar, when the run's state changed.
+/// The readouts, when the run's state changed (the bosses' bars are [`boss_stack`]'s).
 fn refresh_readouts(
     run: Res<RunHud>,
     parts: Option<Res<HudParts>>,
     mut texts: Query<&mut Text>,
-    mut bars: Query<&mut StatusBar>,
 ) {
     let Some(parts) = parts else {
         return;
@@ -331,20 +334,6 @@ fn refresh_readouts(
         set_text(&mut texts, parts.kills, &h.kills.to_string());
         set_text(&mut texts, parts.gold, &h.gold.to_string());
         set_text(&mut texts, parts.cache, &state::cache_text(h.cache_price));
-    }
-    if let Some(b) = run.boss() {
-        set_text(&mut texts, parts.boss_name, &b.name);
-        set_text(
-            &mut texts,
-            parts.boss_health,
-            &state::health_text(b.health, b.max_health),
-        );
-        if let Ok(mut bar) = bars.get_mut(parts.boss_bar) {
-            let value = state::health_fraction(b.health, b.max_health);
-            if bar.value != value {
-                bar.value = value;
-            }
-        }
     }
 }
 

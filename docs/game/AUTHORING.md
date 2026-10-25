@@ -175,14 +175,17 @@ it follows.
 | `health_clock`, `damage_clock` | How much sturdier and harder-hitting enemies are by the run minute they appear: points `(minute, multiplier)`, straight lines between them, and past the last point the last step's pace goes on. |
 | `spawn_budget` | How much enemy arrives each second at 100 % density, by minute (each enemy costs its kind's `spawn_cost`). |
 | `live_cap` | Most normal enemies alive at once: at 100 % density, and at the highest density. |
-| `battle_standard` | The pickup that summons an assist (section 13a, [assists.md](assists.md)): how many a run lays (`per_run`, 1 to 2), one more every `endless_every` seconds in Endless (600), the zones it never lies in (`never_in`: `wsg`), its looks per faction, the ally's size (`ally_scale`, 2) and the longest an assist lasts (`assist_seconds`, 10). |
+| `battle_standard` | The pickup that summons an assist (section 13a, [assists.md](assists.md)): how many a run lays (`per_run`, 1 to 2), one more every `endless_every` seconds in Endless (600), the zones it never lies in (`never_in`: `wsg`), its looks per faction, the ally's size (`ally_scale`, 2), how long an ally stays (`assist_seconds`, 15) and what every assist deals a second (`assist_damage_per_second`: `normal` 0.05, `elite_rare_boss` 0.01 of the struck enemy's max health). |
 | `experience` | What kills drop (normal, elite, boss), what each level costs (`level_cost`), and the orb sizes. |
 | `spell_tags` | One multiplier per spell tag (`level_1`, `nuke`, `cleave`, `dot`, `nova`, `area`, `pet`, `sustain`, `buffs`, `defensive`), all 1.0 today. A damage tag scales damage (and a hit's burn, and an area's impact), `pet` also every talent pet; `sustain` scales healing, `buffs` buff amounts, `defensive` shields, weakening and reflected damage. Never cooldowns or durations. |
+| `challenge_factor` | Challenge Mode (zones.md, "Challenge Mode"): every enemy of a challenge run takes Ahn'Qiraj's D, then its final health and damage are × this (1.1) × the challenge slider (1x-5x), one flat factor outside the kind and zone powers; a challenge run's talent experience is Ahn'Qiraj's × this (never the slider). |
 
 The whole formula is written out at the top of the file and in zones.md, section 4:
 
     health = 240 × kind health × growth^(D − 1) × health clock(minute) × toughness × health option × 1.22^endless minutes
     damage =   8 × kind damage × growth^(0.6 × (D − 1)) × damage clock(minute) × damage option × 1.12^endless minutes
+
+In Challenge Mode D is Ahn'Qiraj's in every zone, and both lines end × `challenge_factor` × the challenge slider.
 
 ### `enemy_kinds.ron`
 
@@ -255,12 +258,14 @@ hero's actual power, and the code reads it from there:
 
 | Number | What it does | Today |
 |---|---|---|
-| `normal_health` | normal enemy health by D: `(D, ×)` points joined by straight lines, past the last at the last step's pace; bigger steps where the expected hero gains a milestone row (D 3, 5, 7) | 1, 1.25, 1.9, 3.35, 4.75, 5.65, 6.3, 6.9, 7, 9.65, 12.2, 16.25 (D 1–12; tuned 2026-10-19 with every level-1 spell × loadout, no amulets) |
-| `elite_health_power`, `boss_health_power` | elites and rares take that multiplier to the first power, bosses to the second: gentler, so their fights keep their length | 0.87, 0.66 |
-| `damage_share`, `elite_boss_damage_share` | damage × the enemy's own health multiplier to this power: normal enemies, then elites, rares and bosses | 0.6, 0.45 |
+| `normal_health` | normal enemy health by D: `(D, ×)` points joined by straight lines, past the last at the last step's pace; bigger steps where the expected hero gains a milestone row (D 3, 5, 7) | 1, 1.4, 2.25, 4, 5.75, 6.75, 7.25, 8.75, 9, 11, 12, 17.25 (D 1–12; fitted 2026-10-25, refitted with the final talents to the original game's kill seconds with the baseline hero: rare and epic amulets, bought caches, kiting) |
+| `elite_health_power`, `boss_health_power` | elites and rares take that multiplier to the first power, bosses to the second: gentler, so their fights keep their length | 0.87, 0.7 |
+| `boss_clock_power` (`balance.ron`, beside the clocks) | bosses and final bosses read the health clock to this power, so a zone's bosses last about as long as each other (fitted to the boss-time goals) | 0.3 |
+| `damage_share`, `elite_boss_damage_share` | damage × the enemy's own health multiplier to this power: normal enemies, then elites, rares and bosses (not read while `normal_damage` is set) | 0.6, 0.45 |
+| `normal_damage`, `elite_damage_power`, `boss_damage_power` | normal enemy damage by D, its own table (the blows the health table gave before its 2026-10-25 refit, kept); elites and rares take it to the first power, bosses to the second | 1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75, 4.25, 5; 0.65, 0.5 |
 | `gear_exponent`, `gear_steeper_from`, `gear_growth_after` | gear stats × D^exponent up to `gear_steeper_from`, then × `gear_growth_after` a step of D | 0.55, 9, 1.3 |
 | `gear_drop_chance` | each boss gear piece's drop chance, in `(D, chance)` steps: each holds from its D until the next, no blending | 100 %, 80 % from 2, 70 % from 4, 60 % from 6, 40 % from 8 |
-| `talent_exponent` | a run's talent experience × D^this | 0.17 |
+| `talent_exponent` | a run's talent experience × D^this (with the point cost it meets the talent schedule) | 0.7 |
 | `gear_tier_starts` | the D at which gear tiers 1 to 4 begin (the pieces' quality colour) | 2, 4, 7, 9 |
 
 Change one, then run `balance_check` (section 16) to see what it does to every zone.
@@ -277,6 +282,8 @@ to 5.
 * `name`, `subtitle`, `description`: what the zone selector shows.
 * The place: `map_id`, `area_id`, `spawn` (x, y, z, facing), `arena_radius`, `hour`, `weather`;
   optional `enemy_spawn_ring` / `boss_spawn_ring`, how far from the hero enemies appear (default 22-34 / 24-28 yd).
+  Next to a wall or map edge a spot steps in toward the hero (2.5 yd at a time, never nearer
+  than half the inner edge), so spawns still come from that side, closer (zones.md).
   The spot must be real ground in the 1.12.1 world with room for the arena
   (zones.md, "Picking a place in the world"). A dungeon map with no terrain (Dire Maul) works:
   its building is the ground. Its rooms are small, so measure the room with the `arena_ground`
@@ -426,7 +433,11 @@ once, bolstering adds, Blood Siphon, runs of waves the boss waits behind with th
 horde pulled into a clump, spell immunity, rage, healing adds, class calls, the fallen rising, a
 figure rising for a moment), and `warn` for a raid warning and a timer bar. A reworked boss keeps
 the damage a hero cannot avoid (`swing_mult`). Roster enemies only a boss brings carry
-`only_summoned: true`; a boss only a script brings, `called: true`.
+`only_summoned: true`; a boss only a script brings, `called: true`. A roster enemy the hero must
+focus (adds that heal or guard a boss) carries `focus_as_elite: true`: heroes and assists pick it
+as an elite and it glows as one, its health, damage and rewards still its own kind's.
+Give it the elite `scale` too, min(2.0, 6.0 / its model's size) (zones.md, "Sizes"): the
+Nightmare Suppressors 1.13, the Black Guard Sentries 1.86.
 
 **Example:** a boss with a wider, slower stomp than the standard one, a volley, and its adds:
 
@@ -984,8 +995,9 @@ lists them and nothing else needs changing.
 assist does, as a player reads it: write the script's numbers there) and `assist_script` (what it
 does). Without an `assist_script` it takes its class's default from `content\class_assists.ron`
 (its form's, for a druid in a form), and the game's log names it among the characters still on a
-default. An assist lasts at most 10 sec (`balance.ron` `battle_standard.assist_seconds`) unless
-its script's `seconds` gives a longer time; the loader refuses steps that take longer.
+default. An ally stays 15 sec (`balance.ron` `battle_standard.assist_seconds`) unless
+its script's `seconds` gives another time: its script, then its rotation (`behaviour`, below);
+the loader refuses steps that take longer.
 
 **The script:** `arrive`, then `steps` one after the other (a step starts once the one before is
 done), then `leave`.
@@ -1001,12 +1013,12 @@ The blocks (`steps`):
 |---|---|
 | `Move(to, how, look_spell)` | goes to the enemies `to` picks (beside one, the middle of several): `how` `Run`, `Charge` or `Blink` |
 | `Cast(look_spell)` | a look on the ally only (Sprint, Shield Wall, a potion, a portal it opens) |
-| `Hit(targets, damage, look_spell, melee, effects, wears, over_time)` | strikes the enemies `targets` picks: `damage` to each, `effects` on each (`Stun`, `Root`, `Fear`, `Slow`, `Vulnerable`, `Weaken`: the hero's own rules, a boss held for a quarter, fear never on a boss), each wearing one of `wears` while they last (Blind's, Sap's, Polymorph's look), `over_time` damage `(damage, every, seconds, look_spell)`; `melee` steps to the first one |
-| `Area(at, radius, seconds, every, damage, effects, look_spell)` | a ground area at `Hero`, `Ally` or `BiggestPack`, striking every enemy inside every `every` sec |
+| `Hit(targets, damage, look_spell, melee, effects, wears, over_time)` | strikes the enemies `targets` picks: with `damage: true` the assist's damage to each, `effects` on each (`Stun`, `Root`, `Fear`, `Slow`, `Vulnerable`, `Weaken`: the hero's own rules, a boss held for a quarter, fear never on a boss), each wearing one of `wears` while they last (Blind's, Sap's, Polymorph's look), `over_time` damage `(every, seconds, look_spell)`; `melee` steps to the first one |
+| `Area(at, radius, seconds, every, damage, effects, look_spell, most)` | a ground area at `Hero`, `Ally` or `BiggestPack`, striking every enemy inside every `every` sec (with `damage: true`; with `most`, only the nearest that many its middle) |
 | `Buff(stats, seconds, heal, every, immune, look_spell, totem)` | on the hero for `seconds`: `stats` added (`[(Damage, 0.15)]`, positive only), `heal` of max health every `every` sec, `immune` no damage taken; with `totem: Some(<spell>)` it comes from a totem dropped beside the hero |
 | `Heal(share, look_spell)` | heals the hero `share` of max health at once |
 | `Taunt(targets, seconds, look_spell)` | the enemies picked attack the ally for `seconds` (a boss for a quarter); the ally stays while it holds |
-| `Summon(pet, count, seconds, damage)` | `count` of a `pets.ron` pet fight for the hero for `seconds`; their attacks are the assist's damage, each `damage` (missing: the pet's own `damage` in points) |
+| `Summon(pet, count, seconds)` | `count` of a `pets.ron` pet fight for the hero for `seconds`; their attacks are the assist's damage, each for the pet's attack interval |
 | `Repeat(every, times, steps)` | its steps `times` times, one every `every` sec (takes `every × times`) |
 | `Wait(seconds)` | waits |
 
@@ -1014,8 +1026,12 @@ The blocks (`steps`):
 `Nearest(n)` (to the hero), `NearHero(radius, most)`, `NearAlly(radius, most)` (`most` left out:
 all), `Strongest` (a boss, else a rare, an elite, the most max health), `StrongestNotBoss`,
 `Healthiest` (most health left), `Farthest`, `OnScreen`, `Same` (the enemies the step before
-picked). **Damage:** `MaxHealthShare(0.05)` (5 % of the struck enemy's max health; on a boss or a
-rare at most what it deals a normal enemy of that zone and minute) or `Flat(120.0)`.
+picked). **Damage:** a step only says whether it deals damage (`damage: true`); the amount is
+the same for every assist, `balance.ron` `battle_standard.assist_damage_per_second` (5 % of the
+struck enemy's max health a second on a normal enemy, 1 % on an elite, a rare or a boss) × the
+seconds the hit stands for: a hit of the script one global cooldown (1.5 sec), a hit of a repeat
+the repeat's `every`, an area's pulse or an effect over time's tick its `every`
+([assists.md](assists.md), "Rules").
 
 **Example:** a rogue who strikes up to 5 enemies near the hero every second for 8 sec, then
 vanishes:
@@ -1028,17 +1044,19 @@ vanishes:
         class: "rogue",
         gender: Male,
         yell: "...",
-        assist: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, each hit 3% of its max health, then vanishes.",
+        assist: "Appears with Vanish's sound, uses {Spell(22482)} and strikes up to 5 enemies near the hero every sec for 8 sec, then vanishes.",
         assist_script: Some((
             arrive: (look_spell: Some(1856)),
             steps: [
                 Cast(look_spell: 22482),
                 Repeat(every: 1.0, times: 8, steps: [
-                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: Some(MaxHealthShare(0.03)), melee: true),
+                    Hit(targets: NearHero(radius: 10.0, most: 5), damage: true, melee: true),
                 ]),
             ],
             leave: (how: Vanish),
         )),
+        // then: Blade Flurry, Sinister Strike, Eviscerate, strafing and jumping in melee
+        behaviour: Some((style: ErraticMelee, rotation: [13877, 11294, 31016])),
         gear: Random,
     ),
 ```
@@ -1048,8 +1066,25 @@ the ally cannot be hurt or targeted; `Same` needs a step before it that picked; 
 a pet `pets.ron` has. "Near the hero" is 10 yd unless the spell it uses has its own radius
 (Whirlwind 8, Arcane Explosion and Blizzard 9).
 
-**A class default:** `content\class_assists.ron`, one `(class, form, text, script)` per class
-(every class needs one without a form; a druid form may have its own).
+**Its rotation** (`behaviour`, [assists.md](assists.md), "Its rotation"): once its script is done
+the ally loops `rotation`, 1.12 spells by `Spell.dbc` id, until its stay ends, moving `style`:
+`Melee` (runs to the enemy nearest it), `ErraticMelee` (and in melee strafes left and right and
+jumps, a rogue's A-D-A-D), `Caster` (beside the hero, following it), `NovaKiteCaster` (and jumps
+away after an instant cast with an enemy close: Frost Nova, a jump, Blizzard), `Healer` (close
+to the hero, its heals on the hero) or `LeavesAfterScript` (nothing: it leaves once its script is
+done and no taunt of its holds). An empty rotation casts nothing: a `Melee` or `ErraticMelee` ally
+then only auto attacks (a swing every 2 sec at the assist's rate). Each spell is a row in
+`content\assist_spells.ron`: its cast time and cooldown as `Spell.dbc` holds them (a channel,
+Blizzard, also its `channel`, `tick_every` and `radius`) and where it is aimed (`Enemy`, `Hero`,
+`Caster`, `Ground`); `cargo run -p esurv-content --features client --example check_assist_spells -- <spell
+id>...` prints the rows to write and checks the whole table against the client. A 1.5 sec global
+cooldown runs between casts. Each cast strikes what the script's damaging steps strike, each enemy
+once, at the assist's rate over its cycle (its cast time, at least the global cooldown); the
+script's heals are spread over the script and the rotation's casts. Without a `behaviour` it
+takes its class's default (the game's log names it).
+
+**A class default:** `content\class_assists.ron`, one `(class, form, text, script, behaviour)` per
+class (every class needs one without a form; a druid form may have its own).
 
 **How to check it:** `cargo test -p esurv-content` (every character's assist, its own or its
 class's, loads and validates).
@@ -1066,6 +1101,7 @@ class's, loads and validates).
 | every spell of a tag (every nuke, every heal ...) | `balance.ron` `spell_tags` |
 | one class's spell damage | its `spell_damage_scale` in `classes.ron` |
 | every gear piece's growth by zone, drop chances, talent experience by zone | `balance.ron` `zone_scaling` |
+| how much harder Challenge Mode is, and its talent experience | `balance.ron` `challenge_factor` |
 | a card's words | `words.ron` |
 
 ## 15. Where the code lives
@@ -1099,23 +1135,28 @@ expected power (`balance.ron` `zone_scaling`, section 3). Nothing in the game ev
 in an easier zone, and a zone added later at its D fits the curve without numbers of its own. The
 budgets live here and in the check below; the game code never reads them.
 
-**The expected hero.** Talent points (a player who wins each zone once, in order): 11 after
-Duskwood (D 2); the 21st during the Scarlet Monastery's run (D 4); the 31st during Dire Maul's run (D 6);
-all 51 after Blackrock (D 9), so Ahn'Qiraj and the zones after it add no talent power. The
-talent experience numbers (`rewards.rs`, classes.md section 4) are set to this schedule. Gear:
-the previous zone's whole class set.
+**The expected hero.** Talent points (a player who wins each zone once, in order; the talent
+schedule): the 11th point during Duskwood (D 2), the 31st during the Scarlet Monastery (D 4), 41
+arriving in Feralas (D 6), the 51st during Stratholme (D 8), so all 51 first on arriving in
+Blackrock (D 9) and Ahn'Qiraj and the zones after it add no talent power (measured arrivals with
+the smooth zone bonus D^0.7: Duskwood 6, Warsong 15, Scarlet 24, Sunken Temple 33-34, Feralas
+41-43, Arena 50-51, Stratholme 51: the 51st point one zone early). The talent experience numbers
+(`rewards.rs`, classes.md section 4) are set to this schedule. Gear: the previous zone's whole class
+set. Amulets: the rare and epic amulets a run offers, taken when offered (and empowered when offered
+again), the bought caches opened as the gold allows; legendaries are a bonus on top, not part of
+the expected hero.
 
 | Source of power | Budget: the hero's DPS with it ÷ without it, everything else as expected |
 |---|---|
 | a regular talent point | about +1 % |
-| the milestone at 11 points (row 2), first reached in Warsong (D 3) | **+15 %** |
-| the milestone at 21 points (row 4), first reached in the Sunken Temple (D 5) | **+30 %** |
-| the capstone at 31 points (row 6), first reached in the Arena (D 7) | **+50 %** |
+| the milestone at 11 points (row 2), first reached in Warsong Gulch (D 3) | **+5 %** |
+| the milestone at 21 points (row 4), first reached in the Scarlet Monastery (D 4) | **+10 %** |
+| the capstone at 31 points (row 6), first reached in the Sunken Temple (D 5) | **+25 %** |
 | a zone's whole class set, over the previous zone's set, up to the set worn in Ahn'Qiraj | **+10 %** |
 | each set after that, standing in for a zone of talents | about **+25 %** |
 
 **The rule for talents:** a new or reworked damage milestone must measure within **±20 %** of its
-row's budget (+12 to +18 % for row 2, +24 to +36 % for row 4, +40 to +60 % for row 6) in the zone
+row's budget (+4 to +6 % for row 2, +8 to +12 % for row 4, +20 to +30 % for row 6; measured as the whole talent, `--whole-talent`, kiting, amulets declined) in the zone
 where its row is first reached. Tune only its main number (the bold field in classes.md, section
 4: chance, share, amount ...), in clean steps (whole percents, 0.05 for shares). Defensive and
 utility milestones (cheat death, heals, shields, slows ...) are listed but not held to a budget.
@@ -1128,11 +1169,11 @@ so the rows fall in the zones above.) One run differs from the next by far more 
 adds, so each case plays 200 runs a side (`--check-seeds`) and prints its gain with a standard
 error (`±`, about 3–6 %); read a gain within one `±` of the band as a pass.
 
-**The rule for legendary amulets**: a damage legendary adds **+50 %** (±20 %) to the
+**The rule for legendary amulets**: a damage legendary adds **+30 %** (±20 %) to the
 hero's total damage; a heal legendary **+100 %** to what its spell heals (and shields absorb), a
 defensive buff's (immunity) +100 % to its uptime. A hybrid (a damage spell that also heals or
 shields, as Holy Nova), a shield and a buff that adds power (damage, haste, speed, rage or energy)
-count as damage, +50 % total damage: kiting, the hero's own shield already takes most of the damage
+count as damage, +30 % total damage: kiting, the hero's own shield already takes most of the damage
 struck at it (Power Word: Shield about 80 %, Ice Barrier about 85 %), so what it absorbs cannot
 double, and a buff's uptime is near full already. The same holds a heal that answers low health
 (Renew): it already heals most of the damage taken, so its measure cannot double either; a measure

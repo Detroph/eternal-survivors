@@ -212,6 +212,8 @@ mod tests {
             loadout: String::new(),
             new_gear: false,
             new_points: false,
+            challenge_open: false,
+            challenge_news: false,
         };
         let e = worn_equipment(&content, "warrior", &progress);
         let head = content.gear.slots[0].equip_slot() as usize;

@@ -1,17 +1,20 @@
-//! The enemies' glows in a run (screens.md, "Glows round elites and rares"): an elite wears a
-//! purple outline glow, a rare and the Rare Cache it drops a silver one; bosses and the others
-//! none. The look is the warband screen's picked-hero outline (`menus::outline`): a thin edge along
-//! the silhouette, a soft glow fading outward and a gentle pulse, from the same shader in another
-//! colour. benilla draws each glowing figure alone into its colour's mask
-//! (`benilla_app::SceneFigureMask`, [`ELITE_MASK`] or [`RARE_MASK`]); a node over the window per
-//! colour draws round it.
+//! The enemies' glows in a run (screens.md, "Glows round elites, rares and bosses"): an elite
+//! wears a purple outline glow, a rare and the Rare Cache it drops a silver one, a boss an orange
+//! one (the legendary quality's colour); the others none. The look is the warband screen's
+//! picked-hero outline (`menus::outline`): a thin edge along the silhouette, a soft glow fading
+//! outward and a gentle pulse, from the same shader in another colour. benilla draws each glowing
+//! figure alone into its colour's mask (`benilla_app::SceneFigureMask`, [`ELITE_MASK`],
+//! [`RARE_MASK`] or [`BOSS_MASK`]); a node over the window per colour draws round it.
 //!
-//! An elite or a rare is told by the rank the creature query gives it (`benilla_app::CreatureRanks`,
-//! the portrait's gold or silver dragon), a Rare Cache by its game-object entry. A dead one stops
-//! glowing. Every one in sight glows: 40 elites glowing cost about 0.4 ms of the main thread
-//! and 0.5 ms of the GPU a frame and kept the frame at the screen's refresh (screens.md), so there is no limit.
+//! An elite, a rare or a boss is told by the rank the creature query gives it
+//! (`benilla_app::CreatureRanks`, the portrait's gold or silver dragon or skull), a Rare Cache by
+//! its game-object entry. A player-looking enemy (Warsong Gulch's) has a player's guid and no
+//! creature query: the server tells its rank (`ToClient::EnemyRanks`, kept in [`ToldRanks`] until
+//! the next run). A dead one stops glowing. Every one in sight glows: 40 elites glowing cost about
+//! 0.4 ms of the main thread and 0.5 ms of the GPU a frame and kept the frame at the screen's
+//! refresh (screens.md), so there is no limit.
 //!
-//! The glows follow one option, "Glow around elites and rares" ([`crate::glow_option`]): off,
+//! The glows follow one option, "Glow around elites, rares and bosses" ([`crate::glow_option`]): off,
 //! they all hide at once (the masks are taken off, so their cameras stop too).
 //!
 //! `ESURV_GLOW_CHECK=<s>`, a development aid: logs the frame time every 2 s from the hero's
@@ -19,19 +22,28 @@
 //! that many seconds after it, so one run measures the same scene with the glows on and off; it
 //! turns benilla's FPS journal on too (`fpsJournal`: the CPU and GPU time of each second).
 
+use std::collections::HashMap;
+
 use benilla_app::{creature_rank, CreatureRanks, FigureMaskImage, Objects, SceneFigureMask};
 use benilla_ui::script::UiScript;
 use bevy::prelude::*;
+use esurv_protocol::ToClient;
 
 use crate::glow_option;
 use crate::menus::outline::{OutlineGlow, EDGE, GLOW, PULSE};
+use crate::protocol::ServerEvent;
 
-/// The elites' mask and the rares' (the picked hero's is `outline::HERO_MASK`).
+/// The elites' mask, the rares' and the bosses' (the picked hero's is `outline::HERO_MASK`).
 pub const ELITE_MASK: usize = 1;
 pub const RARE_MASK: usize = 2;
+pub const BOSS_MASK: usize = 3;
+/// The glowing masks, in their colour nodes' order.
+const MASKS: [usize; 3] = [ELITE_MASK, RARE_MASK, BOSS_MASK];
 /// The colours, in gamma bytes; the alpha is the glow's strength at the edge.
 const PURPLE: Vec4 = Vec4::new(0.74, 0.36, 1.0, 0.6);
 const SILVER: Vec4 = Vec4::new(0.92, 0.95, 1.0, 0.7);
+/// The legendary quality's orange (`ff8000`).
+const ORANGE: Vec4 = Vec4::new(1.0, 0.5, 0.0, 0.7);
 /// The Rare Cache's game-object entry (the server's `entries::RARE_CACHE`).
 pub const RARE_CACHE_ENTRY: u32 = esurv_content::entries::CREATURES_END + 108;
 /// How often the option is read from its CVar (seconds).
@@ -44,6 +56,8 @@ pub enum Glow {
     Elite,
     /// Silver: a rare, or a Rare Cache.
     Rare,
+    /// Orange.
+    Boss,
 }
 
 impl Glow {
@@ -51,7 +65,23 @@ impl Glow {
         match self {
             Glow::Elite => ELITE_MASK,
             Glow::Rare => RARE_MASK,
+            Glow::Boss => BOSS_MASK,
         }
+    }
+
+    /// Its colour, for words about it (the guide names each glow in its colour).
+    pub fn colour(self) -> Color {
+        let v = match self {
+            Glow::Elite => PURPLE,
+            Glow::Rare => SILVER,
+            Glow::Boss => ORANGE,
+        };
+        Color::srgb(v.x, v.y, v.z)
+    }
+
+    /// Its place in [`MASKS`] and the counts.
+    fn place(self) -> usize {
+        self as usize
     }
 }
 
@@ -63,6 +93,7 @@ pub fn glow_of_unit(rank: u32, alive: bool) -> Option<Glow> {
     match rank {
         creature_rank::ELITE => Some(Glow::Elite),
         creature_rank::RARE => Some(Glow::Rare),
+        creature_rank::BOSS => Some(Glow::Boss),
         _ => None,
     }
 }
@@ -72,25 +103,54 @@ pub fn glow_of_object(entry: Option<u32>) -> Option<Glow> {
     (entry == Some(RARE_CACHE_ENTRY)).then_some(Glow::Rare)
 }
 
-/// The option, and how many figures glow in each colour this frame.
+/// The ranks the server told for units with a player's guid (the player-looking enemies), by
+/// guid, in the creature query's numbering; a new run forgets them.
+#[derive(Resource, Debug, Default)]
+pub struct ToldRanks(HashMap<u64, u32>);
+
+impl ToldRanks {
+    /// The rank told for `guid`, 0 (normal) when none was.
+    pub fn rank(&self, guid: u64) -> u32 {
+        self.0.get(&guid).copied().unwrap_or(creature_rank::NORMAL)
+    }
+
+    /// The server's message read: ranks told are kept, a new run (`Ready`) forgets them all.
+    pub fn read(&mut self, message: &ToClient) {
+        match message {
+            ToClient::Ready(_) => self.0.clear(),
+            ToClient::EnemyRanks(units) => self.0.extend(units.iter().copied()),
+            _ => {}
+        }
+    }
+}
+
+/// The option, and how many figures glow in each colour this frame (in [`MASKS`]' order).
 #[derive(Resource, Debug)]
 struct EnemyGlow {
     on: bool,
-    glowing: [usize; 2],
+    glowing: [usize; 3],
 }
 
 /// The colour nodes, once made: by mask, the node and its material.
 #[derive(Resource)]
-struct GlowNodes([(usize, Entity, Handle<OutlineGlow>); 2]);
+struct GlowNodes([(usize, Entity, Handle<OutlineGlow>); 3]);
 
 pub(crate) fn register(app: &mut App) {
     app.insert_resource(EnemyGlow {
         on: true,
-        glowing: [0; 2],
+        glowing: [0; 3],
     })
-    .add_systems(Update, (read_the_option, mask_the_glowing, draw_the_glows).chain());
+    .init_resource::<ToldRanks>()
+    .add_systems(Update, (keep_the_told_ranks, read_the_option, mask_the_glowing, draw_the_glows).chain());
     if let Some(check) = GlowCheck::from_env() {
         app.insert_resource(check).add_systems(Update, check_the_glows);
+    }
+}
+
+/// The ranks the server tells for the player-looking enemies.
+fn keep_the_told_ranks(mut events: MessageReader<ServerEvent>, mut told: ResMut<ToldRanks>) {
+    for ServerEvent(m) in events.read() {
+        told.read(m);
     }
 }
 
@@ -128,16 +188,21 @@ fn mask_the_glowing(
     mut glow: ResMut<EnemyGlow>,
     objects: Objects,
     ranks: CreatureRanks,
+    told: Res<ToldRanks>,
     masked: Query<(Entity, &SceneFigureMask)>,
 ) {
     let want: Vec<(Entity, Glow)> = if glow.on && objects.player().is_some() {
         objects
             .iter()
             .filter_map(|(guid, e, f)| {
+                let alive = f.unit_health().is_none_or(|h| h > 0);
                 let g = if benilla_protocol::guid::is_gameobject(guid) {
                     glow_of_object(f.object_entry())
                 } else if benilla_protocol::guid::is_creature_or_pet(guid) {
-                    glow_of_unit(ranks.rank(e), f.unit_health().is_none_or(|h| h > 0))
+                    glow_of_unit(ranks.rank(e), alive)
+                } else if benilla_protocol::guid::is_player(guid) {
+                    // a player-looking enemy, by the rank the server told
+                    glow_of_unit(told.rank(guid), alive)
                 } else {
                     None
                 }?;
@@ -147,15 +212,15 @@ fn mask_the_glowing(
     } else {
         Vec::new()
     };
-    let mut glowing = [0; 2];
+    let mut glowing = [0; 3];
     for &(_, g) in &want {
-        glowing[(g == Glow::Rare) as usize] += 1;
+        glowing[g.place()] += 1;
     }
     if glow.glowing != glowing {
         glow.glowing = glowing;
     }
     for (e, mask) in &masked {
-        let ours = mask.0 == ELITE_MASK || mask.0 == RARE_MASK;
+        let ours = MASKS.contains(&mask.0);
         if ours && !want.iter().any(|&(w, g)| w == e && g.mask() == mask.0) {
             commands.entity(e).remove::<SceneFigureMask>();
         }
@@ -181,8 +246,8 @@ fn draw_the_glows(
         // made once the first glowing figure's mask has its picture
         return make_the_nodes_when_ready(&mut commands, &image, &mut materials);
     };
-    for &(mask, node, ref material) in &nodes.0 {
-        let shown = glow.glowing[(mask == RARE_MASK) as usize] > 0;
+    for (place, &(mask, node, ref material)) in nodes.0.iter().enumerate() {
+        let shown = glow.glowing[place] > 0;
         let want = if shown {
             Visibility::Inherited
         } else {
@@ -202,14 +267,14 @@ fn draw_the_glows(
     }
 }
 
-/// Makes both colour nodes once either mask has a picture; a mask with none yet borrows the
-/// other's until its own comes (its node stays hidden until a figure wears its colour).
+/// Makes every colour node once any of their masks has a picture; a mask with none yet borrows
+/// another's until its own comes (its node stays hidden until a figure wears its colour).
 fn make_the_nodes_when_ready(
     commands: &mut Commands,
     image: &FigureMaskImage,
     materials: &mut Assets<OutlineGlow>,
 ) {
-    let Some(any) = image.0[ELITE_MASK].clone().or_else(|| image.0[RARE_MASK].clone()) else {
+    let Some(any) = MASKS.iter().find_map(|&m| image.0[m].clone()) else {
         return;
     };
     let mut made = |mask: usize, colour: Vec4, name: &'static str| {
@@ -239,6 +304,7 @@ fn make_the_nodes_when_ready(
     let nodes = [
         made(ELITE_MASK, PURPLE, "elite glow"),
         made(RARE_MASK, SILVER, "rare glow"),
+        made(BOSS_MASK, ORANGE, "boss glow"),
     ];
     commands.insert_resource(GlowNodes(nodes));
 }
@@ -294,13 +360,14 @@ fn check_the_glows(
         let mean = check.frames.iter().sum::<f32>() / n;
         let worst = check.frames.iter().copied().fold(0.0, f32::max);
         info!(
-            "enemy glow check: {:.0}-{:.0} s in: {} frames, mean {mean:.2} ms, worst {worst:.2} ms; option {}, {} elites and {} rares glowing",
+            "enemy glow check: {:.0}-{:.0} s in: {} frames, mean {mean:.2} ms, worst {worst:.2} ms; option {}, {} elites, {} rares and {} bosses glowing",
             check.window_from - entered,
             now - entered,
             check.frames.len(),
             if glow.on { "on" } else { "off" },
             glow.glowing[0],
             glow.glowing[1],
+            glow.glowing[2],
         );
         check.frames.clear();
         check.window_from = now;
@@ -319,18 +386,43 @@ mod tests {
     use super::*;
 
     #[test]
-    fn elites_glow_purple_rares_and_their_caches_silver_the_rest_none() {
+    fn elites_glow_purple_rares_and_their_caches_silver_bosses_orange_the_rest_none() {
         assert_eq!(glow_of_unit(creature_rank::ELITE, true), Some(Glow::Elite));
         assert_eq!(glow_of_unit(creature_rank::RARE, true), Some(Glow::Rare));
-        assert_eq!(glow_of_unit(creature_rank::BOSS, true), None);
+        assert_eq!(glow_of_unit(creature_rank::BOSS, true), Some(Glow::Boss));
         assert_eq!(glow_of_unit(creature_rank::NORMAL, true), None);
         assert_eq!(glow_of_unit(creature_rank::ELITE, false), None, "a dead elite stops");
+        assert_eq!(glow_of_unit(creature_rank::BOSS, false), None, "a dead boss stops");
         assert_eq!(glow_of_object(Some(RARE_CACHE_ENTRY)), Some(Glow::Rare));
         assert_eq!(glow_of_object(Some(RARE_CACHE_ENTRY - 7)), None, "a battleground cache");
         assert_eq!(glow_of_object(None), None);
-        assert_eq!(Glow::Elite.mask(), ELITE_MASK);
-        assert_eq!(Glow::Rare.mask(), RARE_MASK);
-        assert_ne!(ELITE_MASK, crate::menus::outline::HERO_MASK);
-        assert!(RARE_MASK < benilla_app::FIGURE_MASKS);
+        for g in [Glow::Elite, Glow::Rare, Glow::Boss] {
+            assert_eq!(MASKS[g.place()], g.mask());
+        }
+        assert!(!MASKS.contains(&crate::menus::outline::HERO_MASK));
+        assert!(MASKS.iter().all(|&m| m < benilla_app::FIGURE_MASKS));
+    }
+
+    /// A Warsong elite, rare or boss has a player's guid: its rank is the one the server told,
+    /// until the next run.
+    #[test]
+    fn player_looking_enemies_glow_by_the_rank_the_server_told() {
+        let (elite, rare, boss, other) = (0x2000_0001, 0x2000_0002, 0x2000_0003, 0x2000_0004);
+        let mut told = ToldRanks::default();
+        told.read(&ToClient::EnemyRanks(vec![(elite, creature_rank::ELITE), (rare, creature_rank::RARE)]));
+        told.read(&ToClient::EnemyRanks(vec![(boss, creature_rank::BOSS)]));
+        assert_eq!(glow_of_unit(told.rank(elite), true), Some(Glow::Elite));
+        assert_eq!(glow_of_unit(told.rank(rare), true), Some(Glow::Rare));
+        assert_eq!(glow_of_unit(told.rank(boss), true), Some(Glow::Boss));
+        assert_eq!(glow_of_unit(told.rank(other), true), None, "one never told is normal");
+        told.read(&ToClient::Ready(esurv_protocol::Ready {
+            hero: 1,
+            name: String::new(),
+            class: String::new(),
+            race: String::new(),
+            zone: String::new(),
+            subtitle: String::new(),
+        }));
+        assert_eq!(told.rank(elite), creature_rank::NORMAL, "a new run forgets them");
     }
 }

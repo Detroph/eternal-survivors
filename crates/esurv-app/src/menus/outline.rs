@@ -93,6 +93,7 @@ fn shows(menus: &Menus, screen: &SelectScreen) -> bool {
         && menus.confirm_delete.is_none()
         && !menus.run_options_open
         && menus.codex.is_none()
+        && menus.guide.is_none()
         && menus.game_options.is_none()
 }
 

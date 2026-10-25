@@ -22,8 +22,8 @@ pub struct AssistScript {
     pub steps: Vec<AssistStep>,
     #[serde(default)]
     pub leave: Leaving,
-    /// The longest the ally stays, seconds; missing: `balance.ron`'s
-    /// `battle_standard.assist_seconds` (10). Whatever it left behind (a ground area, a buff, a
+    /// How long the ally stays, seconds (its script, then its rotation); missing: `balance.ron`'s
+    /// `battle_standard.assist_seconds` (15). Whatever it left behind (a ground area, a buff, a
     /// totem, an effect over time) runs out on its own time after it has gone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub seconds: Option<f32>,
@@ -119,16 +119,6 @@ pub enum Targets {
     Same,
 }
 
-/// What a hit deals.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub enum Damage {
-    /// This share of the struck enemy's max health. On a boss or a rare at most what it deals to a
-    /// normal enemy of that zone at that minute.
-    MaxHealthShare(f32),
-    /// This many points.
-    Flat(f32),
-}
-
 /// How the ally moves.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Movement {
@@ -153,11 +143,11 @@ pub enum AreaAt {
     BiggestPack,
 }
 
-/// Damage over time a hit leaves on each enemy it strikes: `damage` every `every` seconds for
-/// `seconds`, worn as `look_spell`'s aura.
+/// Damage over time a hit leaves on each enemy it strikes: a tick every `every` seconds for
+/// `seconds`, each the assist's damage for `every` seconds (`balance.ron`
+/// `battle_standard.assist_damage_per_second`), worn as `look_spell`'s aura.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct OverTime {
-    pub damage: Damage,
     #[serde(default = "one")]
     pub every: f32,
     pub seconds: f32,
@@ -180,15 +170,16 @@ pub enum AssistStep {
     /// The ally casts or uses something that is only a look on itself (Sprint, Shield Wall, a
     /// potion, a portal it opens).
     Cast { look_spell: u32 },
-    /// The ally strikes the enemies `targets` picks: `damage` to each (none: no damage), `look_spell`
+    /// The ally strikes the enemies `targets` picks: with `damage`, the assist's damage to each
+    /// (`balance.ron` `battle_standard.assist_damage_per_second`; without it none), `look_spell`
     /// played on each (a missile flies from the ally), `effects` put on each through the hero's
     /// own rules (Stun, Root, Fear, Slow, Vulnerable, Weaken), each wearing one of `wears` (one
     /// picked at random for each enemy) while its effects last, and `over_time` on each. With
     /// `melee`, the ally steps to the first one as it strikes.
     Hit {
         targets: Targets,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        damage: Option<Damage>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        damage: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         look_spell: Option<u32>,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -201,18 +192,22 @@ pub enum AssistStep {
         over_time: Option<OverTime>,
     },
     /// A ground area `radius` yd round at `at` for `seconds`, `look_spell`'s look: every `every`
-    /// seconds each enemy inside takes `damage` and gets `effects`.
+    /// seconds each enemy inside takes the assist's damage (with `damage`) and gets `effects`; with
+    /// `most`, only that many
+    /// each time, the nearest its middle first.
     Area {
         at: AreaAt,
         radius: f32,
         seconds: f32,
         #[serde(default = "one")]
         every: f32,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        damage: Option<Damage>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        damage: bool,
         #[serde(default, skip_serializing_if = "Vec::is_empty")]
         effects: Vec<SpellEffect>,
         look_spell: u32,
+        #[serde(default, skip_serializing_if = "is_zero_u32")]
+        most: u32,
     },
     /// A buff on the hero for `seconds`, worn as `look_spell`'s aura: `stats` added, `heal` of
     /// max health every `every` seconds, and with `immune` no damage taken. With `totem`, it comes
@@ -248,14 +243,12 @@ pub enum AssistStep {
     },
     /// `count` of `pet` (a name in `pets.ron`) appear beside the ally and fight for the hero
     /// for `seconds`. Their attacks are the assist's damage (no hero bonus, no crit, nothing of
-    /// the hero's set off): each deals `damage` (missing: the pet's own `damage` in points).
+    /// the hero's set off), each for the pet's attack interval.
     Summon {
         pet: String,
         #[serde(default = "one_u32")]
         count: u32,
         seconds: f32,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        damage: Option<Damage>,
     },
     /// `steps` run `times` times, one every `every` seconds (the first at once); the step takes
     /// `every × times`.
@@ -287,6 +280,144 @@ impl AssistScript {
     }
 }
 
+impl AssistScript {
+    /// The script's damage and healing as one "round" the ally's rotation casts deal again: its
+    /// hits' damage and damage over time, its ground areas' damage and its heals, in order, with
+    /// every effect, look and wear left out (crowd control, buffs, taunts, summons and casts stay
+    /// in the script alone). A repeat's steps come once per pass. A step that picks enemies but
+    /// deals nothing (a stun, a move, a taunt) stays as a pick, so a `Same` after it means what it
+    /// meant in the script. Empty when the script deals and heals nothing.
+    pub fn damage_round(&self) -> Vec<AssistStep> {
+        let mut round = Vec::new();
+        round_of(&self.steps, &mut round);
+        if round.iter().all(|s| matches!(s, AssistStep::Hit { damage: false, over_time: None, .. })) {
+            round.clear();
+        }
+        round
+    }
+}
+
+fn round_of(steps: &[AssistStep], round: &mut Vec<AssistStep>) {
+    let hit = |targets: &Targets, damage: bool, over_time: Option<OverTime>| AssistStep::Hit {
+        targets: targets.clone(),
+        damage,
+        look_spell: None,
+        melee: false,
+        effects: Vec::new(),
+        wears: Vec::new(),
+        over_time,
+    };
+    let pick = |targets: &Targets| hit(targets, false, None);
+    for step in steps {
+        match step {
+            AssistStep::Move { to, .. } => round.push(pick(to)),
+            AssistStep::Taunt { targets, .. } => round.push(pick(targets)),
+            AssistStep::Hit { targets, damage, over_time, .. } => {
+                let over_time = over_time.map(|o| OverTime { look_spell: None, ..o });
+                round.push(hit(targets, *damage, over_time));
+            }
+            AssistStep::Area { at, radius, seconds, every, damage: true, look_spell, most, .. } => round.push(AssistStep::Area {
+                at: *at,
+                radius: *radius,
+                seconds: *seconds,
+                every: *every,
+                damage: true,
+                effects: Vec::new(),
+                look_spell: *look_spell,
+                most: *most,
+            }),
+            AssistStep::Heal { share, .. } => round.push(AssistStep::Heal { share: *share, look_spell: None }),
+            AssistStep::Repeat { times, steps, .. } => {
+                for _ in 0..*times {
+                    round_of(steps, round);
+                }
+            }
+            _ => {}
+        }
+    }
+}
+
+/// How an ally moves while it loops its rotation (docs/game/assists.md, "Its rotation").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum MoveStyle {
+    /// It runs to the enemy nearest it and stays in melee.
+    Melee,
+    /// As `Melee`, and in melee it strafes left and right (a rogue's A-D-A-D) and jumps now and
+    /// then.
+    ErraticMelee,
+    /// It stands beside the hero and casts, following when the hero has gone too far.
+    Caster,
+    /// As `Caster`, and after an instant cast with an enemy close it jumps away (a frost mage's
+    /// Frost Nova, a jump back, then Blizzard).
+    NovaKiteCaster,
+    /// It stays close to the hero, its heals on the hero.
+    Healer,
+    /// It does nothing after its script: no rotation, no move; it leaves as soon as its script is
+    /// done and no taunt of its holds (Vodu dies once his taunt is over; Eggmike hearths away
+    /// once her portal is cast).
+    LeavesAfterScript,
+}
+
+/// What an ally does after its assist, until it leaves: its rotation of 1.12 spells (`Spell.dbc`
+/// ids, each a row in `assist_spells.ron`), cast in order, one skipped while its cooldown runs,
+/// and how it moves. An empty rotation casts nothing: a `Melee` or `ErraticMelee` ally only
+/// auto attacks (white swings at the enemy nearest it, each its own hit), a caster or healer only
+/// keeps beside the hero.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AssistBehaviour {
+    pub style: MoveStyle,
+    pub rotation: Vec<u32>,
+}
+
+/// Where a rotation spell is aimed.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CastOn {
+    /// At an enemy: its round's first, else the one nearest the ally.
+    #[default]
+    Enemy,
+    /// At the hero (a heal, a buff).
+    Hero,
+    /// At itself (a nova, a shout, a seal, a whirlwind).
+    Caster,
+    /// On the ground: where its round's area goes, else under the enemy nearest the ally.
+    Ground,
+}
+
+/// A rotation spell (`assist_spells.ron`): its cast time and cooldown as `Spell.dbc` holds them
+/// (seconds; the `check_assist_spells` example checks them against the client), where it is
+/// aimed, and for a channelled spell (Blizzard) its channel, its ticks' interval and its radius
+/// (seconds, seconds, yards; all 0 for a spell not channelled).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct AssistSpell {
+    pub spell: u32,
+    pub cast: f32,
+    pub cooldown: f32,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub channel: f32,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub tick_every: f32,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub radius: f32,
+    #[serde(default)]
+    pub on: CastOn,
+}
+
+impl AssistSpell {
+    /// It is channelled: its effect comes in ticks while the ally channels it.
+    pub fn channelled(&self) -> bool {
+        self.channel > 0.0
+    }
+
+    /// Its channel's ticks: the channel over the ticks' interval, at least one.
+    pub fn ticks(&self) -> u32 {
+        if self.tick_every > 0.0 {
+            ((self.channel / self.tick_every).round() as u32).max(1)
+        } else {
+            1
+        }
+    }
+}
+
 /// A class's default assist (`class_assists.ron`), for a character of that class (and form) that
 /// has no script of its own: `form` `None` for the class as a whole.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -297,6 +428,37 @@ pub struct ClassAssist {
     /// What it does, described, for a character whose own `assist` text is empty.
     pub text: String,
     pub script: AssistScript,
+    /// Its rotation and movement after the script, for a character with no `behaviour` of its own.
+    pub behaviour: AssistBehaviour,
+}
+
+/// The rules every behaviour follows: a rotation of spells `assist_spells.ron` has (an empty one
+/// is auto attacks only, or nothing), none for one that leaves after its script.
+pub(crate) fn check_behaviour(what: &str, b: &AssistBehaviour, spells: &[AssistSpell], problems: &mut Vec<String>) {
+    if b.style == MoveStyle::LeavesAfterScript && !b.rotation.is_empty() {
+        problems.push(format!("{what}: it leaves after its script, so its rotation casts nothing"));
+    }
+    for id in &b.rotation {
+        if !spells.iter().any(|s| s.spell == *id) {
+            problems.push(format!("{what}: its rotation casts {id}, which assist_spells.ron lacks"));
+        }
+    }
+}
+
+/// `assist_spells.ron`'s rules: each spell once, times never below 0, a channel with its ticks and
+/// its radius.
+pub(crate) fn check_assist_spells(spells: &[AssistSpell], problems: &mut Vec<String>) {
+    for (k, s) in spells.iter().enumerate() {
+        if spells[..k].iter().any(|o| o.spell == s.spell) {
+            problems.push(format!("assist_spells.ron: spell {} is written twice", s.spell));
+        }
+        if s.spell == 0 || !(s.cast >= 0.0) || !(s.cooldown >= 0.0) || !(s.channel >= 0.0) || !(s.tick_every >= 0.0) || !(s.radius >= 0.0) {
+            problems.push(format!("assist_spells.ron: {s:?} needs a spell and times of 0 or more"));
+        }
+        if s.channelled() && (s.tick_every <= 0.0 || s.radius <= 0.0) {
+            problems.push(format!("assist_spells.ron: {s:?} is channelled, so it needs its ticks' interval and its radius"));
+        }
+    }
 }
 
 fn one() -> f32 {
@@ -353,14 +515,6 @@ fn check_targets(what: &str, t: &Targets, picked: bool, problems: &mut Vec<Strin
     }
 }
 
-fn check_damage(what: &str, d: &Damage, problems: &mut Vec<String>) {
-    match *d {
-        Damage::MaxHealthShare(s) if !(s > 0.0 && s <= 1.0) => problems.push(format!("{what}: deals {s} of max health")),
-        Damage::Flat(v) if !(v > 0.0) => problems.push(format!("{what}: deals {v} damage")),
-        _ => {}
-    }
-}
-
 /// Only effects on enemies, each with a time.
 fn check_effects(what: &str, effects: &[SpellEffect], problems: &mut Vec<String>) {
     for e in effects {
@@ -397,12 +551,8 @@ fn check_steps(what: &str, steps: &[AssistStep], picked: &mut bool, pet_known: &
             AssistStep::Hit { targets, damage, effects, wears, over_time, look_spell, .. } => {
                 check_targets(what, targets, *picked, problems);
                 *picked = true;
-                if let Some(d) = damage {
-                    check_damage(what, d, problems);
-                }
                 check_effects(what, effects, problems);
                 if let Some(o) = over_time {
-                    check_damage(what, &o.damage, problems);
                     if !(o.every > 0.0 && o.seconds >= o.every) {
                         problems.push(format!("{what}: its effect over time ticks every {} sec for {} sec", o.every, o.seconds));
                     }
@@ -410,7 +560,7 @@ fn check_steps(what: &str, steps: &[AssistStep], picked: &mut bool, pet_known: &
                 if !wears.is_empty() && effects.is_empty() {
                     problems.push(format!("{what}: its hit puts a look to wear but no effect"));
                 }
-                if damage.is_none() && effects.is_empty() && over_time.is_none() && look_spell.is_none() {
+                if !*damage && effects.is_empty() && over_time.is_none() && look_spell.is_none() {
                     problems.push(format!("{what}: its hit does nothing"));
                 }
             }
@@ -418,8 +568,8 @@ fn check_steps(what: &str, steps: &[AssistStep], picked: &mut bool, pet_known: &
                 if !(*radius > 0.0 && *seconds > 0.0 && *every > 0.0) || *look_spell == 0 {
                     problems.push(format!("{what}: its area needs a radius, a time, a tick and a look"));
                 }
-                if let Some(d) = damage {
-                    check_damage(what, d, problems);
+                if !*damage && effects.is_empty() {
+                    problems.push(format!("{what}: its area does nothing"));
                 }
                 check_effects(what, effects, problems);
             }
@@ -449,10 +599,7 @@ fn check_steps(what: &str, steps: &[AssistStep], picked: &mut bool, pet_known: &
                     problems.push(format!("{what}: taunts for no time"));
                 }
             }
-            AssistStep::Summon { pet, count, seconds, damage } => {
-                if let Some(d) = damage {
-                    check_damage(what, d, problems);
-                }
+            AssistStep::Summon { pet, count, seconds } => {
                 if !pet_known(pet) {
                     problems.push(format!("{what}: summons {pet}, which pets.ron lacks"));
                 }

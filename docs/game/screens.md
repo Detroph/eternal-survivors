@@ -135,11 +135,11 @@ The camps (below) fill the window; over them:
 | Part | What it shows and does |
 |---|---|
 | Top-left panel | the picked hero's name, its race and class (class colour), **Total wins** and **Runs** (the save's records), the **Starting spell** spot, and under it the **Weapon loadout** spot. The Starting spell spot shows the class's starting options as icons, three (the Druid's four forms), the hero's pick lit and its name under them; an icon's tooltip gives the option's name, each of its level-1 spells with its numbers at level 1, how it plays, and its passive ("Passive: …", in green); a click picks it (`start`), the save keeps it for the hero's next runs (the class's first until one is picked), and the run starts with it. The Weapon loadout spot (roadmap R3) lists the class's three loadouts as rows, each with its name, its weapons ("One-handed sword, Shield"), its strength in green and its drawback in red, the one the class fights with lit (gold name, the picked row's frame); a click picks one (`loadout`), the save keeps it for the class (every hero of the class; its first until one is picked), and the next run fights with it. With no hero in the camp: "No hero waits by the Horde's campfire yet." |
-| Top middle | centred over the camp, on the axis of its buttons: a row of four framed buttons, **Collection** and **Talents** (each opening the hero sheet straight on that view for the picked hero, Back returning here) and two dimmed placeholders reading "TBD" (features to come); under them **Equipped armour**: the class's slots (eight armour, then the weapons), each the worn piece's icon (tooltip: its name in its quality colour and its slot) or the slot's empty picture. **Collection** glows (gold border and the soft glow of what is picked, `ButtonStyle::TextGlow`) while gear was unlocked for the class since its Collection was last opened, **Talents** while talent or prestige points were earned since its Talents were (`Progress` `new_gear`, `new_points`); opening the view asks `seen <class> <collection|talents>`, so the glow is gone on coming back. The save keeps what was seen per class (`seen: Some((pieces: n, points: n))`, [server.md](server.md)); a class of a save from before it shows nothing new, a class new to the save has seen nothing |
-| Right column | the **Zone** heading; the zone of the hero's next run opened as a card (number and name, its title, its lines, its enemies, its bosses with their arrival times, the final one in gold); every other zone as a row: an open one picks it for the hero (`zone`), a locked one says which final boss in which zone opens it; a zone no class of the save has opened yet (not discovered: menus.md) shows only "???" and a lock. At its foot **Difficulty modifiers** (with the reward bonus when it is not 1) and **Start run** (enters the world as the hero, in its zone; off while the zone is locked) |
+| Top middle | centred over the camp, on the axis of its buttons: a row of four framed buttons, **Collection** and **Talents** (each opening the hero sheet straight on that view for the picked hero, Back returning here), a dimmed placeholder reading "TBD" (a feature to come) and **Guide** (opening the guide over the screen, below); under them **Equipped armour**: the class's slots (eight armour, then the weapons), each the worn piece's icon (tooltip: its name in its quality colour and its slot) or the slot's empty picture. **Collection** glows (gold border and the soft glow of what is picked, `ButtonStyle::TextGlow`, the glow pulsing: its strength dips to 40 % and back every 1.6 s, `look::news_pulse`) while gear was unlocked for the class since its Collection was last opened, **Talents** while talent or prestige points were earned since its Talents were (`Progress` `new_gear`, `new_points`); opening the view asks `seen <class> <collection|talents>`, so the glow is gone on coming back. The save keeps what was seen per class (`seen: Some((pieces: n, points: n))`, [server.md](server.md)); a class of a save from before it shows nothing new, a class new to the save has seen nothing |
+| Right column | the **Zone** heading; once the hero's class has won Ahn'Qiraj (zones.md "Challenge Mode"), under it the tabs **Normal Mode** and **Challenge Mode** (`mode:normal`, `mode:challenge`; the picked one filled dark red), and under Challenge Mode the **Challenge** slider, its value as "1.25x" between two arrows a 0.25 step each way, 1x to 5x (`challenge-down`, `challenge-up`; each change to the save at once with the run options, `options`), with a tooltip on what the mode does; in Challenge Mode every zone is open; the zone of the hero's next run opened as a card (number and name, its title, its lines, its enemies, its bosses with their arrival times, the final one in gold); every other zone as a row: an open one picks it for the hero (`zone`), a locked one says which final boss in which zone opens it; a zone no class of the save has opened yet (not discovered: menus.md) shows only "???" and a lock. At its foot **Difficulty modifiers** (with the reward bonus when it is not 1) and **Start run** (enters the world as the hero, in its zone; off while the zone is locked) |
 | Top right | the **Codex**, beside the zone column: how many rings, trinkets, amulets and legendary amulets the save has found (`n / m` each), how many in all, and **Open the codex** |
 | The camp | the picked hero's name over the campfire (Morpheus, gold, kept over the flames as the camera sees them); the picked hero outlined in gold (below); a round button at the camp's top left with the other camp's emblem (`UI-PVP-Alliance`, `UI-PVP-Horde`) and a badge with how many heroes that camp holds, which switches camps (its first hero picked); under the fire, in this order, **New character** (the class picker; while the camp has fewer than nine heroes and the save fewer than 18), **Modify character** (the hero sheet on the hero) and **Delete character** |
-| Bottom-left corner | **Options** (the game's settings, below) over **Quit game**, which closes the game through the app's own exit (`AppExit`, benilla's shutdown savers), as the Escape menu's Quit Game does once the hero is out; before a run there is nothing to pay out. Over them, while the updater has something to say ([server.md](server.md), "Updates"; `crate::update::notice_view`), a panel 200 units wide: "v0.5.0 is available" (gold) and **Update** (`update`); while it downloads, "Downloading v0.5.0", a progress line kept up to date in place ("42%  (17.0 of 40.4 MB)", the screen not drawn anew for it) and Update dimmed; a failure in red ("The update failed: the download failed, no connection. Nothing was changed.") with Update to try again; then "Updating to v0.5.0: the game restarts", no button. With **Check for updates** off, an offer and a failure are hidden, an update under way is not |
+| Bottom-left corner | **Options** (the game's settings, below) over **Quit game**, which closes the game through the app's own exit (`AppExit`, benilla's shutdown savers), as the Escape menu's Quit Game does once the hero is out; before a run there is nothing to pay out. Over them, while the updater has something to say ([server.md](server.md), "Updates"; `crate::update::notice_view`), a panel 200 units wide: "v0.5.0 is available" (gold) and **Update** (`update`), the panel wearing the news look of Collection and Talents (above: the gold border and a glow, pulsing; `look::NewsPulse`), the button plain; while it downloads, "Downloading v0.5.0", a progress line kept up to date in place ("42%  (17.0 of 40.4 MB)", the screen not drawn anew for it) and Update dimmed; a failure in red ("The update failed: the download failed, no connection. Nothing was changed.") with Update to try again; then "Updating to v0.5.0: the game restarts", no button. With **Check for updates** off, an offer and a failure are hidden, an update under way is not |
 | Delete | asks first: "Are you sure you want to delete this character?" with the hero's name, **No** (the default, filled) and **Yes**; only Yes deletes, and the camp then picks the hero now in the deleted one's place (or the last) |
 | Difficulty modifiers | a panel with each run option of `run_options.ron` (its name, its value in %, arrows a step each way, kept on its slider; its tooltip), the **Rewards** bonus the options give, a line on what harder runs pay, and **Done**; each step goes to the save at once (`options`) |
 
@@ -156,7 +156,7 @@ window-sized mask (`SceneFigureMask(0)`, below); a node over the window (`menus:
 `outline_glow.wgsl`) reads round each pixel outside the silhouette and adds the gold, in gamma
 bytes. The mask holds the hero alone, so the edge also shows over what stands in front of the
 hero's edge (grass, the campfire); the camps' places keep the heroes clear of each other. It hides
-while the codex, the options, the run options or the delete question are open.
+while the codex, the guide, the options, the run options or the delete question are open.
 
 **The codex** (`menus::codex`): over the screen, a panel with how the codex works and how much is
 found in all; a tab per list with its count (**Rings**, **Trinkets**, **Amulets**, **Legendary**);
@@ -165,6 +165,26 @@ class first) with arrows through the pages; the pieces in two columns, a found o
 its name (an amulet in its rarity colour) and what it does, one not found dark with a "?", its
 name grey and where it comes from; **Close** (and Escape). Built on `hero_sheet::codex`; what is
 found comes from the save's `Codex` answer before a run.
+
+**The guide** (`menus::guide`): the **Guide** button over the armour opens, in the codex's look, a
+panel over the screen that explains the game's mechanics, a tab each: **Stats** (every hero stat
+the game has, in four groups: basic stats, defences, spell stats, weapon stats; then the prestige
+stats that raise a number of every spell), **Enemies** (normal enemies, elites, rares, bosses,
+the final boss and enrage: when they come, glows, drops; how enemy health and damage scale is not explained), **Upgrades** (the level-up cards:
+level up, new spell, spell upgrade, rarity, reroll, the gold card, and every upgrade kind) and
+**Loot** (pick-ups: experience, gold, the magnet, the three runes, the Warband Standard; loot from
+caches: the Battleground Cache, the free Rare Cache, rings, trinkets, amulets, legendary amulets).
+Each entry has an icon (a stat its prestige stat's, else its ring's or trinket's; extra targets
+Hunter's Mark's and thorns the Thorns spell's; gold the gold card's; the Berserker and Speed Runes
+their buff's and the Warband Standard its Battle Standard spell's, these from the player's
+`Spell.dbc`; experience `INV_Misc_Book_11`, the magnet `Spell_Nature_AstralRecal`, the Restoration
+Rune `Spell_Holy_Heal`, the Battleground Cache `INV_Box_01`, the Rare Cache `INV_Box_04`; rings, trinkets and amulets the content's first one's), its
+name (an enemy in its glow's colour) and a line or two. The tab's sections scroll with the wheel;
+**Close** (and Escape). Every number is read from the content (`balance.ron`: an elite's
+experience, the Warband Standard's count and time) or quoted
+from the rule's own constant in `esurv-sim` (runes, magnets, caches, rerolls, upgrade caps, the
+base stats), never copied; a test changes the balance and checks the guide follows, and a test
+holds every `Stat` (read from the type itself) and every prestige stat to a Stats entry.
 
 **Options** (`menus::options`): the game's own settings in a panel of
 this look, with four tabs (the fourth, Saves, is the save's export and import, `menus::save_files`). The stock options frames exist only in the world session's Lua
@@ -178,7 +198,7 @@ character select, so a change shows in the game and in the stock frames later.
 |---|---|---|
 | Video | the stock Video Options frame one for one: resolution (the display's list) and multisampling (the device's formats); its eighteen boxes (windowed, windowed and maximized, vertical sync, triple buffering, hardware cursor, smoother input, interface scale on, desktop brightness, film subtitles, smooth texture blending, far-off land in less detail, all shaders, shining terrain, screen glow, death effect, animated model shaders, smooth model shading, weather shaders), each greyed while the box it hangs on is off (and triple buffering where the device has none); its nine sliders with the stock ranges and steps (interface scale 0.64 to 1, view distance 177 to 777 yards, ground detail, terrain textures, texture detail, brightness −0.5 to 0.5, texture sharpness 1x to the device's top, spell effects, weather), the interface scale only with its box on, brightness only with neither desktop brightness nor windowed on. Its refresh-rate list is left out: benilla owns no exclusive display mode and offers none | on Okay, as the stock frame: each changed box and value written (All Shaders copied into `ffx`), the display rebuilt (`RestartGx`) when a display setting moved |
 | Sound | the stock Sound frame one for one: sound, ambient sound and spoken errors (both on sound), music, music without pauses, hearing from the hero, emote sounds; master, effects, music and ambience volume, 0 to 100% in tens | as moved, as the stock frame; Cancel puts them back |
-| Interface | the Interface Options settings that are plain CVars the game itself reads, with the game's own settings, in four headed sections in this order (each a heading between two gold rules over two columns; more than the panel shows scroll with the wheel and keep their place): **Mouse & Camera**: invert the mouse, click to move, the four camera boxes; mouse sensitivity, mouse look speed, the camera following style (`cameraSmoothStyle`: only when moving 1, always 2, never 0, the three the stock 1.12 dropdown writes and the camera does; 3 shows as never, as the camera reads it), camera follow speed, camera distance. **Names**: the five name boxes. **Eternal Survivors**: show damage numbers, **Damage numbers** (Smart or All: [Damage numbers](#damage-numbers-smart-or-all); a tooltip on its label), **Check for updates** (the game's own CVar `esurvCheckForUpdates`, `1` by default; ticked, the game checks for a newer version as soon as the setting reads on; unticked, it never asks and hides an offer: [server.md](server.md), "Updates"; a tooltip on its line), **Glow around elites and rares** (the CVar `esurvEnemyGlow`, `1` by default, `esurv_app::glow_option`: ticked, elites wear a purple outline glow, rares and the Rare Caches they drop a silver one; unticked, all of them hide at once; bosses and normal enemies never glow; a tooltip on its line); then the boss timers ([bosses.md](bosses.md)): boss warnings, warning sound (on boss warnings), boss timer bars, show bar handles and reset bar positions (both on the bars). **Misc**: chat bubbles, deselect on clicking the ground, clearing away, loading-screen tips, pet damage numbers. Not shown, their saved values kept as they are: party chat bubbles, every roll in the chat, guild arrivals, the language filter, refusing trades, tips in the game (the tutorial alerts), attack on assist, self-cast. Left out: what only the Lua interface reads (tooltips, bar text, the per-character interface settings such as combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own, sent from the world), the spam filter, and the key bindings | on Okay |
+| Interface | the Interface Options settings that are plain CVars the game itself reads, with the game's own settings, in four headed sections in this order (each a heading between two gold rules over two columns; more than the panel shows scroll with the wheel and keep their place): **Mouse & Camera**: invert the mouse, click to move, the four camera boxes; mouse sensitivity, mouse look speed, the camera following style (`cameraSmoothStyle`: only when moving 1, always 2, never 0, the three the stock 1.12 dropdown writes and the camera does; 3 shows as never, as the camera reads it), camera follow speed, camera distance. **Names**: the five name boxes. **Eternal Survivors**: show damage numbers, **Damage numbers** (Smart or All: [Damage numbers](#damage-numbers-smart-or-all); a tooltip on its label), **Check for updates** (the game's own CVar `esurvCheckForUpdates`, `1` by default; ticked, the game checks for a newer version as soon as the setting reads on; unticked, it never asks and hides an offer: [server.md](server.md), "Updates"; a tooltip on its line), **Glow around elites, rares and bosses** (the CVar `esurvEnemyGlow`, `1` by default, `esurv_app::glow_option`: ticked, elites wear a purple outline glow, rares and the Rare Caches they drop a silver one, bosses an orange one; unticked, all of them hide at once; normal enemies never glow; a tooltip on its line); then the boss timers ([bosses.md](bosses.md)): boss warnings, warning sound (on boss warnings), boss timer bars, show bar handles and reset bar positions (both on the bars). **Misc**: chat bubbles, deselect on clicking the ground, clearing away, loading-screen tips, pet damage numbers. Not shown, their saved values kept as they are: party chat bubbles, every roll in the chat, guild arrivals, the language filter, refusing trades, tips in the game (the tutorial alerts), attack on assist, self-cast. Left out: what only the Lua interface reads (tooltips, bar text, the per-character interface settings such as combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own, sent from the world), the spam filter, and the key bindings | on Okay |
 | Saves | the save's export and import (design step 6): the folder the save goes to and comes from, **Export save**, **Import save**, and the saves in the folder (below) | at once; Okay and Cancel are for the other tabs |
 
 **Export and import.** The game has no file dialog, so the save goes to and comes from one fixed
@@ -350,8 +370,8 @@ the figures), `wait:<s>`, `size:<w>x<h>` (the game's own window, resized from in
 `shot:<name>` (the game's own shot, `<name>.png` in the folder `ESURV_MENUS_SHOTS`; the window
 is never raised nor pinned), `quit`, or a press: `class:<id>`, `choose`, `back`, `create-new`,
 `hero:<name>`, `camp`, `modify`, `delete`, `yes`, `no`, `zone:<id>`, `run-options`, `more:<n>`,
-`less:<n>`, `done`, `start`, `codex`, `codex-list:<rings|trinkets|amulets|legendary>`,
-`codex-page:<next|prev>`, `close-codex`, `game-options`, `options-tab:<video|sound|interface>`,
+`less:<n>`, `done`, `mode:<normal|challenge>`, `challenge-up`, `challenge-down`, `challenge-okay` (closes the Challenge Mode box), `start`, `codex`, `codex-list:<rings|trinkets|amulets|legendary>`,
+`codex-page:<next|prev>`, `close-codex`, `guide`, `guide-tab:<stats|enemies|upgrades|loot>`, `close-guide`, `game-options`, `options-tab:<video|sound|interface>`,
 `option:<cvar or getter>:<+|->`, `okay`, `cancel`, `options-tab:saves`, `export-save`,
 `save-file:<name, or its place in the list, 0 the newest>`, `import-save`, `import-yes`,
 `import-no`, `quit-game`, `open:<collection|talents>` (the warband screen's button), `end-panel:<victory|defeat>`
@@ -414,7 +434,7 @@ and weapons alone, through a camera that follows the world camera's eye and opti
 `mask` of `FigureMaskImage`, a window-sized picture clear but where its figures are, for drawing
 round their silhouettes (only the model batches take the mask's own layer, never their particles);
 there are `FIGURE_MASKS` of them, and they take a run's units and game objects too
-([Glows round elites and rares](#glows-round-elites-and-rares)). Stock benilla never sets them, and then nothing changes.
+([Glows round elites, rares and bosses](#glows-round-elites-rares-and-bosses)). Stock benilla never sets them, and then nothing changes.
 
 ## The card screens (level-up, cache and rare cache)
 
@@ -725,25 +745,31 @@ hidden or not), and reads the resource `DamageNumberFloor(Option<u32>)`: a numbe
 does not float and takes none of the unit's four slots. `None`, the default, floats every one,
 as the 1.12 client does; benilla itself never sets it.
 
-## Glows round elites and rares
+## Glows round elites, rares and bosses
 
-In a run (`esurv_app::enemy_glow`), an elite wears a **purple** outline glow, and a rare and the
-Rare Cache it drops a **silver** one; bosses and the other enemies have none. The look is the
+In a run (`esurv_app::enemy_glow`), an elite wears a **purple** outline glow, a rare and the
+Rare Cache it drops a **silver** one, and a boss an **orange** one (the legendary quality's
+colour); the other enemies have none. The look is the
 picked hero's outline on the warband screen (above), in another colour and from the same shader
 (`outline_glow.wgsl`): a thin edge along the silhouette, gear and weapons included (about 1.5
 pixels at 1080 rows), a soft glow fading outward over about 7 pixels, and the same slow pulse.
-Purple is `(0.74, 0.36, 1.0)` at 0.6 strength, silver `(0.92, 0.95, 1.0)` at 0.7, in gamma bytes.
-An elite or a rare is told by the rank the server gives it in the creature query (1 elite, 4 rare:
-the portrait's gold and silver dragons), read through benilla's `CreatureRanks`; a Rare Cache by
-its game-object entry (the server's `entries::RARE_CACHE`). A dead elite or rare stops glowing.
+Purple is `(0.74, 0.36, 1.0)` at 0.6 strength, silver `(0.92, 0.95, 1.0)` at 0.7, orange
+`(1.0, 0.5, 0.0)` (`ff8000`) at 0.7, in gamma bytes.
+An elite, a rare or a boss is told by the rank the server gives it in the creature query (1 elite,
+3 boss, 4 rare: the portrait's gold and silver dragons and the skull), read through benilla's
+`CreatureRanks`; a Rare Cache by its game-object entry (the server's `entries::RARE_CACHE`). A
+player-looking enemy (Warsong Gulch's, [zones.md](zones.md)) has a player's guid, which no
+creature query answers: the server tells its rank in the same numbering (`ToClient::EnemyRanks`,
+`ESURVER`, as each ranked one appears and all of them after `hello`), and the client keeps the
+ranks told until the next run's `Ready` (`enemy_glow::ToldRanks`). A dead one stops glowing.
 Every one in sight glows, with no limit (its cost, below, is light).
 
-Each colour has its own mask (elites mask 1, rares and caches mask 2; the warband hero has mask 0)
+Each colour has its own mask (elites mask 1, rares and caches mask 2, bosses mask 3; the warband hero has mask 0)
 and a node over the window, over the world and under the run's own windows (the meter, the HUD,
 the card screens). The mask holds the glowing figures alone, so a glow also shows over what stands
 in front of the figure's edge (another enemy in the swarm).
 
-The glows follow one option, **Glow around elites and rares** (the CVar `esurvEnemyGlow`, `1`
+The glows follow one option, **Glow around elites, rares and bosses** (the CVar `esurvEnemyGlow`, `1`
 on, the default; `0` off; `esurv_app::glow_option`), on the Options panel's Interface tab:
 off, every glow hides at once, as the masks are taken off and their cameras stop. The warband
 hero's gold outline does not follow it.
@@ -754,7 +780,7 @@ and off in one run, [server.md](server.md), "Switches"): the frame held at the s
 ### benilla's hook: several masks
 
 `SceneFigureMask(mask)`, put on a select-scene figure or on any streamed object's entity (a unit,
-a game object), draws its model batches alone into mask `mask` (below `FIGURE_MASKS`, 3), each
+a game object), draws its model batches alone into mask `mask` (below `FIGURE_MASKS`, 4), each
 mask through a camera of its own on a layer of its own, following the world camera's eye and optic;
 `FigureMaskImage` holds each mask's window-sized picture (`None` until a figure first asks for
 it). Only the masked figures are walked each frame, and those whose mask was just taken off, whose
@@ -778,7 +804,7 @@ units from the top of the screen.
 | Next boss | under the clock | "Boss arrives in `M:SS`" while one is to come; "Endless mode" once Endless is on; nothing when no boss is left to come. Gold, 12 (`GameFontNormal`) | `Hud` next boss, Endless |
 | Kills | left of the clock | label "Foes slain" (gold, 10), the count (white Arial Narrow 14, `NumberFontNormal`) | `Hud` kills |
 | Gold | right of the clock | label "Gold", the gold (`NumberFontNormal`), and "Next cache: n" (`GameFontDisableSmall`, grey) | `Hud` gold, cache price |
-| Boss bar | 62 | the first boss up that still lives: its name (`GameFontNormal`) on the stock target frame's name backing (`UI-TargetingFrame-LevelBackground`, 119 × 19) in the hostile colour, as the target frame shows a hostile unit; under it the kit's status bar the stock casting bar's size (195 × 13) filled in the stock health green, inside the stock casting bar border (`UI-CastingBar-Border`, 256 × 64, its top 28 over the bar's), `health / max` on it (`NumberFontNormalSmall`). Gone when its health reaches 0 | `BossBar` |
+| Boss bars | 62 | every boss up, oldest first (`hud::boss_stack`): the first on a wide bar (370 × 18) in the kit's status bar, a dark red, inside the stock skill bar border (`UI-Character-Skills-BarBorder`), the target frame's boss skull (`UI-TargetingFrame-Skull`) and its name (`GameFontHighlight`) at the left, `health / max` (`NumberFontNormalSmall`) and its share (`58%`) at the right, a gold tick at each health phase of its script with the phase's name over it (`GameFontNormalSmall`, gold: the `soon` line without " soon"). Under it, 16 apart, its cast or wind-up (200 × 11, the stock casting bar's colour and border, its icon at the left, `label` and time left); the room is kept while it does not cast. Every other boss below on a thinner bar (310 × 13) of the same look. A bar goes as its boss dies. The boss warnings move down under the stack (`boss_alerts::warnings_top`) | `BossBar`, `BossCast` |
 | Banners | 292, two lines, newest on top | a boss arrives (orange, the stock raid warning's colour), the final boss arrives (red), a boss falls (gold); a rare comes and falls with none. Friz Quadrata 20 (`GameFontNormalHuge`). Each holds 10 s, then fades over 3 s: a stock message frame's timing, as `RaidWarningFrame` keeps it | `Banner` |
 | Toasts | 352, three lines, newest on top | the server's HUD messages (magnet, runes, a cache that needs gold, leaving the arena) in the stock info yellow, Friz Quadrata 16 (`ErrorFont`). Each holds 5 s, then fades over 3 s: `UIErrorsFrame`'s timing | `Toast` |
 | Start hint | 292 | before the first step: "Take a step to begin the fight.", in gold, pulsing (strength \|sin(4.5 t)\| × 0.45 + 0.55) | `Hud` phase `waiting` |
@@ -1042,9 +1068,11 @@ Escape menu stands in for it from the first moment in the world to the end panel
 are reached only through our Options panel (its Key Bindings button opens the stock key binding
 window).
 
-**Hidden**: the micro buttons for the quest log, the social window, the world map, the main menu
-(Escape still opens the Escape menu) and help; the backpack, bag and keyring buttons; the
-minimap's world map button and its battleground button. The minimap's zoom buttons, its
+**Hidden**: the micro buttons for the quest log, the social window, the world map and help; the
+backpack, bag and keyring buttons; the main bar's buttons 9 to 12 and its latency bar
+([The action bar](#the-action-bar)); the minimap's world map button and its battleground button.
+The main menu's micro button stays: a click on it opens the Escape menu, as Escape does. The
+minimap's zoom buttons, its
 tracking icon, its day and night dial and its own close button stay: they open no window.
 
 **The run's numbers on the character pane** (design step 6). Once the server's numbers line has
@@ -1208,6 +1236,32 @@ the first spell again once a level-up upgraded it. With `ESURV_GRANT=speed_rune,
 (both runes at the hero's feet as the run starts) and `ESURV_AUTOSTART=1`,
 `buff:1@6,buff:2@8,buff:3@10` shows the runes' buffs and the race spell's.
 
+### The action bar
+
+In a run the stock main bar (`MainMenuBar.xml`, 1024 units wide) is laid out compact and
+centred, 494 units wide, from its own art (`esurv-app` `run_frames::action_bar`,
+`action_bar.lua`, switched with the run frames); out of a run every piece goes back where the
+stock file put it. Left to right:
+
+| Part | In a run |
+|---|---|
+| Gryphons | the stock end caps, one over each end, overlapping it by 32 as in the stock bar |
+| Buttons 1 to 7 | the hero's spells, learned spell `n` on button `n` (keys 1 to 7): seven, as rogues and druids need; a spell past the seventh has no button and still casts |
+| Button 8 | the race spell (key 8), the server's `RACE_SPELL_SLOT` ([server.md](server.md), "The action bar") |
+| Page arrows and number | as the stock bar has them, though only page 1 holds spells |
+| Micro buttons | Character (C), Spellbook (P), Talents (N) and the main menu's (the 1.12 computer button), which opens the run's Escape menu as Escape does ([Pausing](#pausing-the-escape-menu)) |
+
+Left out: buttons 9 to 12 (hidden, whatever shows them), the bag slots' end of the art (the
+art's last quarter) and the latency bar. The art is the stock strips cut together: the first
+quarter whole (the bar's left end, buttons 1 to 6), the second up to button 8 and its last 6
+units (the pillar before the arrows), then the third from its start (the arrows, the page
+number, the micro buttons) to the bar's end, under the right gryphon.
+
+The experience bar over it (`MainMenuExpBar`, and the rail that stands in for it at the level
+cap) is the bar's width, in **ten segments** of a tenth each, not the stock twenty of 5 %: the
+stock art's first and last strips (five segments each, the bar's two ends), half the width
+each. The exhaustion tick reads the bar's width, so it stands at the right place.
+
 ### The power bar
 
 The player frame's power bar shows what the hero's starting option
@@ -1231,6 +1285,20 @@ Knowledge, Hot Streak, Maelstrom Weapon, Burning Embers, Thick Hide) show in the
 an aura of its own with its count; where the aura's spell has another icon than the buff's, our
 interface shows the buff's (Maelstrom Weapon's hammer, Arcane Knowledge's essence, Hot Streak's
 Pyroblast).
+
+**Counter buffs** (`esurv_content::legendary_counters`, the server's
+`game::counter_buffs`): a worn legendary amulet whose milestone goes off every n-th cast or hit
+(an `Every` of a count above 1, a `LineHit` every n-th, and the like) shows a buff in the buff
+frame from its first count on, in the legendary's own icon, its stacks the count toward the next
+time (Stampede: 0 to 8, back to 0 as the stampede goes; the stock frame writes no number under 2),
+no time left; its tooltip names the legendary, "4 of 9" and its text. Each counting legendary's
+buff is an aura of its own, the legendaries' order picking one of `COUNTER_AURAS` (old
+`Spell.dbc` rows 2186 to 2205 with no look of their own, the "zzOLD ... Damage Bonus" ones), its
+icon swapped for the legendary's as the stacking buffs' are. Thirteen legendaries count: Gruul's
+Shatter, Hateful Strike, The Ashbringer, Thori'dal, Stampede, Penance of Light, Tornado, Arcane
+Bomb, Frostbolt Volley, Magnetic Pull, Living Bomb, Shadow Bolt Volley, Starfall. Those that count
+on each enemy apart (`per_enemy`: Flash Freeze, Silithid Swarm) show none, and neither do those
+that go off every time. A look only: no number changes.
 
 **Spell icons.** The action bar and the spellbook hold each spell as the stock spell it looks like,
 whose stock icon can be another's (Arcane Blast's look is a fireball). In a run they show each
@@ -1271,7 +1339,8 @@ What the options look and sound like, all from the player's client:
   pings the minimap where it lies; the ally is a player of its hand-made character drawn at twice
   its size, a friendly player that cannot be selected, its name over it and its yells in the chat;
   it comes in its arrival's look, casts its steps' looks from itself, swings at what it strikes in
-  melee, and goes its leaving's way ([server.md](server.md), "What the client is told").
+  melee, then loops its rotation for the rest of its 15 s (cast bars and cast animations, a rogue's
+  strafes and jumps, a frost mage's jump back), and goes its leaving's way ([server.md](server.md), "What the client is told").
 * **Summons** are the run's pets with their models (`pets.ron`); the ghostly copy of the hero is a
   copy of its player, see-through and blue (the Ghost Visual aura), standing where it appeared;
   it is the one seen casting its lightning, flame and heal, with their cast animations (the run
@@ -1377,10 +1446,61 @@ What the options look and sound like, all from the player's client:
   beside each. The legendaries that only make their spell bigger (Blizzard, Rain of Fire,
   Hurricane, Shade's Missiles...) have no moment of their own: their spell's own look shows, at
   its new size.
+  Every moment of every legendary has a look (`legendary_looks::moments_without_looks`, tested;
+  Gruul's Shatter's delayed burst needs no mark, its enemies stand in stone). The
+  moments that showed none:
+  * **smaller looks** (`small` in `legendary_looks.ron`): a rank of the spell no hero casts,
+    styled at 0.6 (`SMALL_LOOK_SCALE`, sent with the look styles), so the spell's own look keeps
+    its size: on each further enemy of a sweep or a jump (`ExtraTargets`: Death Coil 705, Feast
+    22827, Hammer of Uther 5588, Holy Wrath 10318, Silithid Swarm 24974, Thrall's Doomhammer 548,
+    Static Charge 325, Eye Beam 8102, Windrunner's Volley 14288, Pounce 6787, Saber Lash 6800,
+    Penance of Light 598, Doomwinds 27648), on an enemy struck again (`StrikeAgain`: Mirror Image
+    and Wind Walk Sinister Strike 1757, Endurance Aura Heroic Strike 284, Light's Barrage Holy
+    Shock 25902, Frenzy Shred 6800, Wrath of Cenarius Wrath 5177) and on each enemy an effect
+    spreads to on a death (`SpreadOnDeath`: Magma Blast 8052, Silent Strangler 8631, Blood Siphon
+    17347, Brutal Swipe 6546, Moonfire 8924, Rend Flesh 1823);
+  * **pulsing looks** (`pulsing`): played on the enemy at once and again every 2 s
+    (`PULSE_EVERY`) while the effect lasts, never worn: an exposed enemy (`Vulnerable`, fourteen
+    legendaries) shows Sunder Armor's purple strike, small (7405); Righteous Fire's and Holy Fire's
+    spreading burn (`DotSpread`) Exorcism's holy burn (5614);
+  * **heals on the hero** (`HealOnTrigger`): Holy Light's glow (639) for Light of the Naaru, Holy
+    Nova and Lifebinder's Gift; a short splash of blood (Hemorrhage, 17348) for Blood Siphon and
+    Feast; Healing Touch's nature glow (5186) for Silithid Swarm;
+  * **lines** (`LineHit`): Thori'dal's arrow of light is a glowing arcane arrow (14281), Netherstrand
+    Longbow's an aimed shot (20901), both flying the line; Stampede's are its runners (below);
+  * Rocket Strike's rocket marks the enemy with Hunter's Mark (14323) until it lands; Prophet's
+    Infusion wears Holy Strength's glow (20007) while Power Infusion lasts;
+  * **Blink Strike's reflection** (`StrikeOne` `reflection`; `game::reflections`): the hero no
+    longer blinks. A see-through copy of the hero (a clone's look, Ghost Visual 9617) appears 1.5
+    yd from the further enemy on the hero's side, facing it, plays Ghostly Strike (14278) on it and
+    goes 1 s later; the damage is the milestone's as before;
+  * **Sprint of the Wild's wild spirits** (`LeaveArea` `spirits`; `game::spirits`): two
+    see-through cats in the druid's cat form of the hero's faction (892 Alliance, 8571 Horde), at
+    0.6 of their size, run 2 yd left and right of the hero (`SMSG_MONSTER_MOVE` at the hero's
+    run speed whenever their place moved half a yard) while the area lasts; each time it strikes,
+    each plays a small Shred (6800) on one enemy it struck. They go when it ends; the damage is the
+    area's (8% of max health a second within 5 yd).
 * **The Phoenix** (Fireball's legendary) burns while it lives: a pet may wear a lasting `aura`
   (`pets.ron`) from the moment it appears, sent in its first aura slot; the Phoenix wears 28330,
   an Immolate look whose state sets flames over its body and wings and tints it flame red, and it
   rises from a great burst of fire (16049).
+* **A line's runners** (`LineHit`'s `runners`, [classes.md](classes.md); `game::line_runners`):
+  as the line strikes, the simulation says so (`Event::LineRunners`: the hero's spot, the line's
+  end, its width) and the server puts a row of units across the line's whole width, each in a
+  lane of its own, 3 yd behind the hero (each up to 1 yd before or after, so the row is ragged as
+  a herd is), sends each running straight to the line's end at the runners' speed
+  (`SMSG_MONSTER_MOVE`, its path on the ground, run speed set to match) and takes each away as it
+  gets there. How many and each one's look are picked fresh at random for each row, at most 3 of
+  any one look in a row. A runner is a unit as a bunny is
+  (entry `LINE_RUNNER`): no name, unselectable, unattackable, no room taken, no enemy of the
+  simulation; the damage stays the line's. **Stampede** (Kill Command's legendary, every 9th
+  command) sends 5 to 7 beasts at 14 yd/s, each one of the 1.12 Timber Wolf (604), Stonetusk Boar
+  (503), Saltwater Crocolisk (2548), Sunscale Lashtail (1744), Savannah Prowler (1973),
+  Mountain Lion (1058) and Elder Shardtooth (8837) looks (`CreatureDisplayInfo.dbc`), each at a
+  scale of its own that draws it at a Timber Wolf's size (its model's size, the cube
+  root of the M2 vertex box as zones.md measures it, times the scale comes to 1.98, the wolf's 3.60
+  at its own 0.55; the crocodile model, 8.49, at 0.23, the raptor, 6.42, at 0.31). Any other
+  line can take runners the same way.
 
 ## The create screen
 

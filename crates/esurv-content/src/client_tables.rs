@@ -128,6 +128,64 @@ impl Dbc {
     }
 }
 
+/// `Spell.dbc`'s casting time index (a row of `SpellCastTimes.dbc`), its own cooldown and its
+/// category's cooldown (milliseconds).
+const SPELL_CASTING_TIME: usize = 18;
+const SPELL_RECOVERY: usize = 19;
+const SPELL_CATEGORY_RECOVERY: usize = 20;
+const SPELL_CAST_TIMES: Layout = Layout { file: "DBFilesClient\\SpellCastTimes.dbc", columns: 4, name: 0 };
+/// `Spell.dbc`'s `AttributesEx`: a channelled spell has either channel bit (`0x4`, `0x40`).
+const SPELL_ATTRIBUTES_EX: usize = 7;
+const ATTRIBUTES_EX_CHANNELLED: u32 = 0x44;
+/// `Spell.dbc`'s duration index (a row of `SpellDuration.dbc`), its three effects' radius indexes
+/// (rows of `SpellRadius.dbc`) and their periodic amplitudes (milliseconds).
+const SPELL_DURATION_INDEX: usize = 30;
+const SPELL_EFFECT_RADIUS_INDEX: usize = 88;
+const SPELL_EFFECT_AMPLITUDE: usize = 94;
+const SPELL_DURATION: Layout = Layout { file: "DBFilesClient\\SpellDuration.dbc", columns: 4, name: 0 };
+const SPELL_RADIUS: Layout = Layout { file: "DBFilesClient\\SpellRadius.dbc", columns: 4, name: 0 };
+
+/// One spell's times as `Spell.dbc` holds them, seconds: the base cast time of its
+/// `SpellCastTimes.dbc` row (0 for an instant or a channel), the longer of its own and its
+/// category's cooldown, and for a channelled spell its channel (its `SpellDuration.dbc` base
+/// time), its ticks' interval (its first periodic effect's amplitude) and its radius (yards, its
+/// first effect's `SpellRadius.dbc` row with one); all three 0 for a spell not channelled.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct SpellTimes {
+    pub id: u32,
+    pub cast: f32,
+    pub cooldown: f32,
+    pub channel: f32,
+    pub tick_every: f32,
+    pub radius: f32,
+}
+
+/// Every spell's times from the 1.12.1 `Data` folder `data_dir`.
+pub fn read_spell_times(data_dir: &Path) -> Result<Vec<SpellTimes>> {
+    let mut chain = Chain::open(data_dir).with_context(|| format!("opening the game data in {}", data_dir.display()))?;
+    let spell = Dbc::read(&mut chain, &SPELL)?;
+    let casts = Dbc::read(&mut chain, &SPELL_CAST_TIMES)?;
+    let cast_ms: HashMap<u32, i32> = casts.rows().map(|r| (Dbc::number(r, 0), Dbc::number(r, 1) as i32)).collect();
+    let durations = Dbc::read(&mut chain, &SPELL_DURATION)?;
+    let duration_ms: HashMap<u32, i32> = durations.rows().map(|r| (Dbc::number(r, 0), Dbc::number(r, 1) as i32)).collect();
+    let radii = Dbc::read(&mut chain, &SPELL_RADIUS)?;
+    let radius_yd: HashMap<u32, f32> = radii.rows().map(|r| (Dbc::number(r, 0), f32::from_bits(Dbc::number(r, 1)))).collect();
+    Ok(spell
+        .rows()
+        .map(|r| {
+            let cast = cast_ms.get(&Dbc::number(r, SPELL_CASTING_TIME)).copied().unwrap_or(0).max(0);
+            let cooldown = Dbc::number(r, SPELL_RECOVERY).max(Dbc::number(r, SPELL_CATEGORY_RECOVERY));
+            let (mut channel, mut tick_every, mut radius) = (0.0, 0.0, 0.0);
+            if Dbc::number(r, SPELL_ATTRIBUTES_EX) & ATTRIBUTES_EX_CHANNELLED != 0 {
+                channel = duration_ms.get(&Dbc::number(r, SPELL_DURATION_INDEX)).copied().unwrap_or(0).max(0) as f32 / 1000.0;
+                tick_every = (0..3).map(|i| Dbc::number(r, SPELL_EFFECT_AMPLITUDE + i)).find(|&a| a > 0).unwrap_or(0) as f32 / 1000.0;
+                radius = (0..3).filter_map(|i| radius_yd.get(&Dbc::number(r, SPELL_EFFECT_RADIUS_INDEX + i)).copied()).find(|&y| y > 0.0).unwrap_or(0.0);
+            }
+            SpellTimes { id: Dbc::number(r, 0), cast: cast as f32 / 1000.0, cooldown: cooldown as f32 / 1000.0, channel, tick_every, radius }
+        })
+        .collect())
+}
+
 impl ClientTables {
     /// Reads the tables from the 1.12.1 `Data` folder `data_dir`.
     pub fn read(data_dir: &Path) -> Result<Self> {

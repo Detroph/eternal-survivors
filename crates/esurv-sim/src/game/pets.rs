@@ -1,6 +1,6 @@
 //! Pets fighting beside a hero: talents summon them for a while or keep one for the whole run.
 
-use esurv_content::{Damage, Milestone, Pet, Stat};
+use esurv_content::{Milestone, Pet, Stat};
 
 use super::casting::{HitSource, PendingHit};
 use super::enemy_ai::{Segment, Vec2};
@@ -80,11 +80,9 @@ pub struct PetUnit {
     /// A starting option's summon: what it is and does (`None`: a talent's pet).
     pub summon: Option<super::kit::Summoned>,
     /// Summoned by an ally (`game::assists`): its character's id (the meter counts its hits as
-    /// that assist's).
+    /// that assist's). Each of its attacks then deals the assist's damage for its attack interval,
+    /// no hero bonus, no crit, nothing of the hero's set off.
     pub assist: Option<String>,
-    /// What each of its attacks deals as its assist's (set with `assist`): the assist's own
-    /// damage, no hero bonus, no crit, nothing of the hero's set off.
-    pub assist_damage: Option<Damage>,
 }
 
 fn dist(a: Vec2, b: Vec2) -> f32 {
@@ -142,7 +140,6 @@ impl Run {
             target: None,
             summon: None,
             assist: None,
-            assist_damage: None,
         });
         let hero = self.heroes[h].id;
         self.push(Event::PetSummoned { id, hero, pet: name.to_string(), at });
@@ -205,10 +202,10 @@ impl Run {
                     let Some(&target) = self.nearest_to(pos, PET_REACH).first() else { continue };
                     self.pets[k].next_swing = now + pet.swing;
                     let id = self.pets[k].id;
-                    if let Some(damage) = p.assist_damage {
+                    if p.assist.is_some() {
                         // an assist's pet: the assist's damage, worked out as its bolt lands
                         let flight = self.flight_to(pos, target, ranged_spell);
-                        self.assists.bolts.push(super::assists::AllyBolt { hero: h, pet: id, enemy: target, at: now + flight, damage });
+                        self.assists.bolts.push(super::assists::AllyBolt { hero: h, pet: id, enemy: target, at: now + flight, seconds: pet.swing });
                     } else {
                         let (damage, crit) = self.pet_hit(h, pet);
                         let flight = self.flight_to(pos, target, ranged_spell);
@@ -235,8 +232,8 @@ impl Run {
             if d <= PET_MELEE_RANGE && now >= p.next_swing {
                 self.pets[k].next_swing = now + pet.swing;
                 let id = self.pets[k].id;
-                if let Some(damage) = p.assist_damage {
-                    let amount = self.assist_damage(t, damage);
+                if p.assist.is_some() {
+                    let amount = self.assist_damage(t, pet.swing);
                     self.assist_hit_as(h, t, amount, HitSource::Pet(id));
                 } else {
                     let (damage, crit) = self.pet_hit(h, pet);

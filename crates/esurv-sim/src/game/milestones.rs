@@ -222,6 +222,26 @@ impl Run {
         self.heroes.get(h).and_then(|x| x.milestone_origins.get(k)).cloned().unwrap_or_default()
     }
 
+    /// Hero `h`'s legendary counters (the counter buffs, `esurv_content::legendary_counters`):
+    /// for each worn legendary whose milestone goes off every n-th event, its id
+    /// (`legendary:<main spell>`), the count toward the next time and n; the first such milestone
+    /// of each.
+    pub fn legendary_counters(&self, h: usize) -> Vec<(String, u32, u32)> {
+        let Some(hero) = self.heroes.get(h) else { return Vec::new() };
+        let mut out: Vec<(String, u32, u32)> = Vec::new();
+        for (k, m) in hero.milestones.iter().enumerate() {
+            let (Some(every), ProcOrigin::Legendary(id)) = (esurv_content::legendary_counters::counted_every(m), self.origin_of(h, k)) else {
+                continue;
+            };
+            if out.iter().any(|(x, ..)| *x == id) {
+                continue;
+            }
+            let count = hero.milestone_state.get(k).map_or(0, |s| s.counter);
+            out.push((id, count, every));
+        }
+        out
+    }
+
     /// A proc hit shown as `spell` in `school`, from the milestone going off now.
     pub(crate) fn proc_source(&self, spell: u32, school: School) -> HitSource {
         HitSource::Proc { spell, school, origin: self.proc_origin.clone() }
@@ -319,7 +339,7 @@ impl Run {
             _ => (None, self.heroes[h].pos, 0.0),
         };
         match m {
-            Milestone::FreeCast { chance, cooldown, spell, .. } => {
+            Milestone::FreeCast { chance, cooldown, spell, power, .. } => {
                 if now < self.state(h, k).ready_at || self.rng.unit() >= *chance {
                     return;
                 }
@@ -332,7 +352,7 @@ impl Run {
                 } else {
                     spell.clone()
                 };
-                self.free_cast(h, &id);
+                self.free_cast_at(h, &id, *power);
             }
             Milestone::EveryNth { count, spell, .. } => {
                 let st = self.state(h, k);
@@ -343,9 +363,10 @@ impl Run {
                     self.free_cast(h, &spell);
                 }
             }
-            Milestone::PetOnTrigger { chance, seconds, max, pet, count, look_spell, .. } => {
+            Milestone::PetOnTrigger { chance, seconds, max, pet, count, look_spell, cooldown, .. } => {
                 let alive = self.pets.iter().filter(|p| p.hero == h && &p.pet == pet).count() as u32;
-                if alive < *max && self.rng.unit() < *chance {
+                if alive < *max && now >= self.state(h, k).ready_at && self.rng.unit() < *chance {
+                    self.state(h, k).ready_at = now + cooldown;
                     let before = self.pets.len();
                     // as many as it calls, never past `max` at once
                     for _ in 0..(*count).max(1).min(max - alive) {
@@ -358,7 +379,7 @@ impl Run {
                     }
                 }
             }
-            Milestone::LineHit { every, share, length, width, behind, hits_target, look_spell, .. } => {
+            Milestone::LineHit { every, share, length, width, behind, hits_target, look_spell, runners, .. } => {
                 let Some(target) = target else { return };
                 let st = self.state(h, k);
                 st.counter += 1;
@@ -367,7 +388,7 @@ impl Run {
                 }
                 st.counter = 0;
                 let line = super::field_milestones::Line { length: *length, width: *width, behind: *behind, hits_target: *hits_target };
-                self.line_hit(h, target, at, share * dealt, line, *look_spell, source);
+                self.line_hit(h, target, at, share * dealt, line, *look_spell, runners.as_ref(), source);
             }
             Milestone::MarkAttackers { seconds, look_spell, .. } => {
                 if let CombatEvent::StruckInMelee { by, .. } = e {
@@ -596,9 +617,47 @@ impl Run {
         };
         if seconds > 0.0 {
             let until = self.now + seconds;
-            self.enemy_wears_look(t, look, until);
+            self.enemy_wears_or_pulses_look(h, t, look, until);
         } else {
             self.show_proc(h, look, &[t], Aim::Unit(Unit::Enemy(t)), 0.0);
+        }
+    }
+
+    /// Enemy `t` shows legendary look `look` until `until`: a pulsing look plays on it at once
+    /// and again every [`esurv_content::legendary_looks::PULSE_EVERY`] seconds, any
+    /// other is worn.
+    pub(crate) fn enemy_wears_or_pulses_look(&mut self, h: usize, t: u32, look: u32, until: f32) {
+        if !self.content.is_pulsing_look(look) {
+            return self.enemy_wears_look(t, look, until);
+        }
+        let pulses = &mut self.procs.pulsing;
+        match pulses.iter_mut().find(|p| p.enemy == t && p.look == look) {
+            // one pulse an enemy and look, lasting the longer
+            Some(p) => p.until = p.until.max(until),
+            None => {
+                pulses.push(super::proc_effects::PulsingLook { hero: h, enemy: t, look, until, next: self.now + esurv_content::legendary_looks::PULSE_EVERY });
+                self.show_proc(h, look, &[t], Aim::Unit(Unit::Enemy(t)), 0.0);
+            }
+        }
+    }
+
+    /// The pulsing looks play again when due; those whose time ran out, or whose enemy is gone,
+    /// stop.
+    pub(crate) fn pulse_looks_tick(&mut self) {
+        let now = self.now;
+        let enemies: Vec<u32> = self.enemies.iter().map(|e| e.id).collect();
+        self.procs.pulsing.retain(|p| p.until > now && enemies.contains(&p.enemy));
+        let mut due = Vec::new();
+        for p in &mut self.procs.pulsing {
+            if now >= p.next {
+                p.next += esurv_content::legendary_looks::PULSE_EVERY;
+                due.push((p.hero, p.enemy, p.look));
+            }
+        }
+        for (h, t, look) in due {
+            if h < self.heroes.len() {
+                self.show_proc(h, look, &[t], Aim::Unit(Unit::Enemy(t)), 0.0);
+            }
         }
     }
 
@@ -675,10 +734,17 @@ impl Run {
     /// Nothing the cast does sets off milestones (procs do not proc again),
     /// unless the spell says `free_casts_can_proc`.
     pub(crate) fn free_cast(&mut self, h: usize, spell: &str) -> bool {
+        self.free_cast_at(h, spell, 1.0)
+    }
+
+    /// As [`Self::free_cast`], at `power` of the spell's damage (a `FreeCast` with a power of its
+    /// own, as Nightfall's Shadow Bolt at 80 %).
+    pub(crate) fn free_cast_at(&mut self, h: usize, spell: &str, power: f32) -> bool {
         let content = self.content.clone();
         let Some(a) = content.ability(spell) else { return false };
         let mods = self.heroes[h].spell_modifiers.clone();
-        let inst = self.heroes[h].spells.free_cast(a, &mods);
+        let mut inst = self.heroes[h].spells.free_cast(a, &mods);
+        inst.damage_scale *= power;
         let quiet = u32::from(!a.free_casts_can_proc);
         self.casting_proc += quiet;
         let cast = self.cast(h, a, &inst);
@@ -1269,7 +1335,7 @@ mod tests {
 
     #[test]
     fn a_crit_free_cast_respects_its_internal_cooldown() {
-        let m = Milestone::FreeCast { chance: 1.0, cooldown: 5.0, spell: "frost_nova".into(), trigger: Trigger::Crit, filter: SpellFilter::Any };
+        let m = Milestone::FreeCast { chance: 1.0, cooldown: 5.0, spell: "frost_nova".into(), trigger: Trigger::Crit, filter: SpellFilter::Any, power: 1.0 };
         let mut r = run(vec![m]);
         let id = enemy(&mut r, 3.0);
         r.hit_enemy(Some(0), id, 1.0, false, HitSource::Spell("fireball".into()));
@@ -1322,7 +1388,7 @@ mod tests {
     /// hero is under that share; spells and ground effects do not set it off.
     #[test]
     fn hurt_below_a_health_share_answers_melee_blows_only() {
-        let m = Milestone::FreeCast { chance: 1.0, cooldown: 0.0, spell: "frost_nova".into(), trigger: Trigger::HealthBelow(0.4), filter: SpellFilter::Any };
+        let m = Milestone::FreeCast { chance: 1.0, cooldown: 0.0, spell: "frost_nova".into(), trigger: Trigger::HealthBelow(0.4), filter: SpellFilter::Any, power: 1.0 };
         let mut r = run(vec![m]);
         let id = enemy(&mut r, 3.0);
         r.heroes[0].stats.damage_reduction = 0.0;
@@ -1461,5 +1527,29 @@ mod tests {
         r.damage_hero(0, 1e9, None, false);
         let hits = hits_on(&r.drain_events(), near);
         assert!(matches!(hits.as_slice(), [(_, HitSource::Proc { spell: 0, origin: ProcOrigin::Jewelry(id), .. })] if id == "soulstone"), "{hits:?}");
+    }
+
+    /// A worn legendary that goes off every n-th cast tells its count toward the next time (the
+    /// counter buff's stacks), back to 0 as it goes off; one counting on each enemy apart has none.
+    #[test]
+    fn a_counting_legendary_tells_its_count_toward_the_next_time() {
+        use crate::game::choices::Offer;
+        let mut r = run(vec![]);
+        let hero = r.heroes[0].id;
+        let content = r.content.clone();
+        let volley = content.legendary_amulets.iter().find(|l| l.main_spell() == "frostbolt").expect("Frostbolt Volley");
+        assert!(r.grant(hero, Offer::Amulet { amulet: Box::new(super::super::amulets::legendary_for(volley)) }));
+        let frostbolt = content.ability("frostbolt").unwrap().clone();
+        let counter = |r: &Run| r.legendary_counters(0).into_iter().find(|(id, ..)| *id == volley.id()).map(|(_, n, every)| (n, every));
+        assert_eq!(counter(&r), Some((0, 3)));
+        r.count_own_cast(0, &frostbolt);
+        r.count_own_cast(0, &frostbolt);
+        assert_eq!(counter(&r), Some((2, 3)));
+        r.count_own_cast(0, &frostbolt);
+        assert_eq!(counter(&r), Some((0, 3)), "the third goes off: back to 0");
+        let mut r = run(vec![]);
+        let flash = content.legendary_amulets.iter().find(|l| l.main_spell() == "frost_trap").expect("Flash Freeze");
+        assert!(r.grant(hero, Offer::Amulet { amulet: Box::new(super::super::amulets::legendary_for(flash)) }));
+        assert!(r.legendary_counters(0).is_empty(), "counted on each enemy apart: none");
     }
 }
