@@ -44,3 +44,12 @@ esurv-setup = { path = "../esurv-setup" }
 # The run's stock-frame Lua, tried in a bare VM (`run_frames`), the same Lua as the interface's.
 mlua = { version = "0.11", features = ["lua51", "vendored"] }
 avian3d = "0.6"
+
+[features]
+# The client's name tables read from the player's 1.12.1 data, for the tools that show our texts
+# as the game does (`milestone_tooltips`).
+client-names = ["esurv-content/client"]
+
+[[example]]
+name = "milestone_tooltips"
+required-features = ["client-names"]

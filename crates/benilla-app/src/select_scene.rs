@@ -983,7 +983,7 @@ pub(crate) fn publish_create_choices(
 // ── A figure drawn alone: the embedder's masks of it ────────────────────────────────────────────
 
 /// How many masks there are, each a picture of its own: an embedder gives each its own colour.
-pub const FIGURE_MASKS: usize = 3;
+pub const FIGURE_MASKS: usize = 4;
 
 /// Put on a [`SceneFigure`] or a streamed object's entity (a unit, a game object): its body, gear
 /// and weapons are also drawn alone, through a camera that follows the world camera, into mask

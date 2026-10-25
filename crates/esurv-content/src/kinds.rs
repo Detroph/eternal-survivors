@@ -249,6 +249,9 @@ pub struct EnemyEntry {
     /// Only a boss's script or ability brings it.
     #[serde(default)]
     pub only_summoned: bool,
+    /// Picked and glowing as an elite, its own kind's numbers kept (`Enemy::focus_as_elite`).
+    #[serde(default)]
+    pub focus_as_elite: bool,
 }
 
 /// A boss as written: its abilities name a kind and its looks.
@@ -751,6 +754,7 @@ fn resolve_enemy(zone: &str, e: EnemyEntry, kinds: &EnemyKinds, names: &ClientNa
         rank: e.rank.map(|r| rank_titles(zone, r, names, problems)),
         weapons: checked_weapons(zone, &e.name, e.weapons, problems),
         only_summoned: e.only_summoned,
+        focus_as_elite: e.focus_as_elite,
     }
 }
 

@@ -645,7 +645,7 @@
                                     warn: Some((text: "Drakonids: last wave!", colour: Orange)),
                                 ),
                             ],
-                            gap: 25.0,
+                            gap: 15.0,
                             immune: true,
                             aloof: true,
                             bar: Some("Next drakonids"),
@@ -695,6 +695,7 @@
                 ),
             ],
             is_final: true,
+            health_share: Some(0.6), // lived 182 s against a 140 s goal (166 s at 0.85)
         ),
     ],
 )

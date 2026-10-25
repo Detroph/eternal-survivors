@@ -62,6 +62,8 @@ pub fn progress(content: &Content, saves: &Saves, class: &str) -> ToClient {
             .unwrap_or_default(),
         new_gear,
         new_points,
+        challenge_open: saves.challenge_open(content, class),
+        challenge_news: saves.challenge_news(content),
     })
 }
 
@@ -88,12 +90,7 @@ fn prestige_progress(
 /// The run options as the screens are told them, with the reward bonus they give.
 pub fn run_options(content: &Content, o: SavedRunOptions) -> ToClient {
     ToClient::RunOptions {
-        options: protocol::RunOptions {
-            density: o.density,
-            health: o.health,
-            damage: o.damage,
-            speed: o.speed,
-        },
+        options: o.into(),
         bonus: option_bonus(&o.run_options(&content.run_options), &content.run_options),
     }
 }
@@ -249,12 +246,7 @@ pub fn answer(
             }
         }
         PreRunAsk::RunOptions(o) => {
-            let asked = SavedRunOptions {
-                density: o.density,
-                health: o.health,
-                damage: o.damage,
-                speed: o.speed,
-            };
+            let asked = SavedRunOptions::from(*o);
             vec![run_options(content, saves.set_run_options(content, asked))]
         }
         PreRunAsk::Rename { hero: guid, name } => match hero(*guid) {
@@ -303,7 +295,7 @@ pub fn answer(
             let Some(index) = content.zones.iter().position(|z| z.id == *zone) else {
                 return refused();
             };
-            if !saves.zone_open(content, &h.class, index) || !saves.choose_zone(h.guid, zone) {
+            if !saves.zone_open_for_next_run(content, &h.class, index) || !saves.choose_zone(h.guid, zone) {
                 return refused();
             }
             saves

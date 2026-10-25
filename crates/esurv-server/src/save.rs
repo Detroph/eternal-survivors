@@ -12,6 +12,7 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
 use esurv_content::Content;
+use esurv_sim::game::challenge::{slider_on_its_steps, Challenge};
 use esurv_sim::game::enemy::RunOptions;
 use esurv_sim::game::gear::{decode_item_entry, slot_id, slot_of_id, zone_look};
 use esurv_sim::game::rewards::{gear_item_entry, open_zone_count, talent_points};
@@ -55,8 +56,8 @@ pub struct SavedHero {
     pub start: Option<String>,
 }
 
-/// The run options the next run starts with, in whole percentages: one set for the whole save,
-/// kept from the last pick.
+/// The run options the next run starts with, in whole percentages, and its mode: one set for the
+/// whole save, kept from the last pick.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct SavedRunOptions {
@@ -64,35 +65,79 @@ pub struct SavedRunOptions {
     pub health: u16,
     pub damage: u16,
     pub speed: u16,
+    /// The Challenge Mode tab was picked last: a class that has cleared Ahn'Qiraj runs
+    /// Challenge Mode, any other Normal Mode. An older save: Normal Mode.
+    pub challenge: bool,
+    /// The challenge slider as last set, 100 (1x) to 500 (5x) in steps of 25.
+    pub challenge_pct: u16,
 }
 
 impl Default for SavedRunOptions {
     fn default() -> Self {
-        Self::from(RunOptions::default())
+        Self::from(esurv_protocol::RunOptions::default())
     }
 }
 
-impl From<RunOptions> for SavedRunOptions {
-    fn from(o: RunOptions) -> Self {
+impl From<esurv_protocol::RunOptions> for SavedRunOptions {
+    fn from(o: esurv_protocol::RunOptions) -> Self {
         Self {
-            density: o.density_pct,
-            health: o.health_pct,
-            damage: o.damage_pct,
-            speed: o.speed_pct,
+            density: o.density,
+            health: o.health,
+            damage: o.damage,
+            speed: o.speed,
+            challenge: o.challenge,
+            challenge_pct: o.challenge_pct,
+        }
+    }
+}
+
+impl From<SavedRunOptions> for esurv_protocol::RunOptions {
+    fn from(o: SavedRunOptions) -> Self {
+        Self {
+            density: o.density,
+            health: o.health,
+            damage: o.damage,
+            speed: o.speed,
+            challenge: o.challenge,
+            challenge_pct: o.challenge_pct,
         }
     }
 }
 
 impl SavedRunOptions {
-    /// The options a run starts with, each on its slider (`run_options.ron`).
+    /// The options a run starts with, each on its slider (`run_options.ron`), in Normal Mode.
     pub fn run_options(&self, sliders: &[esurv_content::RunOption]) -> RunOptions {
         RunOptions {
             density_pct: self.density,
             health_pct: self.health,
             damage_pct: self.damage,
             speed_pct: self.speed,
+            challenge: None,
         }
         .on_the_sliders(sliders)
+    }
+
+    /// The options a run of a class starts with: [`SavedRunOptions::run_options`], in Challenge Mode
+    /// when its tab was picked and the class has it open (`challenge_open`).
+    pub fn run_options_for(&self, content: &Content, challenge_open: bool) -> RunOptions {
+        let mut o = self.run_options(&content.run_options);
+        if self.challenge && challenge_open {
+            o.challenge = Challenge::new(content, self.challenge_pct);
+        }
+        o
+    }
+
+    /// The options kept on their sliders, the challenge slider on its steps.
+    pub fn on_the_sliders(self, content: &Content) -> Self {
+        let o = self.run_options(&content.run_options);
+        Self {
+            density: o.density_pct,
+            health: o.health_pct,
+            damage: o.damage_pct,
+            speed: o.speed_pct,
+            challenge: self.challenge,
+            challenge_pct: slider_on_its_steps(self.challenge_pct),
+        }
     }
 }
 
@@ -204,6 +249,12 @@ impl ClassProgress {
         open_zone_count(won, content.zones.len())
     }
 
+    /// Whether the class has Challenge Mode open: it has won Ahn'Qiraj, kept with the
+    /// other zones it has won (`challenge::is_open`).
+    pub fn challenge_open(&self, content: &Content) -> bool {
+        esurv_sim::game::challenge::is_open(content, self.zones_won.iter().map(String::as_str))
+    }
+
     /// A class new to the save: nothing earned, nothing seen yet (so what it earns is news).
     pub fn new_to_the_save() -> Self {
         Self {
@@ -269,6 +320,9 @@ pub struct FinishedRun {
     pub zone_index: usize,
     /// The class gear won, by item entry (it joined the collection when it dropped).
     pub loot: Vec<u32>,
+    /// A Challenge Mode run: it pays its talent experience and its gear, and nothing
+    /// else: no records (best level and time, runs, wins) and no zone won or opened.
+    pub challenge: bool,
 }
 
 /// What a payment paid out.
@@ -315,6 +369,10 @@ struct SaveFile {
     /// the first time it is read with the content ([`Saves::zones_discovered`]).
     #[serde(default)]
     zones_discovered: BTreeSet<String>,
+    /// The box telling that Challenge Mode is open was shown and closed: it shows once per
+    /// save, the first time any class has cleared Ahn'Qiraj.
+    #[serde(default)]
+    challenge_news_seen: bool,
 }
 
 impl SaveFile {
@@ -356,6 +414,7 @@ impl Default for SaveFile {
             run_options: SavedRunOptions::default(),
             tips_seen: every_tip_seen(),
             zones_discovered: BTreeSet::new(),
+            challenge_news_seen: false,
         }
     }
 }
@@ -602,6 +661,7 @@ mod older {
                 run_options: self.run_options,
                 tips_seen: every_tip_seen(),
                 zones_discovered: BTreeSet::new(),
+                challenge_news_seen: false,
             }
         }
     }
@@ -837,6 +897,36 @@ impl Saves {
         index < self.saved_class(class).open_zones(content)
     }
 
+    /// Whether `class` has Challenge Mode open: it has cleared Ahn'Qiraj.
+    pub fn challenge_open(&self, content: &Content, class: &str) -> bool {
+        self.saved_class(class).challenge_open(content)
+    }
+
+    /// Whether the box telling that Challenge Mode is open is due: some class of the save has
+    /// cleared Ahn'Qiraj and the box was never closed ([`Saves::see`] with `SeenView::Challenge`).
+    pub fn challenge_news(&self, content: &Content) -> bool {
+        let file = self.file.lock().unwrap();
+        !file.challenge_news_seen && file.classes.values().any(|p| p.challenge_open(content))
+    }
+
+    /// Whether `class`'s next run is a Challenge Mode run: its tab is picked in the run options and
+    /// the class has it open.
+    pub fn runs_challenge(&self, content: &Content, class: &str) -> bool {
+        self.run_options().challenge && self.challenge_open(content, class)
+    }
+
+    /// Whether `class` may run zone `index` next: an open zone, or any zone in Challenge Mode
+    /// (every map is open there).
+    pub fn zone_open_for_next_run(&self, content: &Content, class: &str, index: usize) -> bool {
+        index < content.zones.len() && (self.runs_challenge(content, class) || self.zone_open(content, class, index))
+    }
+
+    /// The options `class`'s next run starts with: the saved run options, in Challenge Mode when
+    /// [`Saves::runs_challenge`].
+    pub fn run_options_for(&self, content: &Content, class: &str) -> RunOptions {
+        self.run_options().run_options_for(content, self.challenge_open(content, class))
+    }
+
     /// The zones the save has discovered, by id in `content`'s order: a
     /// zone any class has opened, the first always. A zone open to a class but not yet kept as
     /// discovered (a save from before discovery was kept) is kept now.
@@ -869,14 +959,17 @@ impl Saves {
     /// Pays a run out to hero `guid`: its best level and time, the run counted (on its first
     /// payment), the talent experience earned since the last payment for its class and, once on a
     /// win, the zone as won (which opens the next); the gear it won is in the collection. `None`
-    /// without such a hero.
+    /// without such a hero. A Challenge Mode run pays only its talent experience and gear.
     pub fn finish_run(&self, content: &Content, guid: u32, run: &FinishedRun) -> Option<Payout> {
         let mut file = self.file.lock().unwrap();
         let hero = file.heroes.iter_mut().find(|h| h.guid == guid)?;
         let r = &mut hero.records;
-        r.best_level = r.best_level.max(run.level);
-        r.best_seconds = r.best_seconds.max(run.seconds.max(0.0) as u32);
-        if run.first {
+        // a challenge run counts for no record
+        if !run.challenge {
+            r.best_level = r.best_level.max(run.level);
+            r.best_seconds = r.best_seconds.max(run.seconds.max(0.0) as u32);
+        }
+        if run.first && !run.challenge {
             r.runs += 1;
             r.wins += u32::from(run.won);
         }
@@ -886,7 +979,7 @@ impl Saves {
         progress.talent_experience = total_before.saturating_add(run.experience);
         let total_after = progress.talent_experience;
         let mut zone_opened = None;
-        let won = content.zones.get(run.zone_index).filter(|_| run.won && run.opens_zone);
+        let won = content.zones.get(run.zone_index).filter(|_| run.won && run.opens_zone && !run.challenge);
         if let Some(zone) = won {
             let before = progress.open_zones(content);
             progress.zones_won.insert(zone.id.clone());
@@ -974,14 +1067,22 @@ impl Saves {
 
     /// The player opened `class`'s Collection or Talents: what it holds
     /// there now is seen, and its button on the warband screen stops glowing. `true` (kept) when
-    /// it had news.
+    /// it had news. The box telling that Challenge Mode is open, closed: never shown again for
+    /// this save.
     pub fn see(&self, class: &str, view: esurv_protocol::SeenView) -> bool {
+        if view == esurv_protocol::SeenView::Challenge {
+            let mut file = self.file.lock().unwrap();
+            let changed = !file.challenge_news_seen;
+            file.challenge_news_seen = true;
+            return !changed || self.write(&file).is_ok();
+        }
         self.change_class(class, |p| {
             let now = p.holding();
             let mut seen = p.seen.unwrap_or_default();
             match view {
                 esurv_protocol::SeenView::Collection => seen.pieces = now.pieces,
                 esurv_protocol::SeenView::Talents => seen.points = now.points,
+                esurv_protocol::SeenView::Challenge => {}
             }
             let changed = p.seen != Some(seen);
             p.seen = Some(seen);
@@ -1108,7 +1209,7 @@ impl Saves {
     /// Sets the run options the next run starts with, each kept on its slider; what was kept.
     pub fn set_run_options(&self, content: &Content, options: SavedRunOptions) -> SavedRunOptions {
         let mut file = self.file.lock().unwrap();
-        let kept = SavedRunOptions::from(options.run_options(&content.run_options));
+        let kept = options.on_the_sliders(content);
         if file.run_options != kept {
             file.run_options = kept;
             let _ = self.write(&file);
@@ -1379,9 +1480,9 @@ mod tests {
             loot: vec![gear_item_entry(8, 1, 0), gear_item_entry(8, 8, 1)],
             ..Default::default()
         };
-        // 370 buys points of 80, 82, 84 and 86 (332)
+        // 370 buys points of 110, 113 and 115 (338)
         let paid = saves.finish_run(&content, bo.guid, &won).unwrap();
-        assert_eq!((paid.points_before, paid.points_after), (0, 4));
+        assert_eq!((paid.points_before, paid.points_after), (0, 3));
         assert_eq!(paid.zone_opened, Some(1), "Area 10 opens");
         // the same run paid again (Endless, then left): its new experience only, counted once
         let more = FinishedRun {
@@ -1552,6 +1653,8 @@ mod tests {
             health: 100,
             damage: 900,
             speed: 105,
+            challenge: true,
+            challenge_pct: 440,
         };
         let content = esurv_content::Content::load(concat!(
             env!("CARGO_MANIFEST_DIR"),
@@ -1565,7 +1668,9 @@ mod tests {
                 density: 250,
                 health: 100,
                 damage: 300,
-                speed: 105
+                speed: 105,
+                challenge: true,
+                challenge_pct: 450
             }
         );
         assert_eq!(saves.run_options(), kept);
@@ -2123,6 +2228,81 @@ mod tests {
         let again = Saves::open(&path).unwrap();
         assert_eq!(again.heroes()[0].zone.as_deref(), Some("elwynn"));
         assert_eq!(again.class_progress(&content, "warrior"), saves.class_progress(&content, "warrior"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// Challenge Mode opens once the class has won Ahn'Qiraj (kept with its zones won, as every
+    /// zone's clear is), and only then does a picked Challenge Mode tab make the next run a challenge
+    /// run in any zone.
+    #[test]
+    fn challenge_mode_opens_with_ahn_qiraj_won() {
+        use esurv_sim::game::challenge::CHALLENGE_ZONE;
+        let content = content();
+        let saves = Saves::in_memory();
+        let hero = saves.create("Ana", "mage", "human", 1, [0; 5]).unwrap();
+        let last = content.zones.len() - 1;
+        let aq = content.zones.iter().position(|z| z.id == CHALLENGE_ZONE).unwrap();
+        let challenge = SavedRunOptions { challenge: true, challenge_pct: 200, ..SavedRunOptions::default() };
+        saves.set_run_options(&content, challenge);
+        // not yet: the tab is picked, but the class has not cleared Ahn'Qiraj
+        assert!(!saves.challenge_open(&content, "mage") && !saves.runs_challenge(&content, "mage"));
+        assert!(!saves.zone_open_for_next_run(&content, "mage", last));
+        assert_eq!(saves.run_options_for(&content, "mage").challenge, None);
+        // every zone but Ahn'Qiraj won: still closed
+        let mut almost = FinishedRun { won: true, opens_zone: true, first: true, ..FinishedRun::default() };
+        for i in (0..content.zones.len()).filter(|&i| i != aq) {
+            almost.zone_index = i;
+            saves.finish_run(&content, hero.guid, &almost).unwrap();
+        }
+        assert!(!saves.challenge_open(&content, "mage"));
+        // Ahn'Qiraj cleared: open, for this class only
+        almost.zone_index = aq;
+        saves.finish_run(&content, hero.guid, &almost).unwrap();
+        assert!(saves.challenge_open(&content, "mage") && !saves.challenge_open(&content, "warrior"));
+        assert!(saves.runs_challenge(&content, "mage"));
+        let o = saves.run_options_for(&content, "mage").challenge.expect("a challenge run");
+        assert_eq!(o.difficulty, content.zones[aq].difficulty);
+        assert!((o.enemy_factor - 1.1 * 2.0).abs() < 1e-6);
+        assert!((0..content.zones.len()).all(|i| saves.zone_open_for_next_run(&content, "mage", i)));
+        // the Normal Mode tab: a normal run
+        saves.set_run_options(&content, SavedRunOptions { challenge: false, ..challenge });
+        assert_eq!(saves.run_options_for(&content, "mage").challenge, None);
+        assert_eq!(saves.run_options().challenge_pct, 200, "the slider is remembered");
+        // the class's progress tells the client the tabs are open
+        let esurv_protocol::ToClient::Progress(p) = crate::prerun::progress(&content, &saves, "mage") else { panic!("progress") };
+        assert!(p.challenge_open);
+    }
+
+    /// The box telling that Challenge Mode is open shows once per save: due once a class
+    /// has cleared Ahn'Qiraj, gone for good once closed, even when another class clears it later
+    /// and after a restart.
+    #[test]
+    fn the_challenge_mode_box_shows_once_per_save() {
+        use esurv_protocol::SeenView;
+        use esurv_sim::game::challenge::CHALLENGE_ZONE;
+        let content = content();
+        let dir = std::env::temp_dir().join(format!("esurv-challenge-box-{}", std::process::id()));
+        let path = dir.join("heroes.ron");
+        let _ = std::fs::remove_file(&path);
+        let saves = Saves::open(&path).unwrap();
+        let ana = saves.create("Ana", "mage", "human", 1, [0; 5]).unwrap();
+        let bo = saves.create("Bo", "warrior", "human", 0, [0; 5]).unwrap();
+        let aq = content.zones.iter().position(|z| z.id == CHALLENGE_ZONE).unwrap();
+        let clear = FinishedRun { won: true, opens_zone: true, first: true, zone_index: aq, ..FinishedRun::default() };
+        let news = |class: &str| {
+            let esurv_protocol::ToClient::Progress(p) = crate::prerun::progress(&content, &saves, class) else { panic!("progress") };
+            p.challenge_news
+        };
+        assert!(!news("mage"), "nothing before Ahn'Qiraj");
+        saves.finish_run(&content, ana.guid, &clear).unwrap();
+        assert!(news("mage") && news("warrior"), "due, for the whole save");
+        assert!(saves.see("mage", SeenView::Challenge));
+        assert!(!news("mage") && !news("warrior"), "closed once");
+        saves.finish_run(&content, bo.guid, &clear).unwrap();
+        assert!(!news("warrior"), "a second class clearing it shows nothing");
+        drop(saves);
+        let reopened = Saves::open(&path).unwrap();
+        assert!(!reopened.challenge_news(&content), "kept across a restart");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

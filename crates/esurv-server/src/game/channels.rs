@@ -93,6 +93,14 @@ impl Game {
                 wanted.insert(me, (b.spell, t));
             }
         }
+        // the allies' channels (an assist's Blizzard): the spell on the storm it channels, so the
+        // ally holds its channel pose for the channel's time
+        for a in &self.run.assists.allies {
+            let Some(ch) = &a.rotation.channeling else { continue };
+            if let Some(me) = self.ally_guid_shown(a.id) {
+                wanted.insert(me, (a.rotation.spells[ch.spell].spell, super::ground_looks::ground_look_guid(ch.area)));
+            }
+        }
         wanted
     }
 

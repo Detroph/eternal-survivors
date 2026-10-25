@@ -60,6 +60,39 @@ fn after_tick(game: &mut Game) -> Vec<ToClient> {
     told(&game.settle(&events))
 }
 
+/// The bar holds seven learned spells on its first seven buttons and the race spell on the eighth;
+/// an eighth learned spell has no button.
+#[test]
+fn the_bar_holds_seven_spells_then_the_race_spell() {
+    let (mut game, _client, _) = game();
+    let content = game.run.content.clone();
+    let racial = game.run.heroes[0].spells.racial.as_ref().unwrap().spell.clone();
+    let more: Vec<_> = content
+        .abilities
+        .iter()
+        .filter(|a| a.id != racial && !game.run.heroes[0].spells.knows(&a.id))
+        .take(7)
+        .collect();
+    for a in more {
+        game.run.heroes[0].spells.learn(a, &[]);
+    }
+    assert_eq!(game.run.heroes[0].spells.known.len(), 8);
+    let packet = game.action_bar(&game.run.heroes[0]);
+    let Ok(ServerPacket::ActionButtons { buttons }) = parse_server(packet.opcode, &packet.body)
+    else {
+        panic!("the action bar")
+    };
+    let filled: Vec<(u8, u32)> = buttons
+        .iter()
+        .filter(|b| b.action != 0)
+        .map(|b| (b.slot, b.action))
+        .collect();
+    let slots: Vec<u8> = filled.iter().map(|(s, _)| *s).collect();
+    assert_eq!(slots, [0, 1, 2, 3, 4, 5, 6, crate::game::present::RACE_SPELL_SLOT]);
+    let look = content.ability(&racial).unwrap().look_spell;
+    assert_eq!(filled[7], (7, look), "the race spell on the eighth button");
+}
+
 #[test]
 fn hello_brings_the_armory_the_options_the_codex_then_the_hud() {
     let (mut game, _client, saves) = game();
@@ -697,6 +730,42 @@ fn the_meter_counts_by_source_with_area_for_no_enemy() {
     assert_eq!(taken, [(Source::Area, 4)], "what the hero's health lost");
 }
 
+/// Warsong Gulch's player-looking enemies: an elite's, a rare's and a boss's rank go to every
+/// told client once as they appear, and again to a client saying `hello`; a normal one's never.
+#[test]
+fn player_looking_elites_rares_and_bosses_have_their_ranks_told() {
+    use esurv_sim::game::run::{Flat, Run};
+    let (mut game, _client, saves) = game();
+    let hero = game.hero_id(0);
+    game.ask(hero, hello(Screens::default()));
+    let content = game.run.content.clone();
+    let saved = game.players[0].saved.clone();
+    let setup = hero_setup(&content, &saved, &saves.class_progress(&content, &saved.class));
+    game.run = Run::new(content.clone(), "wsg", Default::default(), &[setup], Box::new(Flat), 5).unwrap();
+    let zone = content.zones.iter().find(|z| z.id == "wsg").unwrap();
+    let elite = zone.enemies.iter().position(|e| e.elite).unwrap();
+    let h = game.run.heroes[0].id;
+    let p = game.run.heroes[0].pos;
+    game.run.hero_moved(h, (p.0 + 1.0, p.1), 0.0, 0.0);
+    while game.run.enemies.len() < 4 {
+        game.run.tick(0.05);
+    }
+    game.run.enemies.truncate(4);
+    game.run.enemies[0].kind = EnemyKind::Roster(elite);
+    game.run.enemies[1].kind = EnemyKind::Rare { roster: elite };
+    game.run.enemies[2].kind = EnemyKind::Boss(0);
+    let normal = game.run.enemies[3].kind;
+    assert!(matches!(normal, EnemyKind::Roster(r) if !zone.enemies[r].elite), "{normal:?}");
+    game.units_now();
+    let ids: Vec<u32> = game.run.enemies.iter().map(|e| e.id).collect();
+    let guid = |i: usize| super::super::player_enemies::player_enemy_guid(ids[i]);
+    let want = vec![(guid(0), packets::RANK_ELITE), (guid(1), packets::RANK_RARE), (guid(2), packets::RANK_BOSS)];
+    let ranks = |t: &[ToClient]| t.iter().filter_map(|m| if let ToClient::EnemyRanks(r) = m { Some(r.clone()) } else { None }).collect::<Vec<_>>();
+    assert_eq!(ranks(&after_tick(&mut game)), vec![want.clone()]);
+    assert!(ranks(&after_tick(&mut game)).is_empty(), "told once");
+    assert_eq!(ranks(&told(&game.ask(hero, hello(Screens::default())))), vec![want]);
+}
+
 #[test]
 fn a_boss_has_a_bar_until_it_is_gone() {
     let (mut game, _client, _) = game();
@@ -713,6 +782,7 @@ fn a_boss_has_a_bar_until_it_is_gone() {
     let first = &game.run.content.zones[0].bosses[0];
     assert_eq!(b.name, first.name);
     assert!(b.health > 0 && b.health == b.max_health);
+    assert_eq!(b.phases, super::boss_phases(first), "with its phase marks");
     game.run.enemies.retain(|e| !e.is_boss());
     let t = after_tick(&mut game);
     assert!(t
@@ -756,6 +826,7 @@ fn the_armory_answers_with_the_class_progress_or_a_refusal() {
         health: 100,
         damage: 100,
         speed: 200,
+        ..Default::default()
     };
     let t = told(&game.ask(hero, ToServer::RunOptions(asked)));
     let [ToClient::RunOptions { options, bonus }] = &t[..] else {
@@ -1145,4 +1216,88 @@ fn the_meter_counts_each_assist_on_its_own_row() {
     let mut done: Vec<(Source, u64)> = m.done.iter().map(|e| (e.source.clone(), e.amount)).collect();
     done.sort_by_key(|(_, a)| std::cmp::Reverse(*a));
     assert_eq!(done, [(Source::Assist(characters[0].1.clone()), 15), (Source::Assist(characters[1].1.clone()), 4)]);
+}
+
+/// The phase marks come from the bosses' `Health(..)` lines, labelled by their "soon" lines:
+/// Hogger's gnoll pack at half health, Mr. Smite's two weapon swaps, Mother Fang none.
+#[test]
+fn a_boss_bar_marks_its_health_phases() {
+    let content = esurv_content::Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+    let elwynn = content.zones.iter().find(|z| z.id == "elwynn").unwrap();
+    let boss = |name: &str| elwynn.bosses.iter().find(|b| b.name == name).unwrap();
+    let hogger = super::boss_phases(boss("Hogger"));
+    assert_eq!(hogger, vec![protocol::BossPhase { at: 50.0, label: "Gnoll pack".into() }]);
+    let smite: Vec<f32> = super::boss_phases(boss("Mr. Smite")).iter().map(|p| p.at).collect();
+    assert_eq!(smite, vec![66.0, 33.0], "highest first");
+    assert!(super::boss_phases(boss("Mother Fang")).is_empty());
+    // every boss of every zone: marks inside the bar, highest first
+    for z in &content.zones {
+        for b in &z.bosses {
+            let p = super::boss_phases(b);
+            assert!(p.iter().all(|p| p.at > 0.0 && p.at < 100.0), "{}: {p:?}", b.name);
+            assert!(p.windows(2).all(|w| w[0].at > w[1].at), "{}: {p:?}", b.name);
+        }
+    }
+}
+
+/// A Challenge Mode run pays only its class gear, as in Normal Mode, and the talent
+/// experience the same run in Ahn'Qiraj would, × 1.1: no records, no zone won or opened, nothing
+/// for the codex.
+#[test]
+fn a_challenge_run_pays_only_its_gear_and_its_talent_experience() {
+    use esurv_sim::game::challenge::{Challenge, CHALLENGE_ZONE};
+    use esurv_sim::game::choices::Offer;
+    use esurv_sim::game::offers::Rarity;
+    use esurv_sim::game::rewards::{talent_experience_parts, RunTally};
+    let (mut game, _client, saves) = game();
+    let hero = game.hero_id(0);
+    let end = Screens {
+        run_end: true,
+        ..Default::default()
+    };
+    game.ask(hero, hello(end));
+    let content = game.run.content.clone();
+    game.run.options.challenge = Challenge::new(&content, 300);
+    game.start();
+    // a ring taken: not for the codex
+    let ring = Event::OfferTaken {
+        hero,
+        offer: Offer::NewJewelry {
+            id: "accuria".into(),
+            value: 0.17,
+            rarity: Rarity::Common,
+        },
+    };
+    game.settle(&[ring]);
+    assert!(saves.codex().is_empty(), "nothing for the codex");
+    // a gear piece dropped: into the collection as in Normal Mode
+    let entry = esurv_sim::game::rewards::gear_item_entry(8, 1, 0);
+    let drop = [Event::GearDropped {
+        hero,
+        slot: 1,
+        tier: 0,
+        entry,
+    }];
+    game.hand_out_loot(&drop);
+    assert!(saves.collection(&content).contains(&entry), "gear drops count");
+    // a victory in Elwynn
+    game.run.now = 990.0;
+    game.run.won_at = Some(990.0);
+    game.run.phase = Phase::Victory;
+    let t = after_tick(&mut game);
+    let Some(ToClient::RunEnd(won)) = t.iter().find(|m| matches!(m, ToClient::RunEnd(_))) else {
+        panic!("{t:?}")
+    };
+    assert_eq!(won.zone_opened, None, "no zone opened");
+    let guid = game.saved(hero).unwrap().guid;
+    assert_eq!(saves.hero(guid).unwrap().records, crate::save::HeroRecords::default(), "no records");
+    let progress = saves.class_progress(&content, "mage");
+    assert!(progress.zones_won.is_empty() && progress.open_zones(&content) == 1, "no zone won");
+    // talent experience: Ahn'Qiraj's for the same run, × 1.1, never the slider's 3x
+    let tally = RunTally { seconds: 990.0, kills: game.run.heroes[0].kills, bosses: game.run.bosses_slain, won: true };
+    let aq = content.zone(CHALLENGE_ZONE).unwrap().difficulty;
+    let normal = esurv_sim::game::enemy::RunOptions::default();
+    let in_aq = talent_experience_parts(&tally, &content.balance.zone_scaling, aq, &normal, &content.run_options).total();
+    let paid = progress.talent_experience;
+    assert!(paid > 0 && (paid as f32 - in_aq as f32 * 1.1).abs() <= 2.0, "{paid} vs {in_aq} × 1.1");
 }

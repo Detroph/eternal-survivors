@@ -228,17 +228,18 @@ fn the_notice_offers_the_update_and_follows_it() {
     assert_eq!(offer.line, "v0.5.0 is available");
     assert_eq!(offer.button, Some(true));
     assert!(!offer.progress && !offer.failed);
+    assert!(offer.offer, "news: the box glows and pulses");
     assert_eq!(notice_view(&Phase::Available(v), false), None, "the option off");
     assert_eq!(notice_view(&Phase::Quiet, true), None);
 
     let down = notice_view(&Phase::Downloading(v), false).unwrap();
     assert_eq!(down.line, "Downloading v0.5.0");
     assert_eq!(down.button, Some(false));
-    assert!(down.progress);
+    assert!(down.progress && !down.offer);
 
     let failed = notice_view(&Phase::Failed(v, failure("no connection")), true).unwrap();
     assert_eq!(failed.line, "The update failed: no connection. Nothing was changed.");
-    assert!(failed.failed);
+    assert!(failed.failed && !failed.offer);
     assert_eq!(failed.button, Some(true), "Update tries again");
 
     let restart = notice_view(&Phase::Restarting(v), true).unwrap();

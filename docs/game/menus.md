@@ -104,8 +104,11 @@ the lower left.
      click picks one for the class's next runs, kept in the save (the first until one is picked),
      and the camp's figure takes up its weapons at once;
    * the top middle, centred over the camp on the axis of its buttons:
-     a row of four buttons, **Collection**, **Talents** and two dimmed placeholders reading "TBD"
-     (features to come), over the selected hero's equipped armour. Collection glows (the gold
+     a row of four buttons, **Collection**, **Talents**, a dimmed placeholder reading "TBD"
+     (a feature to come) and **Guide**, over the selected hero's equipped armour. The Guide opens
+     a panel over the screen that explains the game's mechanics in four tabs, **Stats**,
+     **Enemies**, **Upgrades** and **Loot**, its numbers read from the content
+     ([screens.md](screens.md), "The guide"). Collection glows and pulses (the gold
      border and soft glow of what is picked) while gear was unlocked for the hero's class since
      its Collection was last opened, Talents while talent or prestige points were earned since its
      Talents were; opening the view and coming back clears its glow. What was seen is kept in the
@@ -129,11 +132,22 @@ the lower left.
      as a file shows in its place; when they are more than the column shows, the list scrolls
      with the mouse wheel and keeps its place when the screen is drawn anew (the collection
      log's rows do the same);
+   * once the hero's class has won Gates of Ahn'Qiraj (zones.md "Challenge Mode"), two
+     tabs under the "Zone" heading, over the zones: **Normal Mode** (the game as it is) and
+     **Challenge Mode** (every zone open, at Ahn'Qiraj's strength × 1.1 × the slider; only gear
+     drops and talent experience pay), and under Challenge Mode its slider, 1x to 5x in 0.25 steps
+     ("1.25x"), kept in the save. Before that win the column is as it always was. Back in Normal
+     Mode, a zone picked in Challenge Mode that the class has not opened gives way to the hardest
+     zone it has; and the first time any class of the save has won Ahn'Qiraj, back at the warband
+     screen a box in the delete question's look says Challenge Mode is open, what it does, how
+     the slider works and what it pays (its numbers from the content), with **Okay**; it never
+     shows again for that save;
    * at the foot of the right column: **Difficulty modifiers** (the run options) and **Start
      run** (enters the world in the chosen zone).
    * the bottom-left corner of the window: **Options** over **Quit
      game**. Quit game closes the game as the Escape menu's Quit does, with no run to pay out.
-     When a newer version of the game is out, a small panel over them says so ("v0.5.0 is
+     When a newer version of the game is out, a small panel over them, glowing and pulsing as
+     Collection and Talents do with news, says so ("v0.5.0 is
      available") with an **Update** button: it downloads the new version (its progress shown
      under the line), checks it, and restarts the game into it; a failure says why in the same
      panel and changes nothing ([server.md](server.md), "Updates"). The Interface tab's **Check
@@ -145,8 +159,8 @@ the lower left.
      set in a run, from the Escape menu's Options, below). Its tabs are Video, Sound, Interface
      and Saves. The Interface tab has four headed sections, in order (they scroll with the wheel
      when they don't fit): **Mouse & Camera**, **Names**, **Eternal Survivors** (show damage
-     numbers, Damage numbers, Check for updates, **Glow around elites and rares**, on by default:
-     elites glow purple, rares and the Rare Caches they drop silver; then the boss warnings,
+     numbers, Damage numbers, Check for updates, **Glow around elites, rares and bosses**, on by default:
+     elites glow purple, rares and the Rare Caches they drop silver, bosses orange; then the boss warnings,
      their sound, the boss timer bars, their handles and putting them back) and **Misc** (chat
      bubbles, deselecting on clicking the ground, clearing away, loading-screen tips, pet damage
      numbers). Its fourth tab, **Saves** (design step 6), exports and imports the save: the

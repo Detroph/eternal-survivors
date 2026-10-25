@@ -428,6 +428,10 @@ pub struct SpellKit {
     /// Slice and Dice). 0: none.
     #[serde(skip_serializing_if = "is_zero")]
     pub swing_speed: f32,
+    /// Its cooldown starts only once the effect it put on the hero has ended (run out or taken
+    /// away), not at the cast, so it is never up all the time (Divine Shield).
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub cooldown_after_effect: bool,
     /// What else it does.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mechanic: Option<Mechanic>,

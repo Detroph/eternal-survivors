@@ -87,13 +87,33 @@ pub enum Banner {
     },
 }
 
-/// A boss's health bar; health 0 takes it away.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// A boss's health bar; health 0 takes it away. `phases`: where its script changes something by
+/// health (the content's `Health(..)` lines), highest first, each with its label ("Gnoll pack";
+/// empty for none).
+#[derive(Debug, Clone, PartialEq)]
 pub struct BossBar {
     pub boss: u64,
     pub name: String,
     pub health: u32,
     pub max_health: u32,
+    pub phases: Vec<BossPhase>,
+}
+
+/// A phase mark on a boss's health bar: at `at` % health, labelled `label`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BossPhase {
+    pub at: f32,
+    pub label: String,
+}
+
+/// Boss `boss` starts casting (winding up) `label` with the icon `icon` (its file name), done in
+/// `seconds`; 0 seconds: its cast stops.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BossCast {
+    pub boss: u64,
+    pub label: String,
+    pub icon: String,
+    pub seconds: f32,
 }
 
 /// A raid warning for a boss mechanic: big across the screen in
@@ -761,6 +781,12 @@ pub struct Progress {
     /// warband screen's buttons to them glow). An older server says neither.
     pub new_gear: bool,
     pub new_points: bool,
+    /// The class has cleared Ahn'Qiraj: the zone select shows the Normal Mode and Challenge Mode tabs.
+    /// An older server says no.
+    pub challenge_open: bool,
+    /// The save has never shown the box telling that Challenge Mode is open, and a class has it open:
+    /// the warband screen shows it once (`seen <class> challenge`). The same in every class's progress.
+    pub challenge_news: bool,
 }
 
 /// A class's prestige: the points its talent experience bought once every talent point was
@@ -814,6 +840,8 @@ pub enum ToClient {
     Hud(Hud),
     /// `ESURVB`, when a boss's health changes (at most every 0.2 s), and once at 0 when it goes.
     BossBar(BossBar),
+    /// `ESURVBK`: a boss starts a cast or a wind-up (or stops one).
+    BossCast(BossCast),
     /// `ESURVA`: a boss arrives or falls, a rare falls.
     Banner(Banner),
     /// `ESURVT`: a HUD message (a toast), to every hero.
@@ -876,6 +904,11 @@ pub enum ToClient {
     GroundIndicator(GroundIndicator),
     /// `ESURVGX`: ground indicator `id` goes (its mark landed, its zone ended).
     GroundIndicatorGone { id: u32 },
+    /// `ESURVER`: the ranks of units the client cannot ask the creature query about (the
+    /// player-looking enemies, whose guids are players'): each unit's guid and its rank in the
+    /// creature query's numbering (1 elite, 3 boss, 4 rare). Told as they appear, and every one
+    /// alive after `hello`.
+    EnemyRanks(Vec<(u64, u32)>),
 }
 
 const READY: &str = "ESURVW";
@@ -904,8 +937,10 @@ const SHEATH_HOLDS: &str = "ESURVI";
 const BOSS_WARNING: &str = "ESURVBW";
 const BOSS_TIMER: &str = "ESURVBT";
 const BOSS_TIMERS_CLEARED: &str = "ESURVBC";
+const BOSS_CAST: &str = "ESURVBK";
 const GROUND_INDICATOR: &str = "ESURVGI";
 const GROUND_INDICATOR_GONE: &str = "ESURVGX";
+const ENEMY_RANKS: &str = "ESURVER";
 
 fn write_offer(o: &mut Out, offer: &Offer) {
     o.word(offer.kind.word())
@@ -1021,6 +1056,7 @@ impl Wire for ToClient {
             ToClient::Ready(_) => READY,
             ToClient::Hud(_) => HUD,
             ToClient::BossBar(_) => BOSS_BAR,
+            ToClient::BossCast(_) => BOSS_CAST,
             ToClient::Banner(_) => BANNER,
             ToClient::Toast(_) => TOAST,
             ToClient::Choices(_) => CHOICES,
@@ -1046,6 +1082,7 @@ impl Wire for ToClient {
             ToClient::BossTimersCleared { .. } => BOSS_TIMERS_CLEARED,
             ToClient::GroundIndicator(_) => GROUND_INDICATOR,
             ToClient::GroundIndicatorGone { .. } => GROUND_INDICATOR_GONE,
+            ToClient::EnemyRanks(_) => ENEMY_RANKS,
         }
     }
 
@@ -1071,7 +1108,12 @@ impl Wire for ToClient {
                     .opt(h.next_boss);
             }
             ToClient::BossBar(b) => {
-                o.guid(b.boss).num(b.health).num(b.max_health).text(&b.name);
+                o.guid(b.boss).num(b.health).num(b.max_health).text(&b.name).list(&b.phases, |o, p| {
+                    o.num(p.at).text(&p.label);
+                });
+            }
+            ToClient::BossCast(c) => {
+                o.guid(c.boss).text(&c.label).text(&c.icon).num(c.seconds);
             }
             ToClient::Banner(b) => {
                 match b {
@@ -1176,11 +1218,12 @@ impl Wire for ToClient {
                 o.list(&p.zones_discovered, |o, id| {
                     o.text(id);
                 });
-                o.text(&p.loadout).flag(p.new_gear).flag(p.new_points);
+                o.text(&p.loadout).flag(p.new_gear).flag(p.new_points).flag(p.challenge_open).flag(p.challenge_news);
             }
             ToClient::RunOptions { options, bonus } => {
                 options.write(&mut o);
                 o.num(bonus);
+                options.write_mode(&mut o);
             }
             ToClient::Refused(verb) => {
                 o.text(verb);
@@ -1273,6 +1316,11 @@ impl Wire for ToClient {
             ToClient::GroundIndicatorGone { id } => {
                 o.num(id);
             }
+            ToClient::EnemyRanks(units) => {
+                o.list(units, |o, &(unit, rank)| {
+                    o.guid(unit).num(rank);
+                });
+            }
         }
         o.finish()
     }
@@ -1303,7 +1351,9 @@ impl Wire for ToClient {
                 health: r.num()?,
                 max_health: r.num()?,
                 name: r.text()?,
+                phases: r.list(|r| Some(BossPhase { at: r.num()?, label: r.text()? }))?,
             }),
+            BOSS_CAST => ToClient::BossCast(BossCast { boss: r.guid()?, label: r.text()?, icon: r.text()?, seconds: r.num()? }),
             BANNER => ToClient::Banner(match r.word()? {
                 "boss" => Banner::BossComes {
                     final_boss: r.flag()?,
@@ -1329,6 +1379,7 @@ impl Wire for ToClient {
                 still: r.flag()?,
             }),
             GROUND_INDICATOR_GONE => ToClient::GroundIndicatorGone { id: r.num()? },
+            ENEMY_RANKS => ToClient::EnemyRanks(r.list(|r| Some((r.guid()?, r.num()?)))?),
             CHOICES => {
                 let mut choices = Choices {
                     hero: r.guid()?,
@@ -1442,11 +1493,16 @@ impl Wire for ToClient {
                 loadout: r.text().unwrap_or_default(),
                 new_gear: r.flag().unwrap_or(false),
                 new_points: r.flag().unwrap_or(false),
+                // an older server opens no Challenge Mode
+                challenge_open: r.flag().unwrap_or(false),
+                challenge_news: r.flag().unwrap_or(false),
             }),
-            RUN_OPTIONS => ToClient::RunOptions {
-                options: RunOptions::read(r)?,
-                bonus: r.num()?,
-            },
+            RUN_OPTIONS => {
+                let mut options = RunOptions::read(r)?;
+                let bonus = r.num()?;
+                options.read_mode(r);
+                ToClient::RunOptions { options, bonus }
+            }
             REFUSED => ToClient::Refused(r.text()?),
             CODEX => ToClient::Codex {
                 found: r.list(|r| r.text())?,
@@ -1553,6 +1609,8 @@ mod tests {
         round_trip(ToClient::BossWarning(BossWarning { text: "Lapdogs soon".into(), colour: [0.75, 0.5, 1.0], icon: String::new(), soon: true }));
         round_trip(ToClient::BossTimer(BossTimer { boss: 42, key: 100, label: "Next slam".into(), icon: "Ability_ThunderClap".into(), seconds: 7.5 }));
         round_trip(ToClient::BossTimersCleared { boss: 42 });
+        round_trip(ToClient::BossCast(BossCast { boss: 0xF130_1F40_0000_0123, label: "Head Butt".into(), icon: "Ability_Rogue_Sprint".into(), seconds: 1.8 }));
+        round_trip(ToClient::BossCast(BossCast { boss: 7, label: String::new(), icon: String::new(), seconds: 0.0 }));
     }
 
     /// Every shape of ground indicator reads back whole, a moving one's motion with it, and its
@@ -1593,6 +1651,14 @@ mod tests {
         }));
         round_trip(ToClient::GroundIndicatorGone { id: 7 });
         assert_eq!(ToClient::GroundIndicatorGone { id: 7 }.lines()[0].to_string(), "ESURVGX\t7");
+    }
+
+    #[test]
+    fn enemy_ranks_read_back() {
+        let ranks = ToClient::EnemyRanks(vec![(0x2000_0007, 1), (0x2000_0009, 4)]);
+        round_trip(ranks.clone());
+        assert_eq!(ranks.lines()[0].to_string(), "ESURVER\t2 20000007 1 20000009 4");
+        round_trip(ToClient::EnemyRanks(Vec::new()));
     }
 
     #[test]
@@ -1653,6 +1719,7 @@ mod tests {
             name: "Morgan the Collector".into(),
             health: 12_345,
             max_health: 20_700,
+            phases: vec![BossPhase { at: 50.0, label: "Gnoll pack".into() }, BossPhase { at: 33.5, label: String::new() }],
         }));
         round_trip(ToClient::Banner(Banner::BossComes {
             name: "Hogger".into(),
@@ -1923,6 +1990,8 @@ mod tests {
             loadout: "dagger_off_hand".into(),
             new_gear: true,
             new_points: false,
+            challenge_open: true,
+            challenge_news: true,
         }));
         round_trip(ToClient::RunOptions {
             options: RunOptions {
@@ -1930,6 +1999,8 @@ mod tests {
                 health: 100,
                 damage: 120,
                 speed: 105,
+                challenge: true,
+                challenge_pct: 225,
             },
             bonus: 1.245,
         });

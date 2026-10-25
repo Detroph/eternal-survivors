@@ -176,6 +176,18 @@ mod tests {
         assert_eq!(kill_experience(elite, r, &o, &mut rng), 1000);
     }
 
+    /// The Nightmare Suppressors are focused as elites, but their rewards stay their own kind's.
+    #[test]
+    fn nightmare_suppressors_are_focused_but_rewarded_as_their_kind() {
+        let c = Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+        let zone = c.zones.iter().find(|z| z.id == "sunken_temple").unwrap();
+        let s = zone.enemies.iter().find(|e| e.name == "Nightmare Suppressor").unwrap();
+        assert!(s.focus_as_elite && !s.elite);
+        assert!(zone.enemies.iter().filter(|e| e.name != "Nightmare Suppressor").all(|e| !e.focus_as_elite));
+        let mut rng = Rng::new(3);
+        assert_eq!(kill_experience(s, &c.balance.experience, &RunOptions::default(), &mut rng), 100);
+    }
+
     #[test]
     fn normal_kill_experience_scales_with_density() {
         let c = Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();

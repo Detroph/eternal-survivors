@@ -213,6 +213,8 @@ pub struct LeftArea {
     pub poisons: bool,
     /// It rides along with this enemy while that one lives.
     pub rides: Option<u32>,
+    /// Spirits run with it, a look only (`Event::SpiritsAppeared`, `Event::SpiritsStrike`).
+    pub spirits: Option<esurv_content::AreaSpirits>,
 }
 
 /// The novas still to come of one cast of a nova that repeats around its hero (`nova_repeats`).
@@ -295,7 +297,7 @@ impl Run {
             .filter_map(|e| {
                 let p = e.position(self.now);
                 let d = dist(p, at);
-                let rank = if e.is_boss() { 0 } else if e.elite { 1 } else { 2 };
+                let rank = if e.is_boss() { 0 } else if e.ranks_as_elite() { 1 } else { 2 };
                 let left = if e.max_health > 0.0 { e.health / e.max_health } else { 1.0 };
                 (d <= r).then_some((d, rank, p, left, e.id))
             })
@@ -363,6 +365,27 @@ impl Run {
         }
     }
 
+    /// Hero `i`'s spell slot `k` waits on the effect it put on the hero
+    /// (`SpellKit::cooldown_after_effect`): true while that effect holds, its cooldown not
+    /// counting; once it has ended (run out or taken away) the cooldown starts, the bar sweeping
+    /// it from then.
+    fn effect_holds_cooldown(&mut self, i: usize, k: usize) -> bool {
+        let slot = &self.heroes[i].spells.known[k];
+        if !slot.waits_for_effect {
+            return false;
+        }
+        let Some(a) = self.content.ability(&slot.spell) else { return false };
+        let (look, id, now) = (a.look_spell, a.id.clone(), self.now);
+        if self.heroes[i].buffs.iter().any(|b| b.visual == look && b.until > now) {
+            return true;
+        }
+        let slot = &mut self.heroes[i].spells.known[k];
+        slot.waits_for_effect = false;
+        let (hero, seconds) = (self.heroes[i].id, self.heroes[i].spells.known[k].timer);
+        self.push(Event::SpellCooldown { hero, spell: id, seconds });
+        false
+    }
+
     /// Every hero spell slot counts down and casts when ready.
     pub(crate) fn spells_tick(&mut self, dt: f32) {
         let content = self.content.clone();
@@ -373,6 +396,9 @@ impl Run {
             // the weapon swing, then the known spells, then the race's spell
             self.weapon_swing(i, dt);
             for k in 0..self.heroes[i].spells.known.len() {
+                if self.effect_holds_cooldown(i, k) {
+                    continue;
+                }
                 if !self.heroes[i].spells.known[k].ready(dt) {
                     continue;
                 }
@@ -413,7 +439,16 @@ impl Run {
                     self.heroes[i].spells.known[k].timer = 0.0;
                 }
                 if cast {
-                    let (hero, seconds) = (self.heroes[i].id, self.heroes[i].spells.known[k].timer);
+                    let (hero, mut seconds) = (self.heroes[i].id, self.heroes[i].spells.known[k].timer);
+                    if a.kit.cooldown_after_effect && !at_once {
+                        // unavailable while its effect holds (the bar sweeps that), its cooldown after
+                        let now = self.now;
+                        let holds = self.heroes[i].buffs.iter().filter(|b| b.visual == a.look_spell && b.until > now).map(|b| b.until - now).fold(0.0, f32::max);
+                        if holds > 0.0 {
+                            self.heroes[i].spells.known[k].waits_for_effect = true;
+                            seconds = holds;
+                        }
+                    }
                     self.push(Event::SpellCooldown { hero, spell: a.id.clone(), seconds });
                 }
             }
@@ -923,7 +958,7 @@ impl Run {
             .enemies_within(at, a.range)
             .into_iter()
             // one that takes no damage now comes last
-            .filter_map(|id| self.enemy(id).map(|e| (if e.mech.damage_share(self.now) <= 0.0 { 3 } else if e.is_boss() { 0 } else if e.elite { 1 } else { 2 }, e.health, id)))
+            .filter_map(|id| self.enemy(id).map(|e| (if e.mech.damage_share(self.now) <= 0.0 { 3 } else if e.is_boss() { 0 } else if e.ranks_as_elite() { 1 } else { 2 }, e.health, id)))
             .collect();
         order.sort_by(|x, y| x.0.cmp(&y.0).then(y.1.total_cmp(&x.1)));
         if let Some(own) = own_order {
@@ -1211,6 +1246,12 @@ impl Run {
                 Some((spell, school, origin)) => HitSource::Proc { spell: *spell, school: *school, origin: origin.clone() },
                 None => HitSource::Spell(spell.clone()),
             };
+            // the spirits running with it strike what it strikes, one enemy each (a look only)
+            if let Some(n) = left.as_ref().and_then(|l| l.spirits.as_ref()).map(|s| s.count as usize) {
+                if !struck.is_empty() {
+                    self.push(Event::SpiritsStrike { area: id, targets: struck.iter().copied().take(n).collect() });
+                }
+            }
             let mut landed = 0;
             for t in struck {
                 // a milestone's area slows and poisons what is inside, and may deal no damage
@@ -1715,6 +1756,45 @@ mod tests {
         // with no boss or elite, the bunch comes first all the same
         r.enemies.retain(|e| e.id != boss && e.id != elite);
         assert_eq!(r.enemies_in_target_order(p, 30.0), [wounded, near, across, farther]);
+    }
+
+    /// One marked `focus_as_elite` (the Nightmare Suppressors) is picked as an elite is, before
+    /// nearer ordinary enemies, its own kind's numbers kept.
+    #[test]
+    fn one_to_focus_is_picked_as_an_elite() {
+        let mut r = run("mage");
+        let near = enemy_at(&mut r, (3.0, 0.0));
+        let focus = enemy_at(&mut r, (15.0, 0.0));
+        let health = r.enemy(focus).unwrap().max_health;
+        for e in r.enemies.iter_mut().filter(|e| e.id == focus) {
+            e.focus_as_elite = true;
+        }
+        let p = r.heroes[0].pos;
+        assert_eq!(r.enemies_in_target_order(p, 30.0), [focus, near]);
+        let e = r.enemy(focus).unwrap();
+        assert!(e.ranks_as_elite() && !e.elite);
+        assert_eq!(e.max_health, health);
+    }
+
+    /// Stratholme's Black Guard Sentry, as a boss brings it, is picked as an elite before a
+    /// nearer ordinary enemy.
+    #[test]
+    fn a_black_guard_sentry_is_picked_as_an_elite() {
+        let content = content();
+        let hero = HeroSetup { class: "mage".into(), race: "human".into(), start: Some("fireball".into()), ..Default::default() };
+        let mut r = Run::new(content.clone(), "strat", RunOptions::default(), &[hero], Box::new(Flat), 11).unwrap();
+        r.enemies.clear();
+        let zone = content.zone("strat").unwrap();
+        let sentry = zone.enemies.iter().position(|e| e.name == "Black Guard Sentry").unwrap();
+        let ghoul = zone.enemies.iter().position(|e| e.name == "Plague Ghoul").unwrap();
+        let p = r.heroes[0].pos;
+        assert!(r.spawn_roster_enemy_with(ghoul, Some((p.0 + 3.0, p.1)), true));
+        let near = r.enemies.last().unwrap().id;
+        assert!(r.spawn_roster_enemy_with(sentry, Some((p.0 + 15.0, p.1)), true));
+        let focus = r.enemies.last().unwrap().id;
+        assert_eq!(r.enemies_in_target_order(p, 30.0), [focus, near]);
+        let e = r.enemy(focus).unwrap();
+        assert!(e.ranks_as_elite() && !e.elite);
     }
 
     /// Design step 4's test: every class and race spell, cast with enemies around, shows its own
@@ -2746,7 +2826,7 @@ mod tests {
         let h = &mut r.heroes[0];
         h.spells.racial = None;
         h.spells.known = vec![crate::game::spells::SpellSlot { timer: 0.0, ..crate::game::spells::SpellSlot::new(a, &[]) }];
-        let cd = crate::game::spells::cooldown(a, &Instance::default(), h.stats.cooldown_factor);
+        let cd = crate::game::spells::cooldown(a, &h.spells.known[0].instance(), h.stats.cooldown_factor);
         let casts = |r: &mut Run| {
             r.drain_events().iter().filter(|e| matches!(e, Event::SpellCast { spell, .. } if spell == "pw_shield")).count()
         };
@@ -2769,6 +2849,59 @@ mod tests {
         r.heroes[0].shield = 0.0;
         r.spells_tick(RETRY + 0.01);
         assert_eq!(casts(&mut r), 1);
+    }
+
+    /// Divine Shield's cooldown starts only once its shield has ended
+    /// (`cooldown_after_effect`): the bar sweeps the shield's time, then the cooldown; however short
+    /// the cooldown, the shield is never up all the time.
+    #[test]
+    fn divine_shields_cooldown_starts_when_its_shield_ends() {
+        let mut r = run("paladin");
+        enemy_at(&mut r, (3.0, 0.0));
+        let content = r.content.clone();
+        let a = content.ability("divine_shield").unwrap();
+        assert!(a.kit.cooldown_after_effect);
+        let h = &mut r.heroes[0];
+        h.spells.racial = None;
+        h.spells.known = vec![crate::game::spells::SpellSlot { timer: 0.0, ..crate::game::spells::SpellSlot::new(a, &[]) }];
+        // even with the cooldown cut far below the shield's time
+        h.spells.known[0].upgrades.cooldown = 0.05;
+        let cd = crate::game::spells::cooldown(a, &h.spells.known[0].instance(), h.stats.cooldown_factor);
+        assert!(cd < a.duration, "a cooldown shorter than the shield");
+        let step = |r: &mut Run, dt: f32| {
+            r.now += dt;
+            let max = r.heroes[0].stats.max_health;
+            r.heroes[0].health = max * IMMUNITY_BELOW * 0.5;
+            r.spells_tick(dt);
+            r.drain_events()
+        };
+        let sweeps = |ev: &[Event]| ev.iter().filter_map(|e| if let Event::SpellCooldown { spell, seconds, .. } = e { (spell == "divine_shield").then_some(*seconds) } else { None }).collect::<Vec<_>>();
+        let casts = |ev: &[Event]| ev.iter().filter(|e| matches!(e, Event::SpellCast { spell, .. } if spell == "divine_shield")).count();
+        let ev = step(&mut r, 0.01);
+        assert_eq!(casts(&ev), 1);
+        // the bar sweeps the shield's 6 s
+        assert_eq!(sweeps(&ev).len(), 1);
+        assert!((sweeps(&ev)[0] - a.duration).abs() < 0.05, "{:?}", sweeps(&ev));
+        // not cast again while the shield holds
+        let mut n = 0;
+        let mut t = 0.0;
+        while t < a.duration - 0.1 {
+            n += casts(&step(&mut r, 0.05));
+            t += 0.05;
+        }
+        assert_eq!(n, 0, "never again while the shield holds");
+        // the shield ends: its cooldown starts, swept from then, and it is cast again after it
+        let mut ev = Vec::new();
+        for _ in 0..4 {
+            ev.extend(step(&mut r, 0.05));
+        }
+        assert_eq!(casts(&ev), 0);
+        assert!(sweeps(&ev).iter().any(|s| (s - cd).abs() < 1e-3), "the cooldown's sweep: {:?}", sweeps(&ev));
+        let mut ev = Vec::new();
+        for _ in 0..((cd / 0.05) as usize + 3) {
+            ev.extend(step(&mut r, 0.05));
+        }
+        assert_eq!(casts(&ev), 1, "cast again once its cooldown after the shield ran out");
     }
 
     /// Heal and shield power strengthens the heals of the hero's spells

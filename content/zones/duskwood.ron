@@ -299,7 +299,7 @@
                         Roster(only: Undead),
                     ],
                 ),
-                // shielded in a purple shadow bubble until the hero takes Morbent's Bane: mortal 15 s, and it drops again
+                // shielded in a purple shadow bubble until the hero takes Morbent's Bane: mortal 25 s, and it drops again 15 s later
                 (
                     on: Arrival,
                     run: [
@@ -314,8 +314,8 @@
                                 scale: 2.7,
                                 glow_spell: 20922,
                                 aura_look: Some(642),
-                                on_contact: [Mortal(seconds: 15.0), Emote(text: "%s is mortal!")],
-                                again_after: Some(30.0),
+                                on_contact: [Mortal(seconds: 25.0), Emote(text: "%s is mortal!")],
+                                again_after: Some(15.0),
                                 warn: Some((text: "The relic dropped: grab it!", colour: Yellow, icon_spell: Some(8913))),
                             ),
                             near: Boss(8.0),

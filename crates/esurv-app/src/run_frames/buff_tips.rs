@@ -110,12 +110,16 @@ pub fn buff_text(content: &Content, spells: &[SpellTip], buff: &BuffTip) -> Opti
 }
 
 /// A starting option's stacking buff: the passive's name (or, for a spell's own stacks, the
-/// spell's), how many stack of how many, and what the passive does.
+/// spell's), how many stack of how many, and what the passive does; a legendary's counter buff
+/// (`legendary:<main spell>`): the legendary's name, the count toward the next time of how
+/// many, and what the legendary does.
 fn passive_text(content: &Content, buff: &BuffTip) -> Option<SpellTipText> {
     let options = content.classes.iter().flat_map(|c| &c.starting_options);
-    let (name, line) = match content.ability(&buff.spell) {
-        Some(a) => (a.name.clone(), a.description.clone()),
-        None => {
+    let legendary = buff.spell.strip_prefix("legendary:").and_then(|main| content.legendary_amulets.iter().find(|l| l.main_spell() == main));
+    let (name, line) = match (legendary, content.ability(&buff.spell)) {
+        (Some(l), _) => (l.name.clone(), l.text.clone()),
+        (None, Some(a)) => (a.name.clone(), a.description.clone()),
+        (None, None) => {
             let p = options.map(|o| &o.passive).find(|p| p.id == buff.spell)?;
             (p.name.clone(), p.description.clone())
         }
@@ -317,5 +321,21 @@ mod tests {
         // its effect on an enemy, were it one: the spell's name and description
         let d = debuff_text(c, &spells[0]).unwrap();
         assert_eq!(texts(&d)[0], "Spell 20572 | Physical spell");
+    }
+
+    /// A legendary's counter buff: the legendary's name, the count of how many, its
+    /// text; and the buff frame shows the legendary's icon for its aura.
+    #[test]
+    fn a_counter_buff_names_its_legendary_and_wears_its_icon() {
+        let c = content();
+        let stampede = c.counter_buff("legendary:kill_command").unwrap();
+        let tip = BuffTip { look: stampede.aura, kind: BuffKind::Passive, spell: stampede.legendary.clone(), value: 9.0, stacks: 4 };
+        let t = buff_text(&c, &[], &tip).unwrap();
+        let rows = texts(&t);
+        assert_eq!(rows[0], "Stampede");
+        assert_eq!(rows[1], "4 of 9");
+        assert!(rows[2].contains("stampede of beasts"), "{rows:?}");
+        let chunk = super::super::class_bar::icons_chunk(Some(&c));
+        assert!(chunk.contains(&format!(r#"[{}] = "Interface\\Icons\\Ability_Druid_ChallangingRoar""#, stampede.aura)), "{chunk}");
     }
 }

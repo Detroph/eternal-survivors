@@ -135,6 +135,9 @@ pub struct NoticeView {
     pub button: Option<bool>,
     /// A progress line under it, kept up to date in place ([`UpdateProgressText`]).
     pub progress: bool,
+    /// It offers a newer version ("vX is available"): news, so the box glows and pulses
+    /// (`menus::look::NewsPulse`).
+    pub offer: bool,
 }
 
 /// The notice for `phase`, the option `on` or off (off hides an offer, not an update under way).
@@ -144,11 +147,13 @@ pub fn notice_view(phase: &Phase, on: bool) -> Option<NoticeView> {
         failed,
         button,
         progress,
+        offer: false,
     };
     match phase {
         Phase::Quiet => None,
-        Phase::Available(v) => on.then(|| {
-            view(format!("{} is available", release::version_text(*v)), false, Some(true), false)
+        Phase::Available(v) => on.then(|| NoticeView {
+            offer: true,
+            ..view(format!("{} is available", release::version_text(*v)), false, Some(true), false)
         }),
         Phase::Failed(_, why) => on.then(|| view(why.clone(), true, Some(true), false)),
         Phase::Downloading(v) => Some(view(

@@ -348,6 +348,9 @@ pub enum ScriptTrigger {
     Death,
     /// Each time a roster enemy named in the line's `add` dies while it is up (at the add's spot).
     AddDied,
+    /// Once a roster enemy named in the line's `add` dies and none of that name is left (at the
+    /// last one's spot): the Shade of Eranikus's shield falls with his last Suppressor.
+    LastAddDied,
     /// Each time a hero loses a life (or falls) to it.
     HeroFell,
 }

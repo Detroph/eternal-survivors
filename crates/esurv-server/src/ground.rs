@@ -31,6 +31,8 @@ pub struct GameData {
     radii: HashMap<u32, f32>,
     /// Spell id to its icon's file name (`Spell_Nature_Thorns`), for the boss warnings' icons.
     spell_icons: HashMap<u32, String>,
+    /// Spell id to its name, for a boss's cast with no label of its own.
+    spell_names: HashMap<u32, String>,
     /// The (race, class) pairs, 1.12 ids, the stock create screen offers; empty if unread.
     stock_pairs: HashSet<(u8, u8)>,
     /// The races' own spells by name (the stock racials: `Spell.dbc` rows whose rank says
@@ -153,6 +155,7 @@ impl GameData {
                 Some((id, path.rsplit(['\\', '/']).next().unwrap_or(path).to_string()))
             })
             .collect();
+        let spell_names = spells.iter().filter(|(_, s)| !s.name.is_empty()).map(|(id, s)| (id, s.name.clone())).collect();
         let racial_spells = racial_spells(
             spells
                 .iter()
@@ -233,6 +236,7 @@ impl GameData {
             missile_speeds,
             radii,
             spell_icons,
+            spell_names,
             stock_pairs,
             racial_spells,
             outfits,
@@ -306,6 +310,11 @@ impl GameData {
     /// Spell `spell`'s own radius in yards, if it has an area.
     pub fn spell_radius(&self, spell: u32) -> Option<f32> {
         self.radii.get(&spell).copied()
+    }
+
+    /// Spell `spell`'s name, if it has one.
+    pub fn spell_name(&self, spell: u32) -> Option<&str> {
+        self.spell_names.get(&spell).map(String::as_str)
     }
 
     /// Spell `spell`'s icon's file name, if it has one.

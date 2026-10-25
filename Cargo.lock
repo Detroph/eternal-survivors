@@ -494,7 +494,7 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "benilla"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-app",
  "benilla-buildstamp",
@@ -502,14 +502,14 @@ dependencies = [
 
 [[package]]
 name = "benilla-adt"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-app"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "arboard",
@@ -557,7 +557,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-assets"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "benilla-formats",
@@ -568,7 +568,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-blp"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-bytes",
  "texpresso",
@@ -576,22 +576,22 @@ dependencies = [
 
 [[package]]
 name = "benilla-buildstamp"
-version = "0.4.2"
+version = "0.5.0"
 
 [[package]]
 name = "benilla-bytes"
-version = "0.4.2"
+version = "0.5.0"
 
 [[package]]
 name = "benilla-dbc"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-formats"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "benilla-adt",
@@ -609,14 +609,14 @@ dependencies = [
 
 [[package]]
 name = "benilla-m2"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-mpq"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-bytes",
  "flate2",
@@ -624,7 +624,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-protocol"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "benilla-srp",
@@ -638,7 +638,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-srp"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "num-bigint",
  "rand 0.8.6",
@@ -647,7 +647,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-ui"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "mlua",
  "roxmltree",
@@ -655,7 +655,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-visual"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "image",
@@ -663,18 +663,18 @@ dependencies = [
 
 [[package]]
 name = "benilla-wdt"
-version = "0.4.2"
+version = "0.5.0"
 
 [[package]]
 name = "benilla-wmo"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-world"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "avian3d",
  "benilla-assets",
@@ -690,7 +690,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-worldview"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "benilla-buildstamp",
  "benilla-world",
@@ -3114,7 +3114,7 @@ checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
 
 [[package]]
 name = "esurv"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "benilla-app",
@@ -3130,7 +3130,7 @@ dependencies = [
 
 [[package]]
 name = "esurv-app"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "avian3d",
  "benilla-app",
@@ -3157,11 +3157,11 @@ dependencies = [
 
 [[package]]
 name = "esurv-client-check"
-version = "0.4.2"
+version = "0.5.0"
 
 [[package]]
 name = "esurv-content"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "benilla-formats",
@@ -3173,14 +3173,14 @@ dependencies = [
 
 [[package]]
 name = "esurv-protocol"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "esurv-server"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "anyhow",
  "benilla-formats",
@@ -3198,14 +3198,14 @@ dependencies = [
 
 [[package]]
 name = "esurv-setup"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "esurv-client-check",
 ]
 
 [[package]]
 name = "esurv-sim"
-version = "0.4.2"
+version = "0.5.0"
 dependencies = [
  "esurv-content",
  "ron",

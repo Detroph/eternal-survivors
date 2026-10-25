@@ -128,6 +128,7 @@ impl Run {
             dots: Vec::new(),
             kit: Default::default(),
             elite: true,
+            focus_as_elite: false,
             enraged: false,
             spawn_cost: copy.spawn_cost,
             mech: Default::default(),
@@ -256,9 +257,9 @@ mod tests {
         assert!(r.spawn_rare(roster, None));
         let g = rares(&r)[0].clone();
         assert_eq!(g.base_speed, r.content.zones[r.zone].enemies[roster].move_speed * r.content.balance.enemy_speed);
-        // Elwynn (D 1) at minute 1/3: 240 × 16 × health clock, 8 × 3 × damage clock
+        // Elwynn (D 1) at minute 1/3: 240 × 10 × health clock, 8 × 3 × damage clock
         let m = 20.0 / 60.0;
-        let (h, dmg) = (240.0 * 16.0 * (1.0 + m * 1.5 / 4.0), 24.0 * (1.0 + m * 0.5 / 4.0));
+        let (h, dmg) = (240.0 * 10.0 * (1.0 + m * 1.5 / 4.0), 24.0 * (1.0 + m * 0.5 / 4.0));
         assert!((g.max_health - h).abs() / h < 1e-5 && (g.damage - dmg).abs() / dmg < 1e-5);
     }
 

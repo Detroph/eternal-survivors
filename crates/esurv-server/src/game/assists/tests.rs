@@ -215,3 +215,133 @@ fn an_allys_leave_shows_when_the_run_lets_it_go() {
     game.run.now += FADE_OUT;
     assert_eq!(game.allies_gone().len(), 1, "gone once faded");
 }
+
+/// The packets the clients get as the run's allies act for `seconds`: each tick's mirror and
+/// presentation, enemy `keep` alone on the field and kept alive; and the run's events.
+fn ally_packets(game: &mut Game, keep: u32, seconds: f32) -> (Vec<Packet>, Vec<Event>) {
+    let (mut out, mut seen) = (Vec::new(), Vec::new());
+    let end = game.run.now + seconds;
+    for _ in 0..(seconds / 0.05).ceil() as usize + 1 {
+        if game.run.now >= end {
+            break;
+        }
+        // a choice screen takes its first offer (the run waits on it)
+        while let Some(screen) = &game.run.screen {
+            let id = game.run.heroes[screen.hero].id;
+            game.run.choose(id, 0);
+        }
+        assert_eq!(game.run.phase, esurv_sim::game::run::Phase::Running, "at {}", game.run.now);
+        game.run.enemies.retain(|e| e.id == keep);
+        if let Some(e) = game.run.enemies.iter_mut().find(|e| e.id == keep) {
+            (e.health, e.hold_until) = (1e12, 1e9);
+        }
+        game.run.tick(0.05);
+        let events = game.run.drain_events();
+        let (_, _, after) = mirrored(game, &events);
+        out.extend(after);
+        let (all, _) = game.present(&events);
+        out.extend(all);
+        seen.extend(events);
+    }
+    (out, seen)
+}
+
+/// A rogue ally in melee strafes left and right and jumps as a player's relayed moves the client
+/// reads (a strafe's start and stop, a jump's take-off with its flight and its landing); a frost
+/// mage's rotation spell with a cast time starts its cast bar before it goes off.
+#[test]
+fn an_allys_rotation_strafes_jumps_and_casts_as_a_player() {
+    let (mut game, _client) = game_with("orc");
+    game.run.phase = esurv_sim::game::run::Phase::Running;
+    let p = game.run.heroes[0].pos;
+    assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 3.0, p.1))));
+    let e = game.run.enemies.last().unwrap().id;
+    // Mir: Blade Flurry, then his rotation in melee
+    assert!(game.run.summon_character(0, "mir"));
+    let events = game.run.drain_events();
+    mirrored(&mut game, &events);
+    game.present(&events);
+    let (sent, _) = ally_packets(&mut game, e, 14.0);
+    let guid = game.ally_guid_shown(game.run.assists.allies[0].id).unwrap();
+    let moves: Vec<(u16, u32, Option<benilla_protocol::JumpInfo>)> = sent
+        .iter()
+        .filter(|p| [opcode::MSG_MOVE_START_STRAFE_LEFT, opcode::MSG_MOVE_START_STRAFE_RIGHT, opcode::MSG_MOVE_STOP_STRAFE, opcode::MSG_MOVE_JUMP, opcode::MSG_MOVE_FALL_LAND].contains(&p.opcode))
+        .map(|p| {
+            let ev = decode(parse_server(p.opcode, &p.body).expect("the client reads it"));
+            let Some(SessionEvent::UnitMove { guid: g, flags, jump, .. }) = ev.into_iter().next() else { panic!("a relayed move") };
+            assert_eq!(g, guid);
+            (p.opcode, flags, jump)
+        })
+        .collect();
+    let has = |op: u16| moves.iter().any(|m| m.0 == op);
+    assert!(has(opcode::MSG_MOVE_START_STRAFE_LEFT) && has(opcode::MSG_MOVE_START_STRAFE_RIGHT) && has(opcode::MSG_MOVE_STOP_STRAFE), "{moves:?}");
+    let jump = moves.iter().find(|m| m.0 == opcode::MSG_MOVE_JUMP).expect("a jump");
+    assert_eq!(jump.1, packets::MOVEFLAG_JUMPING);
+    assert!(jump.2.is_some_and(|j| j.zspeed == packets::JUMP_TAKE_OFF), "its flight: {jump:?}");
+    assert!(has(opcode::MSG_MOVE_FALL_LAND), "it lands");
+    // every strafe stops and every jump lands (none left running on the client)
+    let count = |op: u16| moves.iter().filter(|m| m.0 == op).count();
+    assert_eq!(count(opcode::MSG_MOVE_START_STRAFE_LEFT) + count(opcode::MSG_MOVE_START_STRAFE_RIGHT), count(opcode::MSG_MOVE_STOP_STRAFE));
+    assert!(count(opcode::MSG_MOVE_JUMP) - count(opcode::MSG_MOVE_FALL_LAND) <= 1);
+    // his casts go off from him
+    assert!(sent.iter().any(|p| p.opcode == opcode::SMSG_SPELL_GO));
+
+    // Xaryu: Frostbolt has a cast bar (3 s), then goes off
+    let (mut game, _client) = game_with("orc");
+    game.run.phase = esurv_sim::game::run::Phase::Running;
+    let p = game.run.heroes[0].pos;
+    assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 12.0, p.1))));
+    let e = game.run.enemies.last().unwrap().id;
+    assert!(game.run.summon_character(0, "xaryu"));
+    let events = game.run.drain_events();
+    mirrored(&mut game, &events);
+    game.present(&events);
+    let (sent, seen) = ally_packets(&mut game, e, 14.0);
+    assert!(sent.iter().any(|p| p.opcode == opcode::SMSG_SPELL_START && p.body.windows(4).any(|w| w == 25304u32.to_le_bytes())), "Frostbolt's cast starts");
+    // it goes off once cast (shown as a spell go from it at its aim, an enemy these clients know)
+    let started = seen.iter().position(|x| matches!(x, Event::AllyCastStarted { spell: 25304, .. })).unwrap();
+    assert!(seen[started..].iter().any(|x| matches!(x, Event::SpellGo { caster: Unit::Ally(_), spell: 25304, .. })), "and goes off");
+}
+
+/// An ally channelling (an assist's Blizzard) holds the 1.12 channel look: its channel spell on
+/// the storm it channels while the channel runs, cleared when it ends.
+#[test]
+fn an_ally_s_channel_shows_as_its_channel_spell_on_its_storm() {
+    use esurv_sim::game::assist_rotation::Channeling;
+    let (mut game, _client) = game_with("human");
+    assert!(game.run.summon_character(0, "xaryu"));
+    let events = game.run.drain_events();
+    mirrored(&mut game, &events);
+    let a = &game.run.assists.allies[0];
+    let (id, spell) = (a.id, a.rotation.spells.iter().position(|s| s.spell == 10187).unwrap());
+    let ally = game.ally_guid_shown(id).unwrap();
+    let now = game.run.now;
+    game.run.assists.allies[0].rotation.channeling =
+        Some(Channeling { spell, area: 77, at: (0.0, 0.0), radius: 8.0, every: 1.0, ticks: 8, ticked: 0, next_tick: now + 1.0, ends: now + 8.0 });
+    let mut objects = Vec::new();
+    game.mirror_channels(&mut objects);
+    let mut f = Fields::new();
+    f.u64(field::UNIT_CHANNEL_OBJECT, crate::game::ground_looks::ground_look_guid(77)).u32(field::UNIT_CHANNEL_SPELL, 10187);
+    assert_eq!(objects, [ObjectUpdate::Values { guid: ally, fields: f }]);
+    game.run.assists.allies[0].rotation.channeling = None;
+    let mut objects = Vec::new();
+    game.mirror_channels(&mut objects);
+    let mut f = Fields::new();
+    f.u64(field::UNIT_CHANNEL_OBJECT, 0).u32(field::UNIT_CHANNEL_SPELL, 0);
+    assert_eq!(objects, [ObjectUpdate::Values { guid: ally, fields: f }], "the channel ended");
+}
+
+/// Noami wields Sulfuras (item 17182: display 29698, a two-handed mace) in both hands: nothing in
+/// her off hand, not her class's shield.
+#[test]
+fn a_two_hander_leaves_the_off_hand_empty() {
+    use crate::game::player_enemies::look_item_info;
+    let (game, _client) = game_with("human");
+    let content = game.run.content.clone();
+    let noami = content.player_character("noami").unwrap();
+    let shape = game.character_shape(noami, None, 5).unwrap();
+    let worn = |slot: u8| shape.items.iter().find(|(s, _)| *s == slot).and_then(|(_, e)| look_item_info(*e));
+    let main = worn(esurv_content::Hand::MainHand.equip_slot()).unwrap();
+    assert_eq!((main.display_id, main.inventory_type), (29698, 17));
+    assert!(worn(esurv_content::Hand::OffHand.equip_slot()).is_none(), "no shield");
+}

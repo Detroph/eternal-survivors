@@ -78,7 +78,12 @@ One file per zone, named after its `id` (`content\zones\elwynn.ron` holds the zo
 * The run starts the moment the hero first moves ("Move to begin").
 * Roster enemies appear `enemy_spawn_ring` from the hero (default: 22–34 yd), bosses
   `boss_spawn_ring` (default: 24–28 yd); a zone that leaves them out gets those. Both are kept inside the arena
-  circle and on ground within 25 yd of the hero's height (the spot is re-rolled up to 12 times).
+  circle and on ground within 25 yd of the hero's height, in the hero's sight on open ground.
+  A spot that does not fit (a wall or a map edge in the way) is first stepped in toward the hero
+  along its direction, 2.5 yd at a time (`SPAWN_STEP_IN`), all the way down to
+  but never nearer than half the ring's inner edge (`spawn_inner_floor`, 15 yd for a 30-40 ring); so a
+  hero beside a wall still gets spawns on that side, closer. Only when no step fits is a new
+  direction drawn (up to 12 times; the last drawn spot is used if none fits).
   **Dungeon maps only:** sight is not enough. The spot, drawn in the
   ring as anywhere, must be walked to from the hero over the floors within twice the ring's far
   edge (`SPAWN_WALK_REACH`), on a floor within 25 yd of the hero's height. So a level joined by
@@ -190,7 +195,10 @@ party's (`esurv-server` `game::player_enemies`):
   where its name writes `{Joke}` (`"{Joke} {Class(1)}"`);
 * every pick follows from the enemy's id, so a player who arrives later sees the same; its name
   reaches the clients before it does (a player is named by guid), and it fights as its `kind`
-  says: melee kinds close in, `Ranged` ones stand and cast their `look_spell`.
+  says: melee kinds close in, `Ranged` ones stand and cast their `look_spell`;
+* a player guid has no creature query, so the clients are told the rank of each elite, rare and
+  boss among them as it appears (`ESURVER`, `ToClient::EnemyRanks`), for its glow
+  ([screens.md](screens.md), "Glows round elites, rares and bosses").
 
 **Hand-made player characters** (`content\player_characters.ron`, written one by
 one): an id, a name, a race and a class (any pair our game allows), a gender, a face (`skin`,
@@ -268,6 +276,9 @@ gives them.
   1.3, the 6.0 ceiling wins: a big model is drawn at 6 at a `scale` under 1.3. A Kobold (1.35)
   2.0, drawn at 2.7; a Worgen (3.88) 1.55, drawn at 6; a Flesh Golem (6.18) 0.97; a Tarantula
   (6.72) 0.89; a human man (3.12) 1.92; a human woman (2.66) 2.0, drawn at 5.3.
+* **One to focus** (`focus_as_elite`, the Nightmare Suppressors and the Black Guard Sentries)
+  takes the elite `scale` by the same rule, its kind and numbers its own: a Dragonspawn caster
+  (5.30) 1.13, a Skeleton (3.23) 1.86.
 * **A rare** is its elite × `rares::SCALE` (1.35, nothing per zone): 6 × 1.35 = 8.1 for a
   full-size elite, 3.65 for the Kobold one.
 * **A boss's `scale`** = 9 / its model's size, a final boss's 12 / size, rounded to 0.05: a human
@@ -468,7 +479,7 @@ per run, evenly, from the run's seed), on the elite timer:
 * **Silent**: a rare says nothing when it comes, when it calls its adds or
   when it dies, and no banner announces it.
 * **Health and damage**: the rare kind of the enemy formula
-  (section 4) at the minute it appears: 240 × 16 × `normal_health`(D)^`elite_health_power` × health clock and 8 × 3 × that multiplier^`elite_boss_damage_share` ×
+  (section 4) at the minute it appears: 240 × 10 × `normal_health`(D)^`elite_health_power` × health clock and 8 × 3 × `normal_damage`(D)^`elite_damage_power` ×
   damage clock. Rares slain do not make the others stronger; the count only raises the gold.
 * **When slain:** gold `25 + 5 × rares slain`, an instant level for the killer (experience to
   the next level; its level-up card follows as usual), a 50 % chance to drop a magnet that is
@@ -503,23 +514,25 @@ speed  = speed% × enemy_speed × base speed   (every enemy alike; `balance.ron`
   |---|---|---|
   | normal enemy | ×1 | ×1 |
   | elite | ×10 | ×3 |
-  | rare | ×16 | ×3 |
-  | boss | ×24 | ×2 |
-  | final boss (`is_final`) | ×28 | ×1 |
+  | rare | ×10 | ×3 |
+  | boss | ×30 | ×2 |
+  | final boss (`is_final`) | ×75 | ×1 |
 * **D:** the zone's `difficulty`, its place in the unlock order: Elwynn 1, Duskwood 2 … Ahn'Qiraj
   10 (section 5 leaves room for a zone at 6). Every number that
   follows D lives in one block, `balance.ron` `zone_scaling`, and is built on the hero we expect a
   player to bring to the zone (one won run in each zone before it: its talent points and the
   previous zone's gear), never on a hero's actual power (AUTHORING.md, "Power budgets"):
-  * normal enemies: health × `normal_health` at D, a table (D 1–12: ×1, 1.25, 1.8, 3, 4.4,
-    5.25, 5.3, 6.9, 7, 8.55, 10.8, 14.4; straight lines between points, past the last at the last step's
-    pace), and damage × that multiplier^`damage_share` (**0.6**). The steps are bigger where the
-    expected hero gains a milestone row (D 3, 5 and 7) and take back about half of it, so the
-    milestone is still felt but does not snowball;
-  * elites and rares: the multiplier^`elite_health_power` (**0.87**), bosses
-    ^`boss_health_power` (**0.66**), so a fight with them keeps about the same length next to the
-    expected hero from zone to zone; their damage is their own multiplier^`elite_boss_damage_share`
-    (**0.45**), so their blows stay in step with the hero's health;
+  * normal enemies: health × `normal_health` at D, a table (D 1–12: ×1, 1.4, 2.25, 4, 5.75,
+    6.75, 7.25, 8.75, 9, 11, 12, 17.25; straight lines between points, past the last at the last step's
+    pace), fitted so the baseline hero (rare and epic amulets, bought caches, kiting) meets the
+    original game's kill seconds; damage × `normal_damage` at D, its own table read the same way
+    (×1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75, 4.25, 5: the blows the health table gave
+    before its refit, kept), so `damage_share` (0.6) is not read while it is set;
+  * elites and rares: the health multiplier^`elite_health_power` (**0.87**), bosses
+    ^`boss_health_power` (**0.7**) and the health clock to `boss_clock_power` (**0.3**), so a
+    fight with them keeps about the same length next to the expected hero from zone to zone; their
+    damage is `normal_damage` to `elite_damage_power` (**0.65**) or `boss_damage_power` (**0.5**),
+    the blows they had before;
   * gear, drops, gear tiers and talent experience (below, gear.md and classes.md).
 * **Clocks** (`health_clock`, `damage_clock`): through these points, in straight lines between
   them, and past each clock's last point at its last step's pace (health past minute 20 at the
@@ -552,15 +565,15 @@ Boss abilities work from the boss's damage after all of this (section 3).
 | Zone | D | Normal enemy at minute 0 (health / damage) | Boss gear drop chance | Talent experience | Final boss at |
 |---|---|---|---|---|---|
 | Elwynn Forest | 1 | 240 / 8.0 | 100 % | ×1.00 | 16 min |
-| Duskwood | 2 | 360 / 10.2 | 80 % | ×1.41 | 16 min |
-| Warsong Gulch | 3 | 540 / 13.0 | 80 % | ×1.73 | 16 min |
-| Scarlet Monastery | 4 | 660 / 14.7 | 70 % | ×2.00 | 18 min (two at once) |
-| Sunken Temple | 5 | 1020 / 19.1 | 70 % | ×2.24 | 18 min |
-| Dire Maul | 6 | 1320 / 22.2 | 60 % | ×2.45 | 18 min |
-| Gurubashi Arena | 7 | 1920 / 27.9 | 60 % | ×2.65 | 18 min |
-| Stratholme | 8 | 2280 / 30.9 | 40 % | ×2.83 | 20 min |
-| Blackrock Mountain | 9 | 2520 / 32.8 | 40 % | ×3.00 | 20 min |
-| Gates of Ahn'Qiraj | 10 | 3360 / 39.0 | 40 % | ×3.16 | 20 min |
+| Duskwood | 2 | 336 / 9.2 | 80 % | ×1.62 | 16 min |
+| Warsong Gulch | 3 | 540 / 11.2 | 80 % | ×2.16 | 16 min |
+| Scarlet Monastery | 4 | 960 / 16.4 | 70 % | ×2.64 | 18 min (two at once) |
+| Sunken Temple | 5 | 1380 / 19.6 | 70 % | ×3.09 | 18 min |
+| Dire Maul | 6 | 1620 / 21.6 | 60 % | ×3.51 | 18 min |
+| Gurubashi Arena | 7 | 1740 / 21.6 | 60 % | ×3.90 | 18 min |
+| Stratholme | 8 | 2100 / 26.0 | 40 % | ×4.29 | 20 min |
+| Blackrock Mountain | 9 | 2160 / 26.0 | 40 % | ×4.66 | 20 min |
+| Gates of Ahn'Qiraj | 10 | 2640 / 30.0 | 40 % | ×5.01 | 20 min |
 
 Besides D, a later zone is harder because its **run is longer**: bosses move from
 3/6/9/12/16 min to 4/7/11/14/18 and 4/8/12/16/20. The spawn budget grows with time
@@ -577,9 +590,51 @@ takes their tier and one past Ahn'Qiraj takes tier 4.
 Boss gear drops by steps of D, `gear_drop_chance` (little grinding for
 gear; 100 % at D 1, 80 % from 2, 70 % from 4, 60 % from 6, 40 % from 8 on; see gear.md), and
 talent experience is multiplied by
-D^`talent_exponent`, D^0.17 (×1.0 in Elwynn up to ×1.48 in Ahn'Qiraj), so
+D^`talent_exponent`, D^0.7 (×1.0 in Elwynn up to ×5.01 in Ahn'Qiraj), so
 harder zones trade drop chance for faster talent progress. Both follow the zone's own D, so a zone
 added anywhere leaves the others as they are.
+
+### Challenge Mode
+
+The mode for after the last zone.
+
+* **Unlock.** A class that has won Gates of Ahn'Qiraj (`aq`, the zone in
+  `esurv_sim::game::challenge::CHALLENGE_ZONE`) has Challenge Mode open. It is kept the way every
+  zone's clear is, per class in the save's `zones_won` (server.md), and told to the client at the
+  end of `Progress` (`challenge_open`). Until then the zone select looks as it always has. After
+  it, two tabs sit over the zone list, **Normal Mode** and **Challenge Mode**, and a challenge
+  slider under the second (menus.md, screens.md).
+* **Normal Mode** is the game as it is: nothing changes.
+* **Challenge Mode.** Every zone is open. A zone keeps its own enemies, roster, toughness, bosses,
+  mechanics and clocks, but its zone scaling is Ahn'Qiraj's: every enemy's health and damage come
+  from the formula above with Ahn'Qiraj's D (read from its zone file, never a written 10). Then
+  the final health and the final damage of every enemy, normal, elite, rare, boss and final boss
+  alike, are × **`challenge_factor` × slider**, one flat factor that never goes through the kind
+  and zone powers (`elite_health_power`, `boss_health_power`, `damage_share`,
+  `elite_boss_damage_share`), on top of everything else, the run options included:
+
+  ```
+  challenge health = (the formula's health at Ahn'Qiraj's D) × challenge_factor × slider
+  challenge damage = (the formula's damage at Ahn'Qiraj's D) × challenge_factor × slider
+  ```
+
+  `challenge_factor` is **1.1** (`balance.ron`). The slider runs **1x to 5x** in **0.25** steps
+  (1.00, 1.25 ... 5.00), shows its value as "1.25x", stacks with the run options of
+  `run_options.ron` (which stay as they are) and is kept in the save with them. The mode and the
+  slider reach the server in the run options line (`options`, server.md); the server runs
+  Challenge Mode only for a class that has it open.
+* **Rewards.** A challenge run pays:
+  * **class gear** its bosses drop, exactly as in Normal Mode for that zone (the zone's own D for
+    the drop chance and the tier, × the run options' bonus);
+  * **talent experience**: what the same run would pay in Ahn'Qiraj (Ahn'Qiraj's D in the zone
+    bonus), × `challenge_factor`; the slider does not scale it, and the run options keep their
+    bonus. It buys talent and prestige points as ever.
+
+  It pays nothing else: no hero records (best level, longest run, runs and wins), no zone won and
+  none opened or discovered, and nothing new for the codex (rings, trinkets, amulets and
+  legendaries taken in the run). What a run gives inside itself (levels, gold, caches, cards,
+  amulets) is play, not reward, and stays as it is.
+
 
 ## 5. Adding or changing a zone
 

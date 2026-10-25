@@ -1718,6 +1718,8 @@
         duration: 6.0,
         ticks: 0,
         effect: Immunity(seconds: 6.0),
+        // its cooldown starts when the shield ends, so it is never up all the time
+        kit: (cooldown_after_effect: true),
     ),
     (
         id: "holy_shield",

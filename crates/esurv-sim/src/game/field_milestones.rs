@@ -3,7 +3,7 @@
 //! ground areas that grow as they strike or move with the hero, a pull before a cast, a trail of
 //! fire behind burning enemies, and feared enemies turned on the others.
 
-use esurv_content::{Ability, Milestone, School, SpellEffect};
+use esurv_content::{Ability, LineRunners, Milestone, School, SpellEffect};
 
 use super::casting::{Area, HitSource, ProcOrigin, AREA_LOOK_AFTER};
 use super::enemy_ai::{attack_damage, chase, flee, reach, Segment, Vec2};
@@ -37,8 +37,10 @@ fn dist(a: Vec2, b: Vec2) -> f32 {
 
 impl Run {
     /// `LineHit`: every enemy in `line` from hero `h` through `target` (struck at `at`) takes
-    /// `hit`, nearest first, shown as `look_spell` (else the hit's spell) flying to the line's end.
-    pub(crate) fn line_hit(&mut self, h: usize, target: u32, at: Vec2, hit: f32, line: Line, look_spell: Option<u32>, source: &HitSource) {
+    /// `hit`, nearest first, shown as `look_spell` (else the hit's spell) flying to the line's end,
+    /// and `runners`, if any, running along it ([`Event::LineRunners`]).
+    #[allow(clippy::too_many_arguments)] // the line's numbers and looks, as the milestone has them
+    pub(crate) fn line_hit(&mut self, h: usize, target: u32, at: Vec2, hit: f32, line: Line, look_spell: Option<u32>, runners: Option<&LineRunners>, source: &HitSource) {
         let from = self.heroes[h].pos;
         let d = dist(from, at);
         if d < 0.01 {
@@ -67,6 +69,9 @@ impl Run {
             let caster = Unit::Hero(self.heroes[h].id);
             let hits = struck.iter().map(|&(_, id)| Unit::Enemy(id)).collect();
             self.push(Event::SpellGo { caster, spell: look, hits, aim: Aim::Ground(end), ammo: AMMO_SPELLS.contains(&look), reach: line.width, triggered: true });
+        }
+        if let Some(r) = runners {
+            self.push(Event::LineRunners { from, to: end, width: line.width, runners: r.clone() });
         }
         for (_, t) in struck {
             self.hit_enemy(Some(h), t, hit, false, self.proc_source(look, school));
@@ -375,7 +380,7 @@ mod tests {
 
     fn line(every: u32, behind: bool, hits_target: bool) -> Milestone {
         let filter = SpellFilter::Spell("fireball".into());
-        Milestone::LineHit { every, share: 0.5, length: 30.0, width: 2.0, behind, hits_target, look_spell: Some(19434), trigger: Trigger::Hit, filter }
+        Milestone::LineHit { every, share: 0.5, length: 30.0, width: 2.0, behind, hits_target, look_spell: Some(19434), runners: None, trigger: Trigger::Hit, filter }
     }
 
     fn fireball(r: &mut Run, id: u32) {
@@ -412,6 +417,27 @@ mod tests {
         assert_eq!(lost(&r, past), 50.0);
         assert_eq!(lost(&r, target), 350.0, "the struck enemy takes the line too");
         assert_eq!(lost(&r, near), 0.0, "before the target");
+    }
+
+    /// A line with runners (Stampede's beasts) tells them to run from the hero to the line's end
+    /// as it strikes, every `every`-th time only, and the damage is the line's as before.
+    #[test]
+    fn a_line_with_runners_sends_them_along_it_as_it_strikes() {
+        let runners = LineRunners { displays: vec![(604, 0.55), (503, 0.54)], count: (5, 7), speed: 14.0 };
+        let Milestone::LineHit { every, share, length, width, behind, hits_target, look_spell, trigger, filter, .. } = line(2, false, true) else { unreachable!() };
+        let with = Milestone::LineHit { every, share, length, width, behind, hits_target, look_spell, runners: Some(runners.clone()), trigger, filter };
+        let mut r = run(vec![with]);
+        let target = enemy(&mut r, (10.0, 0.0));
+        let past = enemy(&mut r, (20.0, 0.0));
+        let ran = |r: &mut Run| r.drain_events().into_iter().filter_map(|e| if let Event::LineRunners { from, to, width, runners } = e { Some((from, to, width, runners)) } else { None }).collect::<Vec<_>>();
+        fireball(&mut r, target);
+        assert!(ran(&mut r).is_empty(), "not before the second hit");
+        fireball(&mut r, target);
+        let from = r.heroes[0].pos;
+        let [(start, end, w, told)] = &ran(&mut r)[..] else { panic!("one row of runners") };
+        assert!(dist(*start, from) < 1e-3 && dist(*end, (from.0 + 30.0, from.1)) < 1e-3, "from the hero to the line's end");
+        assert_eq!((*w, told), (2.0, &runners));
+        assert_eq!((lost(&r, target), lost(&r, past)), (250.0, 50.0), "the line's damage, nothing more");
     }
 
     #[test]
@@ -557,7 +583,7 @@ mod tests {
     #[test]
     fn a_summon_trigger_calls_several_and_an_afflicted_kill_counts_whatever_killed_it() {
         let filter = SpellFilter::Spell("corruption".into());
-        let m = Milestone::PetOnTrigger { look_spell: None, chance: 1.0, seconds: 8.0, max: 3, pet: "Imp".into(), trigger: Trigger::Kill, filter, count: 2, afflicted: true };
+        let m = Milestone::PetOnTrigger { look_spell: None, chance: 1.0, seconds: 8.0, max: 3, pet: "Imp".into(), trigger: Trigger::Kill, filter, count: 2, afflicted: true, cooldown: 0.0 };
         let mut r = run(vec![m]);
         for _ in 0..2 {
             let id = enemy(&mut r, (5.0, 0.0));

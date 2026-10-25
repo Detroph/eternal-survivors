@@ -183,7 +183,7 @@ fn maleki_bolts_and_tombs_then_drains_life_below_sixty() {
     let before = r.enemies[k].health;
     run_timed_line(&mut r, 1);
     let k = boss_index(&r);
-    assert!((r.enemies[k].health - before - 0.04 * r.enemies[k].max_health).abs() < 1.0, "a twenty-fifth back");
+    assert!((r.enemies[k].health - before - 0.02 * r.enemies[k].max_health).abs() < 1.0, "a fiftieth back (halved)");
 }
 
 /// As Stratholme plays it: Ramstein comes at 20:00 (the Slaughterhouse

@@ -1,0 +1,79 @@
+// The assists' rotation spells (docs/game/assists.md, "Its rotation"): every spell a character's
+// `behaviour` (player_characters.ron) or a class default's (class_assists.ron) casts, once each,
+// with its cast time and cooldown as the 1.12.1 client's Spell.dbc holds them (seconds: the cast
+// from SpellCastTimes.dbc, 0 for an instant or a channel; the cooldown the longer of the spell's
+// own and its category's), and where it is aimed; a channelled spell (Blizzard) also its channel time,
+// its ticks' interval (seconds) and its radius (yards), from SpellDuration.dbc, its periodic
+// amplitude and SpellRadius.dbc. The ranks are the top ones a level-60 player
+// casts. `cargo run -p esurv-content --features client --example check_assist_spells` checks them
+// against the client and prints a row for any id given to it.
+//
+//   (spell: 25304, cast: 3.0, cooldown: 0.0, on: Enemy),  // on: Enemy (left out), Hero, Caster or Ground
+([
+    (spell: 11294, cast: 0.0, cooldown: 0.0), // Sinister Strike (Rank 8)
+    (spell: 31016, cast: 0.0, cooldown: 0.0), // Eviscerate (Rank 9)
+    (spell: 8643, cast: 0.0, cooldown: 20.0), // Kidney Shot (Rank 2)
+    (spell: 17348, cast: 0.0, cooldown: 0.0), // Hemorrhage (Rank 3)
+    (spell: 11275, cast: 0.0, cooldown: 0.0), // Rupture (Rank 6)
+    (spell: 11198, cast: 0.0, cooldown: 0.0), // Expose Armor (Rank 5)
+    (spell: 13877, cast: 0.0, cooldown: 120.0, on: Caster), // Blade Flurry
+    (spell: 21553, cast: 0.0, cooldown: 6.0), // Mortal Strike (Rank 4)
+    (spell: 1680, cast: 0.0, cooldown: 10.0, on: Caster), // Whirlwind
+    (spell: 25286, cast: 0.0, cooldown: 0.0), // Heroic Strike (Rank 9)
+    (spell: 20569, cast: 0.0, cooldown: 0.0), // Cleave (Rank 5)
+    (spell: 7373, cast: 0.0, cooldown: 0.0), // Hamstring (Rank 3)
+    (spell: 11597, cast: 0.0, cooldown: 0.0), // Sunder Armor (Rank 5)
+    (spell: 23925, cast: 0.0, cooldown: 6.0), // Shield Slam (Rank 4)
+    (spell: 25288, cast: 0.0, cooldown: 5.0), // Revenge (Rank 6)
+    (spell: 11581, cast: 0.0, cooldown: 4.0, on: Caster), // Thunder Clap (Rank 6)
+    (spell: 20920, cast: 0.0, cooldown: 0.0, on: Caster), // Seal of Command (Rank 5)
+    (spell: 20271, cast: 0.0, cooldown: 10.0), // Judgement
+    (spell: 10308, cast: 0.0, cooldown: 60.0), // Hammer of Justice (Rank 4)
+    (spell: 20924, cast: 0.0, cooldown: 8.0, on: Caster), // Consecration (Rank 5)
+    (spell: 20928, cast: 0.0, cooldown: 10.0, on: Caster), // Holy Shield (Rank 3)
+    (spell: 24239, cast: 1.0, cooldown: 6.0), // Hammer of Wrath (Rank 3)
+    (spell: 10230, cast: 0.0, cooldown: 25.0, on: Caster), // Frost Nova (Rank 4)
+    (spell: 10187, cast: 0.0, cooldown: 0.0, channel: 8.0, tick_every: 1.0, radius: 8.0, on: Ground), // Blizzard (Rank 6)
+    (spell: 25304, cast: 3.0, cooldown: 0.0), // Frostbolt (Rank 11)
+    (spell: 10161, cast: 0.0, cooldown: 10.0), // Cone of Cold (Rank 5)
+    (spell: 25306, cast: 3.5, cooldown: 0.0), // Fireball (Rank 12)
+    (spell: 10199, cast: 0.0, cooldown: 8.0), // Fire Blast (Rank 7)
+    (spell: 10207, cast: 1.5, cooldown: 0.0), // Scorch (Rank 7)
+    (spell: 10216, cast: 3.0, cooldown: 0.0, on: Ground), // Flamestrike (Rank 6)
+    (spell: 17364, cast: 0.0, cooldown: 20.0), // Stormstrike (Rank 1)
+    (spell: 10414, cast: 0.0, cooldown: 6.0), // Earth Shock (Rank 7)
+    (spell: 29228, cast: 0.0, cooldown: 6.0), // Flame Shock (Rank 6)
+    (spell: 10623, cast: 2.5, cooldown: 0.0, on: Hero), // Chain Heal (Rank 3)
+    (spell: 10468, cast: 1.5, cooldown: 0.0, on: Hero), // Lesser Healing Wave (Rank 6)
+    (spell: 25357, cast: 3.0, cooldown: 0.0, on: Hero), // Healing Wave (Rank 10)
+    (spell: 10605, cast: 2.5, cooldown: 6.0), // Chain Lightning (Rank 4)
+    (spell: 15208, cast: 3.0, cooldown: 0.0), // Lightning Bolt (Rank 10)
+    (spell: 10473, cast: 0.0, cooldown: 6.0), // Frost Shock (Rank 4)
+    (spell: 25311, cast: 2.0, cooldown: 0.0), // Corruption (Rank 7)
+    (spell: 11713, cast: 0.0, cooldown: 0.0), // Curse of Agony (Rank 6)
+    (spell: 25307, cast: 3.0, cooldown: 0.0), // Shadow Bolt (Rank 10)
+    (spell: 17926, cast: 0.0, cooldown: 120.0), // Death Coil (Rank 3)
+    (spell: 14287, cast: 0.0, cooldown: 6.0), // Arcane Shot (Rank 8)
+    (spell: 25294, cast: 0.0, cooldown: 10.0), // Multi-Shot (Rank 5)
+    (spell: 25295, cast: 0.0, cooldown: 0.0), // Serpent Sting (Rank 9)
+    (spell: 20904, cast: 3.0, cooldown: 6.0), // Aimed Shot (Rank 6)
+    (spell: 9904, cast: 0.0, cooldown: 0.0), // Rake (Rank 4)
+    (spell: 9850, cast: 0.0, cooldown: 0.0), // Claw (Rank 5)
+    (spell: 31018, cast: 0.0, cooldown: 0.0), // Ferocious Bite (Rank 5)
+    (spell: 9830, cast: 0.0, cooldown: 0.0), // Shred (Rank 5)
+    (spell: 9896, cast: 0.0, cooldown: 0.0), // Rip (Rank 6)
+    (spell: 9835, cast: 0.0, cooldown: 0.0), // Moonfire (Rank 10)
+    (spell: 24977, cast: 0.0, cooldown: 0.0), // Insect Swarm (Rank 5)
+    (spell: 25298, cast: 3.5, cooldown: 0.0), // Starfire (Rank 7)
+    (spell: 10917, cast: 1.5, cooldown: 0.0, on: Hero), // Flash Heal (Rank 7)
+    (spell: 27801, cast: 0.0, cooldown: 0.0, on: Caster), // Holy Nova (Rank 6)
+    (spell: 25315, cast: 0.0, cooldown: 0.0, on: Hero), // Renew (Rank 10)
+    (spell: 10934, cast: 2.5, cooldown: 0.0), // Smite (Rank 8)
+    (spell: 25297, cast: 3.5, cooldown: 0.0, on: Hero), // Healing Touch (Rank 11)
+    (spell: 25299, cast: 0.0, cooldown: 0.0, on: Hero), // Rejuvenation (Rank 11)
+    (spell: 9858, cast: 2.0, cooldown: 0.0, on: Hero), // Regrowth (Rank 9)
+    (spell: 9881, cast: 0.0, cooldown: 0.0), // Maul (Rank 7)
+    (spell: 9908, cast: 0.0, cooldown: 0.0), // Swipe (Rank 5)
+    (spell: 9898, cast: 0.0, cooldown: 0.0, on: Caster), // Demoralizing Roar (Rank 5)
+    (spell: 9912, cast: 2.0, cooldown: 0.0), // Wrath (Rank 8)
+])

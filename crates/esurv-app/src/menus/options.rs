@@ -158,9 +158,9 @@ fn tip_of(s: &Setting) -> Option<&'static [&'static str]> {
             "Nothing about you is sent. Unticked, the game never asks.",
         ]),
         crate::glow_option::CVAR => Some(&[
-            "Glow around elites and rares",
-            "Elites glow purple around their outline, and rares and the Rare Caches they drop glow silver, so the strong enemies stand out in a crowd.",
-            "Bosses and other enemies never glow.",
+            "Glow around elites, rares and bosses",
+            "Elites glow purple around their outline, rares and the Rare Caches they drop silver, and bosses orange, so the strong enemies stand out in a crowd.",
+            "Other enemies never glow.",
             "Unticked, every glow hides at once.",
         ]),
         _ => None,
@@ -591,10 +591,10 @@ const GAME_NUMBERS: &[Setting] = &[
         needs: None,
         takes: Takes::Now,
     },
-    // the glows around elites, rares and Rare Caches ([`crate::glow_option`])
+    // the glows around elites, rares, Rare Caches and bosses ([`crate::glow_option`])
     Check {
         cvar: crate::glow_option::CVAR,
-        label: "Glow around elites and rares",
+        label: "Glow around elites, rares and bosses",
         needs: None,
         takes: Takes::Now,
     },
@@ -1640,7 +1640,7 @@ mod tests {
             .any(|(k, v)| k.eq_ignore_ascii_case(HANDLES_CVAR) && v == want));
     }
 
-    /// Glow around elites and rares: on by default, a box in the Eternal Survivors section,
+    /// Glow around elites, rares and bosses: on by default, a box in the Eternal Survivors section,
     /// written on Okay as the CVar the host keeps and read back from a saved value; the box has
     /// its tooltip.
     #[test]
@@ -1649,7 +1649,7 @@ mod tests {
         let mut script = UiScript::new().unwrap();
         let mut d = read(&script, OptionsTab::Interface);
         let s = find(CVAR).unwrap();
-        assert!(matches!(s, Check { label: "Glow around elites and rares", .. }));
+        assert!(matches!(s, Check { label: "Glow around elites, rares and bosses", .. }));
         assert!(sections(OptionsTab::Interface)[2].columns[0].iter().any(|x| x.key() == CVAR));
         assert!(d.ticked(CVAR), "on by default");
         change(None, &mut d, CVAR, true);
@@ -1667,7 +1667,7 @@ mod tests {
         again.set_cvar_saved_base([(CVAR.to_ascii_lowercase(), "0".to_string())]);
         assert!(!read(&again, OptionsTab::Interface).ticked(CVAR));
         let tip = row_tip(tip_of(s).unwrap());
-        assert_eq!(tip.0[0].text, "Glow around elites and rares");
+        assert_eq!(tip.0[0].text, "Glow around elites, rares and bosses");
         assert!(tip.0.iter().any(|l| l.text.contains("purple")) && tip.0.iter().any(|l| l.text.contains("silver")));
     }
 

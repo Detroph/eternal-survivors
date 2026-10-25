@@ -25,9 +25,14 @@ pub fn player_enemy_guid(id: u32) -> u64 {
     PLAYER_ENEMY_BIT | u64::from(id & 0x1FFF_FFFF)
 }
 
+/// Whether `guid` is a player-looking enemy's (a player guid with the enemy bit).
+pub fn is_player_enemy_guid(guid: u64) -> bool {
+    guid >> 32 == 0 && guid & PLAYER_ENEMY_BIT != 0
+}
+
 /// The druid forms' looks a player-looking enemy is shown in, by its faction: the night elf's
 /// and the tauren's (`CreatureDisplayInfo.dbc`), whatever its race.
-fn form_display(form: PlayerForm, faction: Faction) -> u32 {
+pub(super) fn form_display(form: PlayerForm, faction: Faction) -> u32 {
     match (form, faction) {
         (PlayerForm::Cat, Faction::Alliance) => 892,
         (PlayerForm::Cat, Faction::Horde) => 8571,
@@ -66,7 +71,7 @@ pub(super) struct PlayerShape {
     display: u32,
     native: u32,
     /// (equipment slot, item entry) of every piece it shows.
-    items: Vec<(u8, u32)>,
+    pub(crate) items: Vec<(u8, u32)>,
 }
 
 impl PlayerShape {
@@ -99,6 +104,18 @@ impl Game {
         let (_, entry) = shape.items.iter().find(|(slot, _)| *slot == Hand::Ranged.equip_slot())?;
         let item = look_item_info(*entry)?;
         super::ranged_shots::shot_look_of(self.data.as_deref(), spell, item.class, item.subclass, item.display_id)
+    }
+
+    /// The rank the creature query gives enemy `i`'s kind (`packets::RANK_*`): an elite of the
+    /// roster, a rare, a boss; `None` for a normal enemy. A player-looking enemy's clients are told
+    /// it (`ToClient::EnemyRanks`), since a player guid has no creature query.
+    pub(super) fn enemy_rank(&self, i: usize) -> Option<u32> {
+        let zone = &self.run.content.zones[self.run.zone];
+        match self.run.enemies.get(i)?.kind {
+            EnemyKind::Roster(r) => zone.enemies.get(r).map(|e| e.elite || e.focus_as_elite)?.then_some(packets::RANK_ELITE),
+            EnemyKind::Rare { .. } => Some(packets::RANK_RARE),
+            EnemyKind::Boss(_) => Some(packets::RANK_BOSS),
+        }
     }
 
     /// The faction the heroes fight: the other one than the party's.
@@ -212,6 +229,10 @@ impl Game {
                 }
             }
             items.retain(|(s, _)| !gear.bare.iter().any(|b| b.equip_slot() == *s));
+            // a two-hander in the main hand leaves the off hand empty (no class shield under it)
+            if gear.main_hand.is_some_and(|w| w.kind.two_handed()) && gear.off_hand.is_none() {
+                items.retain(|(s, _)| *s != Hand::OffHand.equip_slot());
+            }
         }
         let name = c.name.clone();
         let gender = c.gender.id();

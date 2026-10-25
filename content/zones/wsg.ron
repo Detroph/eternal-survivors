@@ -212,6 +212,7 @@
                 Summon(),
             ],
             is_final: false,
+            health_share: Some(0.8), // lived 42 s against a 35 s goal
             // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),
@@ -280,6 +281,7 @@
                 Summon(),
             ],
             is_final: true,
+            health_share: Some(0.5), // lived 122 s against a 90 s goal (110 s at 0.8)
             // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),

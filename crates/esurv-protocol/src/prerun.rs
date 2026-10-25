@@ -25,7 +25,8 @@ pub enum PreRunAsk {
     /// requests (`learn`, `unlearn`, `prestige`, `unprestige`, `resetprestige`, `wear`,
     /// `takeoff`, `look`); answered with `Progress`.
     Armory { class: String, change: ToServer },
-    /// `options <density> <health> <damage> <speed>`: the run options for the next run.
+    /// `options <density> <health> <damage> <speed> <challenge> <challenge %>`: the run options and
+    /// the mode (Challenge Mode or not, and its slider) for the next run.
     RunOptions(RunOptions),
     /// `rename <guid> <name>`: the stock name rules; answered with `Hero`.
     Rename { hero: u64, name: String },
@@ -53,19 +54,21 @@ pub enum PreRunAsk {
     /// checked, the save it replaces kept there first (`SaveImported`, then `SaveFiles`). Refused
     /// by a remote host.
     ImportSave { file: String },
-    /// `seen <class> <collection|talents>`: the player opened the class's Collection or Talents
+    /// `seen <class> <collection|talents|challenge>`: the player opened the class's Collection or Talents
     /// before a run, so what it shows is seen (the warband screen's
-    /// button to it glows until then); answered with `Progress`.
+    /// button to it glows until then), or closed the box telling that Challenge Mode is open (once
+    /// per save); answered with `Progress`.
     Seen { class: String, view: SeenView },
 }
 
 /// A view of the hero sheet whose news the warband screen's buttons show:
 /// gear unlocked since the Collection was last opened, talent points earned since the
-/// Talents were.
+/// Talents were; and the box telling that Challenge Mode is open, once per save.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum SeenView {
     Collection,
     Talents,
+    Challenge,
 }
 
 impl SeenView {
@@ -74,6 +77,7 @@ impl SeenView {
         match self {
             SeenView::Collection => "collection",
             SeenView::Talents => "talents",
+            SeenView::Challenge => "challenge",
         }
     }
 
@@ -82,6 +86,7 @@ impl SeenView {
         match word {
             "collection" => Some(SeenView::Collection),
             "talents" => Some(SeenView::Talents),
+            "challenge" => Some(SeenView::Challenge),
             _ => None,
         }
     }
@@ -164,7 +169,10 @@ impl Wire for PreRunAsk {
                 // the request as it reads on its own, verb first
                 return format!("{} {}", o.finish(), change.message());
             }
-            PreRunAsk::RunOptions(options) => options.write(&mut o),
+            PreRunAsk::RunOptions(options) => {
+                options.write(&mut o);
+                options.write_mode(&mut o);
+            }
             PreRunAsk::Rename { hero, name } => {
                 o.guid(*hero).text(name);
             }
@@ -211,7 +219,11 @@ impl Wire for PreRunAsk {
         Some(match r.word()? {
             "facts" => PreRunAsk::Facts { class: r.text()? },
             "hero" => PreRunAsk::Hero(r.guid()?),
-            "options" => PreRunAsk::RunOptions(RunOptions::read(r)?),
+            "options" => {
+                let mut options = RunOptions::read(r)?;
+                options.read_mode(r);
+                PreRunAsk::RunOptions(options)
+            }
             "rename" => PreRunAsk::Rename {
                 hero: r.guid()?,
                 name: r.text()?,
@@ -287,6 +299,8 @@ mod tests {
             health: 125,
             damage: 110,
             speed: 105,
+            challenge: true,
+            challenge_pct: 175,
         }));
         round_trip(PreRunAsk::Rename {
             hero: 3,
@@ -311,7 +325,7 @@ mod tests {
         round_trip(PreRunAsk::ImportSave {
             file: "heroes 2026-10-13 142530.ron".into(),
         });
-        for view in [SeenView::Collection, SeenView::Talents] {
+        for view in [SeenView::Collection, SeenView::Talents, SeenView::Challenge] {
             round_trip(PreRunAsk::Seen {
                 class: "shaman".into(),
                 view,

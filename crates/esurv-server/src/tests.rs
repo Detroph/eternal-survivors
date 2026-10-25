@@ -314,8 +314,8 @@ fn the_client_sees_the_fight() {
     });
     assert_eq!(
         bar,
-        [(0, first_spell), (11, race_spell)],
-        "the starting spell first, the race spell on the last button"
+        [(0, first_spell), (7, race_spell)],
+        "the starting spell first, the race spell on the eighth button, after the seven spells'"
     );
 
     let spawn = &content.zones[0].spawn;

@@ -20,6 +20,8 @@ pub(super) enum ScrollingList {
     Talents,
     /// The options panel's Interface tab, its four sections.
     OptionsInterface,
+    /// The guide's sections, each tab its own place.
+    Guide(super::guide::GuideTab),
 }
 
 /// A node whose children scroll up and down with the wheel when they are more than it shows.

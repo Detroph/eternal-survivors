@@ -9,7 +9,7 @@
 
 use std::collections::HashMap;
 
-use esurv_protocol::{BossTimer, BossWarning, ToClient};
+use esurv_protocol::{BossCast, BossTimer, BossWarning, ToClient};
 use esurv_sim::game::enemy_ai::Vec2;
 use esurv_sim::game::run::{Event, Unit};
 
@@ -152,8 +152,24 @@ impl Game {
                 let message = ToClient::BossTimer(BossTimer { boss: *boss, key: *key, label: label.clone(), icon: String::new(), seconds: COUNTER_SECONDS });
                 self.to_huds(message, own);
             }
+            Event::BossCasting { boss, label, spell, seconds } => {
+                if let Some(message) = self.boss_cast(*boss, label, *spell, *seconds) {
+                    self.to_huds(message, own);
+                }
+            }
             _ => {}
         }
+    }
+
+    /// Boss `boss`'s cast as its bar shows it: labelled `label`, else its spell's name.
+    pub(super) fn boss_cast(&self, boss: u32, label: &str, spell: u32, seconds: f32) -> Option<ToClient> {
+        let guid = self.guid_of(Unit::Enemy(boss))?;
+        let label = if label.is_empty() {
+            self.data.as_ref().and_then(|d| d.spell_name(spell)).unwrap_or_default().to_string()
+        } else {
+            label.to_string()
+        };
+        Some(ToClient::BossCast(BossCast { boss: guid, label, icon: self.icon_name(spell), seconds }))
     }
 
     /// Spell `spell`'s icon's file name, for a warning or bar (none for 0 or without the game data).
@@ -161,7 +177,7 @@ impl Game {
         self.data.as_ref().and_then(|d| d.spell_icon(spell)).unwrap_or_default().to_string()
     }
 
-    fn to_huds(&self, message: ToClient, own: &mut Vec<(u32, Packet)>) {
+    pub(super) fn to_huds(&self, message: ToClient, own: &mut Vec<(u32, Packet)>) {
         let huds: Vec<u32> = self.players.iter().map(|p| p.hero).filter(|h| self.told.get(h).is_some_and(|t| t.screens.hud)).collect();
         own.extend(self.lines(huds.into_iter().map(|h| (h, message.clone())).collect()));
     }

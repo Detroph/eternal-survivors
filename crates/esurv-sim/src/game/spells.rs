@@ -92,6 +92,9 @@ pub struct SpellSlot {
     pub timer: f32,
     /// The class's damage knob (`Class::spell_damage_scale`; 1 in the race slot).
     pub damage_scale: f32,
+    /// Its cooldown waits while the effect it put on the hero holds
+    /// (`SpellKit::cooldown_after_effect`), and starts when it ends.
+    pub waits_for_effect: bool,
 }
 
 impl SpellSlot {
@@ -104,6 +107,7 @@ impl SpellSlot {
             mods: spell_mods(modifiers, spell),
             timer: FIRST_CAST,
             damage_scale: 1.0,
+            waits_for_effect: false,
         }
     }
 

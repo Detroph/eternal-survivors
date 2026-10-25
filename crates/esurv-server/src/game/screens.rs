@@ -68,7 +68,30 @@ pub(super) struct Bar {
     name: String,
     health: u32,
     max_health: u32,
+    phases: Vec<protocol::BossPhase>,
     at: Instant,
+}
+
+/// Where boss `boss`'s script changes something by health, highest first: each `Health(..)`
+/// line, labelled by its "soon" line without its " soon" ("Gnoll pack soon": "Gnoll pack"), else
+/// its warning's bar label, else nothing. Two lines at one share make one mark.
+pub(super) fn boss_phases(boss: &esurv_content::Boss) -> Vec<protocol::BossPhase> {
+    let mut phases: Vec<protocol::BossPhase> = Vec::new();
+    for line in &boss.script {
+        let esurv_content::ScriptTrigger::Health(at) = line.on else { continue };
+        let label = match (&line.soon, &line.warn) {
+            (Some(soon), _) => soon.strip_suffix(" soon").unwrap_or(soon).to_string(),
+            (None, Some(w)) => w.bar.clone().unwrap_or_default(),
+            (None, None) => String::new(),
+        };
+        match phases.iter_mut().find(|p| p.at == at) {
+            Some(p) if p.label.is_empty() => p.label = label,
+            Some(_) => {}
+            None => phases.push(protocol::BossPhase { at, label }),
+        }
+    }
+    phases.sort_by(|a, b| b.at.total_cmp(&a.at));
+    phases
 }
 
 /// One hero's damage by source, as its meter counts it.
@@ -321,6 +344,7 @@ impl Game {
             opens_zone: summary.won && !paid.zone_tried,
             zone_index: self.run.zone,
             loot: summary.loot.iter().map(|g| g.entry).collect(),
+            challenge: self.run.options.challenge.is_some(),
         };
         let Some(payout) = self.saves.finish_run(&content, saved.guid, &run) else {
             return Vec::new();
@@ -376,6 +400,7 @@ impl Game {
         }
         let mut messages = self.tell_events(events);
         messages.extend(self.boss_bars());
+        messages.extend(self.enemy_ranks());
         messages.extend(self.huds());
         messages.extend(self.meters());
         messages.extend(self.tell_spell_tips());
@@ -431,12 +456,7 @@ impl Game {
                 left
             }
             ToServer::RunOptions(o) => {
-                let asked = SavedRunOptions {
-                    density: o.density,
-                    health: o.health,
-                    damage: o.damage,
-                    speed: o.speed,
-                };
+                let asked = SavedRunOptions::from(*o);
                 let kept = self.saves.set_run_options(&self.run.content, asked);
                 told.push((hero, self.run_options(kept)));
                 true
@@ -470,9 +490,12 @@ impl Game {
                 name: bar.name,
                 health: 0,
                 max_health: bar.max_health,
+                phases: bar.phases,
             });
             told.extend(self.for_everyone(&gone));
         }
+        // the clients forget the told ranks with the `Ready` below
+        self.ranks_told.clear();
         self.paid.clear();
         self.ended = None;
         self.drops.clear();
@@ -533,8 +556,13 @@ impl Game {
                     name: bar.name.clone(),
                     health: bar.health,
                     max_health: bar.max_health,
+                    phases: bar.phases.clone(),
                 }),
             ));
+        }
+        let ranks = self.ranked_player_enemies();
+        if !ranks.is_empty() {
+            told.push((hero, ToClient::EnemyRanks(ranks.into_iter().map(|(_, unit, rank)| (unit, rank)).collect())));
         }
         if let Some(s) = self.run.screen.clone() {
             if self.run.heroes[s.hero].id == hero {
@@ -773,7 +801,8 @@ impl Game {
         for e in events {
             self.count_for_the_meter(e);
             if let Event::OfferTaken { offer, .. } = e {
-                if let Some(id) = offer.codex_entry() {
+                // a Challenge Mode run adds nothing to the codex
+                if let Some(id) = offer.codex_entry().filter(|_| self.run.options.challenge.is_none()) {
                     codex_grew |= self.saves.add_to_codex(id);
                 }
             }
@@ -1090,6 +1119,7 @@ impl Game {
             };
             let mut buffs = buff_tips(&self.run.content, h, self.run.now);
             buffs.extend(self.stack_tips(h));
+            buffs.extend(self.counter_tips(hero));
             let guid = self.hero_guid(hero);
             let Some(t) = self.told.get_mut(&hero) else {
                 continue;
@@ -1107,9 +1137,43 @@ impl Game {
         told
     }
 
+    /// Every player-looking elite, rare and boss in sight: its simulation id, guid and rank.
+    fn ranked_player_enemies(&self) -> Vec<(u32, u64, u32)> {
+        (0..self.run.enemies.len())
+            .filter_map(|i| {
+                let id = self.run.enemies[i].id;
+                let guid = self.shown.get(&id).map(|s| s.guid).filter(|&g| super::player_enemies::is_player_enemy_guid(g))?;
+                Some((id, guid, self.enemy_rank(i)?))
+            })
+            .collect()
+    }
+
+    /// The ranks of the player-looking elites, rares and bosses as they appear, to every told
+    /// client (a player guid has no creature query to tell its client the portrait's dragon or
+    /// the glow); those gone are forgotten.
+    fn enemy_ranks(&mut self) -> Vec<(u32, ToClient)> {
+        let ranked = self.ranked_player_enemies();
+        self.ranks_told.retain(|id| ranked.iter().any(|&(x, ..)| x == *id));
+        let new: Vec<(u64, u32)> = ranked
+            .into_iter()
+            .filter(|&(id, ..)| self.ranks_told.insert(id))
+            .map(|(_, unit, rank)| (unit, rank))
+            .collect();
+        if new.is_empty() {
+            return Vec::new();
+        }
+        self.for_everyone(&ToClient::EnemyRanks(new))
+    }
+
     /// The bosses' health bars, to every told client: when a boss's health changes (at most every
     /// 0.2 s), and at 0 once it is gone.
     fn boss_bars(&mut self) -> Vec<(u32, ToClient)> {
+        // a new bar's name as the boss shows it (a Warsong boss is played by a player character,
+        // its name its own)
+        let names: Vec<(u32, String)> = (0..self.run.enemies.len())
+            .filter(|&i| self.run.enemies[i].is_boss() && !self.bars.contains_key(&self.run.enemies[i].id))
+            .map(|i| (self.run.enemies[i].id, self.enemy_name(i)))
+            .collect();
         let zone = &self.run.content.zones[self.run.zone];
         let mut changed = Vec::new();
         let mut alive = Vec::new();
@@ -1133,9 +1197,10 @@ impl Game {
                         e.id,
                         Bar {
                             guid,
-                            name: zone.bosses[b].name.clone(),
+                            name: names.iter().find(|(id, _)| *id == e.id).map_or_else(|| zone.bosses[b].name.clone(), |(_, n)| n.clone()),
                             health,
                             max_health,
+                            phases: boss_phases(&zone.bosses[b]),
                             at: Instant::now(),
                         },
                     );
@@ -1149,6 +1214,7 @@ impl Game {
                 name: bar.name.clone(),
                 health,
                 max_health: bar.max_health,
+                phases: bar.phases.clone(),
             })
         };
         let mut told = Vec::new();

@@ -14,6 +14,12 @@ pub const BUNNY: u32 = CREATURES_END + 2;
 pub const GROUND_UNIT: u32 = CREATURES_END + 3;
 /// A battle standard lying on the field: a unit of its faction's standard's creature model.
 pub const BATTLE_STANDARD: u32 = CREATURES_END + 4;
+/// A line's runner (Stampede's beasts, `game::line_runners`): a look only, unselectable, its model
+/// its own.
+pub const LINE_RUNNER: u32 = CREATURES_END + 5;
+/// A spirit running with a hero's lasting area (Sprint of the Wild, `game::spirits`): a look only,
+/// unselectable, its model its own.
+pub const SPIRIT: u32 = CREATURES_END + 6;
 
 /// The first game-object entry.
 const OBJECTS_FROM: u32 = CREATURES_END + 100;

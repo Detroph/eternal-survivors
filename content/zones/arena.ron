@@ -313,7 +313,7 @@
             yell: "I'll feed your souls to Hakkar himself!",
             aggro_sound: Some(8413),
             swing_mult: Some(1.25),
-            health_share: Some(0.7),
+            health_share: Some(0.85), // 0.7 before, his pair with Ohgan; lived 39 s against a 46 s goal
             abilities: [
                 // Whirlwind: a marked circle round him
                 Marked(
@@ -393,7 +393,7 @@
                         creature_display: Some(15292),
                         scale: 1.0,
                         glow_spell: 20922,
-                        pulse: Some((seconds: 3.0, run: [Heal(on: Near(30.0), share: 0.03, look_spell: 24309)])),
+                        pulse: Some((seconds: 3.0, run: [Heal(on: Near(30.0), share: 0.015, look_spell: 24309)])),
                     ),
                     near: Boss(6.0),
                     count: Some(1),
@@ -432,6 +432,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(1.5), // lived 39 s against a 46 s goal (at 1.25)
         ),
         (
             name: "Hakkar the Soulflayer",
@@ -477,7 +478,7 @@
                         Pause(seconds: 4.0, text: "{Spell(24324)}"),
                         Siphon(
                             damage_mult: 3.0,
-                            heal_share: 0.08,
+                            heal_share: 0.04,
                             poison_spell: 24321,
                             poisoned_share: 0.08,
                             enemy_share: 0.5,

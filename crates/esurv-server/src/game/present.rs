@@ -12,8 +12,11 @@ use crate::wire::Packet;
 
 /// A dead enemy lies this long before it is removed.
 pub const CORPSE_TIME: f32 = 1.5;
-/// The race spell's place on the action bar: the first bar's last button.
-pub const RACE_SPELL_SLOT: u8 = 11;
+/// The buttons the run's action bar holds for learned spells: the first seven of the first bar.
+pub const SPELL_BUTTONS: u8 = 7;
+/// The race spell's place on the action bar: the button after the spells, the run's bar's eighth
+/// and last (screens.md, "The action bar").
+pub const RACE_SPELL_SLOT: u8 = SPELL_BUTTONS;
 /// The prefix of the run's numbers for the character pane.
 pub const STATS_PREFIX: &str = esurv_protocol::NUMBERS_PREFIX;
 /// The prefix of a spell look's size (esurv-app reads it): `<caster guid, hex> <spell>
@@ -425,12 +428,14 @@ impl Game {
         book
     }
 
-    /// The hero's action bar: known spell `i` on button `i`, the race spell on the last button.
+    /// The hero's action bar: known spell `i` on button `i`, the race spell on the button after
+    /// the spells. A spell past [`SPELL_BUTTONS`] has no button: it still casts by itself.
     pub(super) fn action_bar(&self, hero: &Hero) -> Packet {
         let mut buttons: Vec<(u8, u32)> = hero
             .spells
             .known
             .iter()
+            .take(usize::from(SPELL_BUTTONS))
             .enumerate()
             .filter_map(|(i, s)| Some((i as u8, self.ability_look(&s.spell)?.0)))
             .collect();
@@ -678,6 +683,11 @@ impl Game {
                             SpellTarget::Unit(h),
                         ));
                     }
+                    // a boss's own cast shows on its boss bar too
+                    let is_boss = self.run.enemies.iter().any(|e| e.id == *id && e.is_boss());
+                    if let Some(cast) = is_boss.then(|| self.boss_cast(*id, "", *spell, *seconds)).flatten() {
+                        self.to_huds(cast, &mut own);
+                    }
                 }
                 Event::AreaShown {
                     id,
@@ -725,7 +735,7 @@ impl Game {
                         all.push(packets::monster_yell(a, &self.name_of(Unit::Ally(*id)), text));
                     }
                 }
-                ev @ (Event::AllyMoved { .. } | Event::AllyStruck { .. } | Event::AllyLeft { .. }) => self.present_ally_event(ev, &mut all),
+                ev @ (Event::AllyMoved { .. } | Event::AllyCastStarted { .. } | Event::AllyStruck { .. } | Event::AllyLeft { .. }) => self.present_ally_event(ev, &mut all),
                 Event::Yell { id, text } => {
                     if let Some(e) = self.guid_of(Unit::Enemy(*id)) {
                         // a boss played by a hand-made character yells its own line
@@ -786,10 +796,15 @@ impl Game {
                 | Event::Warning { .. }
                 | Event::BarStarted { .. }
                 | Event::BarsCleared { .. }
-                | Event::CounterShown { .. }) => self.present_boss_event(ev, &mut all, &mut own),
+                | Event::CounterShown { .. }
+                | Event::BossCasting { .. }) => self.present_boss_event(ev, &mut all, &mut own),
                 Event::ImpactAtSpot { caster, spell, at, linger } => {
                     self.impact_at_spot(*caster, *spell, *at, *linger, &mut all)
                 }
+                Event::LineRunners { from, to, width, runners } => self.send_line_runners(runners, *from, *to, *width, &mut all),
+                Event::ReflectionStrikes { hero, target, spell } => self.send_reflection(*hero, *target, *spell, &mut all),
+                Event::SpiritsAppeared { area, hero, until, spirits } => self.send_spirits(*area, *hero, *until, spirits, &mut all),
+                Event::SpiritsStrike { area, targets } => self.spirits_strike(*area, targets, &mut all),
                 _ => {}
             }
         }
@@ -820,9 +835,11 @@ impl Game {
         retell: bool,
     ) {
         let now = self.run.now;
+        self.note_counters();
         for h in &self.run.heroes {
             let mut auras = hero_auras(h, now);
             auras.extend(self.stack_auras(h.id));
+            auras.extend(self.counter_auras(h.id));
             auras.extend(worn_looks(&h.kit.worn_looks, now));
             // an ally's buff on the hero, worn as its look
             for a in self.ally_marks_on(Unit::Hero(h.id)) {
@@ -944,7 +961,7 @@ impl Game {
         }
     }
 
-    fn spell_target(&self, aim: Aim) -> Option<SpellTarget> {
+    pub(super) fn spell_target(&self, aim: Aim) -> Option<SpellTarget> {
         Some(match aim {
             Aim::Unit(u) => SpellTarget::Unit(self.guid_of(u)?),
             Aim::Ground(at) => SpellTarget::Ground([at.0, at.1, self.ground_z(at)]),

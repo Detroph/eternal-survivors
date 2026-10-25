@@ -24,6 +24,7 @@
 use benilla_protocol::Character;
 use bevy::prelude::*;
 use esurv_content::{Content, Faction, Zone};
+use esurv_sim::game::challenge::{slider_text, CHALLENGE_ZONE, SLIDER_MAX_PCT, SLIDER_MIN_PCT, SLIDER_STEP_PCT};
 use esurv_sim::game::gear::ARMOR_SLOTS;
 
 use super::look::{palette, solid, ButtonStyle, Face, MenuLook, PAD};
@@ -95,11 +96,41 @@ pub(super) fn hero_zone(ctx: &Ctx, hero: &Character) -> usize {
         .unwrap_or(0)
 }
 
-/// How many zones the hero's class has open (the first always is).
-fn zones_open(ctx: &Ctx, hero: &Character) -> usize {
+/// How many zones the hero's class has open for its next run (the first always is): in Challenge
+/// Mode every zone.
+pub(super) fn zones_open(ctx: &Ctx, hero: &Character) -> usize {
+    if in_challenge(ctx, hero) {
+        return ctx.content.zones.len().max(1);
+    }
+    normal_zones_open(ctx, hero)
+}
+
+/// How many zones the hero's class has open in Normal Mode.
+fn normal_zones_open(ctx: &Ctx, hero: &Character) -> usize {
     class_of(ctx.content, hero.class)
         .and_then(|c| ctx.facts.progress(&c.id))
         .map_or(1, |p| p.zones_open.max(1) as usize)
+}
+
+/// Whether the hero's class has cleared Ahn'Qiraj: the zone select shows the Normal Mode and
+/// Challenge Mode tabs.
+pub(super) fn challenge_open(ctx: &Ctx, hero: &Character) -> bool {
+    class_of(ctx.content, hero.class)
+        .and_then(|c| ctx.facts.progress(&c.id))
+        .is_some_and(|p| p.challenge_open)
+}
+
+/// Whether the hero's next run is in Challenge Mode: its class has it open and its tab is picked.
+pub(super) fn in_challenge(ctx: &Ctx, hero: &Character) -> bool {
+    challenge_open(ctx, hero) && ctx.facts.run_options().is_some_and(|(o, _)| o.challenge)
+}
+
+/// The zone the hero's next run goes to after the Normal Mode tab is picked: its zone when open in
+/// Normal Mode, else the hardest zone it has open (a zone picked in Challenge Mode may be locked).
+pub(super) fn normal_mode_zone(content: &Content, facts: &super::facts::PreRunFacts, hero: &Character) -> Option<String> {
+    let open = class_of(content, hero.class).and_then(|c| facts.progress(&c.id)).map_or(1, |p| p.zones_open.max(1) as usize);
+    let zone = facts.hero(hero.guid).and_then(|h| content.zones.iter().position(|z| z.id == h.zone)).unwrap_or(0);
+    (zone >= open).then(|| content.zones.get(open - 1).map(|z| z.id.clone())).flatten()
 }
 
 /// What opens zone `i` (past the first): a win in the zone before it, against its final boss.
@@ -503,8 +534,26 @@ pub(super) fn sheet_news(ctx: &Ctx, class: &str) -> (bool, bool) {
         .map_or((false, false), |p| (p.new_gear, p.new_points))
 }
 
-/// The row over the armour: Collection and Talents (each opening the hero sheet there, glowing
-/// with news), and two places kept for what comes later.
+/// The row over the armour, left to right: Collection and Talents (each opening the hero sheet
+/// there, glowing with news, `gear` and `points`), a place kept for what comes later (no action:
+/// dimmed), and the Guide ([`super::guide`]).
+fn sheet_row(gear: bool, points: bool) -> [(&'static str, ButtonStyle, Option<MenuAction>); 4] {
+    let glow = |news: bool| {
+        if news {
+            ButtonStyle::TextGlow
+        } else {
+            ButtonStyle::Text
+        }
+    };
+    [
+        ("Collection", glow(gear), Some(MenuAction::OpenHeroTab(SheetTab::Collection))),
+        ("Talents", glow(points), Some(MenuAction::OpenHeroTab(SheetTab::Talents))),
+        ("TBD", ButtonStyle::Text, None),
+        ("Guide", ButtonStyle::Text, Some(MenuAction::OpenGuide)),
+    ]
+}
+
+/// The row over the armour ([`sheet_row`]).
 fn sheet_buttons(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, class: &str) {
     let (gear, points) = sheet_news(ctx, class);
     col.spawn((
@@ -515,21 +564,8 @@ fn sheet_buttons(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, cla
         Pickable::IGNORE,
     ))
     .with_children(|row| {
-        let glow = |news: bool| {
-            if news {
-                ButtonStyle::TextGlow
-            } else {
-                ButtonStyle::Text
-            }
-        };
-        let buttons = [
-            ("Collection", glow(gear), Some(SheetTab::Collection)),
-            ("Talents", glow(points), Some(SheetTab::Talents)),
-            ("TBD", ButtonStyle::Text, None),
-            ("TBD", ButtonStyle::Text, None),
-        ];
-        for (label, style, tab) in buttons {
-            let mut b = look.button(row, label, style, tab.is_some(), None);
+        for (label, style, action) in sheet_row(gear, points) {
+            let mut b = look.button(row, label, style, action.is_some(), None);
             b.insert(Node {
                 flex_grow: 1.0,
                 flex_basis: Val::ZERO,
@@ -540,8 +576,8 @@ fn sheet_buttons(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, cla
                 align_items: AlignItems::Center,
                 ..default()
             });
-            if let Some(t) = tab {
-                b.insert(MenuAction::OpenHeroTab(t));
+            if let Some(a) = action {
+                b.insert(a);
             }
         }
     });
@@ -613,6 +649,10 @@ fn zone_column(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: O
     node.row_gap = look.px(6.0);
     r.spawn((look.panel(node), KeepNameClear)).with_children(|p| {
         look.heading(p, "Zone", 22.0);
+        // once the class has cleared Ahn'Qiraj: Normal Mode and Challenge Mode over the zones
+        if let Some(h) = hero.filter(|h| challenge_open(ctx, h)) {
+            mode_tabs(p, look, ctx, h);
+        }
         let (chosen, open) = match hero {
             Some(h) => (hero_zone(ctx, h), zones_open(ctx, h)),
             None => (0, 1),
@@ -669,6 +709,77 @@ fn zone_column(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: O
             look.button(foot, "Start run", ButtonStyle::Primary, can_start, None)
                 .insert(MenuAction::StartRun);
         });
+    });
+}
+
+/// The two mode tabs over the zones, Normal Mode and Challenge Mode (open once the
+/// class has cleared Ahn'Qiraj), and under Challenge Mode its slider, 1x to 5x in 0.25 steps.
+fn mode_tabs(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: &Character) {
+    let challenge = in_challenge(ctx, hero);
+    p.spawn(Node {
+        column_gap: look.px(6.0),
+        ..default()
+    })
+    .with_children(|row| {
+        for (label, on) in [("Normal Mode", false), ("Challenge Mode", true)] {
+            let style = if on == challenge {
+                ButtonStyle::Active
+            } else {
+                ButtonStyle::Text
+            };
+            look.button(row, label, style, true, Some((ZONE_WIDTH - 46.0) / 2.0))
+                .insert(MenuAction::PickMode { challenge: on });
+        }
+    });
+    if !challenge {
+        return;
+    }
+    let pct = ctx.facts.run_options().map_or(SLIDER_MIN_PCT, |(o, _)| o.challenge_pct);
+    p.spawn((
+        Node {
+            align_items: AlignItems::Center,
+            column_gap: look.px(8.0),
+            ..default()
+        },
+        Tip(vec![
+            TipLine::new("Challenge", palette::HEADING),
+            TipLine::new(
+                format!(
+                    "Every zone at Ahn'Qiraj's strength, then every enemy's health and damage \
+                     ×{f} × this. Pays only gear drops, and Ahn'Qiraj's talent experience ×{f}.",
+                    f = ctx.content.balance.challenge_factor
+                ),
+                palette::VALUE,
+            ),
+        ]),
+        MenuLookTip,
+    ))
+    .with_children(|row| {
+        row.spawn((
+            Node {
+                flex_grow: 1.0,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|n| {
+            n.spawn(look.value("Challenge"));
+        });
+        look.arrow(row, super::look::Arrow::Left, 22.0, pct > SLIDER_MIN_PCT)
+            .insert(MenuAction::ChallengeStep { up: false });
+        row.spawn((
+            Node {
+                width: look.px(54.0),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|n| {
+            n.spawn(look.text(Face::Plain, 12.0, palette::HEADING, slider_text(pct)));
+        });
+        look.arrow(row, super::look::Arrow::Right, 22.0, pct < SLIDER_MAX_PCT)
+            .insert(MenuAction::ChallengeStep { up: true });
     });
 }
 
@@ -967,13 +1078,19 @@ fn camp_parts(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Op
 }
 
 /// The update notice over Options ([`crate::update`]): a newer version and its Update button,
-/// the download's progress, a failure, or the restart.
+/// the download's progress, a failure, or the restart. An offer is news: the box wears the
+/// news look of Collection and Talents, glowing and pulsing; its Update button stays plain.
 fn update_notice(corner: &mut ChildSpawnerCommands, look: &MenuLook, view: &crate::update::NoticeView) {
     let mut node = look.panel_node();
     node.width = look.px(UPDATE_WIDTH);
     node.padding = UiRect::all(look.px(8.0));
     node.margin = UiRect::bottom(look.px(4.0));
-    corner.spawn(look.panel(node)).with_children(|p| {
+    let mut panel = if view.offer {
+        corner.spawn(look.news_box(node))
+    } else {
+        corner.spawn(look.panel(node))
+    };
+    panel.with_children(|p| {
         let colour = if view.failed { palette::RED } else { palette::HEADING };
         p.spawn(look.text(Face::Plain, 11.0, colour, view.line.clone()));
         if view.progress {
@@ -1033,6 +1150,60 @@ pub(super) fn draw_delete_confirm(
                     look.button(row, "Yes", ButtonStyle::Text, true, Some(100.0))
                         .insert(MenuAction::ConfirmYes);
                 });
+            });
+        });
+    });
+}
+
+/// The lines of the box telling that Challenge Mode is open, its numbers read from the
+/// content and the slider's constants.
+pub(super) fn challenge_news_lines(content: &Content) -> Vec<String> {
+    let aq = content.zone(CHALLENGE_ZONE).map_or("Ahn'Qiraj", |z| z.name.as_str());
+    let factor = content.balance.challenge_factor;
+    let times = |pct: u16| format!("{}x", f32::from(pct) / 100.0);
+    vec![
+        format!("You have cleared {aq}. Pick Challenge Mode over the zones to play every zone at a new strength."),
+        format!("Every zone is now as hard as {aq}, and every enemy has ×{factor} health and damage."),
+        format!(
+            "The slider runs from {} to {} in steps of {}: it multiplies every enemy's health and damage, on top of the difficulty modifiers.",
+            times(SLIDER_MIN_PCT),
+            times(SLIDER_MAX_PCT),
+            f32::from(SLIDER_STEP_PCT) / 100.0,
+        ),
+        format!("Rewards: {aq}'s talent experience ×{factor}, and the zone's usual gear drops. The slider adds no rewards."),
+    ]
+}
+
+/// The box telling that Challenge Mode is open, once per save, in the delete question's look:
+/// its lines and Okay.
+pub(super) fn draw_challenge_news(commands: &mut Commands, root: Entity, look: &MenuLook, content: &Content) {
+    commands.entity(root).with_children(|r| {
+        r.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            solid(),
+            GlobalZIndex(super::MENU_LAYER + 10),
+        ))
+        .with_children(|veil| {
+            let mut node = look.panel_node();
+            node.width = look.px(420.0);
+            node.align_items = AlignItems::Center;
+            node.row_gap = look.px(12.0);
+            node.padding = UiRect::all(look.px(18.0));
+            veil.spawn(look.panel(node)).with_children(|p| {
+                look.heading(p, "Challenge Mode", 20.0);
+                for line in challenge_news_lines(content) {
+                    p.spawn((look.value(line), TextLayout::new_with_justify(Justify::Center)));
+                }
+                look.button(p, "Okay", ButtonStyle::Active, true, Some(100.0))
+                    .insert(MenuAction::CloseChallengeNews);
             });
         });
     });
@@ -1315,8 +1486,37 @@ mod tests {
         Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap()
     }
 
+    #[test]
+    fn the_row_over_the_armour_ends_with_the_guide_and_keeps_one_place() {
+        for (gear, points) in [(false, false), (true, true)] {
+            let row = sheet_row(gear, points);
+            let labels: Vec<&str> = row.iter().map(|b| b.0).collect();
+            assert_eq!(labels, ["Collection", "Talents", "TBD", "Guide"]);
+            // a button is enabled when it has something to do
+            let enabled: Vec<bool> = row.iter().map(|b| b.2.is_some()).collect();
+            assert_eq!(enabled, [true, true, false, true], "the third stays a dimmed TBD");
+            assert_eq!(row[3].2, Some(MenuAction::OpenGuide));
+            assert_eq!(row[3].1, ButtonStyle::Text, "the Guide never glows");
+            assert_eq!(row[0].1 == ButtonStyle::TextGlow, gear);
+        }
+    }
+
     const SCREEN: Vec2 = Vec2::new(1600.0, 900.0);
     const PLATE: Vec2 = Vec2::new(120.0, 26.0);
+
+    /// The Challenge Mode box reads its numbers from the content and the slider's constants.
+    #[test]
+    fn the_challenge_mode_box_reads_its_numbers() {
+        let mut content = content();
+        let text = challenge_news_lines(&content).join(" ");
+        let aq = content.zone(CHALLENGE_ZONE).unwrap().name.clone();
+        assert!(text.contains(&format!("You have cleared {aq}.")));
+        for part in ["×1.1 health", "from 1x to 5x in steps of 0.25", "talent experience ×1.1"] {
+            assert!(text.contains(part), "{part:?} in {text}");
+        }
+        content.balance.challenge_factor = 1.3;
+        assert!(challenge_news_lines(&content).join(" ").contains("×1.3 health"));
+    }
 
     /// In the open, the plate stands centred over the head, its foot on the head's point.
     #[test]
@@ -1373,6 +1573,7 @@ mod tests {
             health: 100,
             damage: 100,
             speed: 100,
+            ..Default::default()
         };
         let i = content
             .run_options

@@ -20,9 +20,10 @@ pub const TALENT_XP_PER_KILL: f32 = 0.05;
 pub const TALENT_XP_PER_BOSS: f32 = 40.0;
 pub const TALENT_XP_FOR_A_WIN: f32 = 250.0;
 /// The first talent point's cost, and how much more each next one costs
-/// (one win in each zone, in order, fills a class's 51 points by the end of the zone at D 9, AUTHORING.md
-/// "Power budgets").
-pub const FIRST_TALENT_POINT_COST: f32 = 80.0;
+/// (with the zone bonus, × D^`talent_exponent` (`balance.ron` `zone_scaling`), one win in each zone, in
+/// order, meets the talent schedule: the 11th point during Duskwood, the 31st during the Scarlet
+/// Monastery, 41 by Feralas, the 51st during Stratholme; AUTHORING.md "Power budgets").
+pub const FIRST_TALENT_POINT_COST: f32 = 110.0;
 pub const TALENT_POINT_COST_GROWTH: f32 = 1.024;
 /// How much more each prestige point costs than the one before; the
 /// first costs what a 52nd talent point would.
@@ -138,14 +139,16 @@ impl ExperienceParts {
 
 /// Talent experience a run earns, part by part, in a zone of difficulty `difficulty`: the zone
 /// bonus is × D^`talent_exponent` (`balance.ron` `zone_scaling`: a zone added
-/// anywhere keeps the others' bonus).
+/// anywhere keeps the others' bonus). In Challenge Mode the zone bonus is Ahn'Qiraj's,
+/// × the challenge's `talent_experience_factor` (never its slider).
 pub fn talent_experience_parts(t: &RunTally, scaling: &ZoneScaling, difficulty: f32, options: &RunOptions, defs: &[RunOption]) -> ExperienceParts {
+    let (difficulty, challenge) = options.challenge.map_or((difficulty, 1.0), |c| (c.difficulty, c.talent_experience_factor));
     let time = (t.seconds / 60.0 * TALENT_XP_PER_MINUTE).round();
     let kills = (t.kills as f32 / (options.density_pct as f32 / 100.0) * TALENT_XP_PER_KILL).round();
     let bosses = TALENT_XP_PER_BOSS * t.bosses as f32;
     let victory = if t.won { TALENT_XP_FOR_A_WIN } else { 0.0 };
     let base = time + kills + bosses + victory;
-    let zone = (scaling.talent_factor(difficulty) * base).round() - base;
+    let zone = (scaling.talent_factor(difficulty) * challenge * base).round() - base;
     let opt = ((option_bonus(options, defs) - 1.0) * (base + zone)).round();
     ExperienceParts { time: time as u32, kills: kills as u32, bosses: bosses as u32, victory: victory as u32, zone: zone.max(0.0) as u32, options: opt.max(0.0) as u32 }
 }
@@ -156,7 +159,7 @@ pub fn talent_experience(t: &RunTally, scaling: &ZoneScaling, difficulty: f32, o
     (p.base(), p.zone, p.options)
 }
 
-/// Talent experience the `n`-th point (1-based) costs: 145, 149, 152 ... 498 for the 51st.
+/// Talent experience the `n`-th point (1-based) costs: 110, 113, 115 ... 360 for the 51st.
 pub fn talent_point_cost(n: u32) -> u32 {
     (FIRST_TALENT_POINT_COST * TALENT_POINT_COST_GROWTH.powi(n.saturating_sub(1) as i32)).round() as u32
 }
@@ -219,7 +222,7 @@ mod tests {
         assert_eq!(option_bonus(&RunOptions::default(), &defs()), 1.0);
         let o = RunOptions { speed_pct: 125, ..Default::default() };
         assert!((option_bonus(&o, &defs()) - 1.5).abs() < 1e-6);
-        let max = RunOptions { density_pct: 500, health_pct: 500, damage_pct: 300, speed_pct: 150 };
+        let max = RunOptions { density_pct: 500, health_pct: 500, damage_pct: 300, speed_pct: 150, challenge: None };
         assert_eq!(option_bonus(&max, &defs()), 2.0);
         // density counts 0.1 for every 100 %
         let dense = RunOptions { density_pct: 300, ..Default::default() };
@@ -262,13 +265,13 @@ mod tests {
         // 16 min, 2000 kills, 5 bosses, won: 160 + 100 + 200 + 250 = 710
         let t = RunTally { seconds: 960.0, kills: 2000, bosses: 5, won: true };
         assert_eq!(talent_experience(&t, &s, 1.0, &RunOptions::default(), &defs()), (710, 0, 0));
-        // same run in `aq` (D 10): x 10^0.17 = x1.48
-        assert_eq!(talent_experience(&t, &s, 10.0, &RunOptions::default(), &defs()), (710, 340, 0));
+        // same run in `aq` (D 10): x 10^0.7 = x5.01
+        assert_eq!(talent_experience(&t, &s, 10.0, &RunOptions::default(), &defs()), (710, 2848, 0));
         // part by part, with speed at 125 % (bonus 1.5)
         let fast = RunOptions { speed_pct: 125, ..Default::default() };
         let p = talent_experience_parts(&t, &s, 10.0, &fast, &defs());
-        assert_eq!(p, ExperienceParts { time: 160, kills: 100, bosses: 200, victory: 250, zone: 340, options: 525 });
-        assert_eq!(p.total(), 710 + 340 + 525);
+        assert_eq!(p, ExperienceParts { time: 160, kills: 100, bosses: 200, victory: 250, zone: 2848, options: 1779 });
+        assert_eq!(p.total(), 710 + 2848 + 1779);
     }
 
     #[test]
@@ -293,11 +296,11 @@ mod tests {
 
     #[test]
     fn talent_point_costs() {
-        assert_eq!([talent_point_cost(1), talent_point_cost(2), talent_point_cost(51)], [80, 82, 262]);
-        assert_eq!(talent_points(80 + 82 + 10), (2, 10));
+        assert_eq!([talent_point_cost(1), talent_point_cost(2), talent_point_cost(51)], [110, 113, 360]);
+        assert_eq!(talent_points(110 + 113 + 10), (2, 10));
         // 11, 21, 31 and all 51 points' total costs
         let total = |n: u32| (1..=n).map(talent_point_cost).sum::<u32>();
-        assert_eq!([total(11), total(21), total(31), total(51)], [993, 2153, 3621, 7843]);
+        assert_eq!([total(11), total(21), total(31), total(51)], [1366, 2960, 4979, 10780]);
         assert_eq!(talent_points(u32::MAX).0, 51);
     }
 

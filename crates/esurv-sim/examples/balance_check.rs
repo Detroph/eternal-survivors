@@ -24,7 +24,8 @@
 //! second) and their **kill seconds** (that health ÷ that DPS); the elites and rares that
 //! appeared that minute, with their health at spawn, kill seconds (health ÷ the minute's DPS) and
 //! damage per hit as a share of the hero's max health; and the cheat deaths. Each boss follows,
-//! the same way, at the minute it appeared. A minute after the final boss fell has no values (`—`).
+//! the same way, at the minute it appeared, with the seconds it lived (from appearing to dying, over
+//! the runs it died in) and how many of its appearances died. A minute after the final boss fell has no values (`—`).
 //!
 //! `cargo run --release -p esurv-sim --example balance_check [-- options]`:
 //!
@@ -88,6 +89,15 @@
 //!   else its first), `--seeds` runs a pair on the same seeds, the heroes as the zone mode makes
 //!   them; `--no-amulets` declines amulet offers there too. The per-zone output keeps its form,
 //!   each zone's lines over all the pairs' runs;
+//! * `--adaptive` (with `--milestones`): each talent is played in batches of `--adaptive-batch` seeds
+//!   (default 50) a side per starting option and stops as soon as its gain is clear: its error at
+//!   most a quarter of the ±25 % band, or its 2-error interval wholly inside or outside the band;
+//!   never before `--adaptive-min` seeds (default 200); at most `--check-seeds` seeds; the "runs"
+//!   column says how many it took;
+//! * `--fair-start` (with `--milestones`): in the arm without a milestone that starts the hero with
+//!   a spell (`StartWith`), the hero takes that spell the first time a card offers it, as a player
+//!   building that tree would (else the first offer as before); the spell still fills one of its
+//!   slots, so the milestone is measured as the head start it is, not as a spell the other arm lacks;
 //! * `--whole-talent` (with `--milestones`): the hero without the milestone also lacks the talent's
 //!   other effects, so the gain is the whole talent's (a capstone with a damage bonus beside it);
 //! * `--also-in <zones>` (with `--milestones`): each milestone is also measured in these later zones,
@@ -96,7 +106,7 @@
 //!   shield loadout would (0.3 for 30 %);
 //! * `--start <option>` (with `--milestones`): the classes that have that starting option play it
 //!   (a milestone's worth depends on the starting spell); the others their first;
-//! * `--kite` (with `--starts` or `--milestones`): the hero kites instead of standing. It moves at its run speed,
+//! * `--kite` (with `--starts`, `--milestones` or the zone mode): the hero kites instead of standing. It moves at its run speed,
 //!   circling the pack (the enemies within 30 yd) counter-clockwise around the pack's centre,
 //!   stepping out from the nearest enemy when it is closer than the stand-off and in toward it when
 //!   it is farther, so the front of the pack stays at about the stand-off: 3.5 yd for an option
@@ -106,7 +116,7 @@
 //!   the nearest one. It takes damage as any hero
 //!   does and still cannot die; the cheat deaths count the times it would have;
 //! * `--legendaries <ids|all>`: each legendary amulet (by the spell it remakes, comma-separated, or
-//!   `all`) (one per spell; its budget +50 % to the hero's total damage,
+//!   `all`) (one per spell; its budget +30 % to the hero's total damage,
 //!   +100 % to what a heal heals and absorbs or a defensive buff's uptime). Its hero is the class
 //!   with the option whose level-1 spell it remakes, else the class's first option that can draw
 //!   the card, knowing the spell (rank 1) from the start; the first cache it opens is sure to offer
@@ -117,12 +127,27 @@
 //!   own damage a second with and without it (their hits, ticks, procs, areas and the pets it calls)
 //!   and its gain, the hero's whole damage gain, the healing and absorbing gain (heals and shields)
 //!   or the buff's uptime gain, how many runs wore it, and the budget, flagged (`!`) outside ±20 %
-//!   of it: total damage for damage spells (hybrids too), shields and buffs that add power (+50 %),
+//!   of it: total damage for damage spells (hybrids too), shields and buffs that add power (+30 %),
 //!   healing and absorbing for heals, uptime for defensive buffs (+100 %); then the role, the healing and
 //!   absorbing a second with and without it, the damage struck at the hero a second and the
 //!   hero's whole damage a second without it.
 //!   `--check-seeds` (default 100 here), `--kite`, `--no-amulets` (other amulet offers declined),
 //!   `--threads` (default the machine's threads less 2);
+//! * `--take-amulets <rarities>` (zone mode; `common,uncommon,rare,epic,legendary` or `all`): on
+//!   every choice screen an amulet of those rarities is taken (legendary takes the legendary
+//!   amulets too), else the worn one's empowering, else the first offer that is no amulet;
+//!   `--buy-caches`: every bought cache is brought under the standing hero as soon as it has the
+//!   gold (a player walks to it), so offers come at a real run's timing; `--take-standards`: every
+//!   battle standard is brought under the hero as soon as it lies on the field (its ally comes);
+//! * `--boss-circle` (with `--kite`, zone mode): while a boss lives the hero loops around it, the
+//!   boss at the centre (at its stand-off, at least 6 yd), as players do while dodging its attacks;
+//! * `--best-cards` (zone mode): on every screen, unless an amulet is taken, the card of the highest
+//!   rarity (a spell upgrade before a new spell before a ring or trinket) instead of the first;
+//! * `--overtime <s>` (zone mode): the run goes on that many seconds past minute 20, so a final boss
+//!   that came late can die (its "lived s" is not cut off); kills, and so talent points, still stop
+//!   at minute 20;
+//! * `--content <dir>`: loads the content from that folder instead of the repository's (to measure
+//!   another version of the numbers side by side);
 //! * `--d <zone>=<D>,...`: gives real zones new difficulties, in memory;
 //! * `--add-zone <new_id>=<template_id>:<D>`: adds a synthetic zone in memory, the template's
 //!   roster and bosses at difficulty D (may be given more than once).
@@ -143,9 +168,25 @@ use esurv_sim::game::gear::{piece_modifiers, ARMOR_SLOTS};
 use esurv_sim::game::rewards::{gear_item_entry, talent_experience, talent_points, RunTally, MAX_TALENT_POINTS};
 use esurv_sim::game::casting::HitSource;
 use esurv_sim::game::choices::Offer;
+use esurv_sim::game::loot::Pickup;
 use esurv_sim::game::enemy_ai::Vec2;
 use esurv_sim::game::run::{EnemyKind, Event, Flat, HeroSetup, Phase, Run};
 use esurv_sim::game::talents::{learn, Ranks, POINTS_PER_ROW};
+
+/// `--take-amulets <rarities>`: the rarities of amulet the hero takes when offered (a bit per
+/// `Rarity`; 0: the first offer, as before); its worn amulet's empowering is taken too.
+/// `--take-standards`: every battle standard is brought under the hero (it walks over it).
+/// `--buy-caches`: every bought cache is brought under the hero once it has the gold, as a player
+/// walks to it.
+static TAKE_AMULETS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+static TAKE_STANDARDS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+static BUY_CACHES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--boss-circle` (with `--kite`): while a boss lives the hero loops around it instead of the pack.
+static BOSS_CIRCLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--best-cards`: the hero takes the card of the highest rarity (an upgrade before a new spell).
+static BEST_CARDS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--overtime <s>`: the run goes on this many seconds past minute 20 (a final boss that came late can die), its kills counted to minute 20.
+static OVERTIME: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
 /// Seconds per tick, as the server's steady loop.
 const DT: f32 = 0.05;
@@ -154,9 +195,9 @@ const MINUTES: usize = 20;
 /// The seed every run's seed is made from.
 const SEED: u64 = 20261015;
 /// The talent rows that hold a milestone, and the DPS gain each row's milestone is budgeted at.
-const MILESTONE_BUDGETS: [(u8, f64); 3] = [(2, 0.15), (4, 0.30), (6, 0.50)];
-/// A milestone passes within this share of its budget.
-const MILESTONE_TOLERANCE: f64 = 0.2;
+const MILESTONE_BUDGETS: [(u8, f64); 3] = [(2, 0.05), (4, 0.10), (6, 0.25)];
+/// A milestone passes within this share of its budget (a band of ±25 %).
+const MILESTONE_TOLERANCE: f64 = 0.25;
 /// The DPS gain of a zone's whole set over the previous zone's while talents still grow, and once
 /// the hero arrives with every talent point.
 const GEAR_BUDGET: f64 = 0.10;
@@ -305,6 +346,14 @@ struct Arrival {
     minute: usize,
     health: f64,
     damage: f64,
+    /// The enemy's id, the run second it appeared and the run second it died (`None`: alive at the end).
+    id: u32,
+    spawned: f32,
+    died: Option<f32>,
+    /// Damage it took, and the hero's whole damage when it appeared and when it died.
+    took: f64,
+    hero_from: f64,
+    hero_to: Option<f64>,
 }
 
 /// What one run measured.
@@ -313,6 +362,9 @@ struct RunResult {
     minutes: Vec<Option<MinuteSample>>,
     arrivals: Vec<Arrival>,
     kills: u32,
+    /// The amulet worn at the end (its rarity and rank), and the caches opened.
+    amulet: Option<(esurv_content::Rarity, u32)>,
+    caches: u32,
     seconds: f32,
     damage: f64,
 }
@@ -333,23 +385,76 @@ fn play_moving(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64, 
 /// Plays one run as `play_moving` does; with `no_amulets` the hero takes the first offer that is
 /// not an amulet (or an amulet's empowering) on every choice screen, the first one when all are.
 fn play_picking(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64, kite: Option<f32>, no_amulets: bool) -> RunResult {
+    play_picking_preferring(content, zone, setup, seed, kite, no_amulets, &[])
+}
+
+/// As `play_picking`; a card that offers one of the spells in `prefer` is taken first (`--fair-start`).
+fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64, kite: Option<f32>, no_amulets: bool, prefer: &[String]) -> RunResult {
     let mut run = Run::new(content.clone(), zone, RunOptions::default(), &[setup], Box::new(Flat), seed).expect("a run");
     let (hero, p) = (run.heroes[0].id, run.heroes[0].pos);
     run.hero_moved(hero, (p.0 + 1.0, p.1), 0.0, 0.0);
     let mut minutes = vec![None; MINUTES];
-    let mut arrivals = Vec::new();
+    let mut arrivals: Vec<Arrival> = Vec::new();
     let (mut damage_before, mut next_second, mut cheat_deaths) = (0.0, 1.0, 0u32);
     let mut heading = (1.0, 0.0);
     let (mut health_sum, mut damage_sum, mut sampled) = (0.0, 0.0, 0u32);
-    while run.now < MINUTES as f32 * 60.0 && run.phase != Phase::Victory {
+    let overtime = f32::from(OVERTIME.load(Ordering::Relaxed));
+    let mut kills_at_end: Option<u32> = None;
+    while run.now < MINUTES as f32 * 60.0 + overtime && run.phase != Phase::Victory {
+        // `--overtime`: the kills (talent experience) stop at the run's end, the run goes on for the bosses
+        if kills_at_end.is_none() && run.now >= MINUTES as f32 * 60.0 {
+            kills_at_end = Some(run.heroes[0].kills);
+        }
         while let Some(screen) = &run.screen {
             let id = run.heroes[screen.hero].id;
             let pick = if no_amulets {
                 screen.offers.iter().position(|x| !matches!(x, Offer::Amulet { .. } | Offer::Empower)).unwrap_or(0)
+            } else if TAKE_AMULETS.load(Ordering::Relaxed) != 0 {
+                // a wanted amulet of a higher rarity than the worn one, else the worn one's
+                // empowering, else the first offer that is no amulet
+                let wanted = TAKE_AMULETS.load(Ordering::Relaxed);
+                let worn = run.heroes[screen.hero].amulet.as_ref().map(|w| w.amulet.rarity);
+                let better = |x: &Offer| match x {
+                    Offer::Amulet { amulet } => wanted & (1 << amulet.rarity as u8) != 0 && worn.is_none_or(|r| amulet.rarity > r),
+                    _ => false,
+                };
+                (screen.offers.iter().position(better))
+                    .or_else(|| screen.offers.iter().position(|x| matches!(x, Offer::Empower)))
+                    .or_else(|| screen.offers.iter().position(|x| !matches!(x, Offer::Amulet { .. } | Offer::Empower)))
+                    .unwrap_or(0)
             } else {
                 0
             };
+            // `--best-cards`: unless an amulet (or its empowering) was picked, the card of the
+            // highest rarity, a spell upgrade before a new spell before jewelry before gold
+            let pick = match (BEST_CARDS.load(Ordering::Relaxed), screen.offers.get(pick)) {
+                (true, Some(Offer::Amulet { .. } | Offer::Empower)) | (false, _) | (_, None) => pick,
+                (true, Some(_)) => {
+                    let score = |x: &Offer| match x {
+                        Offer::UpgradeSpell { rarity, .. } => *rarity as i32 * 10 + 3,
+                        Offer::NewSpell { rarity, .. } => *rarity as i32 * 10 + 2,
+                        Offer::NewJewelry { rarity, .. } | Offer::UpgradeJewelry { rarity, .. } => *rarity as i32 * 10 + 1,
+                        _ => -1,
+                    };
+                    (0..screen.offers.len()).max_by_key(|&k| (score(&screen.offers[k]), std::cmp::Reverse(k))).unwrap_or(pick)
+                }
+            };
+            // `--fair-start`: the spell the milestone would start with, when first offered
+            let pick = screen.offers.iter().position(|x| matches!(x, Offer::NewSpell { spell, .. } if prefer.contains(spell))).unwrap_or(pick);
             run.choose(id, pick);
+        }
+        // `--take-standards` and `--buy-caches`: the pickup is brought under the standing hero (as
+        // if it walked over it), a cache once the hero can pay for it
+        let (here, gold, price) = (run.heroes[0].pos, run.heroes[0].gold, run.field.cache_price);
+        for p in run.pickups.iter_mut() {
+            let bring = match p.kind {
+                Pickup::BattleStandard(_) => TAKE_STANDARDS.load(Ordering::Relaxed),
+                Pickup::BattlegroundCache => BUY_CACHES.load(Ordering::Relaxed) && gold >= price,
+                _ => false,
+            };
+            if bring {
+                p.at = here;
+            }
         }
         if let Some(stand_off) = kite {
             kite_step(&mut run, stand_off, &mut heading, DT);
@@ -362,6 +467,19 @@ fn play_picking(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64,
                     cheat_deaths += 1;
                     continue;
                 }
+                Event::EnemyHit { id, amount, .. } => {
+                    if let Some(a) = arrivals.iter_mut().find(|a| a.id == id && a.died.is_none()) {
+                        a.took += f64::from(amount);
+                    }
+                    continue;
+                }
+                Event::EnemyDied { id, .. } => {
+                    if let Some(a) = arrivals.iter_mut().find(|a| a.id == id && a.died.is_none()) {
+                        a.died = Some(run.now);
+                        a.hero_to = Some(run.heroes[0].damage_dealt);
+                    }
+                    continue;
+                }
                 Event::BossSpawned { id, boss, .. } => (id, StrongKind::Boss(boss)),
                 Event::RareSpawned { id, .. } => (id, StrongKind::Rare),
                 Event::EnemySpawned { id, .. } => (id, StrongKind::Elite),
@@ -371,7 +489,7 @@ fn play_picking(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64,
             if kind == StrongKind::Elite && !(unit.elite && matches!(unit.kind, EnemyKind::Roster(_))) {
                 continue;
             }
-            arrivals.push(Arrival { kind, minute, health: f64::from(unit.max_health), damage: f64::from(unit.damage) });
+            arrivals.push(Arrival { kind, minute, health: f64::from(unit.max_health), damage: f64::from(unit.damage), id, spawned: run.now, died: None, took: 0.0, hero_from: run.heroes[0].damage_dealt, hero_to: None });
         }
         if run.now + 1e-3 >= next_second {
             next_second += 1.0;
@@ -384,7 +502,7 @@ fn play_picking(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64,
                 sampled += 1;
             }
             // a minute ends on its 60th second
-            if (next_second as usize - 1) % 60 == 0 {
+            if (next_second as usize - 1) % 60 == 0 && (next_second as usize - 1) / 60 <= MINUTES {
                 let m = (next_second as usize - 1) / 60 - 1;
                 let h = &run.heroes[0];
                 let per = |sum: f64| if sampled > 0 { sum / f64::from(sampled) } else { 0.0 };
@@ -401,7 +519,7 @@ fn play_picking(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64,
         }
     }
     let h = &run.heroes[0];
-    RunResult { minutes, arrivals, kills: h.kills, seconds: run.now, damage: h.damage_dealt }
+    RunResult { minutes, arrivals, kills: kills_at_end.unwrap_or(h.kills), seconds: run.now, damage: h.damage_dealt, amulet: h.amulet.as_ref().map(|w| (w.amulet.rarity, w.rank)), caches: h.caches_opened }
 }
 
 /// The talent experience of one won 20-minute run in zone `zone` (its index in difficulty order):
@@ -442,6 +560,9 @@ struct Job {
     block: f32,
     /// The hero turns amulet offers down (`--no-amulets`).
     no_amulets: bool,
+    /// Spells the hero learns the first time a card offers them (`--fair-start`: the spell a
+    /// milestone would start it with, in the arm without it).
+    prefer: Vec<String>,
 }
 
 /// Plays `jobs` on `threads` threads; results in job order. A run that panics is reported and left
@@ -460,7 +581,7 @@ fn play_all(content: &Arc<Content>, jobs: &[Job], threads: usize) -> Vec<Option<
                 if job.block > 0.0 {
                     setup.add_effects([(&shield, 1)]);
                 }
-                match std::panic::catch_unwind(AssertUnwindSafe(|| play_picking(content, zone, setup, job.seed, job.kite, job.no_amulets))) {
+                match std::panic::catch_unwind(AssertUnwindSafe(|| play_picking_preferring(content, zone, setup, job.seed, job.kite, job.no_amulets, &job.prefer))) {
                     Ok(r) => *results[i].lock().unwrap() = Some(r),
                     Err(_) => eprintln!("balance check: the run of {zone}/{class} seed {} panicked; it is left out", job.seed),
                 }
@@ -490,6 +611,57 @@ fn gain_and_error(with: (f64, f64), without: (f64, f64)) -> (f64, f64) {
     let ratio = with.0 / without.0.max(1e-9);
     let relative = ((with.1 / with.0.max(1e-9)).powi(2) + (without.1 / without.0.max(1e-9)).powi(2)).sqrt();
     (ratio - 1.0, ratio * relative)
+}
+
+/// Case `case`'s gain (with ÷ without − 1) over the runs played so far and its standard error,
+/// from the seed-by-seed differences of the two arms (they play the same seeds; the unpaired error
+/// when fewer than two pairs finished).
+fn case_gain(jobs: &[(usize, bool, Job)], results: &[Option<RunResult>], case: usize) -> Option<(f64, f64)> {
+    let by_seed = |without: bool| -> HashMap<u64, f64> {
+        jobs.iter()
+            .zip(results)
+            .filter(|((k, w, _), _)| *k == case && *w == without)
+            .filter_map(|((_, _, j), r)| r.as_ref().map(|r| (j.seed, r.dps())))
+            .filter(|(_, d)| d.is_finite())
+            .collect()
+    };
+    let (with_runs, without_runs) = (by_seed(false), by_seed(true));
+    let with = mean_and_error(with_runs.values().copied())?;
+    let without = mean_and_error(without_runs.values().copied())?;
+    let (gain, unpaired) = gain_and_error(with, without);
+    let diffs: Vec<f64> = with_runs.iter().filter_map(|(s, w)| without_runs.get(s).map(|wo| w - wo)).collect();
+    let error = match mean_and_error(diffs.iter().copied()) {
+        Some((_, e)) if diffs.len() > 1 => e / without.0.max(1e-9),
+        _ => unpaired,
+    };
+    Some((gain, error))
+}
+
+/// `--adaptive`: a talent's measure can stop once its gain is clear against its row's budget:
+/// its standard error is at most a quarter of the band (±`MILESTONE_TOLERANCE` of the budget), or
+/// its 2-error interval lies wholly inside the band or wholly outside it.
+fn milestone_settled(gain: f64, error: f64, budget: f64) -> bool {
+    let (low, high) = (budget * (1.0 - MILESTONE_TOLERANCE), budget * (1.0 + MILESTONE_TOLERANCE));
+    let precise = error <= budget * MILESTONE_TOLERANCE / 4.0;
+    let (lo, hi) = (gain - 2.0 * error, gain + 2.0 * error);
+    precise || (lo >= low && hi <= high) || hi < low || lo > high
+}
+
+#[cfg(test)]
+mod adaptive_tests {
+    use super::milestone_settled;
+
+    /// A gain stops once its error is small, or its interval sits wholly inside or outside the band.
+    #[test]
+    fn a_milestone_measure_stops_once_its_gain_is_clear() {
+        // budget +10 %, band +7.5 to +12.5 %
+        assert!(milestone_settled(0.10, 0.006, 0.10), "error within a quarter of the band");
+        assert!(milestone_settled(0.10, 0.01, 0.10), "interval 8-12 % inside");
+        assert!(milestone_settled(0.20, 0.03, 0.10), "interval 14-26 % above");
+        assert!(milestone_settled(0.01, 0.02, 0.10), "interval -3 to 5 % below");
+        assert!(!milestone_settled(0.10, 0.02, 0.10), "interval 6-14 % straddles the band");
+        assert!(!milestone_settled(0.13, 0.02, 0.10), "interval 9-17 % straddles the top");
+    }
 }
 
 /// A zone's measured values in one minute, over every class and seed.
@@ -532,6 +704,11 @@ struct StrongMeans {
     damage: f64,
     kill_seconds: f64,
     hit_share: f64,
+    /// Mean seconds from appearing to dying, over those that died (`None`: none did), and how many died.
+    lived: Option<f64>,
+    killed: usize,
+    /// Of the hero's damage while it lived, the share that struck it (those that died).
+    share: Option<f64>,
 }
 
 fn strong_means(results: &[&RunResult], wanted: impl Fn(&Arrival) -> bool) -> Option<StrongMeans> {
@@ -550,6 +727,9 @@ fn strong_means(results: &[&RunResult], wanted: impl Fn(&Arrival) -> bool) -> Op
         damage: mean(rows.iter().map(|(a, _, _)| a.damage))?,
         kill_seconds: mean(rows.iter().map(|(_, k, _)| *k))?,
         hit_share: mean(rows.iter().map(|(_, _, s)| *s))?,
+        lived: mean(rows.iter().filter_map(|(a, _, _)| a.died.map(|d| f64::from(d - a.spawned)))),
+        killed: rows.iter().filter(|(a, _, _)| a.died.is_some()).count(),
+        share: mean(rows.iter().filter_map(|(a, _, _)| a.hero_to.map(|t| a.took / (t - a.hero_from).max(1.0)))),
     })
 }
 
@@ -648,12 +828,21 @@ struct Options {
     no_talents: bool,
     /// `--starter-runs` turning amulet offers down (`--no-amulets`).
     no_amulets: bool,
+    /// `--adaptive`: each talent's runs come in batches of `adaptive_batch` seeds a side per
+    /// starting option, and stop once its gain is clear (`milestone_settled`), at most `--check-seeds`.
+    adaptive: bool,
+    adaptive_batch: u64,
+    adaptive_min: u64,
+    /// `--fair-start`: the arm without a start-spell milestone takes that spell when first offered.
+    fair_start: bool,
     /// The legendary amulets `--legendaries` measures (by their spell, or `all`).
     legendaries: Vec<String>,
     /// `--check-seeds` and `--threads` as given (`--legendaries` has its own defaults).
     check_seeds_given: Option<u64>,
     threads_given: Option<usize>,
     csv: Option<String>,
+    /// Load the content from this folder instead of the repository's (`--content <dir>`).
+    content_dir: Option<String>,
     /// Synthetic zones: (new id, template zone id, difficulty).
     added_zones: Vec<(String, String, f32)>,
     /// Difficulties that replace real zones' own: (zone id, difficulty).
@@ -690,10 +879,15 @@ impl Default for Options {
             budgets: false,
             no_talents: false,
             no_amulets: false,
+            fair_start: false,
+            adaptive: false,
+            adaptive_batch: 50,
+            adaptive_min: 200,
             legendaries: Vec::new(),
             check_seeds_given: None,
             threads_given: None,
             csv: None,
+            content_dir: None,
             added_zones: Vec::new(),
             difficulties: Vec::new(),
         }
@@ -718,6 +912,7 @@ fn options() -> Options {
             "--legendaries" => o.legendaries = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
             "--targets" => o.targets = Some(value()),
             "--csv" => o.csv = Some(value()),
+            "--content" => o.content_dir = Some(value()),
             "--milestones" => o.milestones = true,
             "--talents" => o.talents = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
             "--gear" => o.gear = true,
@@ -742,6 +937,30 @@ fn options() -> Options {
             "--budgets" => o.budgets = true,
             "--no-talents" => o.no_talents = true,
             "--no-amulets" => o.no_amulets = true,
+            "--fair-start" => o.fair_start = true,
+            "--adaptive" => o.adaptive = true,
+            "--adaptive-batch" => o.adaptive_batch = value().parse().expect("--adaptive-batch <seeds>"),
+            "--adaptive-min" => o.adaptive_min = value().parse().expect("--adaptive-min <seeds>"),
+            "--take-amulets" => {
+                let mut bits = 0u8;
+                for r in value().split(',').map(str::trim) {
+                    bits |= match r {
+                        "common" => 1,
+                        "uncommon" => 2,
+                        "rare" => 4,
+                        "epic" => 8,
+                        "legendary" => 16,
+                        "all" => 31,
+                        other => panic!("--take-amulets: unknown rarity {other}"),
+                    };
+                }
+                TAKE_AMULETS.store(bits, Ordering::Relaxed);
+            }
+            "--buy-caches" => BUY_CACHES.store(true, Ordering::Relaxed),
+            "--boss-circle" => BOSS_CIRCLE.store(true, Ordering::Relaxed),
+            "--best-cards" => BEST_CARDS.store(true, Ordering::Relaxed),
+            "--overtime" => OVERTIME.store(value().parse().expect("--overtime <seconds>"), Ordering::Relaxed),
+            "--take-standards" => TAKE_STANDARDS.store(true, Ordering::Relaxed),
             "--d" => {
                 for pair in value().split(',').filter(|p| !p.trim().is_empty()) {
                     let parsed = pair.split_once('=').map(|(id, d)| (id.trim(), d.trim().parse::<f32>()));
@@ -772,7 +991,7 @@ fn zone_jobs(content: &Content, zone: usize, seeds: u64, mut loadout: impl FnMut
     for (ci, class) in content.classes.iter().enumerate() {
         let Some(l) = loadout(&class.id) else { continue };
         for s in 0..seeds {
-            jobs.push(Job { zone, class: ci, seed: zone_seed(&content.zones[zone].id) + ((ci as u64) << 40) + s, loadout: l.clone(), kite: None, block: 0.0, no_amulets: false });
+            jobs.push(Job { zone, class: ci, seed: zone_seed(&content.zones[zone].id) + ((ci as u64) << 40) + s, loadout: l.clone(), kite: None, block: 0.0, no_amulets: false, prefer: Vec::new() });
         }
     }
     jobs
@@ -808,7 +1027,10 @@ fn zone_mode_jobs(content: &Content, zone: usize, o: &Options, points: u32) -> V
                         start: start.clone(),
                     };
                     let seed = zone_seed(&content.zones[zone].id) + ((ci as u64) << 40) + s;
-                    jobs.push(Job { zone, class: ci, seed, loadout, kite: None, block: 0.0, no_amulets: o.no_amulets });
+                    // `--kite`: the hero kites as its option would
+                    let option = loadout.start.as_deref().and_then(|id| content.starting_option(id)).unwrap_or(&class.starting_options[0]);
+                    let kite = o.kite.then(|| kite_stand_off(content, option));
+                    jobs.push(Job { zone, class: ci, seed, loadout, kite, block: 0.0, no_amulets: o.no_amulets, prefer: Vec::new() });
                 }
             }
         }
@@ -820,6 +1042,7 @@ fn main() {
     let o = options();
     let started = Instant::now();
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");
+    let dir = o.content_dir.as_deref().unwrap_or(dir);
     let mut content = Content::load(dir).expect("content loads");
     set_difficulties(&mut content, &o.difficulties);
     for (id, from, difficulty) in &o.added_zones {
@@ -905,6 +1128,18 @@ fn main() {
             MINUTES,
             cheats / full.len().max(1) as f64
         );
+        {
+            let n = full.len().max(1) as f64;
+            let caches = full.iter().map(|r| f64::from(r.caches)).sum::<f64>() / n;
+            let mut by: Vec<String> = Vec::new();
+            for r in [esurv_content::Rarity::Common, esurv_content::Rarity::Uncommon, esurv_content::Rarity::Rare, esurv_content::Rarity::Epic, esurv_content::Rarity::Legendary] {
+                let worn: Vec<u32> = full.iter().filter_map(|x| x.amulet).filter(|a| a.0 == r).map(|a| a.1).collect();
+                if !worn.is_empty() {
+                    by.push(format!("{r:?} {} (rank {:.1})", worn.len(), worn.iter().sum::<u32>() as f64 / worn.len() as f64));
+                }
+            }
+            println!("caches opened {caches:.1} a run; amulet worn at the end: {}", if by.is_empty() { "none".to_string() } else { by.join(", ") });
+        }
         print!("{:>3} {:>5} {:>8} {:>8} {:>6} {:>6}", "min", "level", "dps", "health", "dmg", "kill s");
         if targets.is_some() {
             print!(" {:>6} {:>7}", "target", "ratio");
@@ -955,19 +1190,23 @@ fn main() {
                 mm.cheat_deaths
             );
         }
-        println!("\n{:>6} {:>6} {:>7} {:>10} {:>8} {:>8} {:>7}", "boss", "final", "minute", "health", "damage", "kill s", "hit%");
+        println!("\n{:>6} {:>6} {:>7} {:>10} {:>8} {:>8} {:>7} {:>7} {:>8} {:>7}  name", "boss", "final", "minute", "health", "damage", "kill s", "hit%", "lived s", "killed", "on it%");
         for (bi, b) in zone.bosses.iter().enumerate() {
             let Some(s) = strong_means(&full, |a| a.kind == StrongKind::Boss(bi)) else { continue };
             let fin = if b.is_final { "yes" } else { "" };
             println!(
-                "{:>6} {:>6} {:>7.1} {:>10.0} {:>8.0} {:>8.1} {:>7.1}",
+                "{:>6} {:>6} {:>7.1} {:>10.0} {:>8.0} {:>8.1} {:>7.1} {:>7} {:>8} {:>7}  {}",
                 bi + 1,
                 fin,
                 s.minute,
                 s.health,
                 s.damage,
                 s.kill_seconds,
-                s.hit_share * 100.0
+                s.hit_share * 100.0,
+                s.lived.map_or("—".to_string(), |l| format!("{l:.1}")),
+                format!("{}/{}", s.killed, s.count),
+                s.share.map_or("—".to_string(), |x| format!("{:.0}", x * 100.0)),
+                b.name
             );
         }
         for (name, kind) in [("elites", StrongKind::Elite), ("rares", StrongKind::Rare)] {
@@ -1090,9 +1329,10 @@ fn milestone_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) 
         label: String,
         zone: usize,
         budget: f64,
+        start: String,
     }
     let mut cases = Vec::new();
-    let mut jobs = Vec::new();
+    let mut templates: Vec<(usize, bool, Job)> = Vec::new();
     for class in &content.classes {
         for (ti, tree) in content.trees_of(&class.id).enumerate() {
             for &(row, budget) in &MILESTONE_BUDGETS {
@@ -1134,35 +1374,98 @@ fn milestone_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) 
                     });
                     let role = milestones.iter().map(|m| milestone_role(m)).find(|r| *r == "damage").or(raises_damage.then_some("damage")).or(milestones.first().map(|m| milestone_role(m))).unwrap_or("damage");
                     let label = if milestones.is_empty() { "numbers only".to_string() } else { milestones.iter().map(|m| milestone_label(m)).collect::<Vec<_>>().join(" + ") };
+                    // `--start all`: a case for each of the class's starting options; `--start <id>`:
+                    // the class plays that option when it has one, else its first
+                    let starts: Vec<Option<String>> = if o.start_all {
+                        class.starting_options.iter().map(|x| Some(x.id.clone())).collect()
+                    } else {
+                        vec![o.start.clone().filter(|id| class.starting_options.iter().any(|x| x.id == *id))]
+                    };
+                    for start in starts {
                     let case = cases.len();
-                    cases.push(Case { class: class.id.clone(), tree: ti, row, talent: t.id.clone(), role, label, zone, budget });
+                    let start_id = start.clone().unwrap_or_else(|| class.starting_options[0].id.clone());
+                    cases.push(Case { class: class.id.clone(), tree: ti, row, talent: t.id.clone(), role, label: label.clone(), zone, budget, start: start_id });
                     let set_from = zone.checked_sub(1);
                     // only damage milestones are held to a budget; the others are listed, not played
                     let arms: &[bool] = if role == "damage" { &[false, true] } else { &[] };
                     for &without in arms {
-                        // `--start`: the class plays that option when it has one, else its first
-                        let start = o.start.clone().filter(|id| class.starting_options.iter().any(|x| x.id == *id));
+                        let start = start.clone();
                         let loadout = Loadout { ranks: ranks.clone(), set_from, without_milestone: without.then(|| t.id.clone()), without_whole_talent: o.whole_talent, weapons: None, start };
-                        for s in 0..o.check_seeds {
-                            let ci = content.classes.iter().position(|c| c.id == class.id).unwrap_or(0);
-                            let seed = zone_seed(&content.zones[zone].id) + ((ci as u64) << 40) + s;
-                            // with `--kite` the hero kites as its option would
-                            let option = loadout.start.as_deref().and_then(|id| content.starting_option(id)).unwrap_or(&content.classes[ci].starting_options[0]);
-                            let kite = o.kite.then(|| kite_stand_off(content, option));
-                            jobs.push((case, without, Job { zone, class: ci, seed, loadout: loadout.clone(), kite, block: o.block, no_amulets: o.no_amulets }));
-                        }
+                        // `--fair-start`: without the milestone the hero takes the spell it would
+                        // start with the first time a card offers it, as a player building that tree
+                        let prefer: Vec<String> = if without && o.fair_start {
+                            t.effects.iter().filter_map(|e| match e { TalentEffect::Milestone(Milestone::StartWith { spell }) => Some(spell.clone()), _ => None }).collect()
+                        } else {
+                            Vec::new()
+                        };
+                        let ci = content.classes.iter().position(|c| c.id == class.id).unwrap_or(0);
+                        let seed = zone_seed(&content.zones[zone].id) + ((ci as u64) << 40);
+                        // with `--kite` the hero kites as its option would
+                        let option = loadout.start.as_deref().and_then(|id| content.starting_option(id)).unwrap_or(&content.classes[ci].starting_options[0]);
+                        let kite = o.kite.then(|| kite_stand_off(content, option));
+                        // the seeds are added batch by batch below (`--adaptive`)
+                        templates.push((case, without, Job { zone, class: ci, seed, loadout: loadout.clone(), kite, block: o.block, no_amulets: o.no_amulets, prefer: prefer.clone() }));
+                    }
                     }
                     }
                 }
             }
         }
     }
-    let plain: Vec<Job> = jobs.iter().map(|(_, _, j)| Job { zone: j.zone, class: j.class, seed: j.seed, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets }).collect();
-    let results = play_all(content, &plain, o.threads);
+    // the runs, batch by batch: every case plays seeds `played..played + batch` in both arms; with
+    // `--adaptive` a talent stops as soon as its gain is clear (`milestone_settled`)
+    let mut jobs: Vec<(usize, bool, Job)> = Vec::new();
+    let mut results: Vec<Option<RunResult>> = Vec::new();
+    let key = |c: &Case| (c.class.clone(), c.tree, c.row, c.talent.clone(), c.zone);
+    let mut open: Vec<bool> = vec![true; cases.len()];
+    let batch = if o.adaptive { o.adaptive_batch.max(1) } else { o.check_seeds.max(1) };
+    let mut played = 0;
+    while played < o.check_seeds && open.iter().any(|&x| x) {
+        let n = batch.min(o.check_seeds - played);
+        let mut fresh = Vec::new();
+        for (case, without, j) in &templates {
+            if !open[*case] {
+                continue;
+            }
+            for s in played..played + n {
+                fresh.push((*case, *without, Job { zone: j.zone, class: j.class, seed: j.seed + s, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets, prefer: j.prefer.clone() }));
+            }
+        }
+        let plain: Vec<Job> = fresh.iter().map(|(_, _, j)| Job { zone: j.zone, class: j.class, seed: j.seed, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets, prefer: j.prefer.clone() }).collect();
+        results.extend(play_all(content, &plain, o.threads));
+        jobs.extend(fresh);
+        played += n;
+        // a talent settles only once it has `--adaptive-min` seeds a side (a first batch can mislead)
+        if o.adaptive && played >= o.adaptive_min {
+            for ci in 0..cases.len() {
+                if !open[ci] {
+                    continue;
+                }
+                // the talent's gain over its starting options (the mean) and its error
+                let k = key(&cases[ci]);
+                let mine: Vec<usize> = (0..cases.len()).filter(|&x| key(&cases[x]) == k).collect();
+                let stats: Vec<(f64, f64)> = mine.iter().filter_map(|&x| case_gain(&jobs, &results, x)).collect();
+                if stats.len() == mine.len() && !stats.is_empty() {
+                    let m = stats.len() as f64;
+                    let gain = stats.iter().map(|s| s.0).sum::<f64>() / m;
+                    let error = stats.iter().map(|s| s.1 * s.1).sum::<f64>().sqrt() / m;
+                    if milestone_settled(gain, error, cases[ci].budget) {
+                        for &x in &mine {
+                            open[x] = false;
+                        }
+                    }
+                } else if mine.iter().all(|&x| cases[x].role != "damage") {
+                    for &x in &mine {
+                        open[x] = false;
+                    }
+                }
+            }
+        }
+    }
     println!("Milestones: run DPS with the row's milestone and without it, in the first zone whose arrival hero reaches the row:\n");
     println!(
-        "{:8} {:>4} {:>3} {:24} {:9} {:>9} {:>10} {:>10} {:>7} {:>6} {:>7}  milestone",
-        "class", "tree", "row", "talent", "role", "zone", "with", "without", "gain", "±", "budget"
+        "{:8} {:16} {:>4} {:>3} {:24} {:9} {:>9} {:>10} {:>10} {:>7} {:>6} {:>7} {:>5}  milestone",
+        "class", "start", "tree", "row", "talent", "role", "zone", "with", "without", "gain", "±", "budget", "runs"
     );
     for (ci, c) in cases.iter().enumerate() {
         let dps = |without: bool| {
@@ -1172,14 +1475,16 @@ fn milestone_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) 
         };
         let (Some(with), Some(without)) = (dps(false), dps(true)) else {
             let zone = &content.zones[c.zone].id;
-            println!("{:8} {:>4} {:>3} {:24} {:9} {:>9} {:>46}  {}", c.class, c.tree, c.row, c.talent, c.role, zone, "not played", c.label);
+            println!("{:8} {:16} {:>4} {:>3} {:24} {:9} {:>9} {:>46}  {}", c.class, c.start, c.tree, c.row, c.talent, c.role, zone, "not played", c.label);
             continue;
         };
-        let (gain, error) = gain_and_error(with, without);
+        let Some((gain, error)) = case_gain(&jobs, &results, ci) else { continue };
+        let runs = jobs.iter().filter(|(k, w, _)| *k == ci && !*w).count();
         let off = c.role == "damage" && (gain < c.budget * (1.0 - MILESTONE_TOLERANCE) || gain > c.budget * (1.0 + MILESTONE_TOLERANCE));
         println!(
-            "{:8} {:>4} {:>3} {:24} {:9} {:>9} {:>10.0} {:>10.0} {:>+6.1}% {:>5.1}% {:>+6.0}%{} {}",
+            "{:8} {:16} {:>4} {:>3} {:24} {:9} {:>9} {:>10.0} {:>10.0} {:>+6.1}% {:>5.1}% {:>+6.0}%{} {:>5} {}",
             c.class,
+            c.start,
             c.tree,
             c.row,
             c.talent,
@@ -1191,6 +1496,7 @@ fn milestone_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) 
             error * 100.0,
             c.budget * 100.0,
             if off { "!" } else { " " },
+            runs,
             c.label
         );
     }
@@ -1502,6 +1808,8 @@ const STARTS_TARGET_MINUTES: [usize; 3] = [5, 10, 15];
 /// melee and for the others (`kite_stand_off`).
 const KITE_MELEE_STAND_OFF: f32 = 3.5;
 const KITE_RANGED_STAND_OFF: f32 = 8.0;
+/// `--boss-circle`: the smallest radius of the loop round a boss (yards).
+const BOSS_CIRCLE_RADIUS: f32 = 6.0;
 /// The enemies within this many yards of the hero are the pack it circles; with none that close
 /// it runs at the nearest enemy.
 const KITE_PACK_RADIUS: f32 = 30.0;
@@ -1576,6 +1884,19 @@ fn kite_step(run: &mut Run, stand_off: f32, heading: &mut Vec2, dt: f32) {
         let step_out = ((stand_off - near) / 2.0).clamp(-1.0, 1.0) * KITE_DISTANCE_WEIGHT;
         unit((around.0 + from_nearest.0 * step_out, around.1 + from_nearest.1 * step_out))
     };
+    // `--boss-circle`: while a boss lives, loop around it (the boss at the circle's centre) at the
+    // stand-off, at least BOSS_CIRCLE_RADIUS, as players do while dodging its attacks
+    let boss = run.enemies.iter().filter(|e| e.is_boss() && e.health > 0.0).map(|e| e.segment.position(now)).min_by(|a, b| dist(*a, pos).total_cmp(&dist(*b, pos)));
+    let mut face = nearest;
+    if let (true, Some(b)) = (BOSS_CIRCLE.load(Ordering::Relaxed), boss) {
+        let radius = stand_off.max(BOSS_CIRCLE_RADIUS);
+        let d = dist(b, pos);
+        let out = if d < 1e-3 { (1.0, 0.0) } else { unit((pos.0 - b.0, pos.1 - b.1)) };
+        let around = (-out.1, out.0);
+        let step_out = ((radius - d) / 2.0).clamp(-1.0, 1.0) * KITE_DISTANCE_WEIGHT;
+        wanted = unit((around.0 + out.0 * step_out, around.1 + out.1 * step_out));
+        face = b;
+    }
     let zone = &run.content.zones[run.zone];
     let centre = (zone.spawn.x, zone.spawn.y);
     let inner = zone.arena_radius - KITE_EDGE_MARGIN;
@@ -1601,7 +1922,7 @@ fn kite_step(run: &mut Run, stand_off: f32, heading: &mut Vec2, dt: f32) {
         .unwrap_or(wanted);
     *heading = dir;
     let to = (pos.0 + dir.0 * speed * dt, pos.1 + dir.1 * speed * dt);
-    let facing = (nearest.1 - to.1).atan2(nearest.0 - to.0);
+    let facing = (face.1 - to.1).atan2(face.0 - to.0);
     run.hero_moved(id, to, 0.0, facing);
 }
 
@@ -1981,8 +2302,8 @@ second_ratio_m5,second_ratio_m10,second_ratio_m15,whole_cheat_deaths_per_minute\
 /// Our budget: a heal, shield or defensive legendary doubles what its spell heals,
 /// absorbs or keeps up (+100 %); a gain passes within this share of it (±20 %).
 const LEGENDARY_BUDGET: f64 = 1.0;
-/// A damage legendary's budget: +50 % to the hero's total damage.
-const LEGENDARY_DAMAGE_BUDGET: f64 = 0.5;
+/// A damage legendary's budget: +30 % to the hero's total damage.
+const LEGENDARY_DAMAGE_BUDGET: f64 = 0.3;
 const LEGENDARY_TOLERANCE: f64 = 0.2;
 /// `--legendaries` measures in the first zone and in this one.
 const LEGENDARY_LATE_ZONE: &str = "aq";
@@ -2074,7 +2395,7 @@ fn own_parts(content: &Content, l: &esurv_content::LegendaryAmulet) -> OwnParts 
 /// The role of a legendary's main spell: a spell that deals damage
 /// (a hybrid such as Holy Nova or Ghostly Strike too: its heal or shield is the smaller part) and
 /// a buff that adds power (damage, haste, speed, rage or energy) are measured by the hero's total
-/// damage, +50 %; a heal by what it heals (and what shields absorb), and a defensive buff
+/// damage, +30 %; a heal by what it heals (and what shields absorb), and a defensive buff
 /// (immunity) by its uptime, +100 %. A shield is measured as power too: kiting, the hero's own
 /// shield already takes most of the damage struck at it (Power Word: Shield about 80 %, Ice
 /// Barrier about 85 %), so what a shield absorbs cannot double whatever its legendary does.
@@ -2095,7 +2416,7 @@ fn legendary_role(content: &Content, l: &esurv_content::LegendaryAmulet) -> Lege
     }
 }
 
-/// The gain a legendary of `role` is held to: +50 % total damage for damage
+/// The gain a legendary of `role` is held to: +30 % total damage for damage
 /// and power, +100 % healing and absorbing (or uptime) for heals, shields and defensive buffs.
 fn legendary_budget(role: LegendaryRole) -> f64 {
     match role {

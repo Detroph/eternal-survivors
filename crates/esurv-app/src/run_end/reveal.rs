@@ -193,18 +193,18 @@ mod tests {
 
     #[test]
     fn a_standing_counts_points_and_the_way_to_the_next() {
-        // points cost 80, 82, 84, ...
+        // points cost 110, 113, 115, ...
         assert_eq!(
             Standing::of(0),
             Standing {
                 points: 0,
                 into_next: 0,
-                next_cost: 80
+                next_cost: 110
             }
         );
-        let s = Standing::of(80 + 82 + 20);
-        assert_eq!((s.points, s.into_next, s.next_cost), (2, 20, 84));
-        assert!((s.fill() - 20.0 / 84.0).abs() < 1e-6);
+        let s = Standing::of(110 + 113 + 20);
+        assert_eq!((s.points, s.into_next, s.next_cost), (2, 20, 115));
+        assert!((s.fill() - 20.0 / 115.0).abs() < 1e-6);
         let all = Standing::of(u32::MAX);
         assert_eq!((all.points, all.next_cost, all.fill()), (51, 0, 1.0));
     }
@@ -242,7 +242,7 @@ mod tests {
 
     #[test]
     fn each_point_crossed_is_its_own_step() {
-        // 70 before: the first point (145) comes 75 into the payment, the second (149) 224 into it
+        // 70 before: the first point (110) comes 40 into the payment, the second (113) 153 into it
         let r = Reveal::new(
             70,
             &Experience {
@@ -259,7 +259,7 @@ mod tests {
             }
             t += 0.01;
         }
-        assert_eq!(seen, [0, 1, 2, 3]);
+        assert_eq!(seen, [0, 1, 2]);
     }
 
     #[test]

@@ -204,7 +204,7 @@
                         scale: 0.6,
                         glow_spell: 20922,
                         left_alone: Some((seconds: 8.0, run: [
-                            Heal(on: Myself, share: 0.1, look_spell: 22651),
+                            Heal(on: Myself, share: 0.05, look_spell: 22651),
                             Emote(text: "%s's sacrifice heals him!"),
                         ])),
                     ),
@@ -215,6 +215,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(1.1), // lived 36 s against a 44 s goal at 0.85
         ),
         (
             name: "Alzzin the Wildshaper",
@@ -447,9 +448,9 @@
                 ),
             ],
             script: [
-                // 50 %: Cho'Rush the Observer joins
+                // 35 %: Cho'Rush the Observer joins (50 % before)
                 (
-                    on: Health(50.0),
+                    on: Health(35.0),
                     warn: Some((text: "Cho'Rush the Observer joins the fight!", colour: Orange, icon_spell: Some(13745))),
                     soon: Some("Cho'Rush soon"),
                     run: [Call(boss: "Cho'Rush the Observer")],
@@ -463,6 +464,7 @@
                 ),
             ],
             is_final: true,
+            health_share: Some(0.6), // lived 175 s against a 115 s goal (132 s at 0.7)
         ),
     ],
 )

@@ -148,8 +148,8 @@ mod tests {
 
     #[test]
     fn points_come_from_talent_experience() {
-        assert_eq!(points_earned(79), 0);
-        assert_eq!(points_earned(80), 1);
-        assert_eq!(points_earned(80 + 82 + 84), 3);
+        assert_eq!(points_earned(109), 0);
+        assert_eq!(points_earned(110), 1);
+        assert_eq!(points_earned(110 + 113 + 115), 3);
     }
 }

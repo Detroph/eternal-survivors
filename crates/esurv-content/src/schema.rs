@@ -150,6 +150,11 @@ pub struct Balance {
     /// last point the last step's pace goes on.
     pub health_clock: Vec<(f32, f32)>,
     pub damage_clock: Vec<(f32, f32)>,
+    /// Bosses and final bosses read the health clock to this power (1 when the file leaves it
+    /// out): below 1 a boss that comes late in the run grows less than the swarm, so a zone's
+    /// bosses last about as long as each other.
+    #[serde(default = "one")]
+    pub boss_clock_power: f32,
     /// Spawn budget per second at 100 % density, by run minute: (minute, budget) points read the
     /// same way as the clocks. Density multiplies it; bosses alive and Endless change it as before.
     pub spawn_budget: Vec<(f32, f32)>,
@@ -164,6 +169,11 @@ pub struct Balance {
     /// The battle standard pickup, which summons an assist.
     #[serde(default)]
     pub battle_standard: BattleStandardRules,
+    /// Challenge Mode (docs/game/zones.md, "Challenge Mode"): every enemy's final health
+    /// and damage are × this × the challenge slider, outside the kind and zone powers; a challenge
+    /// run's talent experience is × this (never the slider). 1 when the file leaves it out.
+    #[serde(default = "one")]
+    pub challenge_factor: f32,
 }
 
 /// The battle standard (`balance.ron` `battle_standard`; docs/game/assists.md): a pickup lying on
@@ -184,8 +194,23 @@ pub struct BattleStandardRules {
     pub planted_look: FactionDisplay,
     /// The summoned ally is drawn this many times its normal size.
     pub ally_scale: f32,
-    /// An assist lasts at most this long (seconds) unless its script gives a longer `seconds`.
+    /// An ally stays this long (seconds) unless its script gives another `seconds`: its assist,
+    /// then its rotation.
     pub assist_seconds: f32,
+    /// What every assist deals, per second, as a share of the struck enemy's max health.
+    pub assist_damage_per_second: AssistDamageRates,
+}
+
+/// An assist's damage rates (`battle_standard.assist_damage_per_second`; docs/game/assists.md,
+/// "Its damage"): shares of the struck enemy's max health a second, the same for every assist.
+/// Each damage event deals the rate for the enemy's kind × its max health × the seconds the event
+/// stands for (a swing's attack time, a tick's interval, a cast's cycle, one global cooldown).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct AssistDamageRates {
+    /// On a normal enemy.
+    pub normal: f32,
+    /// On an elite, a rare or a boss.
+    pub elite_rare_boss: f32,
 }
 
 impl Default for BattleStandardRules {
@@ -198,7 +223,8 @@ impl Default for BattleStandardRules {
             display: FactionDisplay { alliance: 14541, horde: 14542 },
             planted_look: FactionDisplay { alliance: 23034, horde: 23035 },
             ally_scale: 2.0,
-            assist_seconds: 10.0,
+            assist_seconds: 15.0,
+            assist_damage_per_second: AssistDamageRates { normal: 0.05, elite_rare_boss: 0.01 },
         }
     }
 }
@@ -302,6 +328,24 @@ pub struct ZoneScaling {
     pub talent_exponent: f32,
     /// The D at which each gear tier after the first begins (a piece's name and look).
     pub gear_tier_starts: Vec<f32>,
+    /// A normal enemy's damage multiplier by D, read as `normal_health` is: when set, damage follows
+    /// it instead of the health multiplier (so a health table can change and blows stay as they
+    /// were); elites and rares take it to `elite_damage_power`, bosses to `boss_damage_power`.
+    /// Empty: damage is the health multiplier to `damage_share` / `elite_boss_damage_share`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub normal_damage: Vec<(f32, f32)>,
+    #[serde(default = "one")]
+    pub elite_damage_power: f32,
+    #[serde(default = "one")]
+    pub boss_damage_power: f32,
+}
+
+/// A (D, multiplier) table read at `d`: straight lines between the points, past the last point the
+/// last step's pace.
+fn table_at(p: &[(f32, f32)], d: f32) -> f32 {
+    let i = p.iter().position(|q| d <= q.0).unwrap_or(p.len() - 1).max(1);
+    let (a, b) = (p[i - 1], p[i]);
+    a.1 + (d - a.0) * (b.1 - a.1) / (b.0 - a.0)
 }
 
 impl ZoneScaling {
@@ -338,6 +382,14 @@ impl ZoneScaling {
 
     /// What an enemy of kind `kind` has its damage multiplied by in a zone of difficulty `d`.
     pub fn damage_factor(&self, kind: EnemyType, d: f32) -> f32 {
+        if self.normal_damage.len() >= 2 {
+            let power = match kind {
+                EnemyType::Normal => 1.0,
+                EnemyType::Elite | EnemyType::Rare => self.elite_damage_power,
+                EnemyType::Boss | EnemyType::FinalBoss => self.boss_damage_power,
+            };
+            return table_at(&self.normal_damage, d).max(0.0).powf(power);
+        }
         self.health_factor(kind, d).powf(self.damage_share_of(kind))
     }
 
@@ -378,6 +430,9 @@ impl Default for ZoneScaling {
             gear_drop_chance: vec![(1.0, 1.0)],
             talent_exponent: 0.0,
             gear_tier_starts: vec![2.0, 4.0, 7.0, 9.0],
+            normal_damage: Vec::new(),
+            elite_damage_power: 1.0,
+            boss_damage_power: 1.0,
         }
     }
 }
@@ -427,12 +482,14 @@ impl Default for Balance {
             boss: one,
             final_boss: one,
             health_clock: vec![(0.0, 1.0), (1.0, 1.0)],
+            boss_clock_power: 1.0,
             damage_clock: vec![(0.0, 1.0), (1.0, 1.0)],
             spawn_budget: vec![(0.0, 1.0), (1.0, 1.0)],
             live_cap: (60.0, 120.0),
             experience: ExperienceRules::default(),
             spell_tags: SpellTagCoefficients::default(),
             battle_standard: BattleStandardRules::default(),
+            challenge_factor: 1.0,
         }
     }
 }
@@ -586,6 +643,11 @@ pub struct Enemy {
     /// It never spawns by itself: only a boss's script or ability brings it (a wave, a hatchling).
     #[serde(default)]
     pub only_summoned: bool,
+    /// Heroes and assists pick it as they pick an elite (its kind's numbers stay its own), and it
+    /// glows as an elite: one to focus, as the Nightmare Suppressors that heal a boss and the Black
+    /// Guard Sentries that guard one. Its `scale` is the elite size (zones.md, "Sizes").
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub focus_as_elite: bool,
 }
 
 /// What a player-looking enemy is: a player character of the class
@@ -688,6 +750,10 @@ pub struct PlayerCharacter {
     /// (docs/game/assists.md); missing: its class's (and form's) default in `class_assists.ron`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub assist_script: Option<crate::AssistScript>,
+    /// Its rotation and movement once its assist is done, until it leaves (docs/game/assists.md);
+    /// missing: its class's (and form's) default in `class_assists.ron`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub behaviour: Option<crate::AssistBehaviour>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1926,6 +1992,32 @@ impl TalentEffect {
     }
 }
 
+/// A line's runners, a look only (Stampede's beasts): as the line strikes, a row of `count`
+/// creatures (at least the first number, at most the second, picked each time) appears across
+/// the line's width a little behind the hero, each shown as one of `displays` (a
+/// `CreatureDisplayInfo.dbc` id and the scale it is drawn at, picked each time; the scales bring
+/// every look to one size, so a row reads as one herd), runs the line's length at `speed` yards a
+/// second and goes at its end. The damage stays the line's; no one is struck by a runner.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LineRunners {
+    pub displays: Vec<(u32, f32)>,
+    pub count: (u32, u32),
+    pub speed: f32,
+}
+
+/// Spirits running with a lasting area that follows the hero, a look only (Sprint of the
+/// Wild's wild spirits): `count` see-through creatures in the druid `form`'s look (the hero's
+/// faction's), drawn `scale` times their size, beside the hero (left and right) while the area
+/// lasts; as the area strikes, each strikes an enemy it struck, playing `strike_look`. The damage
+/// stays the area's.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AreaSpirits {
+    pub count: u32,
+    pub form: PlayerForm,
+    pub scale: f32,
+    pub strike_look: u32,
+}
+
 /// What sets a milestone off.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Trigger {
@@ -2028,11 +2120,20 @@ pub enum AfflictEffect {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Milestone {
     /// With `chance`, cast `spell` for free (empty: the spell that set it off again), at
-    /// most once every `cooldown` seconds.
-    FreeCast { chance: f32, cooldown: f32, spell: String, trigger: Trigger, filter: SpellFilter },
+    /// most once every `cooldown` seconds, at `power` of its damage (1 when left out).
+    FreeCast {
+        chance: f32,
+        cooldown: f32,
+        spell: String,
+        trigger: Trigger,
+        filter: SpellFilter,
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        power: f32,
+    },
     /// Every `count`-th matching event casts `spell` for free.
     EveryNth { count: u32, spell: String, trigger: Trigger, filter: SpellFilter },
     /// With `chance`, summon `count` of `pet` (missing: 1) for `seconds`, at most `max` at once.
+    /// At most once every `cooldown` seconds (none when left out).
     /// With `afflicted`, a `Kill` sets it off when the dead enemy
     /// carried a matching effect over time, whatever killed it (Curse of Agony's doomguard).
     PetOnTrigger {
@@ -2049,6 +2150,8 @@ pub enum Milestone {
         count: u32,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         afflicted: bool,
+        #[serde(default, skip_serializing_if = "is_zero")]
+        cooldown: f32,
     },
     /// A breaking shield bursts for `share` of what it absorbed within `radius`.
     /// `school` `None` uses the school of the spell a legendary amulet remakes.
@@ -2210,7 +2313,8 @@ pub enum Milestone {
     /// `width` yards either side of it, for `share` of the hit. With `behind`, only the enemies
     /// past the struck one; with `hits_target`, the struck enemy takes it too. The look,
     /// `look_spell` (missing: the hit's spell), flies from the hero to the line's end (Thori'dal,
-    /// Stampede, Netherstrand Longbow).
+    /// Stampede, Netherstrand Longbow); `runners`, if given, run along the line as it strikes
+    /// (Stampede's beasts, [`LineRunners`]).
     LineHit {
         every: u32,
         share: f32,
@@ -2222,6 +2326,8 @@ pub enum Milestone {
         hits_target: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         look_spell: Option<u32>,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        runners: Option<LineRunners>,
         trigger: Trigger,
         filter: SpellFilter,
     },
@@ -2306,7 +2412,9 @@ pub enum Milestone {
     /// `min_interval` (`ResetOnKill` on any trigger: a crit readies it).
     ResetOnTrigger { chance: f32, min_interval: f32, trigger: Trigger, filter: SpellFilter },
     /// Strikes one more enemy within `reach` of the hero (0: the spell's own range), chosen by
-    /// `pick` (never the struck one), for `share` of the hit, putting `effects` on it.
+    /// `pick` (never the struck one), for `share` of the hit, putting `effects` on it. With
+    /// `reflection`, a look only: a see-through reflection of the hero appears at that enemy,
+    /// strikes it with `look_spell` and fades (Blink Strike; the hero stays where it is).
     StrikeOne {
         pick: Pick,
         reach: f32,
@@ -2315,6 +2423,8 @@ pub enum Milestone {
         effects: Vec<AfflictEffect>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         look_spell: Option<u32>,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        reflection: bool,
         trigger: Trigger,
         filter: SpellFilter,
     },
@@ -2406,6 +2516,9 @@ pub enum Milestone {
         rides_target: bool,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         look_spell: Option<u32>,
+        /// Spirits that run with the area while it lasts, a look only ([`AreaSpirits`]).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        spirits: Option<AreaSpirits>,
         trigger: Trigger,
         filter: SpellFilter,
     },
@@ -3089,6 +3202,11 @@ impl WeaponKind {
             WeaponKind::Shield => 6,
             WeaponKind::HeldInOffHand => 0,
         }
+    }
+
+    /// It is held in both hands (inventory type two-hand), so nothing is in the off hand.
+    pub fn two_handed(self) -> bool {
+        self.inventory_type() == 17
     }
 
     /// The client's inventory type: one-hand 13, two-hand 17, bow 15, gun, crossbow and wand

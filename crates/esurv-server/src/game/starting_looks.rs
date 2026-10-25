@@ -64,7 +64,7 @@ pub(super) struct CloneShown {
 
 /// How the run's looks of some spells are drawn on every client: as
 /// docs/game/screens.md "Looks" lists them.
-pub fn look_styles() -> Vec<LookStyle> {
+pub fn look_styles(content: &Content) -> Vec<LookStyle> {
     let style = |spell, scale, tint, flat, no_shake| LookStyle {
         spell,
         scale,
@@ -111,6 +111,12 @@ pub fn look_styles() -> Vec<LookStyle> {
     // Maelstrom Weapon's tornado round the hero grows with each stack
     for (aura, scale) in MAELSTROM_AURAS.into_iter().zip(MAELSTROM_TORNADO_SCALES) {
         out.push(style(aura, scale, None, false, false));
+    }
+    // the legendaries' smaller looks (`legendary_looks.ron` `small`)
+    for spell in content.small_looks() {
+        if !out.iter().any(|s| s.spell == spell) {
+            out.push(style(spell, esurv_content::legendary_looks::SMALL_LOOK_SCALE, None, false, false));
+        }
     }
     out
 }
@@ -362,7 +368,7 @@ impl Game {
 
     /// What a joining client is told of its hero's option: the looks' styles and its bar now.
     pub(super) fn option_hello(&self, hero: u32) -> Vec<ToClient> {
-        let mut told = vec![ToClient::LookStyles(look_styles())];
+        let mut told = vec![ToClient::LookStyles(look_styles(&self.run.content))];
         // every hero whose weapons keep one sheath state, for the client to hold it
         let holds: Vec<SheathHold> = self
             .run
@@ -378,7 +384,7 @@ impl Game {
     }
 
     /// The create of a clone of its hero: the hero's player look, see-through, where it stands.
-    fn clone_object(&self, c: &CloneShown) -> Option<ObjectUpdate> {
+    pub(super) fn clone_object(&self, c: &CloneShown) -> Option<ObjectUpdate> {
         let hero = self.run.heroes.iter().find(|h| h.id == c.hero)?;
         let saved = self.saved_of(c.hero)?;
         let ObjectUpdate::Create { mut fields, living, .. } = self.hero_object(hero, saved, false) else {
@@ -442,7 +448,10 @@ mod tests {
 
     #[test]
     fn the_styles_name_each_spell_once() {
-        let styles = look_styles();
+        let content = Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+        let styles = look_styles(&content);
+        let small = styles.iter().find(|s| s.spell == 7405).expect("Sunder Armor, small");
+        assert_eq!(small.scale, esurv_content::legendary_looks::SMALL_LOOK_SCALE);
         let mut ids: Vec<u32> = styles.iter().map(|s| s.spell).collect();
         ids.sort_unstable();
         ids.dedup();

@@ -166,6 +166,12 @@ Every spell the hero has sits in a **slot** and casts by itself when the slot's 
   18 → 12 s, Battle Shout 12.5 → 10 s, Berserk 10 → 12 s, Arcane Power 16.8 → 12.2 s, and the
   race spells are separate and keep their own durations (Perception 10 s, Blood Fury 12 s, Berserking 10 s). Shields,
   heals over time, auras and immunities are not counted as buffs here.
+* **Cooldown after the effect** (`kit: (cooldown_after_effect: true)`): the spell's
+  cooldown starts only once the effect it put on the hero has ended (run out or taken away), not
+  at the cast, so however far its cooldown is cut it is never up all the time. While the effect
+  holds the action bar sweeps its time left (the spell unavailable), then sweeps the cooldown.
+  Only Divine Shield has it (its 6 s immunity, then its cooldown). Code: `esurv-sim`
+  `game::casting` (`effect_holds_cooldown`); class spells only, not the race's spell slot.
 * A spell just learned (and the race's spell at the start of a run) first casts after **0.5 s**.
 * A cast that finds nothing to hit (no enemy in range, a heal at full health …) tries again
   after **0.2 s**; the race's spell after **0.5 s**.

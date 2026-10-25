@@ -31,6 +31,15 @@ pub const ENDLESS_BOSS_WINDOW: f32 = 1.0;
 /// Tries at finding a spawn spot whose ground is near the hero's height.
 pub const SPAWN_TRIES: u32 = 12;
 pub const SPAWN_HEIGHT_TOLERANCE: f32 = 25.0;
+/// A spawn spot that does not fit (a wall or map edge in the way) is moved this many yards
+/// toward the hero at a time, along its direction, before a new direction is drawn.
+pub const SPAWN_STEP_IN: f32 = 2.5;
+
+/// The nearest a stepped-in spawn may come to the hero: half the ring's inner edge
+/// (15 yd for a 30-40 ring).
+pub fn spawn_inner_floor(ring: (f32, f32)) -> f32 {
+    ring.0 / 2.0
+}
 /// A hero may roam this far past the arena radius before being sent back.
 pub const EDGE_SLACK: f32 = 10.0;
 /// Where a stray hero is put back: this far inside the slack.
@@ -399,6 +408,8 @@ pub struct EnemyUnit {
     /// What the starting options' rules left on it (marks, freezes).
     pub kit: super::kit::EnemyKit,
     pub elite: bool,
+    /// Picked as an elite is (`Enemy::focus_as_elite`), its numbers its own kind's.
+    pub focus_as_elite: bool,
     pub enraged: bool,
     pub spawn_cost: f32,
     /// What a boss's script and building blocks keep on it (`game::boss_scripts`).
@@ -416,6 +427,11 @@ impl EnemyUnit {
 
     pub fn is_rare(&self) -> bool {
         matches!(self.kind, EnemyKind::Rare { .. })
+    }
+
+    /// An elite, or one picked as an elite (`Enemy::focus_as_elite`): what targeting ranks as elite.
+    pub fn ranks_as_elite(&self) -> bool {
+        self.elite || self.focus_as_elite
     }
 
     pub fn active(effect: Option<(f32, f32)>, now: f32) -> Option<f32> {
@@ -554,6 +570,10 @@ pub enum Event {
     /// A boss's marked attack is laid: `shape` at `at` facing `facing`,
     /// drawn with `warning_spell` over it and `fill_spell` filling it over `wind_up` seconds.
     TelegraphShown { id: u32, shape: esurv_content::Shape, at: Vec2, facing: f32, warning_spell: u32, fill_spell: u32, wind_up: f32 },
+    /// Boss `boss` winds up an ability for `seconds` (a mark round itself or at a hero, a rush, a
+    /// ground burst): `label` its warning's bar label (empty for none), `spell` its icon's spell
+    /// (and its name when it has no label). Its boss bar shows it as a cast.
+    BossCasting { boss: u32, label: String, spell: u32, seconds: f32 },
     /// It landed (its looks go).
     TelegraphGone { id: u32 },
     /// An object is put on the ground for a hero to walk over: its name, model
@@ -581,6 +601,18 @@ pub enum Event {
     /// (a "bunny"), kept `linger` seconds (the full look where a mark
     /// lands, the hero there or not). No one is hurt by it.
     ImpactAtSpot { caster: Unit, spell: u32, at: Vec2, linger: f32 },
+    /// A line strikes with runners (`LineHit`'s `runners`, Stampede's beasts): a row of them
+    /// sets off behind `from` (the hero) across `width` yards either side of the line and runs to
+    /// `to` (its end), as `runners` says. A look only: no one is hurt by it.
+    LineRunners { from: Vec2, to: Vec2, width: f32, runners: esurv_content::LineRunners },
+    /// A `StrikeOne` with `reflection` (Blink Strike): a reflection of hero `hero` appears at
+    /// enemy `target`, strikes it with look `spell` and fades. A look only; the hero stays put.
+    ReflectionStrikes { hero: u32, target: u32, spell: u32 },
+    /// Spirits set off with lasting area `area` (`LeaveArea`'s `spirits`): they run beside hero
+    /// `hero` until `until`. A look only.
+    SpiritsAppeared { area: u32, hero: u32, until: f32, spirits: esurv_content::AreaSpirits },
+    /// Area `area`'s spirits strike, one enemy each of `targets` (what the area struck).
+    SpiritsStrike { area: u32, targets: Vec<u32> },
     /// A boss's counter `key` reads `label` (the adds it waits on: "Guards left 5/8"); a bar
     /// that does not count down.
     CounterShown { boss: u32, key: u32, label: String },
@@ -593,6 +625,9 @@ pub enum Event {
     /// The ally goes from where it stands to `to`, facing `facing`, there at run second `until`
     /// (`Blink` and `Step`: at once); `look_spell` played on it as it goes (a charge's look).
     AllyMoved { id: u32, to: Vec2, facing: f32, how: super::assists::AllyMove, until: f32, look_spell: Option<u32> },
+    /// The ally begins casting rotation spell `spell` (a `Spell.dbc` id) for `seconds`, aimed at
+    /// `aim`; it goes off as a `SpellGo` from `Unit::Ally(id)` when the cast is done.
+    AllyCastStarted { id: u32, spell: u32, seconds: f32, aim: Aim },
     /// The ally strikes enemy `target` in melee (the client plays its swing). Its spell looks
     /// come as `SpellGo` with `caster: Unit::Ally(id)`.
     AllySwing { id: u32, target: u32 },
@@ -1042,37 +1077,63 @@ impl Run {
     /// hero's height, in the hero's sight on open ground or walked to within the ring in a dungeon,
     /// when one can be found (blocked or unreachable spots re-roll as height
     /// misses do).
+    /// A spot that does not fit is first stepped in toward the hero along its direction
+    /// ([`SPAWN_STEP_IN`] at a time, down to [`spawn_inner_floor`], never nearer), so a hero beside a wall or a map edge still gets
+    /// spawns on that side, closer; only when no step fits is a new direction drawn.
     pub(crate) fn spawn_point(&mut self, h: usize, ring: (f32, f32)) -> Vec2 {
         let (centre, radius) = self.arena();
         let hero = &self.heroes[h];
         let (hpos, hheight) = (hero.pos, hero.height);
+        let clamp = |spot: Vec2| {
+            let from_centre = dist(spot, centre);
+            if from_centre > radius {
+                let k = radius / from_centre;
+                (centre.0 + (spot.0 - centre.0) * k, centre.1 + (spot.1 - centre.1) * k)
+            } else {
+                spot
+            }
+        };
+        let floor = spawn_inner_floor(ring);
         let mut spot = hpos;
         for _ in 0..SPAWN_TRIES {
             let angle = self.rng.range(0.0, std::f32::consts::TAU);
             let d = self.rng.range(ring.0, ring.1);
-            spot = (hpos.0 + d * angle.cos(), hpos.1 + d * angle.sin());
-            let from_centre = dist(spot, centre);
-            if from_centre > radius {
-                let k = radius / from_centre;
-                spot = (centre.0 + (spot.0 - centre.0) * k, centre.1 + (spot.1 - centre.1) * k);
+            let dir = (angle.cos(), angle.sin());
+            spot = clamp((hpos.0 + d * dir.0, hpos.1 + d * dir.1));
+            if self.spawn_spot_fits(hpos, hheight, spot, ring) {
+                return spot;
             }
-            let near = |g: f32| (g - hheight).abs() < SPAWN_HEIGHT_TOLERANCE;
-            let fits = match self.world.walk([hpos.0, hpos.1, hheight], spot, ring.1 * SPAWN_WALK_REACH) {
-                Walk::Straight => {
-                    let floor = self.world.floor(spot.0, spot.1, hheight).filter(|&g| near(g));
-                    let eye = |at: Vec2, z: f32| [at.0, at.1, z + SIGHT_HEIGHT];
-                    floor.is_some_and(|g| self.world.clear_line(eye(hpos, hheight), eye(spot, g)))
+            // step in from where the (clamped) spot lies, along the same direction
+            // (only a blocked draw pays for these: as many steps as reach the floor, the last
+            // one landing on it)
+            let start = dist(hpos, spot);
+            let steps = ((start - floor).max(0.0) / SPAWN_STEP_IN).ceil() as u32;
+            for k in 1..=steps {
+                let d = (start - SPAWN_STEP_IN * k as f32).max(floor);
+                let step = clamp((hpos.0 + d * dir.0, hpos.1 + d * dir.1));
+                if self.spawn_spot_fits(hpos, hheight, step, ring) {
+                    return step;
                 }
-                // in a dungeon the spot (drawn in the ring) is walked to, not seen; the
-                // walk's reach is searched, so it is never further than that
-                Walk::Reached { z, .. } => near(z),
-                Walk::Unreachable => false,
-            };
-            if fits {
-                break;
             }
         }
         spot
+    }
+
+    /// Whether `spot` can take a spawn for a hero at `hpos` / `hheight`: a floor near the hero's
+    /// height in the hero's sight on open ground, or walked to within the ring's reach in a dungeon.
+    fn spawn_spot_fits(&self, hpos: Vec2, hheight: f32, spot: Vec2, ring: (f32, f32)) -> bool {
+        let near = |g: f32| (g - hheight).abs() < SPAWN_HEIGHT_TOLERANCE;
+        match self.world.walk([hpos.0, hpos.1, hheight], spot, ring.1 * SPAWN_WALK_REACH) {
+            Walk::Straight => {
+                let floor = self.world.floor(spot.0, spot.1, hheight).filter(|&g| near(g));
+                let eye = |at: Vec2, z: f32| [at.0, at.1, z + SIGHT_HEIGHT];
+                floor.is_some_and(|g| self.world.clear_line(eye(hpos, hheight), eye(spot, g)))
+            }
+            // in a dungeon the spot (drawn in the ring) is walked to, not seen; the
+            // walk's reach is searched, so it is never further than that
+            Walk::Reached { z, .. } => near(z),
+            Walk::Unreachable => false,
+        }
     }
 
     fn alive_count(&self) -> usize {
@@ -1146,6 +1207,7 @@ impl Run {
             dots: Vec::new(),
             kit: Default::default(),
             elite: e.elite,
+            focus_as_elite: e.focus_as_elite,
             enraged: false,
             spawn_cost: e.spawn_cost,
             mech: Default::default(),
@@ -1219,6 +1281,7 @@ impl Run {
             dots: Vec::new(),
             kit: Default::default(),
             elite: false,
+            focus_as_elite: false,
             enraged: false,
             spawn_cost: 0.0,
             mech: Default::default(),
@@ -1906,10 +1969,11 @@ mod tests {
         assert_eq!(minutes, [3.0, 6.0, 9.0, 12.0, 16.0]);
         let zone = &run.content.zones[run.zone];
         let last = run.enemies.iter().find(|e| e.kind == EnemyKind::Boss(4)).unwrap();
-        // the final boss kind on the health clock at its arrival: 240 × 28 × growth^(D − 1) × clock(16 + a tick)
+        // the final boss kind on the health clock (to boss_clock_power) at its arrival: 240 × final kind × growth × clock(16 + a tick)^p
         let arrival = arrivals[4].1 / 60.0;
         let growth = run.content.balance.zone_scaling.health_factor(esurv_content::EnemyType::FinalBoss, zone.difficulty);
-        let want = 240.0 * 28.0 * growth * crate::game::enemy::time_curve(&run.content.balance.health_clock, arrival);
+        let b = &run.content.balance;
+        let want = 240.0 * b.final_boss.health * growth * crate::game::enemy::time_curve(&b.health_clock, arrival).powf(b.boss_clock_power);
         assert!((last.max_health - want).abs() / want < 1e-3, "{} vs {want}", last.max_health);
     }
 
@@ -2347,6 +2411,77 @@ mod tests {
             let crow = dist(hero, spot);
             assert!((20.0 - 0.01..=40.0 + 0.01).contains(&crow), "{spot:?} is {crow} yd out");
             assert!(1.8 * crow <= 40.0 * SPAWN_WALK_REACH, "{spot:?} is {} yd on foot", 1.8 * crow);
+        }
+    }
+
+    /// Level ground at one height with a wall running north-south at `x`: nothing on or past it
+    /// is in sight.
+    struct WallAtX(f32, f32);
+
+    impl World for WallAtX {
+        fn height(&self, _x: f32, _y: f32) -> Option<f32> {
+            Some(self.0)
+        }
+        fn clear_line(&self, _from: [f32; 3], to: [f32; 3]) -> bool {
+            to[0] < self.1
+        }
+    }
+
+    #[test]
+    fn beside_a_wall_spawns_step_in_toward_the_hero_but_not_too_near() {
+        let content = content();
+        let z = content.zones.iter().find(|z| z.id == "elwynn").unwrap().spawn.z;
+        let mut run = Run::new(content.clone(), "elwynn", RunOptions::default(), &[hero()], Box::new(Flat), 7).unwrap();
+        let hero = run.heroes[0].pos;
+        let wall = hero.0 + 25.0;
+        run.world = Box::new(WallAtX(z, wall));
+        run.heroes[0].height = z;
+        let ring = (30.0, 40.0);
+        let mut closer_toward_wall = 0;
+        for _ in 0..400 {
+            let spot = run.spawn_point(0, ring);
+            let d = dist(hero, spot);
+            assert!(spot.0 < wall, "{spot:?} is in or behind the wall at x {wall}");
+            assert!(d >= spawn_inner_floor(ring) - 0.01, "{spot:?} is only {d} yd out");
+            if spot.0 > hero.0 + 10.0 && d < ring.0 {
+                closer_toward_wall += 1;
+            }
+        }
+        assert!(closer_toward_wall > 0, "no spawn came in on the wall's side");
+    }
+
+    #[test]
+    fn a_wall_12_yd_away_still_gets_spawns_on_its_side_from_15_yd() {
+        let content = content();
+        let z = content.zones.iter().find(|z| z.id == "elwynn").unwrap().spawn.z;
+        let mut run = Run::new(content.clone(), "elwynn", RunOptions::default(), &[hero()], Box::new(Flat), 7).unwrap();
+        let hero = run.heroes[0].pos;
+        let wall = hero.0 + 12.0;
+        run.world = Box::new(WallAtX(z, wall));
+        run.heroes[0].height = z;
+        let ring = (30.0, 40.0);
+        let mut on_wall_side = 0;
+        for _ in 0..400 {
+            let spot = run.spawn_point(0, ring);
+            let d = dist(hero, spot);
+            assert!(spot.0 < wall, "{spot:?} is in or behind the wall at x {wall}");
+            assert!(d >= spawn_inner_floor(ring) - 0.01, "{spot:?} is only {d} yd out");
+            if spot.0 > hero.0 + 5.0 {
+                on_wall_side += 1;
+            }
+        }
+        assert!(on_wall_side > 0, "no spawn came on the wall's side");
+    }
+
+    #[test]
+    fn on_open_ground_spawns_stay_in_the_full_ring() {
+        let content = content();
+        let mut run = Run::new(content, "elwynn", RunOptions::default(), &[hero()], Box::new(Flat), 7).unwrap();
+        run.heroes[0].height = 0.0;
+        let hero = run.heroes[0].pos;
+        for _ in 0..400 {
+            let d = dist(hero, run.spawn_point(0, (30.0, 40.0)));
+            assert!((30.0 - 0.01..=40.0 + 0.01).contains(&d), "{d} yd out");
         }
     }
 

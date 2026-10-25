@@ -11,16 +11,19 @@
 //!   no taunt of its own holds, or at its time (`seconds`, else `assist_seconds`). Nothing hurts
 //!   it; enemies come at it only while it taunts them.
 //! - **Its damage** is its own (`assist_hit`, `HitSource::Assist(character)`): no hero bonus, no
-//!   crit, nothing of the hero's set off; its kills give the hero their rewards. Its crowd control
+//!   crit, nothing of the hero's set off; its kills give the hero their rewards. Every damage event
+//!   deals `balance.battle_standard.assist_damage_per_second` for the enemy's kind × its max health
+//!   × the seconds the event stands for (`assist_damage`). Its crowd control
 //!   on bosses and rares goes through `apply_on_hit`, the hero's own rules; on other enemies a stun
 //!   or root holds its full time (`assist_effect`).
 
-use esurv_content::{AreaAt, AssistStep, Damage, EnemyType, Leave, Leaving, Movement, OverTime, SpellEffect, Stat, Targets};
+use esurv_content::{AreaAt, AssistStep, Leave, Leaving, MoveStyle, Movement, OverTime, SpellEffect, Stat, Targets};
+
+use super::assist_rotation::{Rotation, GLOBAL_COOLDOWN};
 
 use super::boss_abilities::CHARGE_SPEED;
 use super::casting::{HitSource, Totem, AREA_LOOK_AFTER, AREA_SPOTS, HOLD_BOSS_SHARE, TOTEM_OFFSET};
 use super::director::FIRST_ELITE;
-use super::enemy::{health_and_damage, RUN_FACTOR};
 use super::enemy_ai::{chase, reach, Segment, Vec2};
 use super::loot::{Pickup, CACHE_RING};
 use super::pets::{PET_APPEAR_DISTANCE, PET_CHASE_STOP_SHORT};
@@ -44,9 +47,6 @@ pub const CHARGE_LOOK: u32 = 100;
 /// The ways of leaving with a look of their own: Vanish's and the Hearthstone's.
 pub const VANISH_LOOK: u32 = 1856;
 pub const HEARTH_LOOK: u32 = 8690;
-/// An ally stays at least this long, so it is seen and the looks of a script of instant steps
-/// play out.
-pub const ALLY_LEAST_STAY: f32 = 5.0;
 /// At most this many steps of one ally run in a tick (a repeat of instant steps every 0 s ends).
 const STEPS_PER_TICK: usize = 100;
 
@@ -61,6 +61,11 @@ pub enum AllyMove {
     Blink,
     /// A step beside the enemy it strikes in melee: there at once.
     Step,
+    /// A strafe to its left or right, facing its enemy (its rotation in melee).
+    StrafeLeft,
+    StrafeRight,
+    /// A jump: through the air to where it lands.
+    Jump,
 }
 
 /// Steps being run: the script's own, or a repeat's.
@@ -89,11 +94,11 @@ pub struct Ally {
     pub character: String,
     pub segment: Segment,
     pub facing: f32,
-    /// It leaves at the latest then.
+    /// Its stay ends then (its arrival plus its script's time, else `assist_seconds`): it leaves
+    /// then, or once the last cast of its rotation lands when its script ran late.
     pub until: f32,
-    /// It stays at least until then: its arrival plus `ALLY_LEAST_STAY`, and the written end of
-    /// each of its taunts (an enemy it taunted dying, or a boss held a quarter, ends no stay).
-    pub stays_until: f32,
+    /// How it makes the move its segment is (a run, a strafe, a jump).
+    pub moving: AllyMove,
     /// Its next step waits until then.
     pub busy_until: f32,
     pub frames: Vec<Frame>,
@@ -103,6 +108,11 @@ pub struct Ally {
     pub taunts: Vec<(u32, f32)>,
     pub taunting: bool,
     pub leave: Leaving,
+    /// What it does once its script is done (`game::assist_rotation`).
+    pub rotation: Rotation,
+    /// The share of its script's heals the script heals (`Rotation::share`), each of its
+    /// rotation's casts healing as much again.
+    pub share: f32,
 }
 
 /// A ground area an ally left.
@@ -117,17 +127,22 @@ pub struct AllyArea {
     pub every: f32,
     pub next: f32,
     pub until: f32,
-    pub damage: Option<Damage>,
+    /// Each pulse deals the assist's damage for `every` seconds.
+    pub damage: bool,
     pub effects: Vec<SpellEffect>,
+    /// Its look (`Spell.dbc`): the same ally laying one of the same look again ends this one.
+    pub spell: u32,
+    /// It strikes at most this many each time (0: every enemy inside), the nearest its middle first.
+    pub most: u32,
 }
 
-/// Damage over time an ally's hit left on an enemy.
+/// Damage over time an ally's hit left on an enemy: each tick the assist's damage for `every`
+/// seconds. The same assist putting it on again renews it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AllyDot {
     pub enemy: u32,
     pub hero: usize,
     pub character: String,
-    pub damage: Damage,
     pub every: f32,
     pub next: f32,
     pub until: f32,
@@ -145,14 +160,15 @@ pub struct AllyBuff {
     pub until: f32,
 }
 
-/// A bolt an assist's ranged pet cast, landing at `at` on `enemy` for the assist's `damage`.
+/// A bolt an assist's ranged pet cast, landing at `at` on `enemy` for the assist's damage for
+/// `seconds` (the pet's attack interval).
 #[derive(Debug, Clone, PartialEq)]
 pub struct AllyBolt {
     pub hero: usize,
     pub pet: u32,
     pub enemy: u32,
     pub at: f32,
-    pub damage: Damage,
+    pub seconds: f32,
 }
 
 /// The run-wide state of battle standards and allies.
@@ -174,6 +190,9 @@ pub struct Assists {
     pub buffs: Vec<AllyBuff>,
     /// Bolts of assists' pets on their way.
     pub bolts: Vec<AllyBolt>,
+    /// While one damage event of several steps runs (a rotation cast landing, a channel's tick):
+    /// the enemies it has struck, each taking its damage once.
+    pub event_struck: Option<Vec<u32>>,
 }
 
 /// When a run's battle standards are due: `per_run.0` to `per_run.1` of them (evenly), each at a
@@ -283,20 +302,30 @@ impl Run {
         // beside the hero, on its left; or beside the enemy the arrival picks
         let side = hero_facing + std::f32::consts::FRAC_PI_2;
         let mut at = (hero_pos.0 + side.cos() * ALLY_BESIDE_HERO, hero_pos.1 + side.sin() * ALLY_BESIDE_HERO);
+        // its stay: its script, then its rotation, the script's heals spread over both
+        let until = now + script.longest(rules.assist_seconds);
+        let (style, spells) = match content.behaviour_of(c) {
+            Some(b) => (b.style, b.rotation.iter().filter_map(|s| content.assist_spell(*s).copied()).collect()),
+            None => (MoveStyle::Melee, Vec::new()),
+        };
+        let rotation = Rotation::planned(style, spells, script.damage_round(), now + script.written_seconds(), until);
+        let share = rotation.share();
         let mut ally = Ally {
             id,
             hero: h,
             character: c.id.clone(),
             segment: Segment::standing(at, now),
             facing: hero_facing,
-            until: now + script.longest(rules.assist_seconds),
+            until,
+            moving: AllyMove::Run,
             busy_until: now,
-            stays_until: now + ALLY_LEAST_STAY,
             frames: vec![Frame { steps: script.steps.clone(), next: 0, times: 1, every: 0.0, started: now, passes: 1, pick_before: Vec::new() }],
             picked: Vec::new(),
             taunts: Vec::new(),
             taunting: false,
             leave: script.leave.clone(),
+            rotation,
+            share,
         };
         if let Some(t) = &script.arrive.beside {
             let picked = self.pick_targets(&ally, t);
@@ -346,7 +375,7 @@ impl Run {
         let (landed, flying): (Vec<AllyBolt>, Vec<AllyBolt>) = std::mem::take(&mut self.assists.bolts).into_iter().partition(|b| b.at <= now);
         self.assists.bolts = flying;
         for b in landed {
-            let amount = self.assist_damage(b.enemy, b.damage);
+            let amount = self.assist_damage(b.enemy, b.seconds);
             self.assist_hit_as(b.hero, b.enemy, amount, HitSource::Pet(b.pet));
         }
     }
@@ -369,14 +398,17 @@ impl Run {
         }
         for _ in 0..STEPS_PER_TICK {
             let a = &mut self.assists.allies[k];
-            if now >= a.until {
+            // its script still running at the end of its stay: it goes whatever is left
+            if now >= a.until && !a.frames.is_empty() {
                 return self.ally_leaves(k);
             }
             if now < a.busy_until {
                 return;
             }
+            let depth = a.frames.len();
             let Some(f) = a.frames.last_mut() else {
-                if a.taunts.is_empty() && now >= a.stays_until {
+                // its script done: its rotation until its stay ends
+                if self.ally_rotation_tick(k) {
                     return self.ally_leaves(k);
                 }
                 return;
@@ -384,7 +416,9 @@ impl Run {
             if f.next < f.steps.len() {
                 let step = f.steps[f.next].clone();
                 f.next += 1;
-                let takes = self.ally_step(k, &step);
+                // a hit of the script stands for one global cooldown, one of a repeat for its beat
+                let seconds = if depth > 1 && f.every > 0.0 { f.every } else { GLOBAL_COOLDOWN };
+                let takes = self.ally_step(k, &step, seconds);
                 let a = &mut self.assists.allies[k];
                 a.busy_until = a.busy_until.max(now + takes);
                 continue;
@@ -413,6 +447,12 @@ impl Run {
         let now = self.now;
         if a.taunting {
             self.push(Event::AllyTaunting { id: a.id, taunting: false });
+        }
+        // a channel cut short: its ticks stop and its storm goes
+        if let Some(ch) = &a.rotation.channeling {
+            if now < ch.ends + super::casting::AREA_LOOK_AFTER {
+                self.push(Event::AreaGone { id: ch.area });
+            }
         }
         let content = self.content.clone();
         if let Some(c) = content.player_characters.iter().find(|c| c.id == a.character) {
@@ -463,7 +503,7 @@ impl Run {
                 .unwrap_or_default()
         };
         // a boss, else a rare, else an elite, else the most max health
-        let rank = |e: &EnemyUnit| if e.is_boss() { 0 } else if e.is_rare() { 1 } else if e.elite { 2 } else { 3 };
+        let rank = |e: &EnemyUnit| if e.is_boss() { 0 } else if e.is_rare() { 1 } else if e.ranks_as_elite() { 2 } else { 3 };
         let strongest = |x: &EnemyUnit, y: &EnemyUnit| rank(x).cmp(&rank(y)).then(y.max_health.total_cmp(&x.max_health));
         match *t {
             Targets::Nearest(n) => on_screen.into_iter().take(n as usize).collect(),
@@ -478,30 +518,25 @@ impl Run {
         }
     }
 
-    /// What `damage` deals to enemy `id` from an ally: a share of its max health, on a boss or a
-    /// rare at most that share of a normal enemy's max health in this zone at this minute.
-    pub(crate) fn assist_damage(&self, id: u32, damage: Damage) -> f32 {
+    /// What an assist's damage event standing for `seconds` deals to enemy `id`: the assist rate
+    /// for its kind (`balance.battle_standard.assist_damage_per_second`: `normal`, or
+    /// `elite_rare_boss` on an elite, a rare or a boss) × its max health × `seconds`.
+    pub(crate) fn assist_damage(&self, id: u32, seconds: f32) -> f32 {
         let Some(e) = self.enemy(id) else { return 0.0 };
-        match damage {
-            Damage::Flat(v) => v,
-            Damage::MaxHealthShare(s) => {
-                let hit = s * e.max_health;
-                if e.is_boss() || e.is_rare() {
-                    let (normal, _) = health_and_damage(&self.content.balance, EnemyType::Normal, self.zone(), self.now / 60.0, self.endless_minutes(), &self.options, RUN_FACTOR);
-                    hit.min(s * normal)
-                } else {
-                    hit
-                }
-            }
-        }
+        let rates = self.content.balance.battle_standard.assist_damage_per_second;
+        let rate = if e.is_boss() || e.is_rare() || e.elite { rates.elite_rare_boss } else { rates.normal };
+        rate * e.max_health * seconds
     }
 
-    /// Runs one step of ally `k`; returns the seconds it takes.
-    fn ally_step(&mut self, k: usize, step: &AssistStep) -> f32 {
+    /// Runs one step of ally `k`; returns the seconds it takes. A damaging hit deals the assist's
+    /// damage for `seconds` (what the hit stands for); a ground area's pulses and an effect over
+    /// time's ticks for their interval. Its heals are dealt at the ally's `share` (the rest comes
+    /// with its rotation's casts).
+    pub(crate) fn ally_step(&mut self, k: usize, step: &AssistStep, seconds: f32) -> f32 {
         let now = self.now;
-        let (id, h, character) = {
+        let (id, h, character, share) = {
             let a = &self.assists.allies[k];
-            (a.id, a.hero, a.character.clone())
+            (a.id, a.hero, a.character.clone(), a.share)
         };
         let me = Unit::Ally(id);
         match step {
@@ -547,34 +582,46 @@ impl Run {
                     let hits = picked.iter().map(|&e| Unit::Enemy(e)).collect();
                     self.push(Event::SpellGo { caster: me, spell: *spell, hits, aim: Aim::Unit(Unit::Enemy(first)), ammo: false, reach: 0.0, triggered: false });
                 }
+                let damage = damage.then_some(seconds);
                 for e in picked {
-                    self.ally_strikes(h, id, &character, e, *damage, effects, wears, over_time.as_ref());
+                    self.ally_strikes(h, id, &character, e, damage, effects, wears, over_time.as_ref());
                 }
                 0.0
             }
-            AssistStep::Area { at, radius, seconds, every, damage, effects, look_spell } => {
+            AssistStep::Area { at, radius, seconds: lasts, every, damage, effects, look_spell, most } => {
                 let spot = match at {
                     AreaAt::Hero => self.heroes[h].pos,
                     AreaAt::Ally => self.assists.allies[k].segment.position(now),
                     AreaAt::BiggestPack => self.biggest_pack(h, *radius),
                 };
+                // the same ally's earlier area of this look ends: one at a time
+                let old: Vec<u32> = self.assists.areas.iter().filter(|x| x.ally == id && x.spell == *look_spell).map(|x| x.id).collect();
+                self.assists.areas.retain(|x| !old.contains(&x.id));
+                for gone in old {
+                    self.push(Event::AreaGone { id: gone });
+                }
                 let area = self.new_id();
-                self.push(Event::AreaShown { id: area, caster: me, spell: *look_spell, at: spot, radius: *radius, until: Some(now + seconds + AREA_LOOK_AFTER) });
+                self.push(Event::AreaShown { id: area, caster: me, spell: *look_spell, at: spot, radius: *radius, until: Some(now + lasts + AREA_LOOK_AFTER) });
+                let every = every.max(0.05);
                 self.assists.areas.push(AllyArea {
                     id: area,
                     ally: id,
                     hero: h,
-                    character,
+                    character: character.clone(),
                     at: spot,
                     radius: *radius,
-                    every: every.max(0.05),
-                    next: now,
-                    until: now + seconds,
+                    every,
+                    next: now + every,
+                    until: now + lasts,
                     damage: *damage,
                     effects: effects.clone(),
+                    spell: *look_spell,
+                    most: *most,
                 });
-                // its first strike at once
-                self.ally_areas_tick();
+                // its first pulse at once, on what is inside now
+                for e in self.enemies_nearest_within(spot, *radius, *most) {
+                    self.ally_strikes(h, id, &character, e, damage.then_some(every), effects, &[], None);
+                }
                 0.0
             }
             AssistStep::Buff { stats, seconds, heal, every, immune, look_spell, totem } => {
@@ -614,23 +661,18 @@ impl Run {
                 }
                 0.0
             }
-            AssistStep::Heal { share, look_spell } => {
+            AssistStep::Heal { share: heal_share, look_spell } => {
                 let hero = Unit::Hero(self.heroes[h].id);
                 if let Some(spell) = look_spell {
                     self.push(Event::SpellGo { caster: me, spell: *spell, hits: vec![hero], aim: Aim::Unit(hero), ammo: false, reach: 0.0, triggered: false });
                 }
                 let max = self.heroes[h].stats.max_health;
-                self.heal_hero(h, share * max, 0);
+                self.heal_hero(h, heal_share * share * max, 0);
                 0.0
             }
             AssistStep::Taunt { targets, seconds, look_spell } => {
                 let picked = self.pick_targets(&self.assists.allies[k], targets);
                 self.assists.allies[k].picked = picked.clone();
-                if !picked.is_empty() {
-                    // the ally stays the taunt's written time (up to its own)
-                    let a = &mut self.assists.allies[k];
-                    a.stays_until = a.stays_until.max(now + seconds);
-                }
                 for e in picked {
                     let Some(enemy) = self.enemies.iter_mut().find(|x| x.id == e) else { continue };
                     // a boss is held a quarter of the time
@@ -651,16 +693,13 @@ impl Run {
                 }
                 0.0
             }
-            AssistStep::Summon { pet, count, seconds, damage } => {
+            AssistStep::Summon { pet, count, seconds: lasts } => {
                 let spot = self.assists.allies[k].segment.position(now);
-                // its attacks are the assist's damage: as written, else the pet's own in points
-                let own = self.content.pets.iter().find(|x| &x.name == pet).map_or(0.0, |x| x.damage);
-                let damage = damage.unwrap_or(Damage::Flat(own));
+                // its attacks are the assist's damage, each for the pet's attack interval
                 for _ in 0..*count {
-                    if let Some(p) = self.summon_pet_at(h, pet, Some(now + seconds), Some(spot)) {
+                    if let Some(p) = self.summon_pet_at(h, pet, Some(now + lasts), Some(spot)) {
                         if let Some(unit) = self.pets.iter_mut().find(|x| x.id == p) {
                             unit.assist = Some(character.clone());
-                            unit.assist_damage = Some(damage);
                         }
                         self.push(Event::AllyDropped { id, unit: Unit::Pet(p) });
                     }
@@ -675,17 +714,18 @@ impl Run {
                 }
                 0.0
             }
-            AssistStep::Wait { seconds } => *seconds,
+            AssistStep::Wait { seconds: waits } => *waits,
         }
     }
 
     /// Ally `k` goes to `to`, then faces `look_at`, taking `takes` seconds.
-    fn move_ally(&mut self, k: usize, to: Vec2, look_at: Vec2, how: AllyMove, takes: f32, look_spell: Option<u32>) {
+    pub(crate) fn move_ally(&mut self, k: usize, to: Vec2, look_at: Vec2, how: AllyMove, takes: f32, look_spell: Option<u32>) {
         let now = self.now;
         let a = &mut self.assists.allies[k];
         let from = a.segment.position(now);
         a.facing = facing(to, look_at, facing(from, to, a.facing));
         a.segment = Segment { from, to, start: now, duration: takes };
+        a.moving = how;
         let (id, facing) = (a.id, a.facing);
         self.push(Event::AllyMoved { id, to, facing, how, until: now + takes, look_spell });
     }
@@ -701,14 +741,26 @@ impl Run {
         spots.into_iter().find(|&p| count(p) == most).unwrap_or(hero)
     }
 
-    /// The ally of hero `h` strikes enemy `e`: its damage, its effects through the hero's own
-    /// rules, a mark worn while they hold, and damage over time.
+    /// The ally of hero `h` strikes enemy `e`: with `damage`, the assist's damage for that many
+    /// seconds (once an event when one runs, `Assists::event_struck`), its effects through the
+    /// hero's own rules, a mark worn while they hold, and damage over time (renewed, never stacked).
     #[allow(clippy::too_many_arguments)]
-    fn ally_strikes(&mut self, h: usize, ally: u32, character: &str, e: u32, damage: Option<Damage>, effects: &[SpellEffect], wears: &[u32], over_time: Option<&OverTime>) {
+    pub(crate) fn ally_strikes(&mut self, h: usize, ally: u32, character: &str, e: u32, damage: Option<f32>, effects: &[SpellEffect], wears: &[u32], over_time: Option<&OverTime>) {
         let now = self.now;
         let mut dealt = 0.0;
-        if let Some(d) = damage {
-            let amount = self.assist_damage(e, d);
+        let damage = match self.assists.event_struck.as_mut() {
+            Some(struck) if damage.is_some() => {
+                if struck.contains(&e) {
+                    None
+                } else {
+                    struck.push(e);
+                    damage
+                }
+            }
+            _ => damage,
+        };
+        if let Some(seconds) = damage {
+            let amount = self.assist_damage(e, seconds);
             match self.assist_hit(h, e, amount, character) {
                 Some(x) => dealt = x,
                 None => return,
@@ -730,7 +782,8 @@ impl Run {
         }
         if let Some(o) = over_time {
             let every = o.every.max(0.05);
-            self.assists.dots.push(AllyDot { enemy: e, hero: h, character: character.to_string(), damage: o.damage, every, next: now + every, until: now + o.seconds });
+            self.assists.dots.retain(|d| !(d.enemy == e && d.character == character));
+            self.assists.dots.push(AllyDot { enemy: e, hero: h, character: character.to_string(), every, next: now + every, until: now + o.seconds });
             if let Some(spell) = o.look_spell {
                 self.push(Event::AuraShown { target: Unit::Enemy(e), spell, until: now + o.seconds, from });
             }
@@ -801,7 +854,17 @@ impl Run {
             .fold(now, f32::max)
     }
 
-    /// Allies' ground areas strike every enemy inside at each of their times.
+    /// The enemies within `radius` yd of `at`, the nearest first, at most `most` of them (0: all).
+    pub(crate) fn enemies_nearest_within(&self, at: Vec2, radius: f32, most: u32) -> Vec<u32> {
+        let mut v: Vec<(f32, u32)> = self.enemies_within(at, radius).into_iter().filter_map(|e| self.enemy_pos(e).map(|p| (dist(p, at), e))).collect();
+        v.sort_by(|x, y| x.0.total_cmp(&y.0));
+        if most > 0 {
+            v.truncate(most as usize);
+        }
+        v.into_iter().map(|x| x.1).collect()
+    }
+
+    /// Allies' ground areas strike every enemy inside (or the nearest `most`) at each of their times.
     fn ally_areas_tick(&mut self) {
         let now = self.now;
         let mut strikes = Vec::new();
@@ -813,8 +876,8 @@ impl Run {
         }
         self.assists.areas.retain(|a| a.next < a.until - 1e-4);
         for a in strikes {
-            for e in self.enemies_within(a.at, a.radius) {
-                self.ally_strikes(a.hero, a.ally, &a.character, e, a.damage, &a.effects, &[], None);
+            for e in self.enemies_nearest_within(a.at, a.radius, a.most) {
+                self.ally_strikes(a.hero, a.ally, &a.character, e, a.damage.then_some(a.every), &a.effects, &[], None);
             }
         }
     }
@@ -832,7 +895,7 @@ impl Run {
         let alive: Vec<u32> = self.enemies.iter().map(|e| e.id).collect();
         self.assists.dots.retain(|d| d.next <= d.until + 1e-4 && alive.contains(&d.enemy));
         for d in ticks {
-            let amount = self.assist_damage(d.enemy, d.damage);
+            let amount = self.assist_damage(d.enemy, d.every);
             if amount > 0.0 {
                 self.assist_hit(d.hero, d.enemy, amount, &d.character);
             }
