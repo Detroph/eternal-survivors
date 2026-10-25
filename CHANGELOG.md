@@ -3,6 +3,15 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.5.1
+
+A small fix.
+
+### Changelog
+
+**Fixes**
+- Two talent tooltips now show the right numbers: the Frost mage milestone that roots on hit (8 %, not 10 %) and the Paladin milestone that starts you with Exorcism (Seal of Command +70 %, not 59 %).
+
 ## v0.5.0
 
 The Challenge Mode update.
