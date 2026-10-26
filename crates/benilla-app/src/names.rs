@@ -322,13 +322,17 @@ const CACHE_FORMAT: u32 = 2;
 const CACHE_BUILD: u32 = 5875;
 /// In the header as in the reference's; benilla reads DBC locale slot 0 only.
 const CACHE_LOCALE: &str = "enUS";
+/// This program's version, our field: an update may give an entry to another creature (a pet
+/// list that grew), so a cache written by another version starts afresh.
+const CACHE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 impl NameCache {
     /// Serialize as TSV: the header line, then one line per creature record. In-flight asks are
     /// not written.
     pub(crate) fn to_tsv(&self, realm: &str) -> String {
-        let mut out =
-            format!("{CACHE_MAGIC}\t{CACHE_FORMAT}\t{CACHE_BUILD}\t{CACHE_LOCALE}\t{realm}\n");
+        let mut out = format!(
+            "{CACHE_MAGIC}\t{CACHE_FORMAT}\t{CACHE_BUILD}\t{CACHE_LOCALE}\t{realm}\t{CACHE_VERSION}\n"
+        );
         for (entry, rec) in self.creatures.iter() {
             match rec {
                 Some(r) => out.push_str(&format!(
@@ -354,12 +358,13 @@ impl NameCache {
     pub(crate) fn from_tsv(text: &str, realm: &str) -> Option<Self> {
         let mut lines = text.lines();
         let header: Vec<&str> = lines.next()?.split('\t').collect();
-        if header.len() != 5
+        if header.len() != 6
             || header[0] != CACHE_MAGIC
             || header[1] != CACHE_FORMAT.to_string()
             || header[2] != CACHE_BUILD.to_string()
             || header[3] != CACHE_LOCALE
             || header[4] != realm
+            || header[5] != CACHE_VERSION
         {
             return None;
         }
@@ -841,6 +846,7 @@ mod tests {
             (1, "999"),  // format version
             (2, "5876"), // client build
             (3, "frFR"), // locale
+            (5, "0.0.1"), // another version of this program
         ] {
             let mut parts: Vec<&str> = head.split('\t').collect();
             parts[field] = bad;
