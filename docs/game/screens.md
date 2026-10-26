@@ -1008,7 +1008,8 @@ unit-tested, for the hero sheet to draw:
 | `item_icons` | a piece's icon from the player's own `ItemDisplayInfo.dbc`, else its slot's empty picture |
 | `codex` | the codex's lists (rings, trinkets, amulets, and a remade legendary amulet for every class spell whose delivery kind has a recipe in `legendary_amulets.ron`), how many of each are found, the pages (12 pieces a page; the legendary amulets a class a page, the hero's class first), and `CodexState`: the server's `Codex` (`ESURVK`) with the list and page shown |
 
-The codex keeps every ring, trinket and amulet taken during play, by any hero of the save, for
+The codex keeps every ring, trinket and amulet offered during play (seen on a card, taken or
+not, as the reference's codex), to any hero of the save, for
 good. Before a run the hero sheet
 reads and changes them through the app's `prerun::PreRunLink` (the same `Progress`, `Codex` and
 armory requests, as asks of their own: [server.md](server.md), "Before a run").

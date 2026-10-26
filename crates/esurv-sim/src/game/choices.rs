@@ -62,8 +62,8 @@ pub enum Offer {
 }
 
 impl Offer {
-    /// The codex entry taking this offer collects: a new ring or trinket, or a new necklace
-    /// (ordinary or legendary), by its id.
+    /// The codex entry this offer collects once its card is shown: a new ring or trinket, or a
+    /// new necklace (ordinary or legendary), by its id.
     pub fn codex_entry(&self) -> Option<&str> {
         match self {
             Offer::NewJewelry { id, .. } => Some(id),
