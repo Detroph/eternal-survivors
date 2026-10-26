@@ -1042,7 +1042,7 @@ fn camp_parts(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Op
             .insert(MenuAction::DeleteHero);
         });
     });
-    // the game's own ways out, at the very bottom left: Options over Quit game
+    // the game's own ways out, at the very bottom left: Options over Quit game, the version under them
     r.spawn((
         Node {
             position_type: PositionType::Absolute,
@@ -1074,6 +1074,8 @@ fn camp_parts(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Op
             Some(CORNER_BUTTON),
         )
         .insert(MenuAction::QuitGame);
+        // the version played, small under them
+        corner.spawn(look.text(Face::Narrow, 10.0, palette::LABEL, format!("v{}", env!("CARGO_PKG_VERSION"))));
     });
 }
 

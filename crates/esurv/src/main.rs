@@ -147,6 +147,7 @@ fn start_server(live: Arc<LiveContent>) -> Result<Started> {
     let saves = Arc::new(esurv_server::save::Saves::open(
         &save_path().context("no folder to keep the heroes in")?,
     )?);
+    saves.rein_in(&content);
     let data = match benilla_formats::wow_data() {
         Some(dir) => match esurv_server::ground::GameData::open(&dir, &content) {
             Ok(d) => Some(d),

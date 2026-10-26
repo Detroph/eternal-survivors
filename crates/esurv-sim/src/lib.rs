@@ -57,4 +57,5 @@ pub mod game {
     pub mod tally;
     pub mod telegraphs;
     pub mod upgrades;
+    pub mod xp_ceiling;
 }

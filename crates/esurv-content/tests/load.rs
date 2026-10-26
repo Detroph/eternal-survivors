@@ -498,7 +498,7 @@ fn finer_prestige_steps_show_their_digits() {
 
 /// Every class has its three weapon loadouts (roadmap R3): the swinging
 /// classes' each swing, two-handers at 3.6 s for twice the damage, one-handers at 1.8 s, dual
-/// wield a slow main hand and a fast off hand at half damage; the casters' never swing; a loadout
+/// wield a main hand and an off hand at a share of its damage; the casters' never swing; a loadout
 /// id the class lacks falls back to its first.
 #[test]
 fn every_class_has_three_loadouts_with_their_swings() {
@@ -516,7 +516,7 @@ fn every_class_has_three_loadouts_with_their_swings() {
     let swing = |class: &str, id: &str| c.loadout(class, Some(id)).unwrap().swings();
     let at = |seconds, share| WeaponSwing { seconds, share };
     assert_eq!(swing("warrior", "two_hander"), [at(3.6, 2.0)]);
-    assert_eq!(swing("warrior", "dual_wield"), [at(2.6, 1.0), at(1.6, 0.4)]);
+    assert_eq!(swing("warrior", "dual_wield"), [at(2.6, 1.0), at(2.4, 0.4)]);
     assert_eq!(swing("warrior", "shield"), [at(1.8, 1.0)]);
     assert_eq!(swing("rogue", "daggers"), [at(1.4, 1.0), at(1.4, 0.5)]);
     assert_eq!(swing("hunter", "bow"), [at(2.2, 0.9)]);

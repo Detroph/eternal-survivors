@@ -70,7 +70,7 @@ pub(crate) struct SpellVisuals(pub(crate) SpellVisualCatalog);
 pub(crate) enum SpellKitSound {
     /// Ring this kit at the unit; a looping kit (`SoundEntries` flag 0x200) becomes the unit's
     /// tracked hold loop until [`Self::StopHold`] (`0x458830` → `0x61fec0`, one-shot `0x458870`).
-    Play { entity: Entity, kit_sound: u32 },
+    Play { entity: Entity, kit_sound: u32, spell_id: u32 },
     /// The cast or channel hold ended: stop the unit's hold loop (`0x614150`).
     StopHold { entity: Entity },
     /// Ring this kit at a world point, the kit play's `extra` override (`0x60f49e`): a missile's
@@ -460,7 +460,7 @@ fn play_kit(
         }
     }
     if let Some(kit_sound) = kit.sound.filter(|_| play.sound) {
-        out.sounds.write(SpellKitSound::Play { entity, kit_sound });
+        out.sounds.write(SpellKitSound::Play { entity, kit_sound, spell_id });
     }
     // The camera shake plays at every stage, gated on nothing.
     if let Some(group) = kit.shake {
@@ -554,7 +554,7 @@ fn play_impact(
     if let Some(kit_sound) = resolve_stages(spells, visuals, spell_id, || weapon_visual)
         .and_then(|s| arrow_landing_sound(&s))
     {
-        out.sounds.write(SpellKitSound::Play { entity, kit_sound });
+        out.sounds.write(SpellKitSound::Play { entity, kit_sound, spell_id });
     }
 }
 
@@ -711,6 +711,7 @@ pub(super) fn route_cast_visuals(
                         out.sounds.write(SpellKitSound::Play {
                             entity: ev.entity,
                             kit_sound,
+                            spell_id: ev.spell_id,
                         });
                     }
                     // Persistent until the cast resolves, re-armed forever (stage 4).
@@ -953,7 +954,7 @@ pub(super) fn route_cast_visuals(
                     pending.insert(entity, Some(cur));
                 }
                 if let Some(kit_sound) = kit.sound {
-                    out.sounds.write(SpellKitSound::Play { entity, kit_sound });
+                    out.sounds.write(SpellKitSound::Play { entity, kit_sound, spell_id: cur });
                 }
                 // The CharProc dispatcher's second caller (`0x612b18`): Drain Life's beam is
                 // reached only here, on the rising edge, and lives until the field clears.
@@ -1111,7 +1112,7 @@ pub(crate) fn arm_aura_state_fx(
             }
             // Ungated; a same-frame duplicate of the impact hand-off's collapses downstream.
             if let Some(kit_sound) = kit.sound {
-                sounds.write(SpellKitSound::Play { entity, kit_sound });
+                sounds.write(SpellKitSound::Play { entity, kit_sound, spell_id });
             }
             // The stage-2 anim leg, on the add edge only: an aura refreshed in place keeps its id,
             // and `0x604d00` fires neither arm.

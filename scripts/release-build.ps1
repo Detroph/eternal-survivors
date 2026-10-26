@@ -48,6 +48,12 @@ Remove-Item Env:RUSTFLAGS -ErrorAction SilentlyContinue
 if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '8' }
 $targetDir = Join-Path $Junction 'target\player'
 
+# the save key (save/lock.rs): kept off the repository, in the owner's profile; a player build
+# without it would seal saves with the public dev key
+$keyFile = Join-Path $env:USERPROFILE '.esurv\save-key.txt'
+if (-not (Test-Path -LiteralPath $keyFile)) { throw "release-build: no save key at $keyFile" }
+$env:ESURV_SAVE_KEY = (Get-Content -LiteralPath $keyFile -Raw).Trim()
+
 Push-Location $Junction
 try {
     & cargo build --release --target-dir $targetDir -p esurv -p esurv-setup --no-default-features
@@ -57,6 +63,7 @@ try {
 } finally {
     Pop-Location
     Remove-Item Env:CARGO_ENCODED_RUSTFLAGS -ErrorAction SilentlyContinue
+    Remove-Item Env:ESURV_SAVE_KEY -ErrorAction SilentlyContinue
 }
 
 $out = Join-Path $repo 'target\player\release'

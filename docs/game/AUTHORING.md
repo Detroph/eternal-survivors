@@ -738,10 +738,10 @@ longer has falls back to its first). `HeroSetup::loadout` names it in the sim.
 * **Swings:** a class with an `auto_attack` swings with its loadout's weapons (each loadout must
   have one that swings); `auto_attack.damage` is the one-hand swing's, so `share: 2.0` is a
   two-hander's double damage and `0.5` a dual-wield off hand. Swing times: two-handers 3.6 s,
-  one-handers 1.8 s, dual wield a slow main and a fast off hand at 50 %. The Hunter's `Ranged`
+  one-handers 1.8 s, dual wield a main and an off hand at a share (Warrior 40 %, Rogue 50 %). The Hunter's `Ranged`
   weapon sets Auto Shot; its `kind` (Bow, Crossbow, Gun) sets the shot's look.
 * **Effects:** `Stat(...)` (`BlockChance`, `RagePerSwing`, `CritChance`, `MaxHealth`,
-  `CooldownRecovery`, `ExtraTargets` ...), `AbilityMod(filter: Any, kind: Cooldown, per_rank: 0.1)`
+  `CooldownRecovery`, `SwingSpeed`, `Thorns`, `DamageVsElites` ...), `AbilityMod(filter: Any, kind: Cooldown, per_rank: 0.1)`
   for "-10 % cooldowns" (every cooldown × 0.9), `Milestone(...)` for swing procs with
   `filter: WeaponSwing` (two maces' `Afflict` stun, two swords' `StrikeAgain`).
 * **Caps:** drawbacks at most −10 %; Priest, Mage and Warlock at most −5 % max health;
@@ -1168,8 +1168,9 @@ Check it with:
 
 (`--talents my_talent` plays only that talent; the zone at D 6 is added in memory, from Dire Maul,
 so the rows fall in the zones above.) One run differs from the next by far more than a milestone
-adds, so each case plays 200 runs a side (`--check-seeds`) and prints its gain with a standard
-error (`±`, about 3–6 %); read a gain within one `±` of the band as a pass.
+adds, so each case plays up to 200 runs a side (`--check-seeds`), stopping early once its gain is
+clear (see "Early stop" below; at least 100), and prints its gain with a standard error (`±`,
+about 3–6 %) and the runs it took; read a gain within one `±` of the band as a pass.
 
 **The rule for legendary amulets**: a damage legendary adds **+30 %** (±20 %) to the
 hero's total damage; a heal legendary **+100 %** to what its spell heals (and shields absorb), a
@@ -1184,7 +1185,8 @@ the health it ends with or the deaths it is spared. Check it with:
 
     cargo run --release -p esurv-sim --example balance_check -- --legendaries all --kite --no-amulets
 
-(or `--legendaries fireball,slam`; `--check-seeds` 100 by default). Each is played in the first zone
+(or `--legendaries fireball,slam`; at most `--check-seeds` runs a side, 100 by default, each
+stopping early once its gain is clear against the budget ±20 %). Each is played in the first zone
 and in Ahn'Qiraj with the arrival hero of each, from its first cache on, against the same hero and
 seeds without it; each line ends with its role, the healing and absorbing a second with and without
 it, the damage struck at the hero a second and the hero's whole damage a second without it.
@@ -1192,15 +1194,31 @@ it, the damage struck at the hero a second and the hero's whole damage a second 
 **The rule for weapon loadouts**: a class's three loadouts should be about as
 strong, each nudged within about 10 % of the others. Compare them with
 
-    cargo run --release -p esurv-sim --example balance_check -- --loadouts --seeds 10 --threads 14
+    cargo run --release -p esurv-sim --example balance_check -- --loadouts --seeds 200 --zones scarlet
 
 (every class × loadout with each of the class's starting options, kiting, amulets declined, in
 Elwynn, Feralas and Ahn'Qiraj or `--zones`): run DPS over the starters, ÷ the class's loadouts'
-mean, each starter's DPS and the cheat deaths. The zone table can be measured over every pair too:
+mean with its error (`±`), the seeds it took (`runs`: a class stops as soon as each of its
+loadouts is clearly inside or outside ±10 %, at most `--seeds`), each starter's DPS and the cheat
+deaths. The zone table can be measured over every pair too:
 
-    cargo run --release -p esurv-sim --example balance_check -- --seeds 4 --no-amulets --threads 14 --start all --loadout all
+    cargo run --release -p esurv-sim --example balance_check -- --seeds 4 --no-amulets --start all --loadout all
 
 (the same per-zone lines, each over every starting option × loadout of every class).
+
+**The rule for bosses** (the owner's boss-time goals, 2026-10-24): a zone's normal bosses should
+live about the first number of seconds, its final bosses the second, measured from appearing to
+dying (the zone table's "lived s", best with `--kite --boss-circle`). Flat in the first three
+zones, then rising evenly; every normal boss of a zone shares one goal. `balance_check` keeps the
+same table (`BOSS_TIME_GOALS`) and prints each boss's goal beside its lived seconds.
+
+| zone | elwynn | duskwood | wsg | scarlet | sunken_temple | feralas | arena | strat | brm | aq |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| normal boss (s) | 35 | 35 | 35 | 38 | 41 | 44 | 46 | 49 | 52 | 55 |
+| final boss (s) | 90 | 90 | 90 | 100 | 110 | 115 | 125 | 135 | 140 | 150 |
+
+Measure one zone with `--zones scarlet --seeds 200` (the zones before it are played only for the
+kills that give its hero's talent points).
 
 **The rule for gear:** `--gear` prints each zone's set against the set before it. Gear stats round
 to whole numbers, so single sets alternate around the budget; the sets from Duskwood to Blackrock
@@ -1210,3 +1228,18 @@ together should come to about ×1.1 each.
 (its health ÷ the expected hero's DPS) should sit within ×0.8–1.25 of the target from minute 5 to
 18 in every zone, and elites, rares and bosses should keep their kill seconds and their damage
 per hit next to the hero's health. Tune `zone_scaling`'s growths for that, never a single zone.
+
+**Early stop** (every mode of `balance_check`, by default; the owner's rule: every simulation
+stops early once its results are clear). `--seeds` and `--check-seeds` are the *most* seeds a
+measure plays. The seeds come in batches (10 at a time, 50 for milestones and gear), always the
+next seeds in order, so a run is reproducible and a short run is the start of a longer one. After
+each batch, every group (a zone, a zone and class, a talent ...) whose results are clear stops,
+the others play on. A result is clear once its 2-error interval lies wholly inside or wholly
+outside its band, or its error is at most a quarter of the band's half-width; a result with no
+band once its error is at most 2.5 % of it (`--rel-error`). The bands: loadouts and starting
+options ±10 % of their class's mean (`--ratio-band`); boss lived seconds ±20 % of the goal above
+(`--boss-band`; a boss that hardly ever dies before the run ends, as Whitemane without
+`--overtime`, has nothing to measure and does not hold its zone back); milestones and gear ±25 % of the budget; legendaries ±20 %. No group stops before
+20 seeds (100 for milestones and gear; `--min-seeds`), and each table prints how many seeds each
+line took. `--fixed-seeds` turns the early stop off and plays the full count, as before;
+`--batch-seeds` sets the batch.

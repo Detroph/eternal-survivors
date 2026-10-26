@@ -221,12 +221,14 @@ Each step has a **goal**, **deliverables** and a **done when** test.
   the mean hero level and DPS; the normal enemies' mean health, damage per hit and **kill
   seconds** (health ÷ DPS); the elites and rares that appeared, with their health, kill
   seconds and damage per hit as a share of the hero's max health; and the cheat deaths; then each
-  boss the same way. Options: `--seeds N` (default 2); `--targets <csv>` with our target kill
+  boss the same way. Options: `--seeds N` (at most N runs per zone and class, default 2; every mode
+  stops early once its results are clear, `--fixed-seeds` plays the full count: AUTHORING.md
+  section 16, "Early stop"); `--targets <csv>` with our target kill
   seconds (`zone,minute,kill_seconds`) and `--band LOW,HIGH` (default 0.8,1.25) to flag measured
   ÷ target outside it; `--milestones` (each class, tree and milestone row with its milestone and
   without, in the first zone whose hero reaches the row, against the row's power budget;
   `--talents id,...` for a few); `--gear` (each zone's set against the one before, against the
-  gear budget); `--check-seeds N` (runs per case for those two, default 200, gains printed with
+  gear budget); `--check-seeds N` (runs per case for those two at most, default 200, gains printed with
   their standard error); `--csv <file>`; and, to try a new scale without touching content,
   `--d zone=D,...` (new difficulties for real zones) and `--add-zone new_id=template_id:D` (a
   synthetic zone: the template's roster and bosses at D, its gear by the same rule as every

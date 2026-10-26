@@ -69,12 +69,47 @@ A RON file of our own:
 
 An older save without these parts still opens; they start empty.
 
+Each class also keeps `run_seconds` (seconds its heroes have spent in runs since v0.5.3, added
+at every payment) and `experience_before_tracking` (the talent experience it held when they
+began to be kept).
+
+**The lock** (v0.5.3, `save::lock`). On disk the save is its RON text sealed with
+XChaCha20-Poly1305: `ESURVSAVE1` and a line break, a fresh 24-byte nonce, then the sealed text,
+so it reads as noise and any change breaks the seal. The release build's key comes from
+`ESURV_SAVE_KEY` (64 hex digits), which `scripts\release-build.ps1` reads from
+`%USERPROFILE%\.esurv\save-key.txt`, kept off the repository; other builds use a public dev key,
+so a dev build and a release build cannot read each other's saves. Every write first moves the
+save it replaces to `heroes.ron.bak`. Opening:
+
+| On disk | Read as |
+|---|---|
+| sealed, the seal holds | the save |
+| plain text, no sealed `.bak` beside it | a save from before the lock, taken at its word once: each class's `experience_before_tracking` is its experience |
+| a broken seal, or plain text beside a sealed `.bak` | changed outside the game: set aside as `heroes.ron.edited-<moment>`, and the `.bak` read instead (a bad `.bak` is set aside too, and the save starts empty); never deleted |
+| nothing, a `.bak` there | a write cut off between its two renames: the `.bak` |
+
+**The sanity checks** (v0.5.3, `save::rein_in`), on every save opened and every save imported:
+what no play can reach is reined in to the most a player could have, never wiped, each change
+logged. A class's talent experience is at most `experience_before_tracking` plus
+`xp_ceiling::talent_experience_ceiling(run_seconds)`: the best base experience a second a god-mode
+hero earned (every enemy, elite, rare and boss killed the tick it came, never falling, every zone
+and density through the win and three hours into Endless: 13.49, Scarlet Monastery at 125 %),
+taken as 13.5, × the hardest zone bonus (D 12, the planned top zone, or Challenge Mode, whichever
+pays more) × the biggest run-option bonus (2) × 1.1 (our rule: the owner's margin), about 10,000
+a minute. Its talents and prestige ranks are bought again under the armory's rules with the points
+that experience earns, shallow rows first, keeping what they can buy; gear from zones it has not
+opened leaves the collection, a worn piece it does not own comes off, a look of a zone whose piece
+it lacks goes back; what it has seen is held to what it holds; a hero's wins to its runs; the run
+options to their sliders.
+
 **Export and import** (design step 6;
 `save::files`). The folder is `exports` beside the save (`saves/exports` by default). An
 export writes the whole save as it stands to a new file there, `<save's name>-<YYYY-MM-DD-HHMMSS,
-UTC>.ron`, a number added when the name is taken. The list is the folder's `.ron` files, newest
-first (the 50 newest), each read and checked. An import reads the named file (a plain file name
-in the folder, nothing with a path), checks it, writes the save it replaces to the folder as
+UTC>.ron`, a number added when the name is taken, sealed like the save. The list is the folder's
+`.ron` files, newest first (the 50 newest), each read and checked. An import reads the named file
+(a plain file name in the folder, nothing with a path), takes only a sealed one whose seal holds
+(a plain file, from before v0.5.3 or written by hand, is refused), checks it, reins it in (the
+sanity checks above), writes the save it replaces to the folder as
 `<save's name>-before-import-<moment>.ron` (importable in its turn), and only then replaces the
 save and writes it. A save is taken when it reads as our RON layout (older layouts too: missing
 parts start empty) and keeps the save's rules: every hero of a class and a race the content has,

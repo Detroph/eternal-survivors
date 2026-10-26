@@ -232,7 +232,7 @@ fn the_spellbook_tooltips_carry_the_heros_numbers_and_follow_an_upgrade() {
         .collect();
     assert_eq!(got, expected);
     assert!(got.iter().any(|(w, _)| w == "cooldown"));
-    // a fresh spell: no card taken, nothing from the hero but its staff's +10 % damage (the
+    // a fresh spell: no card taken, nothing from the hero but its staff's +5 % damage (the
     // mage's first weapon loadout; the human's passives touch no spell), and its hits crit at the
     // hero's chance and damage
     assert!(tips[1].upgrades.is_empty(), "{tips:?}");
@@ -241,7 +241,7 @@ fn the_spellbook_tooltips_carry_the_heros_numbers_and_follow_an_upgrade() {
         .iter()
         .map(|b| (b.what.clone(), (b.value * 100.0).round()))
         .collect();
-    assert_eq!(bonuses, [("power".to_owned(), 10.0)], "{tips:?}");
+    assert_eq!(bonuses, [("power".to_owned(), 5.0)], "{tips:?}");
     let s = &game.run.heroes[0].stats;
     assert_eq!(tips[1].crit, Some((s.crit_chance, s.crit_damage)));
     assert!(
@@ -266,8 +266,8 @@ fn the_spellbook_tooltips_carry_the_heros_numbers_and_follow_an_upgrade() {
         .find(|b| b.what == "power")
         .map(|b| b.value)
         .expect("a damage bonus");
-    // +0.2 on a level-1 sheet's 1.0, beside the staff's +0.1
-    assert!((bonus - 0.3).abs() < 1e-4, "{bonus}");
+    // +0.2 on a level-1 sheet's 1.0, beside the staff's +0.05
+    assert!((bonus - 0.25).abs() < 1e-4, "{bonus}");
     assert!(
         after_tick(&mut game).is_empty(),
         "told once until it changes"

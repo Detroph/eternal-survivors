@@ -82,6 +82,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
+name = "aead"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
+dependencies = [
+ "crypto-common",
+ "generic-array",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -494,7 +504,7 @@ checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "benilla"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-app",
  "benilla-buildstamp",
@@ -502,14 +512,14 @@ dependencies = [
 
 [[package]]
 name = "benilla-adt"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-app"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "arboard",
@@ -557,7 +567,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-assets"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "benilla-formats",
@@ -568,7 +578,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-blp"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-bytes",
  "texpresso",
@@ -576,22 +586,22 @@ dependencies = [
 
 [[package]]
 name = "benilla-buildstamp"
-version = "0.5.2"
+version = "0.5.3"
 
 [[package]]
 name = "benilla-bytes"
-version = "0.5.2"
+version = "0.5.3"
 
 [[package]]
 name = "benilla-dbc"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-formats"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "benilla-adt",
@@ -609,14 +619,14 @@ dependencies = [
 
 [[package]]
 name = "benilla-m2"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-mpq"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-bytes",
  "flate2",
@@ -624,7 +634,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-protocol"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "benilla-srp",
@@ -638,7 +648,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-srp"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "num-bigint",
  "rand 0.8.6",
@@ -647,7 +657,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-ui"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "mlua",
  "roxmltree",
@@ -655,7 +665,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-visual"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "image",
@@ -663,18 +673,18 @@ dependencies = [
 
 [[package]]
 name = "benilla-wdt"
-version = "0.5.2"
+version = "0.5.3"
 
 [[package]]
 name = "benilla-wmo"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-bytes",
 ]
 
 [[package]]
 name = "benilla-world"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "avian3d",
  "benilla-assets",
@@ -690,7 +700,7 @@ dependencies = [
 
 [[package]]
 name = "benilla-worldview"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "benilla-buildstamp",
  "benilla-world",
@@ -2344,6 +2354,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "613afe47fcd5fac7ccf1db93babcb082c5994d996f20b8b159f2ad1658eb5724"
 
 [[package]]
+name = "chacha20"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+dependencies = [
+ "cfg-if",
+ "cipher",
+ "cpufeatures 0.2.17",
+]
+
+[[package]]
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
+dependencies = [
+ "aead",
+ "chacha20",
+ "cipher",
+ "poly1305",
+ "zeroize",
+]
+
+[[package]]
 name = "chiapos-chacha8"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2377,6 +2411,17 @@ checksum = "57663b653d948a338bfb3eeba9bb2fd5fcfaecb9e199e87e1eda4d9e8b240fd9"
 dependencies = [
  "ciborium-io",
  "half",
+]
+
+[[package]]
+name = "cipher"
+version = "0.4.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
+dependencies = [
+ "crypto-common",
+ "inout",
+ "zeroize",
 ]
 
 [[package]]
@@ -2837,6 +2882,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
 dependencies = [
  "generic-array",
+ "rand_core 0.6.4",
  "typenum",
 ]
 
@@ -3114,7 +3160,7 @@ checksum = "dea2df4cf52843e0452895c455a1a2cfbb842a1e7329671acf418fdc53ed4c59"
 
 [[package]]
 name = "esurv"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "benilla-app",
@@ -3130,7 +3176,7 @@ dependencies = [
 
 [[package]]
 name = "esurv-app"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "avian3d",
  "benilla-app",
@@ -3157,11 +3203,11 @@ dependencies = [
 
 [[package]]
 name = "esurv-client-check"
-version = "0.5.2"
+version = "0.5.3"
 
 [[package]]
 name = "esurv-content"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "benilla-formats",
@@ -3173,19 +3219,20 @@ dependencies = [
 
 [[package]]
 name = "esurv-protocol"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "esurv-server"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "anyhow",
  "benilla-formats",
  "benilla-protocol",
  "benilla-srp",
+ "chacha20poly1305",
  "esurv-content",
  "esurv-protocol",
  "esurv-sim",
@@ -3198,14 +3245,14 @@ dependencies = [
 
 [[package]]
 name = "esurv-setup"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "esurv-client-check",
 ]
 
 [[package]]
 name = "esurv-sim"
-version = "0.5.2"
+version = "0.5.3"
 dependencies = [
  "esurv-content",
  "ron",
@@ -4066,6 +4113,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e05c02b5e89bff3b946cedeca278abc628fe811e604f027c45a8aa3cf793d0eb"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "inout"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "879f10e63c20629ecabbb64a8010319738c66a5cd0c29b02d63d272b03751d01"
+dependencies = [
+ "generic-array",
 ]
 
 [[package]]
@@ -5227,6 +5283,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
+name = "opaque-debug"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
 name = "openssl-probe"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5485,6 +5547,17 @@ dependencies = [
  "pin-project-lite",
  "rustix 1.1.4",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "poly1305"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
+dependencies = [
+ "cpufeatures 0.2.17",
+ "opaque-debug",
+ "universal-hash",
 ]
 
 [[package]]
@@ -7125,6 +7198,16 @@ name = "unicode-xid"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ebc1c04c71510c7f702b52b7c350734c9ff1295c464a03335b00bb84fc54f853"
+
+[[package]]
+name = "universal-hash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
+dependencies = [
+ "crypto-common",
+ "subtle",
+]
 
 [[package]]
 name = "untrusted"

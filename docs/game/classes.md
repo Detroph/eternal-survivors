@@ -57,7 +57,7 @@ the hero as the run begins, in the talents' vocabulary.
 
 * **Swings:** for Warrior, Paladin, Shaman, Rogue and Hunter the swing (time and damage) is the
   loadout's: two-handers 3.6 s for twice the one-hand damage, one-handers 1.8 s, dual wield a
-  slow main hand and a fast off hand at 50 %, each hand on its own timer (and each hand's hit
+  main hand and an off hand at a share of its damage (Warrior 2.6 s + 2.4 s at 40 %, Rogue 50 %), each hand on its own timer (and each hand's hit
   gives its rage). The Hunter's bow, crossbow or gun sets Auto Shot's time and damage, and the
   shot's look (a bow's draw, a rifle's for gun and crossbow).
 * **Casters'** weapons never swing; they change stats only. **Druid forms** get every bonus and
@@ -68,10 +68,9 @@ the hero as the run begins, in the talents' vocabulary.
   are (a deviation from the stock client). Code: `esurv-server` `starting_looks::sheath_hold`,
   `benilla-app` `creature_anim::SheathHolds`.
 * **Block:** a shield loadout blocks 30 % of melee blows, a blocked blow doing 30 % less.
-* **Procs:** two maces: 15 % of swings stun for 1 s, +20 % damage to stunned (and other held)
+* **Procs:** two maces: 10 % of swings stun for 1 s, +10 % damage to stunned (and other held)
   enemies; two swords: 10 % of swings strike again.
-* **Caps:** drawbacks at most −10 %; Priest, Mage and Warlock lose at most 5 % max health;
-  move speed between −2 % and +5 %.
+* **Rule (owner, our rule):** two upsides and one downside per loadout, every value 10 %, 5 % or 2 %; the weapon's own traits (swing times, off-hand shares, ×2 two-hander swings, Auto Shot speeds, 30 % block) sit outside it; within a class the three stay within about ±10 % of each other's damage.
 * **Looks:** the hero shows its loadout's weapons in main hand, off hand
   and ranged, in the armaments of the class gear weapon it wears: every zone has a weapon look for
   each loadout (`loadouts.ron` `looks`; Blackrock and Stratholme two rows), and one "<zone>
@@ -81,33 +80,33 @@ the hero as the run begins, in the talents' vocabulary.
 
 | Class | Loadout (id) | Weapons | Strength | Drawback |
 |---|---|---|---|---|
-| Warrior | Two-hander (`two_hander`) | two-handed sword 3.6 s | ×2 swing damage, +20 % rage per swing | −5 % max health |
-| | Two one-handers (`dual_wield`) | swords 2.6 s + 1.6 s (40 %) | +5 % crit, rage from both hands | −10 % max health |
-| | One-hander and shield (`shield`) | sword 1.8 s, shield | 30 % block, +10 % max health | −5 % damage |
-| Paladin | One-hander and off-hand (`off_hand`) | mace 1.8 s, off-hand | +1 target on multi-target spells | −5 % max health |
-| | One-hander and shield (`shield`) | mace 1.8 s, shield | 30 % block | −10 % damage |
-| | Two-hander (`two_hander`) | two-handed mace 3.6 s | ×2 swing damage | −5 % max health |
-| Shaman | Staff (`staff`) | staff 3.6 s (one-hand damage) | −5 % cooldowns, +10 % spell area | swings −50 % |
-| | Two-hander (`two_hander`) | two-handed mace 3.6 s | ×2 swing damage | −10 % max health |
-| | One-hander and shield (`shield`) | mace 1.8 s, shield | 30 % block, +20 % heal and shield power | −10 % damage |
-| Hunter | Bow (`bow`) | Auto Shot 2.2 s | +5 % move speed | −10 % shot damage |
-| | Crossbow (`crossbow`) | Auto Shot 3.4 s | +60 % shot damage, +10 % crit damage | −2 % move speed |
-| | Gun (`gun`) | Auto Shot 2.7 s | +10 % crit, +10 % crit damage | −10 % pet damage |
-| Rogue | Two daggers (`daggers`) | 1.4 s + 1.4 s (50 %) | +10 % crit | −10 % max health |
-| | Two maces (`maces`) | 2.6 s + 1.8 s (50 %) | 15 % swing stun 1 s, +20 % damage to stunned | −10 % energy regeneration |
-| | Two swords (`swords`) | 2.4 s + 1.8 s (50 %) | 10 % swing strikes again | −5 % crit |
-| Druid | Mace and off-hand (`mace_off_hand`) | mace, off-hand | −10 % cooldowns, +20 % heal and shield power | −10 % max health |
-| | Two-hander (`two_hander`) | two-handed mace | +15 % damage, +10 % max health | +10 % cooldowns |
-| | Two-handed staff (`staff`) | staff | +15 % spell area, +10 % spell duration | −2 % move speed |
-| Mage | Staff (`staff`) | staff | +10 % damage, +20 % spell area | −10 % cooldown recovery |
-| | Sword and off-hand (`sword_off_hand`) | sword, off-hand | +1 target on multi-target spells | −10 % damage |
-| | Dagger and off-hand (`dagger_off_hand`) | dagger, off-hand | +5 % cooldown recovery, +5 % crit | −5 % max health |
-| Warlock | Staff (`staff`) | staff | +10 % damage, +20 % spell duration | −10 % cooldown recovery |
-| | Sword and off-hand (`sword_off_hand`) | sword, off-hand | +1 target on multi-target spells | −10 % damage |
-| | Dagger and off-hand (`dagger_off_hand`) | dagger, off-hand | +5 % cooldown recovery, +10 % pet damage | −5 % max health |
-| Priest | Staff (`staff`) | staff | +10 % damage, +20 % heal and shield power | −10 % cooldown recovery |
-| | Mace and off-hand (`mace_off_hand`) | mace, off-hand | +10 % damage reduction, +1 health a second | −10 % damage |
-| | Dagger and off-hand (`dagger_off_hand`) | dagger, off-hand | +5 % cooldown recovery, +5 % crit | −5 % max health |
+| Warrior | Two-hander (`two_hander`) | two-handed sword 3.6 s | ×2 swing damage, +10 % rage per swing, +5 % crit damage | −10 % max health |
+| | Two one-handers (`dual_wield`) | swords 2.6 s + 2.4 s (40 %) | +5 % swing speed, +10 % crit damage | −10 % damage |
+| | One-hander and shield (`shield`) | sword 1.8 s, shield | 30 % block, +10 % max health, +10 % thorns | −5 % damage |
+| Paladin | One-hander and off-hand (`off_hand`) | mace 1.8 s, off-hand | +5 % crit, +10 % heal and shield power | −5 % max health |
+| | One-hander and shield (`shield`) | mace 1.8 s, shield | 30 % block, +10 % max health, +10 % thorns | −10 % damage |
+| | Two-hander (`two_hander`) | two-handed mace 3.6 s | ×2 swing damage, +5 % damage | −5 % max health |
+| Shaman | Staff (`staff`) | staff 3.6 s (one-hand damage) | +10 % spell area, +5 % crit | −5 % move speed (and the slow swing) |
+| | Two-hander (`two_hander`) | two-handed mace 3.6 s | ×2 swing damage, +5 % crit | −10 % max health |
+| | One-hander and shield (`shield`) | mace 1.8 s, shield | 30 % block, +10 % heal and shield power, +10 % max health | −5 % damage |
+| Hunter | Bow (`bow`) | Auto Shot 2.2 s (90 %) | +5 % move speed, +2 % cooldown recovery | −10 % Auto Shot damage |
+| | Crossbow (`crossbow`) | Auto Shot 3.4 s (160 %) | +10 % crit damage, +10 % damage to elites | −5 % move speed |
+| | Gun (`gun`) | Auto Shot 2.7 s | +5 % crit, +10 % crit damage | −10 % pet damage |
+| Rogue | Two daggers (`daggers`) | 1.4 s + 1.4 s (50 %) | +5 % crit, +10 % crit damage | −10 % max health |
+| | Two maces (`maces`) | 2.6 s + 1.8 s (50 %) | 10 % swing stun 1 s, +10 % damage to held enemies | −5 % energy regeneration |
+| | Two swords (`swords`) | 2.4 s + 1.8 s (50 %) | 10 % swing strikes again, +5 % swing speed | −5 % max health |
+| Druid | Mace and off-hand (`mace_off_hand`) | mace, off-hand | +10 % heal and shield power, +2 % cooldown recovery | −5 % max health |
+| | Two-hander (`two_hander`) | two-handed mace | +10 % damage, +10 % max health | −5 % move speed |
+| | Two-handed staff (`staff`) | staff | +10 % spell area, +10 % spell duration | −5 % max health |
+| Mage | Staff (`staff`) | staff | +10 % spell area, +5 % damage | −5 % cooldown recovery |
+| | Sword and off-hand (`sword_off_hand`) | sword, off-hand | +10 % damage to elites, +10 % crit damage | −5 % move speed |
+| | Dagger and off-hand (`dagger_off_hand`) | dagger, off-hand | +5 % crit, +10 % damage to held enemies | −5 % spell area |
+| Warlock | Staff (`staff`) | staff | +10 % spell duration, +10 % damage to afflicted enemies | −5 % cooldown recovery |
+| | Sword and off-hand (`sword_off_hand`) | sword, off-hand | +5 % crit, +10 % crit damage | −5 % move speed |
+| | Dagger and off-hand (`dagger_off_hand`) | dagger, off-hand | +10 % pet damage, +2 % cooldown recovery | −5 % damage |
+| Priest | Staff (`staff`) | staff | +10 % heal and shield power, +5 % damage | −5 % cooldown recovery |
+| | Mace and off-hand (`mace_off_hand`) | mace, off-hand | +10 % damage reduction, +10 % heal and shield power | −5 % damage |
+| | Dagger and off-hand (`dagger_off_hand`) | dagger, off-hand | +5 % crit, +10 % damage to afflicted enemies | −2 % cooldown recovery |
 
 Compare a class's three with `balance_check --loadouts` (AUTHORING.md section 16).
 
