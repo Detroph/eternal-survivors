@@ -226,7 +226,9 @@ its highest `patch` row, its 1.12 look; the item ids of the hand-made sets are W
 test `the_player_looks_are_the_client_s` (`esurv-server`, real data) finds every look in
 `ItemDisplayInfo.dbc`.
 
-Warsong Gulch's roster: a joke before the class (`"{Joke} {Class(1)}"`) for every class, melee warriors, paladins, rogues, shamans and cat druids,
+Warsong Gulch's roster: a joke before the class (`"{Joke} {Class(1)}"`) for every class, melee warriors, paladins, rogues, shamans and cat druids
+(our rule, owner: the rogue and the cat run 6.8 yd/s in play, `move_speed: Some(7.16)`, just under
+the hero's 7; their kind, FastFodder, runs 7.6),
 casting mages, priests, warlocks, shamans and druids, shooting hunters; elites of ranks 5, 8 and
 11; five bosses, each carrying the heroes' own flag from its arrival (a boss's `carries`: the client's
 Silverwing Flag aura, 23335, against Alliance heroes, the Warsong Flag, 23333, against Horde heroes),

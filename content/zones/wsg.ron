@@ -55,6 +55,9 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: FastFodder,
+            // our rule (owner): 7.16 x the game's enemy speed (0.95) = 6.8 yd/s, just under the
+            // hero's 7 (the kind's 8 runs 7.6)
+            move_speed: Some(7.16),
             toughness: 0.25,
             appears_at_minute: 0.5,
             looks_like: Some((class: "rogue")),
@@ -64,6 +67,8 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: FastFodder,
+            // our rule (owner): 6.8 yd/s in play, as the rogue above
+            move_speed: Some(7.16),
             toughness: 0.25,
             appears_at_minute: 1.0,
             looks_like: Some((class: "druid", form: Some(Cat))),
