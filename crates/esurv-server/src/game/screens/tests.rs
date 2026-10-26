@@ -1258,8 +1258,8 @@ fn a_boss_bar_marks_its_health_phases() {
 }
 
 /// A Challenge Mode run pays only its class gear, as in Normal Mode, and the talent
-/// experience the same run in Ahn'Qiraj would, × 1.1: no records, no zone won or opened, nothing
-/// for the codex.
+/// experience the same run in Ahn'Qiraj would, × 1.1: no records, no zone won or opened; its
+/// offers still join the codex.
 #[test]
 fn a_challenge_run_pays_only_its_gear_and_its_talent_experience() {
     use esurv_sim::game::challenge::{Challenge, CHALLENGE_ZONE};
@@ -1276,7 +1276,7 @@ fn a_challenge_run_pays_only_its_gear_and_its_talent_experience() {
     let content = game.run.content.clone();
     game.run.options.challenge = Challenge::new(&content, 300);
     game.start();
-    // a ring offered: not for the codex
+    // a ring offered: into the codex as in Normal Mode
     let ring = Event::ScreenOpened {
         hero,
         kind: esurv_sim::game::choices::ScreenKind::LevelUp,
@@ -1287,7 +1287,7 @@ fn a_challenge_run_pays_only_its_gear_and_its_talent_experience() {
         }],
     };
     game.settle(&[ring]);
-    assert!(saves.codex().is_empty(), "nothing for the codex");
+    assert_eq!(saves.codex(), ["accuria"], "seen in Challenge Mode, counted");
     // a gear piece dropped: into the collection as in Normal Mode
     let entry = esurv_sim::game::rewards::gear_item_entry(8, 1, 0);
     let drop = [Event::GearDropped {
