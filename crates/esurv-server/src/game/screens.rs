@@ -597,7 +597,7 @@ impl Game {
         crate::prerun::run_options(&self.run.content, o)
     }
 
-    /// The codex as the save keeps it: every ring, trinket and amulet taken in play by any hero.
+    /// The codex as the save keeps it: every ring, trinket and amulet offered in play to any hero.
     fn codex(&self) -> ToClient {
         crate::prerun::codex(&self.saves)
     }
@@ -796,18 +796,20 @@ impl Game {
     }
 
     /// The lines this tick's events bring: choice screens, drops, banners, the codex when it grew;
-    /// the meter counts. A ring, trinket or amulet taken joins the codex here
-    /// (the codex keeps what was taken, for every hero of the save).
+    /// the meter counts. A ring, trinket or amulet offered joins the codex here, the moment its
+    /// card is shown (the codex keeps what was seen, for every hero of the save).
     fn tell_events(&mut self, events: &[Event]) -> Vec<(u32, ToClient)> {
         use protocol::Banner;
         let mut told = Vec::new();
         let mut codex_grew = false;
         for e in events {
             self.count_for_the_meter(e);
-            if let Event::OfferTaken { offer, .. } = e {
-                // a Challenge Mode run adds nothing to the codex
-                if let Some(id) = offer.codex_entry().filter(|_| self.run.options.challenge.is_none()) {
-                    codex_grew |= self.saves.add_to_codex(id);
+            // a Challenge Mode run adds nothing to the codex
+            if let Event::ScreenOpened { offers, .. } = e {
+                if self.run.options.challenge.is_none() {
+                    for id in offers.iter().filter_map(|o| o.codex_entry()) {
+                        codex_grew |= self.saves.add_to_codex(id);
+                    }
                 }
             }
             match e {

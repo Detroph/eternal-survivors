@@ -395,18 +395,23 @@ fn a_rares_cache_is_named_apart_and_the_kit_shows_what_is_worn() {
 }
 
 #[test]
-fn a_new_ring_taken_joins_the_codex_and_every_told_client_hears() {
-    use esurv_sim::game::choices::Offer;
+fn a_new_ring_offered_joins_the_codex_and_every_told_client_hears() {
+    use esurv_sim::game::choices::{Offer, ScreenKind};
     use esurv_sim::game::offers::Rarity;
     let (mut game, _client, saves) = game();
     let hero = game.hero_id(0);
-    let ring = |id: &str| Event::OfferTaken {
+    // a screen offering a ring beside gold: the ring counts as seen, taken or not
+    let ring = |id: &str| Event::ScreenOpened {
         hero,
-        offer: Offer::NewJewelry {
-            id: id.into(),
-            value: 0.17,
-            rarity: Rarity::Common,
-        },
+        kind: ScreenKind::LevelUp,
+        offers: vec![
+            Offer::Gold(10),
+            Offer::NewJewelry {
+                id: id.into(),
+                value: 0.17,
+                rarity: Rarity::Common,
+            },
+        ],
     };
     // not told before hello, but kept all the same
     game.settle(&[ring("accuria")]);
@@ -430,11 +435,23 @@ fn a_new_ring_taken_joins_the_codex_and_every_told_client_hears() {
         codex(&t).is_empty(),
         "a piece already in the codex: no news"
     );
-    let gold = Event::OfferTaken {
+    let gold = Event::ScreenOpened {
         hero,
-        offer: Offer::Gold(10),
+        kind: ScreenKind::Cache,
+        offers: vec![Offer::Gold(10)],
     };
     assert!(codex(&told(&game.settle(&[gold]))).is_empty());
+    // taking a piece adds nothing more: it joined when shown
+    let taken = Event::OfferTaken {
+        hero,
+        offer: Offer::NewJewelry {
+            id: "never_shown".into(),
+            value: 0.17,
+            rarity: Rarity::Common,
+        },
+    };
+    game.settle(&[taken]);
+    assert_eq!(saves.codex(), ["accuria", "quick_strike"]);
 }
 
 #[test]
@@ -1259,14 +1276,15 @@ fn a_challenge_run_pays_only_its_gear_and_its_talent_experience() {
     let content = game.run.content.clone();
     game.run.options.challenge = Challenge::new(&content, 300);
     game.start();
-    // a ring taken: not for the codex
-    let ring = Event::OfferTaken {
+    // a ring offered: not for the codex
+    let ring = Event::ScreenOpened {
         hero,
-        offer: Offer::NewJewelry {
+        kind: esurv_sim::game::choices::ScreenKind::LevelUp,
+        offers: vec![Offer::NewJewelry {
             id: "accuria".into(),
             value: 0.17,
             rarity: Rarity::Common,
-        },
+        }],
     };
     game.settle(&[ring]);
     assert!(saves.codex().is_empty(), "nothing for the codex");
