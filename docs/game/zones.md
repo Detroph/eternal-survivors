@@ -633,8 +633,8 @@ The mode for after the last zone.
     bonus. It buys talent and prestige points as ever.
 
   It pays nothing else: no hero records (best level, longest run, runs and wins), no zone won and
-  none opened or discovered, and nothing new for the codex (rings, trinkets, amulets and
-  legendaries taken in the run). What a run gives inside itself (levels, gold, caches, cards,
+  none opened or discovered. The codex still collects what its cards show (rings, trinkets,
+  amulets and legendaries, our rule, as in Normal Mode). What a run gives inside itself (levels, gold, caches, cards,
   amulets) is play, not reward, and stays as it is.
 
 

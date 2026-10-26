@@ -61,7 +61,7 @@ A RON file of our own:
 | `next_guid` | the next free guid (guids are never reused) |
 | `gear_numbering` | 2: class gear is kept by slot and zone id; a save with an older number kept item entries and is moved on once as it is read (gear.md, "Item entries and saves") |
 | `classes` | per class id, what every hero of the class shares: `talent_experience` (all earned; points are bought from it), `talents` (ranks bought, by talent id), `zones_won` (the zone ids won; the zones open are every zone up to the hardest won by difficulty, and the next; the first is always open. A save from before kept `zones_open`, a count in the nine shipped zones' order, and is moved on once to the zone it says was won last), `collection` (every class-gear piece won), `worn` (one piece a slot), each piece as `(slot: "head", zone: "elwynn")`, and `appearance` (the look shown per slot id, where it is not the piece's own), and `seen` (`Some((pieces: n, points: n))`, the gear pieces won when the player last opened the class's Collection and the talent and prestige points earned when it last opened its Talents; more now is news, which the warband screen's buttons glow on, sent as `new_gear` and `new_points` at the end of `Progress`. A class of a save from before it is taken as having seen everything when the save is read; a class new to the save starts at nothing seen) |
-| `codex` | every ring, trinket and necklace collected in play by any hero, by id, added the moment a choice screen offers it (seen, taken or not; none in Challenge Mode); the screens are told it (`ESURVK`, below) |
+| `codex` | every ring, trinket and necklace collected in play by any hero, by id, added the moment a choice screen offers it (seen, taken or not; in Challenge Mode too); the screens are told it (`ESURVK`, below) |
 | `last_played` | the hero played last and the zone (ours, for the screens' defaults) |
 | `run_options` | the run options the next run starts with (enemy density, health, damage and speed, whole percentages, each kept on its slider of `run_options.ron`): one set for the whole save; with them the mode (zones.md "Challenge Mode"): `challenge` (the Challenge Mode tab picked last; a class runs Challenge Mode only once it has won Ahn'Qiraj, `aq` in its `zones_won`) and `challenge_pct` (the challenge slider, 100-500 in steps of 25, kept when the tab changes). An older save: Normal Mode at 100 |
 | `zones_discovered` | the zone ids any class of the save has opened, for good (the first zone always). Only what the zone lists show hangs on it: a zone not in it shows "???" and a lock everywhere; each class still opens a zone itself to play it. Added when a win opens a zone (`finish_run`); a save from before it is filled with every zone open to any of its classes the first time it is read with the content (`Saves::zones_discovered`). Sent at the end of `Progress` (`ESURVP`) |
@@ -252,8 +252,8 @@ best level and time; the run counts once as a run played (and won). On a win, on
 class. The hero's chat says what its class earned and how many talent points that bought (when
 something was paid), and the zone it opened. A run that never began pays nothing. A Challenge
 Mode run (zones.md "Challenge Mode") pays only its talent experience (Ahn'Qiraj's, ×
-`challenge_factor`) and its gear: no records, no run counted, no zone won or opened, and the
-codex keeps nothing it took. It is a challenge run when the save's run options have the
+`challenge_factor`) and its gear: no records, no run counted, no zone won or opened; the
+codex still keeps what its offers showed (our rule). It is a challenge run when the save's run options have the
 Challenge Mode tab picked and the hero's class has won Ahn'Qiraj; then any zone may be entered.
 
 Gear a boss drops joins the collection at once, and the hero's chat names the piece and whether

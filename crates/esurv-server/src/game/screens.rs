@@ -804,12 +804,10 @@ impl Game {
         let mut codex_grew = false;
         for e in events {
             self.count_for_the_meter(e);
-            // a Challenge Mode run adds nothing to the codex
+            // a Challenge Mode run's offers count too (our rule)
             if let Event::ScreenOpened { offers, .. } = e {
-                if self.run.options.challenge.is_none() {
-                    for id in offers.iter().filter_map(|o| o.codex_entry()) {
-                        codex_grew |= self.saves.add_to_codex(id);
-                    }
+                for id in offers.iter().filter_map(|o| o.codex_entry()) {
+                    codex_grew |= self.saves.add_to_codex(id);
                 }
             }
             match e {
