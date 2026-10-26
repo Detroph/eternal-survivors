@@ -25,6 +25,7 @@ fn route_spell_kit_sounds(
     mut out: NonSendMut<SoundOutput>,
     config: Res<SoundConfig>,
     listener: Res<AudioListener>,
+    muted: Option<Res<crate::creature_anim::MutedLoopSounds>>,
     // Each unit's live hold-loop kit, so StopHold reaps only that kit's channels.
     mut hold_loops: Local<EntityHashMap<u32>>,
     mut despawned: RemovedComponents<NetEntity>,
@@ -44,13 +45,16 @@ fn route_spell_kit_sounds(
     let mut played_now: Vec<(Entity, u32)> = Vec::new();
     for ev in events.read() {
         match *ev {
-            SpellKitSound::Play { entity, kit_sound } => {
+            SpellKitSound::Play { entity, kit_sound, spell_id } => {
                 if played_now.contains(&(entity, kit_sound)) {
                     continue;
                 }
                 played_now.push((entity, kit_sound));
                 let pos = transforms.get(entity).map(|t| t.translation).ok();
                 let looping = kit_looping(&kits, kit_sound);
+                if looping && muted.as_ref().is_some_and(|m| m.0.contains(&spell_id)) {
+                    continue;
+                }
                 // The line a headless probe greps to prove a spell's sound fired.
                 debug!("spell kit sound {kit_sound} on {entity:?} (looping {looping})");
                 let played = if looping {

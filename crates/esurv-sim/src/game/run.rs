@@ -1936,8 +1936,8 @@ mod tests {
         let run = Run::new(content(), "elwynn", RunOptions::default(), &[HeroSetup { race: "tauren".into(), ..hero() }], Box::new(Flat), 1).unwrap();
         let h = &run.heroes[0];
         assert_eq!(h.spells.racial.as_ref().unwrap().spell, "war_stomp");
-        // the tauren's +15 % health, beside the default two-hander's -5 %
-        assert!((h.stats.max_health - 240.0 * (1.15 - 0.05)).abs() < 1e-3);
+        // the tauren's +15 % health, beside the default two-hander's -10 %
+        assert!((h.stats.max_health - 240.0 * (1.15 - 0.1)).abs() < 1e-3);
     }
 
     #[test]

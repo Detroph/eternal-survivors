@@ -21,7 +21,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use esurv_content::{Content, Faction};
 
-use super::{check_name, SaveFile, Saves, MAX_HEROES, MAX_HEROES_PER_FACTION};
+use super::{check_name, lock, rein_in, SaveFile, Saves, MAX_HEROES, MAX_HEROES_PER_FACTION};
 
 /// The folder's name beside the save.
 pub const EXPORTS_FOLDER: &str = "exports";
@@ -131,10 +131,18 @@ pub(super) fn check(content: &Content, file: &mut SaveFile) -> Result<u32, Strin
     Ok(file.heroes.len() as u32)
 }
 
-/// Reads and checks the save in `text`.
-fn read(content: &Content, text: &str) -> Result<(SaveFile, u32), ImportError> {
+/// Reads and checks the save in `bytes`: only a locked one (`lock`); a plain one is from before
+/// the lock or written by hand.
+fn read(content: &Content, bytes: &[u8]) -> Result<(SaveFile, u32), ImportError> {
+    let text = match lock::unlock(bytes) {
+        lock::Unlocked::Locked(text) => text,
+        lock::Unlocked::Plain(_) => {
+            return Err(ImportError::Unreadable("not a save of v0.5.3 or later, or one changed outside the game".into()))
+        }
+        lock::Unlocked::Broken => return Err(ImportError::Unreadable("changed outside the game".into())),
+    };
     let mut file =
-        SaveFile::parse(text).map_err(|e| ImportError::Unreadable(e.to_string()))?;
+        SaveFile::parse(&text).map_err(|e| ImportError::Unreadable(e.to_string()))?;
     let heroes = check(content, &mut file).map_err(ImportError::Broken)?;
     Ok((file, heroes))
 }
@@ -206,7 +214,7 @@ impl Saves {
         found
             .into_iter()
             .map(|(_, name)| {
-                let heroes = std::fs::read_to_string(folder.join(&name))
+                let heroes = std::fs::read(folder.join(&name))
                     .ok()
                     .and_then(|t| read(content, &t).ok())
                     .map(|(_, n)| n);
@@ -227,7 +235,7 @@ impl Saves {
         let name = fresh_name(&folder, &self.stem(), None, when);
         let text = ron::ser::to_string_pretty(&*file, ron::ser::PrettyConfig::default())
             .map_err(|e| ImportError::Io(e.to_string()))?;
-        std::fs::write(folder.join(&name), text).map_err(|e| ImportError::Io(e.to_string()))?;
+        std::fs::write(folder.join(&name), lock::lock(&text)).map_err(|e| ImportError::Io(e.to_string()))?;
         Ok(name)
     }
 
@@ -250,14 +258,18 @@ impl Saves {
         if !plain_name(name) {
             return Err(ImportError::NotThere);
         }
-        let text = std::fs::read_to_string(folder.join(name)).map_err(|_| ImportError::NotThere)?;
-        let (incoming, _) = read(content, &text)?;
+        let bytes = std::fs::read(folder.join(name)).map_err(|_| ImportError::NotThere)?;
+        let (mut incoming, _) = read(content, &bytes)?;
+        let ceiling = |s| esurv_sim::game::xp_ceiling::talent_experience_ceiling(content, s);
+        for note in rein_in::rein_in(content, &mut incoming, ceiling) {
+            eprintln!("esurv: imported save reined in: {note}");
+        }
         let mut file = self.file.lock().unwrap();
         // the save it replaces, kept where it can be imported back
         let backup = fresh_name(&folder, &self.stem(), Some(BEFORE_IMPORT), when);
         let kept = ron::ser::to_string_pretty(&*file, ron::ser::PrettyConfig::default())
             .map_err(|e| ImportError::Io(e.to_string()))?;
-        std::fs::write(folder.join(&backup), kept).map_err(|e| ImportError::Io(e.to_string()))?;
+        std::fs::write(folder.join(&backup), lock::lock(&kept)).map_err(|e| ImportError::Io(e.to_string()))?;
         *file = incoming;
         self.write(&file)
             .map_err(|e| ImportError::Io(format!("{e:#}")))?;
@@ -357,13 +369,16 @@ mod tests {
             "(heroes: [(guid: 1, name: \"Ana\", class: \"mage\", race: \"human\", gender: 0, \
                      look: (0, 0, 0, 0, 0)), (guid: 2, name: \"ana\", class: \"mage\", race: \
                      \"human\", gender: 0, look: (0, 0, 0, 0, 0))], next_guid: 3)";
-        std::fs::write(exports.join("twins.ron"), twins).unwrap();
+        std::fs::write(exports.join("twins.ron"), lock::lock(twins)).unwrap();
         let ogre = twins.replace("\"mage\"", "\"ogre\"");
-        std::fs::write(exports.join("ogre.ron"), ogre).unwrap();
+        std::fs::write(exports.join("ogre.ron"), lock::lock(&ogre)).unwrap();
+        // written by hand (or before the lock)
+        std::fs::write(exports.join("plain.ron"), twins.replace("\"ana\"", "\"Bo\"")).unwrap();
         for (name, refused) in [
             ("junk.ron", "unreadable"),
             ("twins.ron", "broken"),
             ("ogre.ron", "broken"),
+            ("plain.ron", "unreadable"),
             ("missing.ron", "not there"),
             ("../heroes.ron", "not there"),
         ] {

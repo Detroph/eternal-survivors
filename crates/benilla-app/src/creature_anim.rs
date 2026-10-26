@@ -508,6 +508,11 @@ pub(crate) struct SpellGoTargets {
     pub(crate) look_scale: f32,
 }
 
+/// Spells, by `Spell.dbc` id, whose looping kit sounds (a channel's hum) a crate on top of benilla
+/// keeps silent; their one-shot sounds (the cast, the hit) still ring.
+#[derive(Resource, Default)]
+pub struct MutedLoopSounds(pub std::collections::HashSet<u32>);
+
 /// Sizes a crate on top of benilla gives spell looks, which 1.12.1's packets cannot carry: the next
 /// `SMSG_SPELL_GO` of a spell by a caster plays its ground effects (the ring at the caster's feet,
 /// the burst at its target point) grown by the scale set for them here; the GO takes it. The
@@ -881,6 +886,7 @@ impl Plugin for CreatureAnimPlugin {
             .add_message::<SheathRequest>()
             .add_message::<CastEvent>()
             .init_resource::<SpellLookSizes>()
+            .init_resource::<MutedLoopSounds>()
             .init_resource::<SheathHolds>()
             .init_resource::<SpellLookStyles>()
             .add_message::<SpellGoTargets>()

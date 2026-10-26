@@ -260,6 +260,7 @@ pub(super) fn arm_ground_effects(
                 sounds.write(SpellKitSound::Play {
                     entity: anchor,
                     kit_sound,
+                    spell_id,
                 });
             }
         }

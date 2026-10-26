@@ -55,6 +55,14 @@ pub fn level_flight(content: &esurv_content::Content) -> benilla_app::LevelFligh
     benilla_app::LevelFlight(content.pets.iter().filter(|p| p.hover.is_some()).map(|p| p.display_id).collect())
 }
 
+/// The spells whose channel hum is kept silent (our rule, the owner's: it drones under a run),
+/// every 1.12 rank: Mind Flay, Drain Soul and Drain Life. Their cast and hit sounds still play.
+const MUTED_CHANNEL_HUMS: [u32; 16] = [
+    15407, 17311, 17312, 17313, 17314, 18807, // Mind Flay
+    1120, 8288, 8289, 11675, // Drain Soul
+    689, 699, 709, 7651, 11699, 11700, // Drain Life
+];
+
 /// Adds the game's systems to the client app; `content` is the game's content, for the names,
 /// icons and texts the screens show (`None` leaves them to ids), which they follow as it is loaded
 /// again ([`content_reload`]); `link` is the way to the server before a run, for the character
@@ -64,6 +72,7 @@ pub fn extend(app: &mut App, content: Option<Arc<LiveContent>>, link: Option<pre
     window_icon::register(app);
     app.net_handler(SessionEventKind::Chat, take_look_size);
     app.add_systems(Update, (take_look_styles, take_sheath_holds));
+    app.insert_resource(benilla_app::MutedLoopSounds(MUTED_CHANNEL_HUMS.into_iter().collect()));
     if let Some(live) = &content {
         // the create screen's added pairs and their looks are read once, at launch
         races::register(app, &live.current());

@@ -25,14 +25,41 @@
 //! appeared that minute, with their health at spawn, kill seconds (health ÷ the minute's DPS) and
 //! damage per hit as a share of the hero's max health; and the cheat deaths. Each boss follows,
 //! the same way, at the minute it appeared, with the seconds it lived (from appearing to dying, over
-//! the runs it died in) and how many of its appearances died. A minute after the final boss fell has no values (`—`).
+//! the runs it died in), its standard error (`±`), its zone's boss-time goal and how many of its
+//! appearances died. A minute after the final boss fell has no values (`—`).
 //!
 //! `cargo run --release -p esurv-sim --example balance_check [-- options]`:
 //!
-//! * `--seeds N`: runs per zone and class (default 2);
-//! * `--check-seeds N`: runs per class and case in `--milestones` and `--gear` (default 200: one
-//!   run differs from the next by far more than a milestone adds, so these need many; each gain is
-//!   printed with its standard error, `±`);
+//! **Early stop (every mode, by default).** Seeds are played in batches, each batch the next seeds
+//! in order (the same seeds a fixed run plays, so a run is reproducible and a longer one only adds
+//! to a shorter one). After each batch, every group of runs (a zone, a zone and class, a talent, a
+//! legendary ...) whose measured values are all *clear* stops; the others play the next batch. A
+//! value is clear once its standard error is at most a quarter of its band's half-width, or its
+//! 2-error interval lies wholly inside or wholly outside the band; a value with no band once its
+//! error is at most `--rel-error` of it. Never before `--min-seeds`, never past `--seeds` (or
+//! `--check-seeds`). The bands: `--loadouts` and `--starter-runs`, each loadout's or option's share
+//! of its class's mean, ±`--ratio-band` (0.10); the zone mode, each boss's lived seconds against
+//! its zone's boss-time goal (`BOSS_TIME_GOALS`, AUTHORING.md section 16) ±`--boss-band` (0.20), a zone with no
+//! goal by `--rel-error` (a boss that has not died twice by then has nothing to measure), and a
+//! zone played only for its kills by `--rel-error` on its kills;
+//! `--milestones` and `--gear`, the gain against the budget ±25 %; `--legendaries` ±20 %;
+//! `--starts`, `--budgets` and the arrival points (the mean kills of each zone) by `--rel-error`.
+//! Each table says how many seeds each line took (a "runs" column, or "N seeds a class" on a zone).
+//!
+//! * `--seeds N`: runs per zone and class at most (default 2; give e.g. 200 and let it stop early);
+//! * `--check-seeds N`: runs per class and case at most in `--milestones` and `--gear` (default
+//!   200: one run differs from the next by far more than a milestone adds, so these need many; each
+//!   gain is printed with its standard error, `±`), and in `--legendaries` (default 100 there);
+//! * `--fixed-seeds`: no early stop, every group plays the full `--seeds` / `--check-seeds`, as
+//!   the tool did before;
+//! * `--min-seeds N` (`--adaptive-min`): seeds a group plays before it may stop (default 20; 100 in
+//!   `--milestones` and `--gear`); `--batch-seeds N` (`--adaptive-batch`): seeds a batch (default
+//!   10; 50 in `--milestones` and `--gear`); both at most the maximum;
+//! * `--ratio-band S`, `--boss-band S`, `--rel-error S`: the early stop's bands above (defaults
+//!   0.10, 0.20, 0.025);
+//! * `--zones a,b` (zone mode): only these zones are measured in full; the zones before them are
+//!   played only for their kills (the talent points the next zone's hero arrives with), one line
+//!   each, and the zones after them not at all (unless `--gear` or `--milestones` needs them);
 //! * `--threads N`: runs played at once (default half the machine's threads);
 //! * `--targets <csv>`: our target kill seconds of normal enemies, columns `zone,minute,kill_seconds`
 //!   (zone by id); each measured value is printed ÷ its target and flagged outside the band;
@@ -81,19 +108,17 @@
 //!   each played with every starting option of the class, `--seeds` whole runs a pair in each zone
 //!   of `--zones`, kiting and declining amulets (as `--starter-runs --kite --no-amulets`; arrival
 //!   talents unless `--no-talents`, the previous zone's set). Per zone and class, a row per
-//!   loadout: its run DPS over the starters, ÷ the class's loadouts' mean, each starter's DPS,
-//!   cheat deaths a run and a minute, runs won; `--csv <file>` writes one row per loadout and
-//!   starter;
+//!   loadout: its run DPS over the starters, ÷ the class's loadouts' mean and that share's
+//!   standard error (`±`, paired: the loadouts play the same starters and seeds), the seeds a pair
+//!   played (`runs`), each starter's DPS, cheat deaths a run and a minute, runs won; `--csv <file>`
+//!   writes one row per loadout and starter;
 //! * `--start all` and `--loadout <id|all>` (the zone mode above): each class plays every
 //!   starting option (else its first) × every weapon loadout (or that one where the class has it;
 //!   else its first), `--seeds` runs a pair on the same seeds, the heroes as the zone mode makes
 //!   them; `--no-amulets` declines amulet offers there too. The per-zone output keeps its form,
 //!   each zone's lines over all the pairs' runs;
-//! * `--adaptive` (with `--milestones`): each talent is played in batches of `--adaptive-batch` seeds
-//!   (default 50) a side per starting option and stops as soon as its gain is clear: its error at
-//!   most a quarter of the ±25 % band, or its 2-error interval wholly inside or outside the band;
-//!   never before `--adaptive-min` seeds (default 200); at most `--check-seeds` seeds; the "runs"
-//!   column says how many it took;
+//! * `--adaptive`: still taken and does nothing (the early stop above is the default now; in
+//!   `--milestones` a talent stops once its gain over its starting options is clear);
 //! * `--fair-start` (with `--milestones`): in the arm without a milestone that starts the hero with
 //!   a spell (`StartWith`), the hero takes that spell the first time a card offers it, as a player
 //!   building that tree would (else the first offer as before); the spell still fills one of its
@@ -585,16 +610,27 @@ fn won_run_experience(content: &Content, zone: usize, kills: f64) -> u32 {
 }
 
 /// The talent points each zone's expected hero arrives with (by difficulty order), measured as the
-/// main check does: every zone played with every class's default hero, `seeds` runs each, and the
-/// mean kills of a zone's runs turned into the next zone's experience.
-fn arrival_points(content: &Arc<Content>, seeds: u64, threads: usize) -> Vec<u32> {
+/// main check does: every zone played with every class's default hero, at most `--seeds` runs each
+/// (stopping once the mean kills' error is at most `--rel-error` of them), and the mean kills of a
+/// zone's runs turned into the next zone's experience.
+fn arrival_points(content: &Arc<Content>, o: &Options, threads: usize) -> Vec<u32> {
     let (mut experience, mut points) = (0u32, Vec::new());
+    let stop = EarlyStop::new(o, o.seeds, 20, 10);
     for zi in 0..content.zones.len() {
         let p = talent_points(experience).0;
         points.push(p);
         let set_from = zi.checked_sub(1);
-        let jobs = zone_jobs(content, zi, seeds, |class| Some(Loadout { ranks: spend_talent_points(content, class, p), set_from, without_milestone: None, without_whole_talent: false, weapons: None, start: None }));
-        let results = play_all(content, &jobs, threads);
+        let mut results: Vec<Option<RunResult>> = Vec::new();
+        in_batches(
+            &stop,
+            1,
+            &mut results,
+            |results, _, seeds| {
+                let jobs = zone_jobs(content, zi, seeds, |class| Some(Loadout { ranks: spend_talent_points(content, class, p), set_from, without_milestone: None, without_whole_talent: false, weapons: None, start: None }));
+                results.extend(play_all(content, &jobs, threads));
+            },
+            |results, _| mean_and_error(results.iter().flatten().map(|r| f64::from(r.kills))).is_some_and(|(m, e)| clear(m, e, Band::Relative(o.rel_error))),
+        );
         let kills = mean(results.iter().flatten().map(|r| f64::from(r.kills))).unwrap_or(0.0);
         experience += won_run_experience(content, zi, kills);
     }
@@ -690,19 +726,120 @@ fn case_gain(jobs: &[(usize, bool, Job)], results: &[Option<RunResult>], case: u
     Some((gain, error))
 }
 
-/// `--adaptive`: a talent's measure can stop once its gain is clear against its row's budget:
-/// its standard error is at most a quarter of the band (±`MILESTONE_TOLERANCE` of the budget), or
-/// its 2-error interval lies wholly inside the band or wholly outside it.
+/// The band a measured value is judged against, for the early stop.
+#[derive(Clone, Copy, Debug)]
+enum Band {
+    /// It passes between these two bounds (a budget or goal with its tolerance).
+    Within(f64, f64),
+    /// No band: it is clear once its standard error is at most this share of its value.
+    Relative(f64),
+}
+
+/// The early stop's verdict on one value: clear once its standard error is small enough (a quarter
+/// of the band's half-width, or the `Relative` share of the value), or once its 2-error interval
+/// lies wholly inside the band or wholly outside it.
+fn clear(value: f64, error: f64, band: Band) -> bool {
+    if !value.is_finite() || !error.is_finite() {
+        return false;
+    }
+    match band {
+        Band::Within(low, high) => {
+            let precise = error <= (high - low) / 8.0;
+            let (lo, hi) = (value - 2.0 * error, value + 2.0 * error);
+            precise || (lo >= low && hi <= high) || hi < low || lo > high
+        }
+        Band::Relative(share) => error <= share * value.abs(),
+    }
+}
+
+/// `--milestones`: a talent's gain against its row's budget (a band of ±`MILESTONE_TOLERANCE`).
 fn milestone_settled(gain: f64, error: f64, budget: f64) -> bool {
-    let (low, high) = (budget * (1.0 - MILESTONE_TOLERANCE), budget * (1.0 + MILESTONE_TOLERANCE));
-    let precise = error <= budget * MILESTONE_TOLERANCE / 4.0;
-    let (lo, hi) = (gain - 2.0 * error, gain + 2.0 * error);
-    precise || (lo >= low && hi <= high) || hi < low || lo > high
+    clear(gain, error, Band::Within(budget * (1.0 - MILESTONE_TOLERANCE), budget * (1.0 + MILESTONE_TOLERANCE)))
+}
+
+/// How many seeds a measure plays: batches of `batch` seeds, each the next seeds in order (so a
+/// run is reproducible and a longer one only adds to a shorter one); a group of runs stops once
+/// every value it measures is clear (`clear`), never before `min` seeds, never past `max`.
+/// `fixed` (`--fixed-seeds`) plays `max` seeds every time, as before.
+#[derive(Clone, Copy, Debug)]
+struct EarlyStop {
+    batch: u64,
+    min: u64,
+    max: u64,
+    fixed: bool,
+}
+
+impl EarlyStop {
+    /// At most `max` seeds; `--min-seeds` and `--batch-seeds` as given, else these defaults.
+    fn new(o: &Options, max: u64, min: u64, batch: u64) -> Self {
+        let max = max.max(1);
+        EarlyStop { batch: o.batch_seeds.unwrap_or(batch).clamp(1, max), min: o.min_seeds.unwrap_or(min).min(max), max, fixed: o.fixed_seeds }
+    }
+
+    /// What the report's first line says about the seeds.
+    fn describe(&self) -> String {
+        if self.fixed || self.min >= self.max {
+            format!("{} seeds", self.max)
+        } else {
+            format!("{} to {} seeds (batches of {}, stopping once clear)", self.min, self.max, self.batch)
+        }
+    }
+}
+
+/// Plays `groups` groups of runs in batches (`EarlyStop`): `play(state, open groups, seeds)` plays
+/// the next seeds of the groups still open, `settled(state, group)` says whether a group's values
+/// are all clear. The seeds each group played, in group order.
+fn in_batches<S>(
+    stop: &EarlyStop,
+    groups: usize,
+    state: &mut S,
+    mut play: impl FnMut(&mut S, &[usize], std::ops::Range<u64>),
+    mut settled: impl FnMut(&S, usize) -> bool,
+) -> Vec<u64> {
+    let mut runs = vec![0u64; groups];
+    let mut open: Vec<usize> = (0..groups).collect();
+    let mut played = 0;
+    while played < stop.max && !open.is_empty() {
+        let n = if stop.fixed { stop.max - played } else { stop.batch.min(stop.max - played) };
+        play(state, &open, played..played + n);
+        played += n;
+        for &g in &open {
+            runs[g] = played;
+        }
+        if !stop.fixed && played >= stop.min {
+            open.retain(|&g| !settled(state, g));
+        }
+    }
+    runs
+}
+
+/// A value's share of the mean of `values` (each a mean and its standard error; `i` among them),
+/// and that share's standard error (the runs unpaired).
+fn share_of_mean(values: &[(f64, f64)], i: usize) -> (f64, f64) {
+    let k = values.len().max(1) as f64;
+    let m = values.iter().map(|v| v.0).sum::<f64>() / k;
+    let m_error = values.iter().map(|v| v.1 * v.1).sum::<f64>().sqrt() / k;
+    let (v, e) = values[i];
+    let r = v / m.max(1e-9);
+    (r, r * ((e / v.max(1e-9)).powi(2) + (m_error / m.max(1e-9)).powi(2)).sqrt())
+}
+
+/// The ratio of the means of `top` and `bottom` (paired: one entry each per run unit) and its
+/// standard error (by the delta method, from the units' differences `top - ratio × bottom`).
+fn paired_ratio(top: &[f64], bottom: &[f64]) -> Option<(f64, f64)> {
+    let n = top.len().min(bottom.len());
+    if n < 2 {
+        return None;
+    }
+    let (t, b) = (mean(top[..n].iter().copied())?, mean(bottom[..n].iter().copied())?);
+    let r = t / b.max(1e-9);
+    let (_, e) = mean_and_error((0..n).map(|u| top[u] - r * bottom[u]))?;
+    Some((r, e / b.max(1e-9)))
 }
 
 #[cfg(test)]
 mod adaptive_tests {
-    use super::milestone_settled;
+    use super::*;
 
     /// A gain stops once its error is small, or its interval sits wholly inside or outside the band.
     #[test]
@@ -714,6 +851,65 @@ mod adaptive_tests {
         assert!(milestone_settled(0.01, 0.02, 0.10), "interval -3 to 5 % below");
         assert!(!milestone_settled(0.10, 0.02, 0.10), "interval 6-14 % straddles the band");
         assert!(!milestone_settled(0.13, 0.02, 0.10), "interval 9-17 % straddles the top");
+    }
+
+    /// Without a band a value is clear once its error is a small enough share of it.
+    #[test]
+    fn a_value_without_a_band_is_clear_once_its_error_is_small() {
+        assert!(clear(40.0, 1.0, Band::Relative(0.025)));
+        assert!(!clear(40.0, 1.2, Band::Relative(0.025)));
+        assert!(!clear(f64::NAN, 0.0, Band::Relative(0.025)));
+    }
+
+    /// The batches play the next seeds each time; a settled group stops, never before the minimum
+    /// and never past the maximum; fixed plays the maximum at once.
+    #[test]
+    fn batches_play_the_next_seeds_and_stop_settled_groups() {
+        let o = Options::default();
+        let stop = EarlyStop { batch: 10, min: 20, max: 50, fixed: false };
+        let mut seen: Vec<Vec<u64>> = vec![Vec::new(); 2];
+        // group 0 settles as soon as it may; group 1 never does
+        let runs = in_batches(
+            &stop,
+            2,
+            &mut seen,
+            |s, open, seeds| {
+                for &g in open {
+                    s[g].extend(seeds.clone());
+                }
+            },
+            |_, g| g == 0,
+        );
+        assert_eq!(runs, vec![20, 50]);
+        assert_eq!(seen[0], (0..20).collect::<Vec<_>>());
+        assert_eq!(seen[1], (0..50).collect::<Vec<_>>());
+        let fixed = EarlyStop { fixed: true, ..stop };
+        let mut calls = 0;
+        let runs = in_batches(
+            &fixed,
+            1,
+            &mut calls,
+            |c, _, seeds| {
+                *c += 1;
+                assert_eq!(seeds, 0..50);
+            },
+            |_, _| true,
+        );
+        assert_eq!((runs, calls), (vec![50], 1));
+        // the minimum and the batch never pass the maximum
+        let small = EarlyStop::new(&o, 2, 20, 10);
+        assert_eq!((small.min, small.batch, small.max), (2, 2, 2));
+    }
+
+    /// A paired ratio's error is small when the two sides move together run by run.
+    #[test]
+    fn a_paired_ratio_cancels_what_the_runs_share() {
+        let bottom = [100.0, 200.0, 300.0, 400.0];
+        let top = [110.0, 220.0, 330.0, 440.0];
+        let (r, e) = paired_ratio(&top, &bottom).unwrap();
+        assert!((r - 1.1).abs() < 1e-9 && e < 1e-9);
+        let (s, se) = share_of_mean(&[(110.0, 1.0), (90.0, 1.0)], 0);
+        assert!((s - 1.1).abs() < 1e-9 && se > 0.0 && se < 0.02);
     }
 }
 
@@ -784,6 +980,48 @@ fn strong_means(results: &[&RunResult], wanted: impl Fn(&Arrival) -> bool) -> Op
         killed: rows.iter().filter(|(a, _, _)| a.died.is_some()).count(),
         share: mean(rows.iter().filter_map(|(a, _, _)| a.hero_to.map(|t| a.took / (t - a.hero_from).max(1.0)))),
     })
+}
+
+/// The owner's boss-time goals (2026-10-24, AUTHORING.md section 16, "The rule for bosses"): the seconds a zone's
+/// normal bosses and its final bosses should live, by zone id. A zone not listed has none.
+const BOSS_TIME_GOALS: [(&str, f64, f64); 10] = [
+    ("elwynn", 35.0, 90.0),
+    ("duskwood", 35.0, 90.0),
+    ("wsg", 35.0, 90.0),
+    ("scarlet", 38.0, 100.0),
+    ("sunken_temple", 41.0, 110.0),
+    ("feralas", 44.0, 115.0),
+    ("arena", 46.0, 125.0),
+    ("strat", 49.0, 135.0),
+    ("brm", 52.0, 140.0),
+    ("aq", 55.0, 150.0),
+];
+
+/// The seconds a boss of zone `zone` should live (`BOSS_TIME_GOALS`), if the zone has a goal.
+fn boss_goal(zone: &str, is_final: bool) -> Option<f64> {
+    BOSS_TIME_GOALS.iter().find(|g| g.0 == zone).map(|g| if is_final { g.2 } else { g.1 })
+}
+
+/// Boss `boss`'s mean lived seconds (from appearing to dying, over the times it died) and its
+/// standard error; `None` until it died twice.
+fn boss_lived(results: &[&RunResult], boss: usize) -> Option<(f64, f64)> {
+    let lived: Vec<f64> =
+        results.iter().flat_map(|r| &r.arrivals).filter(|a| a.kind == StrongKind::Boss(boss)).filter_map(|a| a.died.map(|d| f64::from(d - a.spawned))).collect();
+    (lived.len() >= 2).then(|| mean_and_error(lived)).flatten()
+}
+
+/// The zone mode's early stop for one boss: its lived seconds are clear against its zone's goal
+/// ±`--boss-band`, or (no goal) their error is at most `--rel-error` of them. A boss that never
+/// appeared, or has not died twice by the time this is asked (at least `--min-seeds` seeds: it
+/// comes too late to die before the run ends, as Whitemane at minute 20 without `--overtime`),
+/// has nothing more seeds would measure.
+fn boss_lived_clear(results: &[&RunResult], zone: &esurv_content::Zone, boss: usize, o: &Options) -> bool {
+    let Some((lived, error)) = boss_lived(results, boss) else { return true };
+    let band = match boss_goal(&zone.id, zone.bosses[boss].is_final) {
+        Some(goal) => Band::Within(goal * (1.0 - o.boss_band), goal * (1.0 + o.boss_band)),
+        None => Band::Relative(o.rel_error),
+    };
+    clear(lived, error, band)
 }
 
 /// Our target kill seconds by (zone id, minute), read from a `zone,minute,kill_seconds` file.
@@ -881,11 +1119,20 @@ struct Options {
     no_talents: bool,
     /// `--starter-runs` turning amulet offers down (`--no-amulets`).
     no_amulets: bool,
-    /// `--adaptive`: each talent's runs come in batches of `adaptive_batch` seeds a side per
-    /// starting option, and stop once its gain is clear (`milestone_settled`), at most `--check-seeds`.
-    adaptive: bool,
-    adaptive_batch: u64,
-    adaptive_min: u64,
+    /// The early stop (`EarlyStop`): `--fixed-seeds` plays the full `--seeds` / `--check-seeds`
+    /// every time; `--min-seeds` and `--batch-seeds` (else each mode's own defaults).
+    fixed_seeds: bool,
+    min_seeds: Option<u64>,
+    batch_seeds: Option<u64>,
+    /// The early stop's bands: a loadout's or starting option's share of its class's mean passes
+    /// within ±`ratio_band` (`--ratio-band`, 0.10); a boss's lived seconds within ±`boss_band` of
+    /// its zone's goal (`--boss-band`, 0.20); a value with no band is clear once its standard error
+    /// is at most `rel_error` of it (`--rel-error`, 0.025).
+    ratio_band: f64,
+    boss_band: f64,
+    rel_error: f64,
+    /// `--zones` was given (the zone mode then plays only those zones in full).
+    zones_given: bool,
     /// `--fair-start`: the arm without a start-spell milestone takes that spell when first offered.
     fair_start: bool,
     /// `--prefer a,b`: zone mode, every hero takes these spells when first offered; `--classes a,b`: only these classes.
@@ -938,9 +1185,13 @@ impl Default for Options {
             fair_start: false,
             prefer: Vec::new(),
             classes: Vec::new(),
-            adaptive: false,
-            adaptive_batch: 50,
-            adaptive_min: 200,
+            fixed_seeds: false,
+            min_seeds: None,
+            batch_seeds: None,
+            ratio_band: 0.10,
+            boss_band: 0.20,
+            rel_error: 0.025,
+            zones_given: false,
             legendaries: Vec::new(),
             check_seeds_given: None,
             threads_given: None,
@@ -988,7 +1239,10 @@ fn options() -> Options {
                 id => o.loadout = Some(id),
             },
             "--loadouts" => o.loadouts = true,
-            "--zones" => o.start_zones = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+            "--zones" => {
+                o.start_zones = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+                o.zones_given = true;
+            }
             "--second-targets" => o.second_targets = Some(value()),
             "--own-tree" => o.own_tree = true,
             "--starter-runs" => o.starter_runs = true,
@@ -1000,9 +1254,14 @@ fn options() -> Options {
             "--prefer-upgrades" => PREFER_UPGRADES.store(true, Ordering::Relaxed),
             "--damage-focus" => DAMAGE_FOCUS.store(true, Ordering::Relaxed),
             "--classes" => o.classes = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
-            "--adaptive" => o.adaptive = true,
-            "--adaptive-batch" => o.adaptive_batch = value().parse().expect("--adaptive-batch <seeds>"),
-            "--adaptive-min" => o.adaptive_min = value().parse().expect("--adaptive-min <seeds>"),
+            // the early stop is the default now; `--adaptive` is still taken, and does nothing
+            "--adaptive" => {}
+            "--fixed-seeds" => o.fixed_seeds = true,
+            "--min-seeds" | "--adaptive-min" => o.min_seeds = Some(value().parse().expect("--min-seeds <seeds>")),
+            "--batch-seeds" | "--adaptive-batch" => o.batch_seeds = Some(value().parse().expect("--batch-seeds <seeds>")),
+            "--ratio-band" => o.ratio_band = value().parse().expect("--ratio-band <share>, e.g. 0.1"),
+            "--boss-band" => o.boss_band = value().parse().expect("--boss-band <share>, e.g. 0.2"),
+            "--rel-error" => o.rel_error = value().parse().expect("--rel-error <share>, e.g. 0.025"),
             "--take-amulets" => {
                 let mut bits = 0u8;
                 for r in value().split(',').map(str::trim) {
@@ -1048,11 +1307,11 @@ fn options() -> Options {
 }
 
 /// The jobs of every class and seed in zone `zone`, each class with the loadout `loadout` gives it.
-fn zone_jobs(content: &Content, zone: usize, seeds: u64, mut loadout: impl FnMut(&str) -> Option<Loadout>) -> Vec<Job> {
+fn zone_jobs(content: &Content, zone: usize, seeds: std::ops::Range<u64>, mut loadout: impl FnMut(&str) -> Option<Loadout>) -> Vec<Job> {
     let mut jobs = Vec::new();
     for (ci, class) in content.classes.iter().enumerate() {
         let Some(l) = loadout(&class.id) else { continue };
-        for s in 0..seeds {
+        for s in seeds.clone() {
             jobs.push(Job { zone, class: ci, seed: zone_seed(&content.zones[zone].id) + ((ci as u64) << 40) + s, loadout: l.clone(), kite: None, block: 0.0, no_amulets: false, prefer: Vec::new() });
         }
     }
@@ -1060,11 +1319,11 @@ fn zone_jobs(content: &Content, zone: usize, seeds: u64, mut loadout: impl FnMut
 }
 
 /// The zone mode's jobs in zone `zone` for heroes arriving with `points` talent points (first tree
-/// first) and the previous zone's set: every class, `--seeds` runs of each pair of its starting
+/// first) and the previous zone's set: every class, the runs `seeds` (the next batch) of each pair of its starting
 /// option (`--start all`: every one; else its first) and its weapon loadout (`--loadout all`: every
 /// one; `--loadout <id>`: that one where the class has it; else its first), each pair on the same
 /// seeds; `--no-amulets` declines amulet offers.
-fn zone_mode_jobs(content: &Content, zone: usize, o: &Options, points: u32) -> Vec<Job> {
+fn zone_mode_jobs(content: &Content, zone: usize, o: &Options, points: u32, seeds: std::ops::Range<u64>) -> Vec<Job> {
     let set_from = zone.checked_sub(1);
     let mut jobs = Vec::new();
     for (ci, class) in content.classes.iter().enumerate() {
@@ -1087,7 +1346,7 @@ fn zone_mode_jobs(content: &Content, zone: usize, o: &Options, points: u32) -> V
         let ranks = spend_talent_points(content, &class.id, points);
         for start in &starts {
             for w in &weapons {
-                for s in 0..o.seeds {
+                for s in seeds.clone() {
                     let loadout = Loadout {
                         ranks: ranks.clone(),
                         set_from,
@@ -1156,28 +1415,71 @@ fn main() {
     let mut arrival_points = Vec::new();
     // per zone, measured ÷ target by minute
     let mut summary: Vec<(String, Vec<Option<f64>>)> = Vec::new();
-    println!("Balance check: {} seeds a zone and class, {} threads.\n", o.seeds, o.threads);
+    let stop = EarlyStop::new(&o, o.seeds, 20, 10);
+    println!(
+        "Balance check: {} a zone and class, {} threads (a zone stops once each boss's lived seconds are clear against its goal ±{:.0} %, or within ±{:.1} % where it has none).\n",
+        stop.describe(),
+        o.threads,
+        o.boss_band * 100.0,
+        o.rel_error * 100.0
+    );
+    // `--zones`: only those zones in full; the zones before them are played for their kills alone
+    // (the talent points the next zone's hero arrives with)
+    let listed: Vec<usize> = if o.zones_given {
+        o.start_zones.iter().map(|id| content.zones.iter().position(|z| z.id == *id).unwrap_or_else(|| panic!("--zones: no zone {id}"))).collect()
+    } else {
+        (0..content.zones.len()).collect()
+    };
+    // `--gear` and `--milestones` need every zone's arrival points
+    let last = if o.gear || o.milestones { content.zones.len().saturating_sub(1) } else { listed.iter().copied().max().unwrap_or(0) };
     if o.start_all || o.loadout_all || o.loadout.is_some() {
         println!(
-            "Each class plays {} × {}, {} seeds a pair{}.\n",
+            "Each class plays {} × {}, {} a pair{}.\n",
             if o.start_all { "every starting option" } else { "its first starting option" },
             match (&o.loadout, o.loadout_all) {
                 (_, true) => "every weapon loadout".to_string(),
                 (Some(id), false) => format!("weapon loadout {id} (where it has it, else its first)"),
                 (None, false) => "its first weapon loadout".to_string(),
             },
-            o.seeds,
+            stop.describe(),
             if o.no_amulets { ", amulets declined" } else { "" }
         );
     }
     for (zi, zone) in content.zones.iter().enumerate() {
+        if zi > last {
+            break;
+        }
         let points = talent_points(experience).0;
         arrival_points.push(points);
         let set_from = zi.checked_sub(1);
-        let jobs = zone_mode_jobs(&content, zi, &o, points);
-        let results = play_all(&content, &jobs, o.threads);
+        let in_full = listed.contains(&zi);
+        let mut state: (Vec<Job>, Vec<Option<RunResult>>) = (Vec::new(), Vec::new());
+        let runs = in_batches(
+            &stop,
+            1,
+            &mut state,
+            |(jobs, results), _, seeds| {
+                let fresh = zone_mode_jobs(&content, zi, &o, points, seeds);
+                results.extend(play_all(&content, &fresh, o.threads));
+                jobs.extend(fresh);
+            },
+            |(_, results), _| {
+                let full: Vec<&RunResult> = results.iter().filter_map(Option::as_ref).collect();
+                if in_full {
+                    (0..zone.bosses.len()).all(|bi| boss_lived_clear(&full, zone, bi, &o))
+                } else {
+                    mean_and_error(full.iter().map(|r| f64::from(r.kills))).is_some_and(|(m, e)| clear(m, e, Band::Relative(o.rel_error)))
+                }
+            },
+        )[0];
+        let (jobs, results) = state;
         let full: Vec<&RunResult> = results.iter().filter_map(Option::as_ref).collect();
         let kills = mean(full.iter().map(|r| f64::from(r.kills))).unwrap_or(0.0);
+        if !in_full {
+            println!("## {} (D {}): {points} talent points; played for its kills alone (the next zone's talent points), {runs} seeds a class: mean {kills:.0} kills\n", zone.id, zone.difficulty);
+            experience += won_run_experience(&content, zi, kills);
+            continue;
+        }
         let won = full.iter().filter(|r| r.seconds < MINUTES as f32 * 60.0).count();
         let made = synthetic.get(zone.id.as_str()).map_or(String::new(), |from| format!(", synthetic from {from}"));
         let gear: Vec<f32> = classes.iter().map(|c| set_from.map_or(0.0, |z| set_damage(&content, c, z))).collect();
@@ -1185,13 +1487,14 @@ fn main() {
         let worn = set_from.map_or("no".to_string(), |z| format!("{}'s", content.zones[z].id));
         let cheats: f64 = full.iter().map(|r| r.minutes.iter().flatten().map(|s| f64::from(s.cheat_deaths)).sum::<f64>()).sum::<f64>();
         println!(
-            "## {} (D {}{}): {} talent points, {} gear (damage +{:.0} % mean); mean {:.0} kills, {} of {} runs won before minute {}, {:.1} cheat deaths a run",
+            "## {} (D {}{}): {} talent points, {} gear (damage +{:.0} % mean); {runs} seeds a class{}; mean {:.0} kills, {} of {} runs won before minute {}, {:.1} cheat deaths a run",
             zone.id,
             zone.difficulty,
             made,
             points,
             worn,
             gear_mean * 100.0,
+            if o.start_all || o.loadout_all || o.loadout.is_some() { " and pair" } else { "" },
             kills,
             won,
             full.len(),
@@ -1260,12 +1563,17 @@ fn main() {
                 mm.cheat_deaths
             );
         }
-        println!("\n{:>6} {:>6} {:>7} {:>10} {:>8} {:>8} {:>7} {:>7} {:>8} {:>7}  name", "boss", "final", "minute", "health", "damage", "kill s", "hit%", "lived s", "killed", "on it%");
+        println!(
+            "\n{:>6} {:>6} {:>7} {:>10} {:>8} {:>8} {:>7} {:>7} {:>5} {:>5} {:>8} {:>7}  name",
+            "boss", "final", "minute", "health", "damage", "kill s", "hit%", "lived s", "±", "goal", "killed", "on it%"
+        );
         for (bi, b) in zone.bosses.iter().enumerate() {
             let Some(s) = strong_means(&full, |a| a.kind == StrongKind::Boss(bi)) else { continue };
             let fin = if b.is_final { "yes" } else { "" };
+            let error = boss_lived(&full, bi).map_or("—".to_string(), |(_, e)| format!("{e:.1}"));
+            let goal = boss_goal(&zone.id, b.is_final).map_or("—".to_string(), |g| format!("{g:.0}"));
             println!(
-                "{:>6} {:>6} {:>7.1} {:>10.0} {:>8.0} {:>8.1} {:>7.1} {:>7} {:>8} {:>7}  {}",
+                "{:>6} {:>6} {:>7.1} {:>10.0} {:>8.0} {:>8.1} {:>7.1} {:>7} {error:>5} {goal:>5} {:>8} {:>7}  {}",
                 bi + 1,
                 fin,
                 s.minute,
@@ -1325,7 +1633,7 @@ fn main() {
         // mean kills measured here
         experience += won_run_experience(&content, zi, kills);
     }
-    println!("Talent points after a won run in every zone: {}", talent_points(experience).0);
+    println!("Talent points after a won run in every zone played: {}", talent_points(experience).0);
     let schedule: Vec<String> =
         content.zones.iter().zip(&arrival_points).map(|(z, p)| format!("{} {p}", z.id)).collect();
     println!("Points on arrival: {}\n", schedule.join(", "));
@@ -1365,52 +1673,77 @@ fn main() {
     println!("Done in {:.0} s.", started.elapsed().as_secs_f64());
 }
 
-/// Every zone's arrival hero with the set it wears against the same hero with the set before it.
+/// Every zone's arrival hero with the set it wears against the same hero with the set before it,
+/// at most `--check-seeds` runs a class and arm, each zone stopping once its gain is clear against
+/// its budget (±`MILESTONE_TOLERANCE`).
 fn gear_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) {
-    // (zone, wears the previous zone's set) per job
-    let mut arms = Vec::new();
-    let mut jobs = Vec::new();
-    for zi in 1..content.zones.len() {
-        let points = arrival_points[zi];
-        for set_from in [zi.checked_sub(1), zi.checked_sub(2)] {
-            let more = zone_jobs(content, zi, o.check_seeds, |class| {
-                Some(Loadout { ranks: spend_talent_points(content, class, points), set_from, without_milestone: None, without_whole_talent: false, weapons: None, start: None })
-            });
-            arms.extend(more.iter().map(|_| (zi, set_from == zi.checked_sub(1))));
-            jobs.extend(more);
-        }
-    }
-    let results = play_all(content, &jobs, o.threads);
-    println!("Gear: each zone's set against the set before it, worn by the arrival hero of the zone after it (run DPS):\n");
-    println!("{:12} {:>12} {:>8} {:>6} {:>8} {:>8} {:>8}  by class", "set", "worn in", "gain", "±", "budget", "low", "high");
-    for zi in 1..content.zones.len() {
+    // the jobs, (zone, wears the previous zone's set) per job, and their results
+    type GearState = (Vec<Job>, Vec<(usize, bool)>, Vec<Option<RunResult>>);
+    // a set worn by a hero who already had every talent point stands in for a zone of talents
+    let budget = |zi: usize| if arrival_points[zi - 1] >= MAX_TALENT_POINTS { GEAR_BUDGET_AFTER_TALENTS } else { GEAR_BUDGET };
+    // the zone's gain over its classes, its error, and each class's gain
+    let zone_gain = |(jobs, arms, results): &GearState, zi: usize| -> Option<(f64, f64, Vec<(usize, f64)>)> {
         let mut gains = Vec::new();
         for ci in 0..content.classes.len() {
             let dps = |new: bool| {
-                let runs = jobs.iter().zip(&results).zip(&arms).filter(|((j, _), a)| j.class == ci && **a == (zi, new));
+                let runs = jobs.iter().zip(results).zip(arms).filter(|((j, _), a)| j.class == ci && **a == (zi, new));
                 mean_and_error(runs.filter_map(|((_, r), _)| r.as_ref()).map(RunResult::dps))
             };
             if let (Some(w), Some(b)) = (dps(true), dps(false)) {
                 let (gain, error) = gain_and_error(w, b);
-                gains.push((content.classes[ci].id.as_str(), gain, error));
+                gains.push((ci, gain, error));
             }
         }
-        let Some(gain) = mean(gains.iter().map(|g| g.1)) else { continue };
+        let gain = mean(gains.iter().map(|g| g.1))?;
         let error = gains.iter().map(|g| g.2 * g.2).sum::<f64>().sqrt() / gains.len() as f64;
-        // a set worn by a hero who already had every talent point stands in for a zone of talents
-        let budget = if arrival_points[zi - 1] >= MAX_TALENT_POINTS { GEAR_BUDGET_AFTER_TALENTS } else { GEAR_BUDGET };
+        Some((gain, error, gains.iter().map(|g| (g.0, g.1)).collect()))
+    };
+    let zones: Vec<usize> = (1..content.zones.len()).collect();
+    let stop = EarlyStop::new(o, o.check_seeds, 100, 50);
+    let mut state: GearState = (Vec::new(), Vec::new(), Vec::new());
+    let runs = in_batches(
+        &stop,
+        zones.len(),
+        &mut state,
+        |(jobs, arms, results), open, seeds| {
+            let mut fresh = Vec::new();
+            for &g in open {
+                let zi = zones[g];
+                let points = arrival_points[zi];
+                for set_from in [zi.checked_sub(1), zi.checked_sub(2)] {
+                    let more = zone_jobs(content, zi, seeds.clone(), |class| {
+                        Some(Loadout { ranks: spend_talent_points(content, class, points), set_from, without_milestone: None, without_whole_talent: false, weapons: None, start: None })
+                    });
+                    arms.extend(more.iter().map(|_| (zi, set_from == zi.checked_sub(1))));
+                    fresh.extend(more);
+                }
+            }
+            results.extend(play_all(content, &fresh, o.threads));
+            jobs.extend(fresh);
+        },
+        |state, g| {
+            let zi = zones[g];
+            let b = budget(zi);
+            zone_gain(state, zi).is_some_and(|(gain, error, _)| clear(gain, error, Band::Within(b * (1.0 - MILESTONE_TOLERANCE), b * (1.0 + MILESTONE_TOLERANCE))))
+        },
+    );
+    println!("Gear: each zone's set against the set before it, worn by the arrival hero of the zone after it (run DPS), {}:\n", stop.describe());
+    println!("{:12} {:>12} {:>8} {:>6} {:>8} {:>8} {:>8} {:>5}  by class", "set", "worn in", "gain", "±", "budget", "low", "high", "runs");
+    for (g, &zi) in zones.iter().enumerate() {
+        let Some((gain, error, gains)) = zone_gain(&state, zi) else { continue };
         let low = gains.iter().map(|g| g.1).fold(f64::MAX, f64::min);
         let high = gains.iter().map(|g| g.1).fold(f64::MIN, f64::max);
-        let classes: Vec<String> = gains.iter().map(|(c, g, _)| format!("{c} {:+.0}", g * 100.0)).collect();
+        let classes: Vec<String> = gains.iter().map(|(c, g)| format!("{} {:+.0}", content.classes[*c].id, g * 100.0)).collect();
         println!(
-            "{:12} {:>12} {:>+7.1}% {:>5.1}% {:>+7.0}% {:>+7.0}% {:>+7.0}%  {}",
+            "{:12} {:>12} {:>+7.1}% {:>5.1}% {:>+7.0}% {:>+7.0}% {:>+7.0}% {:>5}  {}",
             content.zones[zi - 1].id,
             content.zones[zi].id,
             gain * 100.0,
             error * 100.0,
-            budget * 100.0,
+            budget(zi) * 100.0,
             low * 100.0,
             high * 100.0,
+            runs[g],
             classes.join(", ")
         );
     }
@@ -1512,57 +1845,46 @@ fn milestone_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) 
             }
         }
     }
-    // the runs, batch by batch: every case plays seeds `played..played + batch` in both arms; with
-    // `--adaptive` a talent stops as soon as its gain is clear (`milestone_settled`)
-    let mut jobs: Vec<(usize, bool, Job)> = Vec::new();
-    let mut results: Vec<Option<RunResult>> = Vec::new();
+    // the runs, batch by batch (`EarlyStop`): every open case plays the next seeds in both arms; a
+    // talent stops as soon as its gain over its starting options is clear (`milestone_settled`)
     let key = |c: &Case| (c.class.clone(), c.tree, c.row, c.talent.clone(), c.zone);
-    let mut open: Vec<bool> = vec![true; cases.len()];
-    let batch = if o.adaptive { o.adaptive_batch.max(1) } else { o.check_seeds.max(1) };
-    let mut played = 0;
-    while played < o.check_seeds && open.iter().any(|&x| x) {
-        let n = batch.min(o.check_seeds - played);
-        let mut fresh = Vec::new();
-        for (case, without, j) in &templates {
-            if !open[*case] {
-                continue;
-            }
-            for s in played..played + n {
-                fresh.push((*case, *without, Job { zone: j.zone, class: j.class, seed: j.seed + s, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets, prefer: j.prefer.clone() }));
-            }
-        }
-        let plain: Vec<Job> = fresh.iter().map(|(_, _, j)| Job { zone: j.zone, class: j.class, seed: j.seed, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets, prefer: j.prefer.clone() }).collect();
-        results.extend(play_all(content, &plain, o.threads));
-        jobs.extend(fresh);
-        played += n;
-        // a talent settles only once it has `--adaptive-min` seeds a side (a first batch can mislead)
-        if o.adaptive && played >= o.adaptive_min {
-            for ci in 0..cases.len() {
-                if !open[ci] {
-                    continue;
-                }
-                // the talent's gain over its starting options (the mean) and its error
-                let k = key(&cases[ci]);
-                let mine: Vec<usize> = (0..cases.len()).filter(|&x| key(&cases[x]) == k).collect();
-                let stats: Vec<(f64, f64)> = mine.iter().filter_map(|&x| case_gain(&jobs, &results, x)).collect();
-                if stats.len() == mine.len() && !stats.is_empty() {
-                    let m = stats.len() as f64;
-                    let gain = stats.iter().map(|s| s.0).sum::<f64>() / m;
-                    let error = stats.iter().map(|s| s.1 * s.1).sum::<f64>().sqrt() / m;
-                    if milestone_settled(gain, error, cases[ci].budget) {
-                        for &x in &mine {
-                            open[x] = false;
-                        }
-                    }
-                } else if mine.iter().all(|&x| cases[x].role != "damage") {
-                    for &x in &mine {
-                        open[x] = false;
-                    }
+    let stop = EarlyStop::new(o, o.check_seeds, 100, 50);
+    let mut state: (Vec<(usize, bool, Job)>, Vec<Option<RunResult>>) = (Vec::new(), Vec::new());
+    in_batches(
+        &stop,
+        cases.len(),
+        &mut state,
+        |(jobs, results), open, seeds| {
+            let mut fresh = Vec::new();
+            for (case, without, j) in templates.iter().filter(|(case, _, _)| open.contains(case)) {
+                for s in seeds.clone() {
+                    fresh.push((*case, *without, Job { zone: j.zone, class: j.class, seed: j.seed + s, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets, prefer: j.prefer.clone() }));
                 }
             }
-        }
-    }
-    println!("Milestones: run DPS with the row's milestone and without it, in the first zone whose arrival hero reaches the row:\n");
+            let plain: Vec<Job> = fresh.iter().map(|(_, _, j)| Job { zone: j.zone, class: j.class, seed: j.seed, loadout: j.loadout.clone(), kite: j.kite, block: j.block, no_amulets: j.no_amulets, prefer: j.prefer.clone() }).collect();
+            results.extend(play_all(content, &plain, o.threads));
+            jobs.extend(fresh);
+        },
+        |(jobs, results), ci| {
+            // the talent's gain over its starting options (the mean) and its error
+            let k = key(&cases[ci]);
+            let mine: Vec<usize> = (0..cases.len()).filter(|&x| key(&cases[x]) == k).collect();
+            if mine.iter().all(|&x| cases[x].role != "damage") {
+                return true;
+            }
+            let stats: Vec<(f64, f64)> = mine.iter().filter_map(|&x| case_gain(jobs, results, x)).collect();
+            if stats.len() != mine.len() || stats.is_empty() {
+                return false;
+            }
+            let m = stats.len() as f64;
+            let gain = stats.iter().map(|s| s.0).sum::<f64>() / m;
+            let error = stats.iter().map(|s| s.1 * s.1).sum::<f64>().sqrt() / m;
+            milestone_settled(gain, error, cases[ci].budget)
+        },
+    );
+    let (jobs, results) = state;
+
+    println!("Milestones: run DPS with the row's milestone and without it, in the first zone whose arrival hero reaches the row, {} a side:\n", stop.describe());
     println!(
         "{:8} {:16} {:>4} {:>3} {:24} {:9} {:>9} {:>10} {:>10} {:>7} {:>6} {:>7} {:>5}  milestone",
         "class", "start", "tree", "row", "talent", "role", "zone", "with", "without", "gain", "±", "budget", "runs"
@@ -1635,22 +1957,46 @@ fn budgets(content: &Arc<Content>, o: &Options) {
         if one { StartArena::OneEnemy } else { StartArena::Swarm(kite) }
     };
     // (option, one enemy, passive on, seed)
-    let jobs: Vec<(usize, bool, bool, u64)> = (0..options.len())
-        .flat_map(|oi| [false, true].into_iter().flat_map(move |one| [true, false].into_iter().flat_map(move |on| (0..o.seeds).map(move |s| (oi, one, on, s)))))
-        .collect();
-    let samples = parallel_map(&jobs, o.threads, |&(oi, one, on, s)| {
-        let (class, start) = &options[oi];
-        let loadout = Loadout { ranks: Ranks::new(), set_from: None, without_milestone: None, without_whole_talent: false, weapons: None, start: Some(start.clone()) };
-        let seed = zone_seed(&zone) + ((oi as u64) << 32) + s;
-        measure_start(if on { content } else { &quiet }, &zone, class, start, &loadout, seed, arena(start, one))
-    });
+    // the early stop: an option stops once its strike and its whole damage with the passive on, in
+    // the swarm and on one enemy, each have an error of at most `--rel-error` of them
+    let stop = EarlyStop::new(o, o.seeds, 20, 10);
+    let mut state: (Vec<(usize, bool, bool, u64)>, Vec<StartSample>) = (Vec::new(), Vec::new());
+    let runs = in_batches(
+        &stop,
+        options.len(),
+        &mut state,
+        |(jobs, samples), open, seeds| {
+            let fresh: Vec<(usize, bool, bool, u64)> = open
+                .iter()
+                .flat_map(|&oi| [false, true].into_iter().flat_map(move |one| [true, false].into_iter().map(move |on| (oi, one, on))))
+                .flat_map(|(oi, one, on)| seeds.clone().map(move |s| (oi, one, on, s)))
+                .collect();
+            samples.extend(parallel_map(&fresh, o.threads, |&(oi, one, on, s)| {
+                let (class, start) = &options[oi];
+                let loadout = Loadout { ranks: Ranks::new(), set_from: None, without_milestone: None, without_whole_talent: false, weapons: None, start: Some(start.clone()) };
+                let seed = zone_seed(&zone) + ((oi as u64) << 32) + s;
+                measure_start(if on { content } else { &quiet }, &zone, class, start, &loadout, seed, arena(start, one))
+            }));
+            jobs.extend(fresh);
+        },
+        |(jobs, samples), oi| {
+            [false, true].into_iter().all(|one| {
+                let of = |on: bool, f: &dyn Fn(&StartSample) -> f64| mean_and_error(jobs.iter().zip(samples).filter(|((i, w, p, _), _)| *i == oi && *w == one && *p == on).map(|(_, x)| f(x)));
+                let strike = of(false, &|x: &StartSample| x.spell - x.finisher - x.pet);
+                let whole = of(true, &|x: &StartSample| x.spell + x.passive + x.swing);
+                [strike, whole].into_iter().all(|v| v.is_some_and(|(m, e)| clear(m, e, Band::Relative(o.rel_error))))
+            })
+        },
+    );
+    let (jobs, samples) = state;
     println!(
-        "Budgets: each option's level-1 spell alone for {STARTS_SECONDS} s at level 1 in {zone}, no gear, {} seeds, {}; the passive is what turning it on adds, plus a pair's finisher.\n",
-        o.seeds,
+        "Budgets: each option's level-1 spell alone for {STARTS_SECONDS} s at level 1 in {zone}, no gear, {} (an option stops once its damage a second is within ±{:.1} %), {}; the passive is what turning it on adds, plus a pair's finisher.\n",
+        stop.describe(),
+        o.rel_error * 100.0,
         if o.kite { "kiting" } else { "standing" }
     );
-    println!("| class | option | strike /s | budget | ÷ | passive /s | budget | ÷ | finisher | fires/min | one enemy: strike | one enemy: passive |");
-    println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+    println!("| class | option | strike /s | budget | ÷ | passive /s | budget | ÷ | finisher | fires/min | one enemy: strike | one enemy: passive | runs |");
+    println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
     let mut csv = String::from("class,option,strike,strike_budget,passive,passive_budget,finisher,fires_per_minute,one_strike,one_passive\n");
     for (oi, (class, start)) in options.iter().enumerate() {
         let option = content.starting_option(start).expect("an option");
@@ -1667,9 +2013,10 @@ fn budgets(content: &Arc<Content>, o: &Options) {
         let (st1, pa1) = (strike(true), passive(true));
         let ratio = |v: f64, b: f64| if b > 0.0 { format!("{:.2}", v / b) } else { "—".into() };
         println!(
-            "| {class} | {start} | {st:.1} | {sb:.0} | {} | {pa:.1} | {pb:.0} | {} | {fi:.1} | {fires:.1} | {st1:.1} | {pa1:.1} |",
+            "| {class} | {start} | {st:.1} | {sb:.0} | {} | {pa:.1} | {pb:.0} | {} | {fi:.1} | {fires:.1} | {st1:.1} | {pa1:.1} | {} |",
             ratio(st, sb),
-            ratio(pa, pb)
+            ratio(pa, pb),
+            runs[oi]
         );
         csv.push_str(&format!("{class},{start},{st:.2},{sb},{pa:.2},{pb},{fi:.2},{fires:.2},{st1:.2},{pa1:.2}\n"));
     }
@@ -1686,12 +2033,10 @@ fn starter_runs(content: &Arc<Content>, o: &Options) {
         .iter()
         .map(|id| content.zones.iter().position(|z| z.id == *id).unwrap_or_else(|| panic!("--zones: no zone {id}")))
         .collect();
-    let points = if o.no_talents { vec![0; content.zones.len()] } else { arrival_points(content, o.seeds, o.threads) };
+    let points = if o.no_talents { vec![0; content.zones.len()] } else { arrival_points(content, o, o.threads) };
     let options: Vec<(String, String)> =
         content.classes.iter().flat_map(|c| c.starting_options.iter().map(move |s| (c.id.clone(), s.id.clone()))).collect();
-    let jobs: Vec<(usize, usize, u64)> =
-        zones.iter().flat_map(|&zi| (0..options.len()).flat_map(move |oi| (0..o.seeds).map(move |s| (zi, oi, s)))).collect();
-    let results = parallel_map(&jobs, o.threads, |&(zi, oi, s)| {
+    let play = |&(zi, oi, s): &(usize, usize, u64)| {
         let (class, start) = &options[oi];
         let zone = &content.zones[zi].id;
         let loadout = Loadout {
@@ -1710,10 +2055,49 @@ fn starter_runs(content: &Arc<Content>, o: &Options) {
             eprintln!("balance check: the run of {zone}/{start} seed {seed} panicked; it is left out");
         }
         r.ok()
-    });
+    };
+    // the early stop's groups: each zone and class; a group stops once every option's share of the
+    // class's mean is clear against ±`--ratio-band`
+    let groups: Vec<(usize, &str)> = zones.iter().flat_map(|&zi| content.classes.iter().map(move |c| (zi, c.id.as_str()))).collect();
+    let stop = EarlyStop::new(o, o.seeds, 20, 10);
+    let mut state: (Vec<(usize, usize, u64)>, Vec<Option<RunResult>>) = (Vec::new(), Vec::new());
+    in_batches(
+        &stop,
+        groups.len(),
+        &mut state,
+        |(jobs, results), open, seeds| {
+            let fresh: Vec<(usize, usize, u64)> = open
+                .iter()
+                .flat_map(|&g| {
+                    let (zi, class) = groups[g];
+                    (0..options.len()).filter(|&oi| options[oi].0 == class).flat_map(|oi| seeds.clone().map(move |s| (zi, oi, s))).collect::<Vec<_>>()
+                })
+                .collect();
+            results.extend(parallel_map(&fresh, o.threads, play));
+            jobs.extend(fresh);
+        },
+        |(jobs, results), g| {
+            let (zi, class) = groups[g];
+            let mine: Vec<usize> = (0..options.len()).filter(|&oi| options[oi].0 == class).collect();
+            let dps: Option<Vec<(f64, f64)>> = mine
+                .iter()
+                .map(|&oi| {
+                    let rs = jobs.iter().zip(results.iter()).filter(|((z, i, _), _)| *z == zi && *i == oi).filter_map(|(_, r)| r.as_ref());
+                    mean_and_error(rs.map(RunResult::dps).filter(|d| d.is_finite()))
+                })
+                .collect();
+            let band = Band::Within(1.0 - o.ratio_band, 1.0 + o.ratio_band);
+            dps.is_some_and(|d| (0..d.len()).all(|i| {
+                let (share, error) = share_of_mean(&d, i);
+                clear(share, error, band)
+            }))
+        },
+    );
+    let (jobs, results) = state;
     println!(
-        "Starting options, whole runs: {} seeds each, {}, {}, {}, the previous zone's set.\n",
-        o.seeds,
+        "Starting options, whole runs: {} each (a zone and class stop once every option's share of the class mean is clear against ±{:.0} %), {}, {}, {}, the previous zone's set.\n",
+        stop.describe(),
+        o.ratio_band * 100.0,
         if o.kite { "kiting" } else { "standing" },
         if o.no_talents { "no talents" } else { "arrival talents" },
         if o.no_amulets { "no amulets" } else { "first offers" }
@@ -1731,8 +2115,8 @@ fn starter_runs(content: &Arc<Content>, o: &Options) {
         sorted.sort_by(|a, b| a.total_cmp(b));
         let median = sorted.get(sorted.len() / 2).copied().unwrap_or(1.0);
         println!("## {zone} ({} talent points, {worn} gear; zone median {median:.0} DPS)\n", points[zi]);
-        println!("| class | option | run DPS | ± | ÷ class mean | ÷ median | DPS m5 | DPS m10 | DPS m15 | level m15 | kills | cheat deaths/min | won |");
-        println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+        println!("| class | option | run DPS | ± | ÷ class mean | ÷ median | DPS m5 | DPS m10 | DPS m15 | level m15 | kills | cheat deaths/min | won | runs |");
+        println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
         for (oi, (class, start)) in options.iter().enumerate() {
             let Some((d, e)) = dps[oi] else { continue };
             let mine: Vec<usize> = (0..options.len()).filter(|&k| options[k].0 == *class).collect();
@@ -1745,13 +2129,14 @@ fn starter_runs(content: &Arc<Content>, o: &Options) {
             let cheats: f64 = rs.iter().map(|r| r.minutes.iter().flatten().map(|x| f64::from(x.cheat_deaths)).sum::<f64>()).sum();
             let won = rs.iter().filter(|r| r.seconds < MINUTES as f32 * 60.0).count();
             println!(
-                "| {class} | {start} | {d:.0} | {e:.0} | {:.2} | {:.2} | {:.0} | {:.0} | {:.0} | {level:.1} | {kills:.0} | {:.2} | {won}/{} |",
+                "| {class} | {start} | {d:.0} | {e:.0} | {:.2} | {:.2} | {:.0} | {:.0} | {:.0} | {level:.1} | {kills:.0} | {:.2} | {won}/{} | {} |",
                 d / class_mean,
                 d / median,
                 minute(5),
                 minute(10),
                 minute(15),
                 cheats / minutes_played.max(1e-9),
+                rs.len(),
                 rs.len()
             );
             csv.push_str(&format!(
@@ -1774,7 +2159,7 @@ fn starter_runs(content: &Arc<Content>, o: &Options) {
 }
 
 /// `--loadouts`: every class's three weapon loadouts compared (roadmap
-/// R3), each played with every starting option of the class, `--seeds` whole runs a pair in each
+/// R3), each played with every starting option of the class, at most `--seeds` whole runs a pair (early stop) in each
 /// zone of `--zones`, kiting and declining amulets as `--starter-runs --kite --no-amulets` does
 /// (arrival talents unless `--no-talents`, the previous zone's set). Per zone and class, a row per
 /// loadout: its run DPS over the class's starters, against the mean of the class's loadouts, each
@@ -1786,7 +2171,7 @@ fn loadout_runs(content: &Arc<Content>, o: &Options) {
         .iter()
         .map(|id| content.zones.iter().position(|z| z.id == *id).unwrap_or_else(|| panic!("--zones: no zone {id}")))
         .collect();
-    let points = if o.no_talents { vec![0; content.zones.len()] } else { arrival_points(content, o.seeds, o.threads) };
+    let points = if o.no_talents { vec![0; content.zones.len()] } else { arrival_points(content, o, o.threads) };
     // (class, starting option, weapon loadout)
     let pairs: Vec<(String, String, String)> = content
         .classes
@@ -1796,9 +2181,7 @@ fn loadout_runs(content: &Arc<Content>, o: &Options) {
             content.loadouts_of(&c.id).iter().flat_map(move |l| starts.clone().into_iter().map(move |s| (c.id.clone(), s, l.id.clone())))
         })
         .collect();
-    let jobs: Vec<(usize, usize, u64)> =
-        zones.iter().flat_map(|&zi| (0..pairs.len()).flat_map(move |pi| (0..o.seeds).map(move |s| (zi, pi, s)))).collect();
-    let results = parallel_map(&jobs, o.threads, |&(zi, pi, s)| {
+    let play = |&(zi, pi, s): &(usize, usize, u64)| {
         let (class, start, weapons) = &pairs[pi];
         let zone = &content.zones[zi].id;
         let loadout = Loadout {
@@ -1819,10 +2202,60 @@ fn loadout_runs(content: &Arc<Content>, o: &Options) {
             eprintln!("balance check: the run of {zone}/{class}/{start} with {weapons} seed {seed} panicked; it is left out");
         }
         r.ok()
-    });
+    };
+    // the early stop's groups: each zone and class; a group stops once every loadout's share of the
+    // class's mean is clear against ±`--ratio-band`
+    let groups: Vec<(usize, usize)> = zones.iter().flat_map(|&zi| (0..content.classes.len()).map(move |ci| (zi, ci))).collect();
+    // each loadout's share of the class's loadouts' mean and its error, paired run by run (a
+    // starter and seed, played with every loadout)
+    let shares = |jobs: &[(usize, usize, u64)], results: &[Option<RunResult>], zi: usize, ci: usize| -> Vec<Option<(f64, f64)>> {
+        let class = &content.classes[ci].id;
+        let ids: Vec<&str> = content.loadouts_of(class).iter().map(|l| l.id.as_str()).collect();
+        let mut by_unit: HashMap<(String, u64), Vec<Option<f64>>> = HashMap::new();
+        for ((z, p, s), r) in jobs.iter().zip(results) {
+            let (c, start, weapons) = &pairs[*p];
+            if *z != zi || c != class {
+                continue;
+            }
+            let Some(li) = ids.iter().position(|id| id == weapons) else { continue };
+            let dps = r.as_ref().map(RunResult::dps).filter(|d| d.is_finite());
+            by_unit.entry((start.clone(), *s)).or_insert_with(|| vec![None; ids.len()])[li] = dps;
+        }
+        let units: Vec<Vec<f64>> = by_unit.into_values().filter_map(|v| v.into_iter().collect::<Option<Vec<f64>>>()).collect();
+        let means: Vec<f64> = units.iter().map(|u| u.iter().sum::<f64>() / u.len() as f64).collect();
+        (0..ids.len()).map(|li| paired_ratio(&units.iter().map(|u| u[li]).collect::<Vec<_>>(), &means)).collect()
+    };
+    let stop = EarlyStop::new(o, o.seeds, 20, 10);
+    let mut state: (Vec<(usize, usize, u64)>, Vec<Option<RunResult>>) = (Vec::new(), Vec::new());
+    let runs = in_batches(
+        &stop,
+        groups.len(),
+        &mut state,
+        |(jobs, results), open, seeds| {
+            let fresh: Vec<(usize, usize, u64)> = open
+                .iter()
+                .flat_map(|&g| {
+                    let (zi, ci) = groups[g];
+                    let class = &content.classes[ci].id;
+                    let seeds = seeds.clone();
+                    (0..pairs.len()).filter(|&pi| pairs[pi].0 == *class).collect::<Vec<_>>().into_iter().flat_map(move |pi| seeds.clone().map(move |s| (zi, pi, s)))
+                })
+                .collect();
+            results.extend(parallel_map(&fresh, o.threads, play));
+            jobs.extend(fresh);
+        },
+        |(jobs, results), g| {
+            let (zi, ci) = groups[g];
+            let band = Band::Within(1.0 - o.ratio_band, 1.0 + o.ratio_band);
+            let s = shares(jobs, results, zi, ci);
+            !s.is_empty() && s.iter().all(|x| x.is_some_and(|(r, e)| clear(r, e, band)))
+        },
+    );
+    let (jobs, results) = state;
     println!(
-        "Weapon loadouts: every class's starting options with each of its loadouts, whole runs, {} seeds a pair, kiting, {}, no amulets, the previous zone's set.\n",
-        o.seeds,
+        "Weapon loadouts: every class's starting options with each of its loadouts, whole runs, {} a pair (a zone and class stop once every loadout's share is clear against ±{:.0} %), kiting, {}, no amulets, the previous zone's set.\n",
+        stop.describe(),
+        o.ratio_band * 100.0,
         if o.no_talents { "no talents" } else { "arrival talents" },
     );
     let mut csv = String::from("zone,class,loadout,option,runs,dps,error,cheat_deaths_per_run,cheat_deaths_per_minute,won\n");
@@ -1830,13 +2263,15 @@ fn loadout_runs(content: &Arc<Content>, o: &Options) {
         let zone = &content.zones[zi].id;
         let worn = zi.checked_sub(1).map_or("no".to_string(), |z| format!("{}'s", content.zones[z].id));
         println!("## {zone} ({} talent points, {worn} gear)\n", points[zi]);
-        println!("| class | loadout | run DPS | ÷ class mean | per starter | cheat deaths/run | cheat deaths/min | won |");
-        println!("|---|---|---:|---:|---|---:|---:|---:|");
+        println!("| class | loadout | run DPS | ÷ class mean | ± | runs | per starter | cheat deaths/run | cheat deaths/min | won |");
+        println!("|---|---|---:|---:|---:|---:|---|---:|---:|---:|");
         let runs_of = |pi: usize| -> Vec<&RunResult> {
             jobs.iter().zip(&results).filter(|((z, p, _), _)| *z == zi && *p == pi).filter_map(|(_, r)| r.as_ref()).collect()
         };
-        for class in &content.classes {
+        for (ci, class) in content.classes.iter().enumerate() {
             let ids: Vec<&str> = content.loadouts_of(&class.id).iter().map(|l| l.id.as_str()).collect();
+            let errors = shares(&jobs, &results, zi, ci);
+            let seeds = groups.iter().position(|&g| g == (zi, ci)).map_or(0, |g| runs[g]);
             // per loadout: (its id, mean DPS over its starters, the starters' DPS, cheat deaths, minutes, runs, won)
             let mut rows = Vec::new();
             for id in &ids {
@@ -1864,11 +2299,12 @@ fn loadout_runs(content: &Arc<Content>, o: &Options) {
                 rows.push((*id, dps, per_start, cheats, minutes, count, won));
             }
             let class_mean = mean(rows.iter().filter_map(|r| r.1)).unwrap_or(f64::NAN);
-            for (id, dps, per_start, cheats, minutes, count, won) in rows {
+            for (li, (id, dps, per_start, cheats, minutes, count, won)) in rows.into_iter().enumerate() {
                 let Some(dps) = dps else { continue };
                 let starters: Vec<String> = per_start.iter().map(|(s, d)| format!("{s} {d:.0}")).collect();
+                let error = errors.get(li).copied().flatten().map_or("—".to_string(), |(_, e)| format!("{e:.2}"));
                 println!(
-                    "| {} | {id} | {dps:.0} | {:.2} | {} | {:.2} | {:.2} | {won}/{count} |",
+                    "| {} | {id} | {dps:.0} | {:.2} | {error} | {seeds} | {} | {:.2} | {:.2} | {won}/{count} |",
                     class.id,
                     dps / class_mean,
                     starters.join(", "),
@@ -1884,6 +2320,7 @@ fn loadout_runs(content: &Arc<Content>, o: &Options) {
         println!("wrote {path}");
     }
 }
+
 
 /// Run seconds of each `--starts` run of the level-1 spell alone (in the swarm or on one enemy).
 const STARTS_SECONDS: f32 = 300.0;
@@ -2248,11 +2685,12 @@ fn starts_check(content: &Arc<Content>, o: &Options) {
         .collect();
     let movement = if o.kite { "kiting" } else { "standing" };
     let trees = if o.own_tree { "its option's own talent tree first" } else { "talents in the first tree first" };
+    let stop = EarlyStop::new(o, o.seeds, 20, 10);
     println!(
-        "Starting options: {} seeds each, the hero {movement}, {trees}: its level-1 spell alone for {} s, then a whole run taking first offers.\n",
-        o.seeds, STARTS_SECONDS
+        "Starting options: {} each (stopping once the damage a second, alone and on one enemy, and the whole run's DPS are each within ±{:.1} %), the hero {movement}, {trees}: its level-1 spell alone for {} s, then a whole run taking first offers.\n",
+        stop.describe(), o.rel_error * 100.0, STARTS_SECONDS
     );
-    let points = arrival_points(content, o.seeds, o.threads);
+    let points = arrival_points(content, o, o.threads);
     // the same content with every passive turned off
     let mut quiet = (**content).clone();
     for opt in quiet.classes.iter_mut().flat_map(|c| c.starting_options.iter_mut()) {
@@ -2262,28 +2700,21 @@ fn starts_check(content: &Arc<Content>, o: &Options) {
     let options: Vec<(String, String)> =
         content.classes.iter().flat_map(|c| c.starting_options.iter().map(move |s| (c.id.clone(), s.id.clone()))).collect();
     let stand_off = |start: &str| o.kite.then(|| kite_stand_off(content, content.starting_option(start).expect("an option")));
-    // (zone, option, seed, run)
-    let mut jobs = Vec::new();
-    for &zi in &zones {
-        for (oi, (_, start)) in options.iter().enumerate() {
-            let kite = stand_off(start);
-            let mut kinds = vec![
-                StartJob::Alone { arena: StartArena::Swarm(kite), quiet: true },
-                StartJob::Alone { arena: StartArena::Swarm(kite), quiet: false },
-                StartJob::Alone { arena: StartArena::OneEnemy, quiet: false },
-                StartJob::Whole { kite },
-            ];
-            if kite.is_some() {
-                kinds.push(StartJob::Alone { arena: StartArena::Swarm(None), quiet: false });
-            }
-            for s in 0..o.seeds {
-                for &kind in &kinds {
-                    jobs.push((zi, oi, s, kind));
-                }
-            }
+    // the runs each option plays per seed
+    let kinds_of = |start: &str| {
+        let kite = stand_off(start);
+        let mut kinds = vec![
+            StartJob::Alone { arena: StartArena::Swarm(kite), quiet: true },
+            StartJob::Alone { arena: StartArena::Swarm(kite), quiet: false },
+            StartJob::Alone { arena: StartArena::OneEnemy, quiet: false },
+            StartJob::Whole { kite },
+        ];
+        if kite.is_some() {
+            kinds.push(StartJob::Alone { arena: StartArena::Swarm(None), quiet: false });
         }
-    }
-    let outcomes = parallel_map(&jobs, o.threads, |&(zi, oi, s, kind)| {
+        kinds
+    };
+    let play = |&(zi, oi, s, kind): &(usize, usize, u64, StartJob)| {
         let (class, start) = &options[oi];
         let zone = &content.zones[zi].id;
         let ranks = if o.own_tree {
@@ -2307,7 +2738,46 @@ fn starts_check(content: &Arc<Content>, o: &Options) {
                 StartOutcome::Whole(r.ok())
             }
         }
-    });
+    };
+    // the early stop's groups: each zone and option; a group stops once its damage a second with
+    // its passive (in the swarm and on one enemy) and its whole run's DPS each have an error of at
+    // most `--rel-error` of them
+    let groups: Vec<(usize, usize)> = zones.iter().flat_map(|&zi| (0..options.len()).map(move |oi| (zi, oi))).collect();
+    // (zone, option, seed, run)
+    let mut state: (Vec<(usize, usize, u64, StartJob)>, Vec<StartOutcome>) = (Vec::new(), Vec::new());
+    let runs = in_batches(
+        &stop,
+        groups.len(),
+        &mut state,
+        |(jobs, outcomes), open, seeds| {
+            let mut fresh = Vec::new();
+            for &g in open {
+                let (zi, oi) = groups[g];
+                let kinds = kinds_of(&options[oi].1);
+                for s in seeds.clone() {
+                    for &kind in &kinds {
+                        fresh.push((zi, oi, s, kind));
+                    }
+                }
+            }
+            outcomes.extend(parallel_map(&fresh, o.threads, play));
+            jobs.extend(fresh);
+        },
+        |(jobs, outcomes), g| {
+            let (zi, oi) = groups[g];
+            let kite = stand_off(&options[oi].1);
+            let mine = || jobs.iter().zip(outcomes).filter(move |((z, i, _, _), _)| *z == zi && *i == oi);
+            let alone = |want: StartJob| {
+                mean_and_error(mine().filter(|((_, _, _, k), _)| *k == want).filter_map(|(_, r)| if let StartOutcome::Alone(s) = r { Some(s.spell + s.passive) } else { None }))
+            };
+            let whole = mean_and_error(mine().filter_map(|(_, r)| if let StartOutcome::Whole(Some(r)) = r { Some(r.dps()) } else { None }).filter(|d| d.is_finite()));
+            [alone(StartJob::Alone { arena: StartArena::Swarm(kite), quiet: false }), alone(StartJob::Alone { arena: StartArena::OneEnemy, quiet: false }), whole]
+                .into_iter()
+                .all(|v| v.is_some_and(|(m, e)| clear(m, e, Band::Relative(o.rel_error))))
+        },
+    );
+    let (jobs, outcomes) = state;
+
     let targets: Targets = o.targets.as_deref().map(read_targets);
     let second: Targets = o.second_targets.as_deref().map(read_targets);
     let mut csv = String::from(
@@ -2321,9 +2791,9 @@ second_ratio_m5,second_ratio_m10,second_ratio_m15,whole_cheat_deaths_per_minute\
         let worn = zi.checked_sub(1).map_or("no".to_string(), |z| format!("{}'s", content.zones[z].id));
         println!("## {} ({} talent points, {worn} gear)", zone.id, points[zi]);
         println!(
-            "| class | option | dmg stat | alone | with passive | passive adds | one enemy | standing | hits/cast | deaths/min | standing deaths/min | income/s | capped | fires/run | m5 | m10 | m15 | whole deaths/min |"
+            "| class | option | dmg stat | alone | with passive | passive adds | one enemy | standing | hits/cast | deaths/min | standing deaths/min | income/s | capped | fires/run | m5 | m10 | m15 | whole deaths/min | runs |"
         );
-        println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
+        println!("|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|");
         for (oi, (class, start)) in options.iter().enumerate() {
             let option = content.starting_option(start).expect("an option");
             let kite = stand_off(start);
@@ -2355,7 +2825,7 @@ second_ratio_m5,second_ratio_m10,second_ratio_m15,whole_cheat_deaths_per_minute\
             let label = passive_fires_label(option);
             let resource = option.resource.is_some();
             println!(
-                "| {class} | {start} | {:.2} | {alone_spell:.1} | {with_spell:.1} | {adds:+.1} | {one_dps:.1} | {standing_dps:.1} | {:.2} | {:.1} | {:.1} | {} | {} | {} | {} | {} | {} | {} |",
+                "| {class} | {start} | {:.2} | {alone_spell:.1} | {with_spell:.1} | {adds:+.1} | {one_dps:.1} | {standing_dps:.1} | {:.2} | {:.1} | {:.1} | {} | {} | {} | {} | {} | {} | {} | {} |",
                 mean_of(&with, |s| s.damage_stat),
                 mean_of(&with, |s| s.main_hits_per_cast),
                 mean_of(&with, |s| s.cheat_deaths_per_minute),
@@ -2367,6 +2837,7 @@ second_ratio_m5,second_ratio_m10,second_ratio_m15,whole_cheat_deaths_per_minute\
                 cell(ratio(&targets, 10)),
                 cell(ratio(&targets, 15)),
                 cell(whole_deaths),
+                groups.iter().position(|&g| g == (zi, oi)).map_or(0, |g| runs[g]),
             );
             let [m5, m10, m15] = STARTS_TARGET_MINUTES.map(|m| opt(minute(m).map(|x| x.dps), 1));
             let [r5, r10, r15] = STARTS_TARGET_MINUTES.map(|m| opt(ratio(&targets, m), 3));
@@ -2642,27 +3113,15 @@ fn legendary_check(content: &Arc<Content>, o: &Options) {
     let late = content.zones.iter().position(|z| z.id == LEGENDARY_LATE_ZONE);
     // the arrival points are measured only when a later zone needs them
     let points = match late {
-        Some(_) if !o.no_talents => arrival_points(content, o.seeds, o.threads_given.unwrap_or(o.threads)),
+        Some(_) if !o.no_talents => arrival_points(content, o, o.threads_given.unwrap_or(o.threads)),
         _ => vec![0; content.zones.len()],
     };
     let zones: Vec<usize> = std::iter::once(0).chain(late.filter(|&z| z > 0)).collect();
-    let seeds = o.check_seeds_given.unwrap_or(100);
-    // (legendary, zone, with it, seed)
-    let mut jobs = Vec::new();
-    for (li, _) in wanted.iter().enumerate() {
-        for &z in &zones {
-            for with in [true, false] {
-                for s in 0..seeds {
-                    jobs.push((li, z, with, s));
-                }
-            }
-        }
-    }
     let heroes: Vec<Option<(String, String)>> = wanted.iter().map(|l| legendary_hero(content, l)).collect();
     let parts: Vec<OwnParts> = wanted.iter().map(|l| own_parts(content, l)).collect();
     let amulets: Vec<esurv_content::Amulet> = wanted.iter().map(|l| esurv_sim::game::amulets::legendary_for(l)).collect();
     let threads = o.threads_given.unwrap_or_else(|| std::thread::available_parallelism().map_or(2, |n| n.get().saturating_sub(2)).max(1));
-    let results = parallel_map(&jobs, threads, |&(li, z, with, s)| {
+    let play = |&(li, z, with, s): &(usize, usize, bool, u64)| {
         let (class, start) = heroes[li].clone()?;
         let order: Vec<usize> = {
             let t = option_tree(content, &class, &start);
@@ -2683,17 +3142,81 @@ fn legendary_check(content: &Arc<Content>, o: &Options) {
         let zone = content.zones[z].id.clone();
         let legendary = with.then_some(&amulets[li]);
         std::panic::catch_unwind(AssertUnwindSafe(|| play_legendary(content, &zone, setup, seed, kite, o.no_amulets, legendary, &parts[li], &main))).ok()
-    });
+    };
+    // the gains of a legendary in a zone: its spells' own damage, the hero's total damage, its
+    // healing (a heal) or its buff's uptime, and the one its budget holds (each with its error)
+    type Gain = Option<(f64, f64)>;
+    let gains = |jobs: &[(usize, usize, bool, u64)], results: &[Option<LegendarySample>], li: usize, z: usize| -> (Gain, Gain, Gain, Gain) {
+        let role = legendary_role(content, wanted[li]);
+        let arm = |with: bool| -> Vec<LegendarySample> {
+            jobs.iter().zip(results).filter(|((j, jz, w, _), _)| *j == li && *jz == z && *w == with).filter_map(|(_, r)| *r).collect()
+        };
+        let (with, without) = (arm(true), arm(false));
+        let m = |v: &[LegendarySample], f: fn(&LegendarySample) -> f64| mean_and_error(v.iter().map(f));
+        let gain = |f: fn(&LegendarySample) -> f64| match (m(&with, f), m(&without, f)) {
+            (Some(a), Some(b)) if b.0 > 1e-9 => Some(gain_and_error(a, b)),
+            (Some(a), Some(_)) if a.0 > 1e-9 => Some((f64::INFINITY, 0.0)),
+            _ => None,
+        };
+        let own = gain(|s| s.own);
+        let total = gain(|s| s.total);
+        let side = match role {
+            LegendaryRole::Healing => gain(|s| s.healing),
+            _ => gain(|s| s.uptime),
+        };
+        let measured = match role {
+            LegendaryRole::Damage | LegendaryRole::Power => total,
+            LegendaryRole::Healing => side,
+            LegendaryRole::Buff => side.or(total),
+        };
+        (own, total, side, measured)
+    };
+    // the early stop's groups: each legendary and zone; a group stops once the gain its budget
+    // holds is clear against the budget ±`LEGENDARY_TOLERANCE`
+    let groups: Vec<(usize, usize)> = (0..wanted.len()).flat_map(|li| zones.iter().map(move |&z| (li, z))).collect();
+    let stop = EarlyStop::new(o, o.check_seeds_given.unwrap_or(100), 20, 10);
+    // (legendary, zone, with it, seed)
+    let mut state: (Vec<(usize, usize, bool, u64)>, Vec<Option<LegendarySample>>) = (Vec::new(), Vec::new());
+    in_batches(
+        &stop,
+        groups.len(),
+        &mut state,
+        |(jobs, results), open, seeds| {
+            let fresh: Vec<(usize, usize, bool, u64)> = open
+                .iter()
+                .flat_map(|&g| {
+                    let (li, z) = groups[g];
+                    let seeds = seeds.clone();
+                    [true, false].into_iter().flat_map(move |with| seeds.clone().map(move |s| (li, z, with, s)))
+                })
+                .collect();
+            results.extend(parallel_map(&fresh, threads, play));
+            jobs.extend(fresh);
+        },
+        |(jobs, results), g| {
+            let (li, z) = groups[g];
+            if heroes[li].is_none() {
+                return true;
+            }
+            let budget = legendary_budget(legendary_role(content, wanted[li]));
+            match gains(jobs, results, li, z).3 {
+                Some((gain, _)) if gain.is_infinite() => true,
+                Some((gain, error)) => clear(gain, error, Band::Within(budget * (1.0 - LEGENDARY_TOLERANCE), budget * (1.0 + LEGENDARY_TOLERANCE))),
+                None => false,
+            }
+        },
+    );
+    let (jobs, results) = state;
     println!(
-        "Legendaries: {} seeds a case, {} threads{}{}; the legendary from the first cache on against the same hero without it (a second):\n",
-        seeds,
+        "Legendaries: {} a case, {} threads{}{}; the legendary from the first cache on against the same hero without it (a second):\n",
+        stop.describe(),
         threads,
         if o.kite { ", kiting" } else { "" },
         if o.no_amulets { ", other amulets declined" } else { "" }
     );
     println!(
         "{:22} {:8} {:16} {:9} {:>9} {:>9} {:>8} {:>8} {:>9} {:>8} {:>7}  role     heal with/without, taken, total without (a second)",
-        "legendary", "class", "option", "zone", "own with", "without", "own +%", "total +%", "heal/up +%", "worn", "budget"
+        "legendary", "class", "option", "zone", "own with", "without", "own +%", "total +%", "heal/up +%", "worn/runs", "budget"
     );
     for (li, l) in wanted.iter().enumerate() {
         let role = legendary_role(content, l);
@@ -2707,22 +3230,8 @@ fn legendary_check(content: &Arc<Content>, o: &Options) {
             };
             let (with, without) = (arm(true), arm(false));
             let m = |v: &[LegendarySample], f: fn(&LegendarySample) -> f64| mean_and_error(v.iter().map(f));
-            let gain = |f: fn(&LegendarySample) -> f64| match (m(&with, f), m(&without, f)) {
-                (Some(a), Some(b)) if b.0 > 1e-9 => Some(gain_and_error(a, b)),
-                (Some(a), Some(_)) if a.0 > 1e-9 => Some((f64::INFINITY, 0.0)),
-                _ => None,
-            };
-            let own = gain(|s| s.own);
-            let total = gain(|s| s.total);
-            let side = match role {
-                LegendaryRole::Healing => gain(|s| s.healing),
-                _ => gain(|s| s.uptime),
-            };
-            let measured = match role {
-                LegendaryRole::Damage | LegendaryRole::Power => total,
-                LegendaryRole::Healing => side,
-                LegendaryRole::Buff => side.or(total),
-            };
+            let (own, total, side, measured) = gains(&jobs, &results, li, z);
+
             let budget = legendary_budget(role);
             let flag = match measured {
                 Some((g, _)) if (g - budget).abs() <= budget * LEGENDARY_TOLERANCE => " ",
@@ -2768,12 +3277,12 @@ mod tests {
         let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");
         let content = Content::load(dir).expect("content loads");
         let mut o = Options { seeds: 3, ..Options::default() };
-        let plain = zone_mode_jobs(&content, 1, &o, 5);
+        let plain = zone_mode_jobs(&content, 1, &o, 5, 0..o.seeds);
         assert_eq!(plain.len(), content.classes.len() * 3);
         assert!(plain.iter().all(|j| j.loadout.start.is_none() && j.loadout.weapons.is_none() && !j.no_amulets));
         assert_eq!(plain[1].seed, zone_seed(&content.zones[1].id) + 1);
         (o.start_all, o.loadout_all, o.no_amulets) = (true, true, true);
-        let all = zone_mode_jobs(&content, 1, &o, 5);
+        let all = zone_mode_jobs(&content, 1, &o, 5, 0..o.seeds);
         let pairs: usize = content.classes.iter().map(|c| c.starting_options.len() * content.loadouts_of(&c.id).len()).sum();
         assert_eq!(all.len(), pairs * 3);
         assert!(all.iter().all(|j| j.no_amulets && j.loadout.set_from == Some(0)));
@@ -2785,7 +3294,7 @@ mod tests {
         assert_eq!(setup.loadout.as_deref(), Some("swords"));
         // one loadout by id, where the class has it
         let one = Options { loadout: Some("shield".into()), ..Options::default() };
-        let jobs = zone_mode_jobs(&content, 0, &one, 0);
+        let jobs = zone_mode_jobs(&content, 0, &one, 0, 0..one.seeds);
         let of = |class: &str| jobs.iter().find(|j| content.classes[j.class].id == class).unwrap().loadout.weapons.clone();
         assert_eq!((of("warrior"), of("mage")), (Some("shield".into()), None));
     }

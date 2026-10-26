@@ -22,6 +22,8 @@ use crate::packets::code;
 
 /// The save's export and import, through a fixed folder beside it.
 pub mod files;
+pub mod lock;
+mod rein_in;
 
 /// The most heroes one save holds, and the most of either faction (a
 /// camp of the hero picker holds nine, and its list shows only its own camp's heroes).
@@ -190,6 +192,12 @@ pub struct ClassProgress {
     /// (`SaveFile::migrate`); a class new to the save has seen nothing.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub seen: Option<Seen>,
+    /// Seconds its heroes have spent in runs since play time was kept (v0.5.3): the talent
+    /// experience it can have earned since grows with it (`rein_in`).
+    pub run_seconds: u64,
+    /// The talent experience it held when play time began to be kept: a save from before the lock
+    /// is taken at its word once (`Saves::open`).
+    pub experience_before_tracking: u32,
     /// What it wears as this session numbers it, by item entry ([`Saves::class_progress`]).
     #[serde(skip)]
     pub worn: Vec<u32>,
@@ -311,6 +319,8 @@ pub struct FinishedRun {
     pub won: bool,
     /// The talent experience earned since the last payment.
     pub experience: u32,
+    /// The run's seconds since the last payment: the class's play time grows by them.
+    pub played: f32,
     /// The run's first payment: it counts as a run played (and won, as the run stood then); later
     /// payments of the same run do not count it again.
     pub first: bool,
@@ -667,6 +677,13 @@ mod older {
     }
 }
 
+/// Where the save the game wrote before the last one is kept: `heroes.ron` → `heroes.ron.bak`.
+pub fn backup_path(path: &Path) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".bak");
+    path.with_file_name(name)
+}
+
 /// The save, shared by every connection; written to disk after each change.
 pub struct Saves {
     path: Option<PathBuf>,
@@ -690,13 +707,58 @@ impl Drop for InWorldMark {
 
 impl Saves {
     /// Opens the save at `path`, starting empty if there is none yet.
+    ///
+    /// The save is locked ([`lock`]). A locked save whose seal holds is read as it is. A plain one
+    /// is a save from before the lock: it is taken at its word once (each class's experience counts
+    /// as earned before play time was kept), unless a locked copy lies beside it, which makes it
+    /// one written by hand. A broken seal or a hand-written save is set aside (`<name>.edited-<moment>`)
+    /// and the copy the game wrote before it ([`backup_path`]) is read instead; only with no good
+    /// copy does the save start empty. Its numbers are then reined in with the content
+    /// ([`Saves::rein_in`]).
     pub fn open(path: &Path) -> Result<Self> {
-        let file = match std::fs::read_to_string(path) {
-            Ok(text) => SaveFile::parse(&text)
-                .with_context(|| format!("reading the save {}", path.display()))?,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => SaveFile::default(),
-            Err(e) => {
-                return Err(e).with_context(|| format!("opening the save {}", path.display()))
+        let read = |p: &Path| match std::fs::read(p) {
+            Ok(bytes) => Ok(Some(lock::unlock(&bytes))),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+            Err(e) => Err(e).with_context(|| format!("opening the save {}", p.display())),
+        };
+        let parse = |text: &str, p: &Path| {
+            SaveFile::parse(text).with_context(|| format!("reading the save {}", p.display()))
+        };
+        // a save from before the lock: what each class holds counts as earned before play time
+        let from_before = |text: &str, p: &Path| -> Result<SaveFile> {
+            let mut file = parse(text, p)?;
+            for c in file.classes.values_mut() {
+                c.experience_before_tracking = c.talent_experience;
+            }
+            Ok(file)
+        };
+        let backup = backup_path(path);
+        let good_backup = || -> Result<Option<SaveFile>> {
+            match read(&backup)? {
+                Some(lock::Unlocked::Locked(text)) => parse(&text, &backup).map(Some),
+                Some(lock::Unlocked::Plain(text)) => from_before(&text, &backup).map(Some),
+                _ => Ok(None),
+            }
+        };
+        let file = match read(path)? {
+            // none, or a write cut off between its two renames
+            None => good_backup()?.unwrap_or_default(),
+            Some(lock::Unlocked::Locked(text)) => parse(&text, path)?,
+            Some(lock::Unlocked::Plain(text)) if !matches!(read(&backup)?, Some(lock::Unlocked::Locked(_))) => {
+                from_before(&text, path)?
+            }
+            Some(_) => {
+                let aside = path.with_extension(format!("ron.edited-{}", files::moment(std::time::SystemTime::now())));
+                let _ = std::fs::rename(path, &aside);
+                eprintln!("esurv: the save was changed outside the game; set aside as {}", aside.display());
+                match good_backup()? {
+                    Some(file) => file,
+                    None => {
+                        // the copy is no good either: kept aside too, never overwritten
+                        let _ = std::fs::rename(&backup, backup_path(&aside));
+                        SaveFile::default()
+                    }
+                }
             }
         };
         Ok(Self {
@@ -704,6 +766,20 @@ impl Saves {
             file: Mutex::new(file),
             in_world: Default::default(),
         })
+    }
+
+    /// Reins the save's numbers in to what play can reach (`rein_in`), writing it when anything
+    /// changed; what changed, one line each (also in the log).
+    pub fn rein_in(&self, content: &Content) -> Vec<String> {
+        let mut file = self.file.lock().unwrap();
+        let notes = rein_in::rein_in(content, &mut file, |s| esurv_sim::game::xp_ceiling::talent_experience_ceiling(content, s));
+        for note in &notes {
+            eprintln!("esurv: save reined in: {note}");
+        }
+        if !notes.is_empty() {
+            let _ = self.write(&file);
+        }
+        notes
     }
 
     /// A save that lives only in memory.
@@ -977,6 +1053,7 @@ impl Saves {
         let progress = file.classes.entry(class).or_insert_with(ClassProgress::new_to_the_save);
         let total_before = progress.talent_experience;
         progress.talent_experience = total_before.saturating_add(run.experience);
+        progress.run_seconds = progress.run_seconds.saturating_add(run.played.max(0.0).ceil() as u64);
         let total_after = progress.talent_experience;
         let mut zone_opened = None;
         let won = content.zones.get(run.zone_index).filter(|_| run.won && run.opens_zone && !run.challenge);
@@ -1256,7 +1333,8 @@ impl Saves {
         changed
     }
 
-    /// Writes the save next to its place, then moves it there, so a crash never leaves half a file.
+    /// Writes the save locked next to its place, keeps the one it replaces as the backup
+    /// ([`backup_path`]), then moves it there, so a crash never leaves half a file.
     fn write(&self, file: &SaveFile) -> Result<()> {
         let Some(path) = &self.path else {
             return Ok(());
@@ -1266,7 +1344,10 @@ impl Saves {
         }
         let text = ron::ser::to_string_pretty(file, ron::ser::PrettyConfig::default())?;
         let temp = path.with_extension("ron.new");
-        std::fs::write(&temp, text)?;
+        std::fs::write(&temp, lock::lock(&text))?;
+        if path.exists() {
+            std::fs::rename(path, backup_path(path))?;
+        }
         std::fs::rename(&temp, path)?;
         Ok(())
     }
@@ -2073,7 +2154,7 @@ mod tests {
         assert_eq!(saves.zones_discovered(&content), ["elwynn", "duskwood"]);
         assert!(!saves.zone_open(&content, "rogue", 1), "discovered is not open");
         // read back from disk, the same
-        let text = std::fs::read_to_string(&path).unwrap();
+        let lock::Unlocked::Locked(text) = lock::unlock(&std::fs::read(&path).unwrap()) else { panic!("not locked") };
         assert!(text.contains("zones_discovered"), "{text}");
         assert_eq!(Saves::open(&path).unwrap().zones_discovered(&content), ["elwynn", "duskwood"]);
         let _ = std::fs::remove_dir_all(&dir);
@@ -2303,6 +2384,43 @@ mod tests {
         drop(saves);
         let reopened = Saves::open(&path).unwrap();
         assert!(!reopened.challenge_news(&content), "kept across a restart");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// The save is locked; one changed outside the game is set aside and the copy written before
+    /// it read instead; a plain save from before the lock is taken at its word once.
+    #[test]
+    fn an_edited_save_is_set_aside_and_an_older_one_taken_at_its_word() {
+        let dir = std::env::temp_dir().join(format!("esurv-lock-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let path = dir.join("heroes.ron");
+        let names = |s: &Saves| s.heroes().into_iter().map(|h| h.name).collect::<Vec<_>>();
+        let saves = Saves::open(&path).unwrap();
+        saves.create("Ana", "mage", "human", 1, [0; 5]).unwrap();
+        saves.create("Bo", "warrior", "orc", 0, [0; 5]).unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(bytes.starts_with(lock::MAGIC) && !String::from_utf8_lossy(&bytes).contains("Ana"));
+
+        // one byte changed: the seal breaks, the copy before it (Ana alone) is read
+        let mut edited = bytes.clone();
+        *edited.last_mut().unwrap() ^= 1;
+        std::fs::write(&path, &edited).unwrap();
+        assert_eq!(names(&Saves::open(&path).unwrap()), ["Ana"]);
+        let aside = std::fs::read_dir(&dir).unwrap().flatten().filter(|e| e.file_name().to_string_lossy().contains(".edited-")).count();
+        assert_eq!(aside, 1, "the edited save is kept aside, never wiped");
+
+        // written by hand beside a locked copy: edited too
+        std::fs::write(&path, "(heroes: [], next_guid: 1, gear_numbering: 2)").unwrap();
+        assert_eq!(names(&Saves::open(&path).unwrap()), ["Ana"]);
+
+        // a plain save with no locked copy is from before the lock: its experience is kept as
+        // earned before play time was kept
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(&path, "(heroes: [], next_guid: 1, gear_numbering: 2, classes: {\"mage\": (talent_experience: 5000)})").unwrap();
+        let older = Saves::open(&path).unwrap();
+        let mage = older.file.lock().unwrap().classes["mage"].clone();
+        assert_eq!((mage.talent_experience, mage.experience_before_tracking), (5000, 5000));
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

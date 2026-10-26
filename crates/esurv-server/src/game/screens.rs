@@ -54,6 +54,8 @@ pub(super) struct Told {
 pub(super) struct Paid {
     /// The talent experience paid, part by part.
     parts: ExperienceParts,
+    /// The run's seconds paid for (its play time).
+    seconds: f32,
     /// The run was counted as a run played (and won).
     counted: bool,
     /// A win tried to open the next zone (once per run).
@@ -340,6 +342,7 @@ impl Game {
             seconds: summary.seconds,
             won: summary.won,
             experience: parts.total(),
+            played: (summary.seconds - paid.seconds).max(0.0),
             first: !paid.counted,
             opens_zone: summary.won && !paid.zone_tried,
             zone_index: self.run.zone,
@@ -350,6 +353,7 @@ impl Game {
             return Vec::new();
         };
         paid.parts = parts_max(summary.experience_parts, paid.parts);
+        paid.seconds = paid.seconds.max(summary.seconds);
         paid.counted = true;
         paid.zone_tried |= summary.won;
         paid.last = Some((parts, payout));

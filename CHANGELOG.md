@@ -3,6 +3,35 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.5.3
+
+A weapon balance update.
+
+### Patch notes
+
+**Balance**
+- **Weapon loadouts reworked:** every loadout now has two clear upsides and one downside, with smaller and steadier bonuses (10%, 5% or 2%). Two-handers keep their double swing damage; swing speeds, Auto Shot speeds and the 30% shield block are unchanged. No loadout is now more than about 8% stronger or weaker than its class's average.
+- **Warrior:** Two-hander +10% rage per swing and +5% crit damage, -10% max health. Two one-handers +5% swing speed and +10% crit damage, -10% damage. One-hander and shield +10% max health and +10% damage struck back, -5% damage.
+- **Paladin:** One-hander and off-hand +5% crit and +10% heal and shield power, -5% max health. One-hander and shield +10% max health and +10% damage struck back, -10% damage. Two-hander +5% damage, -5% max health.
+- **Hunter:** Bow +5% move speed and +2% cooldown recovery, -10% Auto Shot damage. Crossbow +10% crit damage and +10% damage to elites and bosses, -5% move speed. Gun +5% crit and +10% crit damage, -10% pet damage.
+- **Rogue:** Two daggers +5% crit and +10% crit damage, -10% max health. Two maces 10% stun chance and +10% damage to held enemies, -5% energy regeneration. Two swords 10% extra-swing chance and +5% swing speed, -5% max health.
+- **Priest:** Staff +10% heal and shield power and +5% damage, -5% cooldown recovery. Mace and off-hand +10% damage reduction and +10% heal and shield power, -5% damage. Dagger and off-hand +5% crit and +10% damage to afflicted enemies, -2% cooldown recovery.
+- **Shaman:** Staff +10% spell area and +5% crit, -5% move speed. Two-hander +5% crit, -10% max health. One-hander and shield +10% heal and shield power and +10% max health, -5% damage.
+- **Mage:** Staff +10% spell area and +5% damage, -5% cooldown recovery. Sword and off-hand +10% damage to elites and bosses and +10% crit damage, -5% move speed. Dagger and off-hand +5% crit and +10% damage to held enemies, -5% spell area.
+- **Warlock:** Staff +10% spell duration and +10% damage to afflicted enemies, -5% cooldown recovery. Sword and off-hand +5% crit and +10% crit damage, -5% move speed. Dagger and off-hand +10% pet damage and +2% cooldown recovery, -5% damage.
+- **Druid:** Mace and off-hand +10% heal and shield power and +2% cooldown recovery, -5% max health. Polearm or two-handed mace +10% damage and +10% max health, -5% move speed. Two-handed staff +10% spell area and +10% spell duration, -5% max health.
+
+**Quality of life**
+- The warband screen shows the game's version in the bottom-left corner, under Quit game.
+- Mind Flay, Drain Soul and Drain Life no longer drone while they channel; their cast and hit sounds still play.
+
+### Changelog
+
+**Saves**
+- Save files are now protected against editing, and saves are checked when the game opens or imports them. A save that fails the checks is corrected, never wiped.
+- Your current save carries over as it is.
+- Saves exported from v0.5.2 or older can no longer be imported.
+
 ## v0.5.2
 
 A balance update.

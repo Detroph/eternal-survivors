@@ -1677,7 +1677,8 @@ mod tests {
     }
 
     /// The weapon loadout these tests give a class whose first one changes the timings or health
-    /// they measure: one that leaves cast times, cooldowns, max health and the swing alone.
+    /// they measure: one that leaves cast times, cooldowns and the swing alone (and max health, but
+    /// for the Druid's and the Shaman's: each of their three changes it).
     const QUIET_LOADOUTS: [(&str, &str); 5] =
         [("mage", "sword_off_hand"), ("warlock", "sword_off_hand"), ("priest", "mace_off_hand"), ("shaman", "shield"), ("druid", "staff")];
 
@@ -2363,7 +2364,8 @@ mod tests {
         let moonkin = run_with("druid", "moonkin_form", false);
         let bear = run_with("druid", "bear_form", false);
         let rest = run_with("druid", "restoration", false);
-        assert!((bear.heroes[0].stats.max_health - rest.heroes[0].stats.max_health - 40.0).abs() < 1e-3);
+        // the form's 40 health, under the staff's -5 % max health
+        assert!((bear.heroes[0].stats.max_health - rest.heroes[0].stats.max_health - 40.0 * 0.95).abs() < 1e-3);
         assert!((bear.heroes[0].stats.damage_reduction - rest.heroes[0].stats.damage_reduction - 0.1).abs() < 1e-5);
         assert!((moonkin.heroes[0].stats.damage_reduction - rest.heroes[0].stats.damage_reduction - 0.1).abs() < 1e-5);
     }
@@ -2785,21 +2787,17 @@ mod tests {
     fn the_first_loadout_is_the_default_and_its_effects_join_the_hero() {
         let r = run_armed("warrior", "slam", false, None);
         assert_eq!(r.heroes[0].loadout, "two_hander");
-        assert!((r.heroes[0].stats.rage_per_swing - 0.2).abs() < 1e-6);
+        assert!((r.heroes[0].stats.rage_per_swing - 0.1).abs() < 1e-6);
         assert_eq!(run_armed("warrior", "slam", false, Some("no_such_loadout")).heroes[0].loadout, "two_hander");
         let staff = run_armed("mage", "arcane_blast", false, None);
         assert_eq!(staff.heroes[0].loadout, "staff");
         assert!(swing_of(&staff.content, &staff.heroes[0]).is_none(), "a caster never swings");
         let sword = run_armed("mage", "arcane_blast", false, Some("sword_off_hand"));
-        // +10 % damage against -10 %
-        assert!((staff.heroes[0].stats.damage - sword.heroes[0].stats.damage - 0.2).abs() < 1e-5);
-        // +1 target, for spells that hit several only
-        let several = sword.content.abilities.iter().find(|a| a.targets > 1).unwrap();
-        let one = sword.content.abilities.iter().find(|a| a.targets == 1).unwrap();
-        let extra = sword.heroes[0].stats.extra_targets;
-        assert_eq!(extra, 1);
-        assert_eq!(target_count(several, &Instance::default(), extra), several.targets + 1);
-        assert_eq!(target_count(one, &Instance::default(), extra), 1);
+        // +5 % damage against none
+        assert!((staff.heroes[0].stats.damage - sword.heroes[0].stats.damage - 0.05).abs() < 1e-5);
+        // the sword's +10 % damage to elites joins its modifiers, the staff's +10 % area its sheet
+        assert!(sword.heroes[0].modifiers.iter().any(|m| m.stat == Stat::DamageVsElites && (m.value - 0.1).abs() < 1e-6));
+        assert!((staff.heroes[0].stats.area - sword.heroes[0].stats.area - 0.1).abs() < 1e-5);
     }
 
     #[test]
@@ -2815,7 +2813,7 @@ mod tests {
         let pace = r.heroes[0].stats.swing_factor.sqrt();
         assert!((r.heroes[0].swing_timer - 3.6 * pace).abs() < 1e-4, "{}", r.heroes[0].swing_timer);
         let Some(Resource::Rage { per_swing, .. }) = option_of(&r.content, &r.heroes[0]).and_then(|o| o.resource) else { panic!("rage") };
-        assert!((r.heroes[0].kit.resource - per_swing * 1.2).abs() < 1e-3, "+20 % rage a swing");
+        assert!((r.heroes[0].kit.resource - per_swing * 1.1).abs() < 1e-3, "+10 % rage a swing");
     }
 
     #[test]
@@ -2831,15 +2829,17 @@ mod tests {
         let full = class_swing_damage(&r, "warrior") * super::super::casting::SWING_SCALE * r.heroes[0].stats.damage;
         let off = r.content.loadout("warrior", Some("dual_wield")).unwrap().swings()[1].share;
         assert!((hits[0] - full).abs() < 0.01 && (hits[1] - full * off).abs() < 0.01, "{hits:?}");
-        let pace = r.heroes[0].stats.swing_factor.sqrt();
+        // +5 % swing speed
+        assert!((r.heroes[0].stats.swing_speed - 0.05).abs() < 1e-6);
+        let pace = r.heroes[0].stats.swing_factor.sqrt() / (1.0 + r.heroes[0].stats.swing_speed);
         assert!((r.heroes[0].swing_timer - 2.6 * pace).abs() < 1e-4);
-        assert!((r.heroes[0].off_swing_timer - 1.6 * pace).abs() < 1e-4);
-        // rage from each hand: twice as often
+        assert!((r.heroes[0].off_swing_timer - 2.4 * pace).abs() < 1e-4);
+        // rage from each hand
         let Some(Resource::Rage { per_swing, .. }) = option_of(&r.content, &r.heroes[0]).and_then(|o| o.resource) else { panic!("rage") };
         assert!((r.heroes[0].kit.resource - 2.0 * per_swing).abs() < 1e-3);
-        // 10.4 s more: the main hand 4 more, the off hand 6 more
+        // 10.4 swing-seconds more: the main hand 4 more (2.6 each), the off hand 4 more (2.4 each)
         let ev = play(&mut r, 10.4 * pace + 0.3);
-        assert_eq!(swing_hits(&ev).len(), 4 + 6);
+        assert_eq!(swing_hits(&ev).len(), 4 + 4);
     }
 
     #[test]
@@ -2849,8 +2849,9 @@ mod tests {
             assert!((r.heroes[0].stats.block_chance - 0.3).abs() < 1e-6, "{class}");
         }
         let two = run_armed("paladin", "denounce", false, Some("two_hander"));
+        let off = run_armed("paladin", "denounce", false, Some("off_hand"));
         let mut r = run_armed("paladin", "denounce", false, Some("shield"));
-        assert!((two.heroes[0].stats.damage - r.heroes[0].stats.damage - 0.1).abs() < 1e-5, "-10 % damage");
+        assert!((off.heroes[0].stats.damage - r.heroes[0].stats.damage - 0.1).abs() < 1e-5, "-10 % damage");
         let e = foe(&mut r, (2.0, 0.0), 1e9);
         let blocked = (0..2000).filter(|_| r.kit_block(0, e)).count();
         assert!((500..700).contains(&blocked), "about 600 of 2000: {blocked}");
@@ -2876,7 +2877,7 @@ mod tests {
         assert!(held_ticks("maces") > 0, "a mace swing stuns now and then");
         assert_eq!(held_ticks("daggers"), 0);
         let maces = run_armed("rogue", "mutilate", false, Some("maces"));
-        assert!(maces.heroes[0].modifiers.iter().any(|m| m.stat == Stat::DamageVsCrowdControlled && (m.value - 0.2).abs() < 1e-6));
+        assert!(maces.heroes[0].modifiers.iter().any(|m| m.stat == Stat::DamageVsCrowdControlled && (m.value - 0.1).abs() < 1e-6));
         let swords = run_armed("rogue", "mutilate", false, Some("swords"));
         assert!(swords.heroes[0].milestones.iter().any(|m| matches!(m, esurv_content::Milestone::StrikeAgain { chance, filter: esurv_content::SpellFilter::WeaponSwing, .. } if (*chance - 0.1).abs() < 1e-6)));
         // a swing strikes again: more hits than swings over a minute
@@ -2884,7 +2885,7 @@ mod tests {
         r.heroes[0].spells.known.clear();
         foe(&mut r, (2.0, 0.0), 1e9);
         let ev = play(&mut r, 60.0);
-        let pace = r.heroes[0].stats.swing_factor.sqrt();
+        let pace = r.heroes[0].stats.swing_factor.sqrt() / (1.0 + r.heroes[0].stats.swing_speed);
         let swings = (60.0 / (2.4 * pace)).ceil() + (60.0 / (1.8 * pace)).ceil();
         assert!(swing_hits(&ev).len() as f32 > swings, "{} hits, {swings} swings", swing_hits(&ev).len());
     }
@@ -2900,7 +2901,7 @@ mod tests {
         assert!((b.damage - base * 0.9).abs() < 1e-4);
         assert_eq!(c.swing, 3.4);
         assert!((c.damage - base * 1.6).abs() < 1e-4);
-        assert!((bow.heroes[0].stats.move_speed - crossbow.heroes[0].stats.move_speed - 0.07).abs() < 1e-5);
+        assert!((bow.heroes[0].stats.move_speed - crossbow.heroes[0].stats.move_speed - 0.1).abs() < 1e-5);
     }
 
     #[test]
@@ -2913,7 +2914,7 @@ mod tests {
             assert_eq!(swings.len(), 1);
             assert_eq!((swings[0].swing, swings[0].damage), (own.swing, own.damage));
         }
-        assert!((maul.heroes[0].stats.damage - staff.heroes[0].stats.damage - 0.15).abs() < 1e-5, "+15 % damage in Bear Form");
+        assert!((maul.heroes[0].stats.damage - staff.heroes[0].stats.damage - 0.1).abs() < 1e-5, "+10 % damage in Bear Form");
         let resto = run_armed("druid", "restoration", false, None);
         assert!(swing_of(&resto.content, &resto.heroes[0]).is_none(), "a caster druid never swings");
     }
