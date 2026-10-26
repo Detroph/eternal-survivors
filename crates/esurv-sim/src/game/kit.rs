@@ -67,6 +67,12 @@ pub const WATER_ELEMENTAL_STAY: f32 = 3.0;
 pub const WATER_ELEMENTAL_BOLT: u32 = 116;
 /// A tentacle or a summon that casts looks for a new target this far from where it stands.
 pub const SUMMON_REACH: f32 = 30.0;
+/// Blade Dance's reflections step out this far to either side of the hero...
+pub const REFLECTION_BESIDE: f32 = 1.5;
+/// ...and run this far ahead of it before they spin.
+pub const REFLECTION_RUN_AHEAD: f32 = 4.0;
+/// A spinning reflection stops this close to the enemy it chases.
+pub const REFLECTION_CHASE_STOP: f32 = 1.0;
 
 /// What a hero's starting option keeps during a run.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -159,6 +165,20 @@ pub struct Summoned {
     pub step: u32,
     /// Frenzy: faster strikes until then.
     pub frenzy_until: f32,
+    /// A reflection's spin (`Milestone::Reflections`).
+    pub blade: Option<BladeSpin>,
+}
+
+/// What a spinning reflection strikes with: each spin, up to `targets` enemies within `radius`
+/// for `strike` each, credited as `credit`; every `interval`, wearing `look`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct BladeSpin {
+    pub strike: f32,
+    pub credit: HitSource,
+    pub radius: f32,
+    pub targets: u32,
+    pub interval: f32,
+    pub look: Option<u32>,
 }
 
 /// A finisher: it spends combo points.
@@ -1332,12 +1352,85 @@ impl Run {
                     next_aura: now + 1.0,
                     step: 0,
                     frenzy_until: 0.0,
+                    blade: None,
                 }),
             });
             if let Some(pet) = model {
                 self.push(Event::PetSummoned { id, hero, pet, at: spot });
             }
             self.push(Event::SummonAppeared { id, hero, kind: spec.kind, at: spot, until });
+        }
+    }
+
+    /// Blade Dance: `count` reflections of hero `i` step out beside it, run
+    /// [`REFLECTION_RUN_AHEAD`] the way it faces, then spin for what is left of `seconds`.
+    pub(crate) fn summon_reflections(&mut self, i: usize, count: u32, seconds: f32, blade: BladeSpin) {
+        let now = self.now;
+        let (hero, at, facing) = (self.heroes[i].id, self.heroes[i].pos, self.heroes[i].facing);
+        let (ahead, side) = ((facing.cos(), facing.sin()), (-facing.sin(), facing.cos()));
+        for n in 0..count {
+            // one to the left, one to the right, the next ones further out
+            let sign = if n % 2 == 0 { 1.0 } else { -1.0 };
+            let off = sign * REFLECTION_BESIDE * (1 + n / 2) as f32;
+            let spot = self.inside_arena((at.0 + side.0 * off, at.1 + side.1 * off));
+            let to = self.inside_arena((spot.0 + ahead.0 * REFLECTION_RUN_AHEAD, spot.1 + ahead.1 * REFLECTION_RUN_AHEAD));
+            let run = Segment { from: spot, to, start: now, duration: dist(spot, to) / SUMMON_SPEED };
+            let id = self.new_id();
+            self.pets.push(super::pets::PetUnit {
+                id,
+                hero: i,
+                pet: String::new(),
+                slot_angle: super::pets::PET_FOLLOW_ANGLES[n as usize % super::pets::PET_FOLLOW_ANGLES.len()],
+                until: Some(now + seconds),
+                segment: run,
+                next_decision: now,
+                next_swing: now,
+                target: None,
+                assist: None,
+                summon: Some(Summoned {
+                    kind: SummonKind::Reflection,
+                    spells: Vec::new(),
+                    inst: Instance::default(),
+                    from_release: false,
+                    // the first spin once it has run ahead
+                    next_act: now + run.duration,
+                    next_aura: now,
+                    step: 0,
+                    frenzy_until: 0.0,
+                    blade: Some(blade.clone()),
+                }),
+            });
+            self.push(Event::SummonAppeared { id, hero, kind: SummonKind::Reflection, at: spot, until: Some(now + seconds) });
+        }
+    }
+
+    /// A reflection's decision: running ahead, it runs on; then it chases the nearest enemy and
+    /// spins every [`BladeSpin::interval`].
+    fn reflection_tick(&mut self, k: usize, s: &Summoned, pos: Vec2) {
+        let now = self.now;
+        let Some(blade) = &s.blade else { return };
+        if self.pets[k].segment.moving(now) && s.step == 0 {
+            return;
+        }
+        let i = self.pets[k].hero;
+        if let Some(&t) = self.nearest_to(pos, SUMMON_REACH).first() {
+            let tp = self.enemy_pos(t).unwrap_or(pos);
+            let d = dist(pos, tp);
+            if d > REFLECTION_CHASE_STOP {
+                let short = REFLECTION_CHASE_STOP / d;
+                let stop = (tp.0 + (pos.0 - tp.0) * short, tp.1 + (pos.1 - tp.1) * short);
+                self.move_pet(k, pos, stop, SUMMON_SPEED);
+            }
+        }
+        if now < s.next_act {
+            return;
+        }
+        if let Some(x) = self.pets[k].summon.as_mut() {
+            x.next_act = now + blade.interval.max(0.1);
+            x.step += 1;
+        }
+        for t in self.nearest_to(pos, blade.radius).into_iter().take(blade.targets as usize) {
+            self.hit_enemy(Some(i), t, blade.strike, false, blade.credit.clone());
         }
     }
 
@@ -1461,6 +1554,7 @@ impl Run {
                 }
             }
             SummonKind::Infernal | SummonKind::Critter | SummonKind::HunterPet | SummonKind::Plant => self.melee_summon_tick(k, &s, pos),
+            SummonKind::Reflection => self.reflection_tick(k, &s, pos),
         }
     }
 

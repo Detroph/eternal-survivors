@@ -291,6 +291,7 @@ impl Run {
                 | Milestone::CooldownOnTrigger { trigger, filter, .. }
                 | Milestone::ResetOnTrigger { trigger, filter, .. }
                 | Milestone::StrikeOne { trigger, filter, .. }
+                | Milestone::Reflections { trigger, filter, .. }
                 | Milestone::Burst { trigger, filter, .. }
                 | Milestone::DotSpread { trigger, filter, .. }
                 | Milestone::LeaveArea { trigger, filter, .. }

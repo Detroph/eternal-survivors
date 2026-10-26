@@ -2432,6 +2432,22 @@ pub enum Milestone {
         trigger: Trigger,
         filter: SpellFilter,
     },
+    /// On its trigger, `count` see-through reflections of the hero step out beside it, run a few
+    /// yards ahead and spin for `seconds` (wearing `look_spell`), chasing the nearest enemy;
+    /// every `interval` each strikes up to `targets` enemies within `radius` of it for `share`
+    /// of the hit (its damage counts as the spell's). Blade Dance.
+    Reflections {
+        count: u32,
+        seconds: f32,
+        interval: f32,
+        radius: f32,
+        targets: u32,
+        share: f32,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        look_spell: Option<u32>,
+        trigger: Trigger,
+        filter: SpellFilter,
+    },
     /// A burst at `at` (`count` of them, spread up to `scatter` yd from it), `delay` seconds
     /// after its trigger: `share` of `of` to every enemy within `radius`, putting `effects` on
     /// each. Its damage counts as the spell's.
@@ -2718,6 +2734,7 @@ impl Milestone {
             | Milestone::HealOnTrigger { share, .. }
             | Milestone::TotemHeal { share }
             | Milestone::StrikeOne { share, .. }
+            | Milestone::Reflections { share, .. }
             | Milestone::Burst { share, .. }
             | Milestone::DotBurst { share, .. }
             | Milestone::LeaveArea { share, .. }
@@ -2787,6 +2804,7 @@ impl Milestone {
             | Milestone::Every { filter, .. }
             | Milestone::ResetOnTrigger { filter, .. }
             | Milestone::StrikeOne { filter, .. }
+            | Milestone::Reflections { filter, .. }
             | Milestone::Burst { filter, .. }
             | Milestone::DotBurst { filter, .. }
             | Milestone::DotSpread { filter, .. }
@@ -2832,6 +2850,7 @@ impl Milestone {
             | Milestone::Every { filter, .. }
             | Milestone::ResetOnTrigger { filter, .. }
             | Milestone::StrikeOne { filter, .. }
+            | Milestone::Reflections { filter, .. }
             | Milestone::Burst { filter, .. }
             | Milestone::DotBurst { filter, .. }
             | Milestone::DotSpread { filter, .. }

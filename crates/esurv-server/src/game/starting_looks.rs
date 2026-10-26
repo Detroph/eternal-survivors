@@ -398,6 +398,26 @@ impl Game {
         Some(ObjectUpdate::Create { guid: c.guid, type_id: ObjectTypeId::Player, living, fields, own: false })
     }
 
+    /// The create of one of Blade Dance's reflections: a clone of its hero that also wears the
+    /// spin's look and runs (it is mirrored as a pet, so its walks and its going come from there).
+    pub(super) fn blade_reflection_object(&self, i: usize, now: f32) -> Option<(ObjectUpdate, u64)> {
+        let p = &self.run.pets[i];
+        let blade = p.summon.as_ref()?.blade.as_ref()?;
+        let hero = self.run.heroes.get(p.hero)?;
+        let save = self.saved_of(hero.id).map_or(0, |s| s.guid);
+        let guid = clone_guid(save, p.id);
+        let shown = CloneShown { hero: hero.id, at: p.segment.position(now), guid, created: true };
+        let ObjectUpdate::Create { mut fields, mut living, .. } = self.clone_object(&shown)? else {
+            return None;
+        };
+        let worn: Vec<Aura> =
+            [GHOST_LOOK].into_iter().chain(blade.look).map(|spell| Aura { spell, stacks: 1, until: 0.0 }).collect();
+        fields.extend(&super::present::aura_fields(&worn, 0, 0));
+        living.facing = hero.facing;
+        living.speeds = Speeds::running_at(esurv_sim::game::kit::SUMMON_SPEED);
+        Some((ObjectUpdate::Create { guid, type_id: ObjectTypeId::Player, living, fields, own: false }, guid))
+    }
+
     /// Every clone the clients already know of, as creates (for a player who joins).
     pub(super) fn clones_now(&self) -> Vec<ObjectUpdate> {
         self.clones.values().filter(|c| c.created).filter_map(|c| self.clone_object(c)).collect()
