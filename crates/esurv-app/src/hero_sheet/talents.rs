@@ -112,9 +112,9 @@ fn required_met(content: &Content, class: &str, ranks: &Ranks, t: &Talent) -> bo
 pub fn effect_number(e: &TalentEffect, rank: u32) -> Option<f32> {
     let r = rank.max(1) as f32;
     match e {
-        TalentEffect::Stat { per_rank, .. } | TalentEffect::AbilityMod { per_rank, .. } => {
-            Some(per_rank * r)
-        }
+        TalentEffect::Stat { per_rank, .. }
+        | TalentEffect::AbilityMod { per_rank, .. }
+        | TalentEffect::CooldownSeconds { per_rank, .. } => Some(per_rank * r),
         TalentEffect::Milestone(m) => {
             let mut m = m.clone();
             if let Some(v) = m.rank_value_mut() {

@@ -493,7 +493,7 @@ mod tests {
         let modifiers = [Modifier::new(Stat::Damage, 0.2), Modifier::new(Stat::CooldownRecovery, 0.1)];
         let plain = compute(mage, 1, &[]);
         let bonused = compute(mage, 1, &modifiers);
-        let spell_mods = [SpellModifier { filter: SpellFilter::Spell("fireball".into()), kind: Upgrade::Power, value: 0.1 }];
+        let spell_mods = [SpellModifier { filter: SpellFilter::Spell("fireball".into()), kind: Upgrade::Power, value: 0.1, seconds: false }];
         let slot = SpellSlot::new(fireball, &spell_mods);
         let t = spell_totals(fireball, &slot, &plain, &bonused, &bonused);
         // damage 1.2 × the talent's 1.1; cooldowns 1 / 1.1 as long
@@ -511,12 +511,12 @@ mod tests {
         // (spell, cooldown, targets, damage per hit before crit, damage a second)
         let table = [
             ("steady_shot", 2.0, 1, 80.0, 40.0),
-            ("smite", 1.7, 1, 68.0, 40.0),
+            ("smite", 3.0, 1, 120.0, 40.0),
             ("mind_spike", 2.0, 1, 80.0, 40.0),
-            ("fireball", 2.0, 1, 80.0, 40.0),
-            ("frostbolt", 2.0, 1, 80.0, 40.0),
+            ("fireball", 3.0, 1, 120.0, 40.0),
+            ("frostbolt", 3.0, 1, 120.0, 40.0),
             ("arcane_blast", 3.0, 1, 90.0, 30.0),
-            ("shadow_bolt", 2.0, 1, 80.0, 40.0),
+            ("shadow_bolt", 3.0, 1, 120.0, 40.0),
             ("lightning_bolt", 2.0, 2, 40.0, 40.0),
             ("wellspring", 4.0, 3, 53.0, 39.75),
             ("starfire", 4.0, 1, 160.0, 40.0),

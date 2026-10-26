@@ -50,6 +50,7 @@ pub fn empowered(effect: &TalentEffect, k: f32) -> TalentEffect {
             };
             TalentEffect::AbilityMod { filter: filter.clone(), kind: *kind, per_rank: v }
         }
+        TalentEffect::CooldownSeconds { filter, per_rank } => TalentEffect::CooldownSeconds { filter: filter.clone(), per_rank: per_rank * k },
         TalentEffect::Milestone(m) => TalentEffect::Milestone(empowered_milestone(m, k)),
     }
 }

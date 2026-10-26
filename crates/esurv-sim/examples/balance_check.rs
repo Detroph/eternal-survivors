@@ -186,6 +186,11 @@ static BOSS_CIRCLE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBoo
 /// `--best-cards`: the hero takes the card of the highest rarity (an upgrade before a new spell).
 static BEST_CARDS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 /// `--overtime <s>`: the run goes on this many seconds past minute 20 (a final boss that came late can die), its kills counted to minute 20.
+/// `--prefer-upgrades`: an upgrade of a `--prefer` spell is taken over any card but an amulet.
+static PREFER_UPGRADES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--damage-focus`: with `--prefer`, a damage amulet of a higher rarity, then a Power upgrade of a
+/// preferred spell, then damage jewelry, then empowering a damage amulet, then any upgrade of it.
+static DAMAGE_FOCUS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static OVERTIME: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
 /// Seconds per tick, as the server's steady loop.
@@ -339,7 +344,7 @@ enum StrongKind {
 }
 
 /// A strong enemy as it appeared.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 struct Arrival {
     kind: StrongKind,
     /// Run minute it appeared in (index 0 = minute 1).
@@ -352,6 +357,8 @@ struct Arrival {
     died: Option<f32>,
     /// Damage it took, and the hero's whole damage when it appeared and when it died.
     took: f64,
+    /// Its biggest single hit taken and what dealt it.
+    biggest: (f64, String),
     hero_from: f64,
     hero_to: Option<f64>,
 }
@@ -386,6 +393,25 @@ fn play_moving(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64, 
 /// not an amulet (or an amulet's empowering) on every choice screen, the first one when all are.
 fn play_picking(content: &Arc<Content>, zone: &str, setup: HeroSetup, seed: u64, kite: Option<f32>, no_amulets: bool) -> RunResult {
     play_picking_preferring(content, zone, setup, seed, kite, no_amulets, &[])
+}
+
+/// Stats that raise a hero's damage: `--damage-focus` takes jewelry and amulets with them.
+fn damage_stat(stat: Stat) -> bool {
+    matches!(stat, Stat::Damage | Stat::CritChance | Stat::CritDamage | Stat::DoubleCast | Stat::SpellCooldownRecovery | Stat::CooldownRecovery)
+}
+
+fn damage_jewelry(content: &Content, id: &str) -> bool {
+    content.jewelry.iter().any(|j| j.id == id && damage_stat(j.stat))
+}
+
+/// An amulet whose first effect raises damage (a stat, or a spell's power), or any legendary.
+fn damage_amulet(a: &esurv_content::Amulet) -> bool {
+    a.rarity == esurv_content::Rarity::Legendary
+        || match a.effects.first() {
+            Some(TalentEffect::Stat { stat, .. }) => damage_stat(*stat),
+            Some(TalentEffect::AbilityMod { kind, .. }) => *kind == Upgrade::Power,
+            _ => false,
+        }
 }
 
 /// As `play_picking`; a card that offers one of the spells in `prefer` is taken first (`--fair-start`).
@@ -441,6 +467,30 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
             };
             // `--fair-start`: the spell the milestone would start with, when first offered
             let pick = screen.offers.iter().position(|x| matches!(x, Offer::NewSpell { spell, .. } if prefer.contains(spell))).unwrap_or(pick);
+            let pick = if DAMAGE_FOCUS.load(Ordering::Relaxed) && !matches!(screen.offers.get(pick), Some(Offer::NewSpell { spell, .. }) if prefer.contains(spell)) {
+                let worn = run.heroes[screen.hero].amulet.as_ref();
+                let worn_damage = worn.is_some_and(|w| damage_amulet(&w.amulet));
+                let offers = &screen.offers;
+                let find = |f: &dyn Fn(&Offer) -> bool| offers.iter().position(f);
+                find(&|x| matches!(x, Offer::Amulet { amulet } if damage_amulet(amulet) && (!worn_damage || worn.is_none_or(|w| amulet.rarity > w.amulet.rarity))))
+                    .or_else(|| find(&|x| matches!(x, Offer::UpgradeSpell { spell, kinds, .. } if prefer.contains(spell) && kinds.contains(&Upgrade::Power))))
+                    .or_else(|| find(&|x| matches!(x, Offer::NewJewelry { id, .. } | Offer::UpgradeJewelry { id, .. } if damage_jewelry(content, id))))
+                    .or_else(|| find(&|x| matches!(x, Offer::Empower) && worn_damage))
+                    .or_else(|| find(&|x| matches!(x, Offer::UpgradeSpell { spell, .. } if prefer.contains(spell))))
+                    .unwrap_or(pick)
+            } else {
+                pick
+            };
+            let pick = match screen.offers.get(pick) {
+                Some(Offer::NewSpell { spell, .. }) if prefer.contains(spell) => pick,
+                Some(Offer::Amulet { .. } | Offer::Empower) => pick,
+                _ if PREFER_UPGRADES.load(Ordering::Relaxed) => screen
+                    .offers
+                    .iter()
+                    .position(|x| matches!(x, Offer::UpgradeSpell { spell, .. } if prefer.contains(spell)))
+                    .unwrap_or(pick),
+                _ => pick,
+            };
             run.choose(id, pick);
         }
         // `--take-standards` and `--buy-caches`: the pickup is brought under the standing hero (as
@@ -467,9 +517,12 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
                     cheat_deaths += 1;
                     continue;
                 }
-                Event::EnemyHit { id, amount, .. } => {
+                Event::EnemyHit { id, amount, source, .. } => {
                     if let Some(a) = arrivals.iter_mut().find(|a| a.id == id && a.died.is_none()) {
                         a.took += f64::from(amount);
+                        if f64::from(amount) > a.biggest.0 {
+                            a.biggest = (f64::from(amount), format!("{source:?}"));
+                        }
                     }
                     continue;
                 }
@@ -489,7 +542,7 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
             if kind == StrongKind::Elite && !(unit.elite && matches!(unit.kind, EnemyKind::Roster(_))) {
                 continue;
             }
-            arrivals.push(Arrival { kind, minute, health: f64::from(unit.max_health), damage: f64::from(unit.damage), id, spawned: run.now, died: None, took: 0.0, hero_from: run.heroes[0].damage_dealt, hero_to: None });
+            arrivals.push(Arrival { kind, minute, health: f64::from(unit.max_health), damage: f64::from(unit.damage), id, spawned: run.now, died: None, took: 0.0, biggest: (0.0, String::new()), hero_from: run.heroes[0].damage_dealt, hero_to: None });
         }
         if run.now + 1e-3 >= next_second {
             next_second += 1.0;
@@ -835,6 +888,9 @@ struct Options {
     adaptive_min: u64,
     /// `--fair-start`: the arm without a start-spell milestone takes that spell when first offered.
     fair_start: bool,
+    /// `--prefer a,b`: zone mode, every hero takes these spells when first offered; `--classes a,b`: only these classes.
+    prefer: Vec<String>,
+    classes: Vec<String>,
     /// The legendary amulets `--legendaries` measures (by their spell, or `all`).
     legendaries: Vec<String>,
     /// `--check-seeds` and `--threads` as given (`--legendaries` has its own defaults).
@@ -880,6 +936,8 @@ impl Default for Options {
             no_talents: false,
             no_amulets: false,
             fair_start: false,
+            prefer: Vec::new(),
+            classes: Vec::new(),
             adaptive: false,
             adaptive_batch: 50,
             adaptive_min: 200,
@@ -938,6 +996,10 @@ fn options() -> Options {
             "--no-talents" => o.no_talents = true,
             "--no-amulets" => o.no_amulets = true,
             "--fair-start" => o.fair_start = true,
+            "--prefer" => o.prefer = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
+            "--prefer-upgrades" => PREFER_UPGRADES.store(true, Ordering::Relaxed),
+            "--damage-focus" => DAMAGE_FOCUS.store(true, Ordering::Relaxed),
+            "--classes" => o.classes = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
             "--adaptive" => o.adaptive = true,
             "--adaptive-batch" => o.adaptive_batch = value().parse().expect("--adaptive-batch <seeds>"),
             "--adaptive-min" => o.adaptive_min = value().parse().expect("--adaptive-min <seeds>"),
@@ -1006,8 +1068,16 @@ fn zone_mode_jobs(content: &Content, zone: usize, o: &Options, points: u32) -> V
     let set_from = zone.checked_sub(1);
     let mut jobs = Vec::new();
     for (ci, class) in content.classes.iter().enumerate() {
+        if !o.classes.is_empty() && !o.classes.contains(&class.id) {
+            continue;
+        }
         let starts: Vec<Option<String>> =
-            if o.start_all { class.starting_options.iter().map(|s| Some(s.id.clone())).collect() } else { vec![None] };
+            if o.start_all {
+                class.starting_options.iter().map(|s| Some(s.id.clone())).collect()
+            } else {
+                // `--start <id>`: that option where the class has it
+                vec![o.start.clone().filter(|id| class.starting_options.iter().any(|s| s.id == *id))]
+            };
         let own = content.loadouts_of(&class.id);
         let weapons: Vec<Option<String>> = if o.loadout_all && !own.is_empty() {
             own.iter().map(|l| Some(l.id.clone())).collect()
@@ -1030,7 +1100,7 @@ fn zone_mode_jobs(content: &Content, zone: usize, o: &Options, points: u32) -> V
                     // `--kite`: the hero kites as its option would
                     let option = loadout.start.as_deref().and_then(|id| content.starting_option(id)).unwrap_or(&class.starting_options[0]);
                     let kite = o.kite.then(|| kite_stand_off(content, option));
-                    jobs.push(Job { zone, class: ci, seed, loadout, kite, block: 0.0, no_amulets: o.no_amulets, prefer: Vec::new() });
+                    jobs.push(Job { zone, class: ci, seed, loadout, kite, block: 0.0, no_amulets: o.no_amulets, prefer: o.prefer.clone() });
                 }
             }
         }
@@ -1209,6 +1279,36 @@ fn main() {
                 b.name
             );
         }
+        // each boss's biggest single hit, the largest over the runs, by share of its health
+        for (bi, b) in zone.bosses.iter().enumerate() {
+            let top = full.iter().flat_map(|r| &r.arrivals).filter(|a| a.kind == StrongKind::Boss(bi)).max_by(|x, y| (x.biggest.0 / x.health).total_cmp(&(y.biggest.0 / y.health)));
+            if let Some(a) = top {
+                let mut shares: Vec<f64> = full.iter().flat_map(|r| &r.arrivals).filter(|a| a.kind == StrongKind::Boss(bi)).map(|a| a.biggest.0 / a.health).collect();
+                shares.sort_by(f64::total_cmp);
+                println!("biggest hit on {}: {:.0} of {:.0} health ({:.0} %, {}); median run's biggest {:.0} %", b.name, a.biggest.0, a.health, 100.0 * a.biggest.0 / a.health, a.biggest.1, 100.0 * shares[shares.len() / 2]);
+            }
+        }
+        // `--prefer`: each class's bosses, seconds alive (those killed) and how many died
+        if !o.prefer.is_empty() {
+            print!("{:10}", "lived s");
+            for b in &zone.bosses {
+                print!(" {:>16}", b.name.chars().take(16).collect::<String>());
+            }
+            println!();
+            for (ci, class) in content.classes.iter().enumerate() {
+                let own: Vec<&RunResult> = jobs.iter().zip(&results).filter(|(j, _)| j.class == ci).filter_map(|(_, r)| r.as_ref()).collect();
+                if own.is_empty() {
+                    continue;
+                }
+                print!("{:10}", class.id);
+                for bi in 0..zone.bosses.len() {
+                    let cell = strong_means(&own, |a| a.kind == StrongKind::Boss(bi))
+                        .map_or("—".to_string(), |s| format!("{} {}/{}", s.lived.map_or("—".to_string(), |l| format!("{l:.0}")), s.killed, s.count));
+                    print!(" {cell:>16}");
+                }
+                println!();
+            }
+        }
         for (name, kind) in [("elites", StrongKind::Elite), ("rares", StrongKind::Rare)] {
             if let Some(s) = strong_means(&full, |a| a.kind == kind && (4..18).contains(&a.minute)) {
                 println!(
@@ -1370,7 +1470,7 @@ fn milestone_check(content: &Arc<Content>, o: &Options, arrival_points: &[u32]) 
                     let raises_damage = t.effects.iter().any(|e| match e {
                         TalentEffect::AbilityMod { kind, .. } => *kind == Upgrade::Power,
                         TalentEffect::Stat { stat, .. } => matches!(stat, Stat::Damage | Stat::CritChance | Stat::CritDamage | Stat::WeaponDamage | Stat::SwingSpeed | Stat::PetDamage | Stat::DoubleCast | Stat::CooldownRecovery | Stat::SpellCooldownRecovery | Stat::DamageVsCrowdControlled | Stat::DamageFromReduction),
-                        TalentEffect::Milestone(_) => false,
+                        TalentEffect::CooldownSeconds { .. } | TalentEffect::Milestone(_) => false,
                     });
                     let role = milestones.iter().map(|m| milestone_role(m)).find(|r| *r == "damage").or(raises_damage.then_some("damage")).or(milestones.first().map(|m| milestone_role(m))).unwrap_or("damage");
                     let label = if milestones.is_empty() { "numbers only".to_string() } else { milestones.iter().map(|m| milestone_label(m)).collect::<Vec<_>>().join(" + ") };

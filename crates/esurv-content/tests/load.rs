@@ -39,7 +39,7 @@ fn the_enemy_stat_formula_loads() {
     let kinds = [EnemyType::Normal, EnemyType::Elite, EnemyType::Rare, EnemyType::Boss, EnemyType::FinalBoss]
         .map(|k| b.multipliers(k))
         .map(|m| (m.health, m.damage));
-    assert_eq!(kinds, [(1.0, 1.0), (10.0, 3.0), (10.0, 3.0), (30.0, 2.0), (75.0, 1.0)]);
+    assert_eq!(kinds, [(1.0, 1.0), (10.0, 3.0), (10.0, 3.0), (37.5, 2.0), (94.0, 1.0)]);
     assert_eq!((b.zone_scaling.boss_health_power, b.boss_clock_power), (0.7, 0.3));
     // blows follow their own table, the old health table's
     assert_eq!((b.zone_scaling.normal_damage.len(), b.zone_scaling.damage_factor(EnemyType::Normal, 10.0)), (12, 3.75));

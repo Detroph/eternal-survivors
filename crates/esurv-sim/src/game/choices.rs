@@ -507,7 +507,7 @@ impl Run {
             for e in &a.amulet.effects {
                 match empowered(e, k) {
                     TalentEffect::Stat { stat, per_rank } => mods.push(Modifier::new(stat, per_rank)),
-                    e @ TalentEffect::AbilityMod { .. } => spell_mods.extend(SpellModifier::from_effect(&e, 1)),
+                    e @ (TalentEffect::AbilityMod { .. } | TalentEffect::CooldownSeconds { .. }) => spell_mods.extend(SpellModifier::from_effect(&e, 1)),
                     TalentEffect::Milestone(m) => {
                         milestones.push(m);
                         origins.push(ProcOrigin::of_amulet(&a.amulet.id));

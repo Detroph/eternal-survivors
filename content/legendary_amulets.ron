@@ -956,9 +956,9 @@
         spells: ["fireball"],
         name: "Phoenix",
         icon: "Spell_Fire_FlameBolt",
-        text: "{Spell(133)} deals 215% more. A crit calls a phoenix that fights for 8 sec, up to 2.",
+        text: "{Spell(133)} deals 125% more. A crit calls a phoenix that fights for 8 sec, up to 2.",
         effects: [
-            AbilityMod(filter: Spell("fireball"), kind: Power, per_rank: 2.15),
+            AbilityMod(filter: Spell("fireball"), kind: Power, per_rank: 1.25),
             Milestone(PetOnTrigger(chance: 1, seconds: 8, max: 2, pet: "Phoenix", trigger: Crit, filter: Spell("fireball"))),
         ],
         rarity: Legendary,

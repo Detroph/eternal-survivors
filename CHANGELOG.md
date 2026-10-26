@@ -3,6 +3,21 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.5.2
+
+A balance update.
+
+### Patch notes
+
+**Balance**
+- **Bosses and final bosses** have 25% more health.
+- **Smite, Fireball, Frostbolt and Shadow Bolt** now cast every 3 seconds and hit harder, for the same damage over time.
+- **Improved Fireball, Improved Frostbolt, Divine Fury and Bane** now take 0.1 sec per rank off their spells' cooldowns.
+- **Hot Streak** (Fireball start) now hits as hard as a Pyroblast; it still grows with your Fireball cards.
+- **Inner Fire** (Smite start) now triggers every 4th Smite, not every 7th.
+- **Holy Orbs** now stay 30 seconds unless you take them.
+- **Phoenix** (Fireball legendary): Fireball's bonus is now 125%, and the phoenix hits much harder. It is now half see-through, with a ring of flames and burning wing tips.
+
 ## v0.5.1
 
 A small fix.

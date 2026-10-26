@@ -378,6 +378,9 @@ spell the client names as `{Spell(id)}`. A talent's effects:
   `Category(...)`). `kind` is `Power`, `Cooldown`, `Targets`, `Area` or `Duration`. All of a
   spell's modifiers add up (confirmed): power, area and duration ×(1 + sum); cooldown ×(1 − sum), at most 60 % shorter;
   targets + the sum, rounded. They are a second set of multipliers, on top of upgrade cards.
+* `CooldownSeconds(filter, per_rank)`: per rank, that many seconds off the listed cooldown of every
+  spell `filter` lets through (Improved Fireball, Improved Frostbolt, Divine Fury, Bane: 0.1 sec a
+  rank); with the `Cooldown` cuts, at most 60 % shorter.
 * A talent is a **milestone** when it has a `Milestone(…)` effect, or when it is the one-rank
   talent of a milestone row (rows 2, 4 and 6: 11, 21 and 31 points), whatever its effects (a
   milestone may only make spells stronger).

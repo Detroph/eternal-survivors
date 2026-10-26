@@ -264,7 +264,7 @@ to settle.
 | shaman | `fire_nova` | Wrath of Ragnaros | Fire Nova deals 15% more and reaches 50% farther. It knocks enemies back and leaves the ring burning for 3 sec, 10% a second. (the ring is the nova's reach (12 yd, 50 % farther); pick: knocked back 6 yd, the ring burns for 25 % a second) |
 | shaman | `healing_wave` | Healing Wave | Healing Wave heals 50% more, then 60% more over 6 sec. |
 | mage | `arcane_blast` | Arcane Bomb | Arcane Blast deals 25% more. Every 6th blast is an arcane bomb: 70% to every enemy within 8 yd of the target. |
-| mage | `fireball` | Phoenix | Fireball deals 215% more. A crit calls a phoenix that fights for 8 sec, up to 2. |
+| mage | `fireball` | Phoenix | Fireball deals 125% more. A crit calls a phoenix that fights for 8 sec, up to 2. |
 | mage | `frostbolt` | Frostbolt Volley | Frostbolt deals 55% more. Every 3rd bolt is a volley that also strikes 4 more enemies for 140%. |
 | mage | `arcane_missiles` | Shade's Missiles | Arcane Missiles deals 170% more and fires 3 more missiles. |
 | mage | `frost_nova` | Ice Tomb | Frost Nova reaches 50% farther. Frozen enemies are entombed for 3 sec and take 100% more damage from you. |
