@@ -2030,12 +2030,14 @@ mod tests {
     }
 
     #[test]
-    fn every_seventh_smite_burns_around_the_priest_for_five_seconds() {
+    fn every_fourth_smite_burns_around_the_priest_for_five_seconds() {
         let mut r = run_with("priest", "smite", false);
+        let cd = r.content.ability("smite").unwrap().cooldown;
         foe(&mut r, (5.0, 0.0), 1e9);
-        let ev = play(&mut r, 0.5 + 5.0 * 1.7 + 0.3);
+        let ev = play(&mut r, 0.5 + 2.0 * cd + 0.3);
         assert!(dealt_by(&ev, "inner_fire_burn").is_empty());
-        let ev = play(&mut r, 6.0);
+        // the fourth smite, cd − 0.3 sec on, then its five seconds of burning
+        let ev = play(&mut r, cd - 0.3 + 4.6);
         let burns = dealt_by(&ev, "inner_fire_burn");
         assert_eq!(burns.len(), 5, "once a second for 5 sec");
         assert!(ev.iter().any(|e| matches!(e, Event::StacksChanged { kind: StackKind::InnerFire, .. })));
@@ -2241,7 +2243,9 @@ mod tests {
         foe(&mut r, (10.0, 0.0), 1e9);
         // fireball's own 10 % on top of the hero's
         r.heroes[0].stats.crit_chance = 0.9;
-        let ev = play(&mut r, 9.0);
+        // four fireballs, and the Hot Streak's flight
+        let cd = r.content.ability("fireball").unwrap().cooldown;
+        let ev = play(&mut r, 0.5 + 3.0 * cd + 2.5);
         let hot = dealt_by(&ev, "hot_streak");
         let PassiveKind::Counter(c) = passive_of(&r, "fireball") else { panic!("a counter") };
         assert_eq!(hot.len(), (4.0 / c.max) as usize, "four crits in the first four fireballs, one Hot Streak each {}", c.max);
@@ -2259,7 +2263,9 @@ mod tests {
         assert_eq!(dealt_by(&ev, "water_elemental_nova").len(), 1);
         let frozen = r.enemies.iter().find(|x| x.id == e).unwrap();
         assert!(frozen.hold_until > r.now && frozen.kit.frozen_by_release_until > r.now);
-        ev.extend(play(&mut r, 2.0));
+        // the next bolt, a cooldown after the first
+        let cd = r.content.ability("frostbolt").unwrap().cooldown;
+        ev.extend(play(&mut r, cd));
         let bolts = dealt_by(&ev, "frostbolt");
         assert_eq!(bolts.len(), 2);
         assert!((bolts[1] - base_damage(&r, "frostbolt") * r.heroes[0].stats.damage).abs() < 0.01, "only the first shatters");
@@ -2337,7 +2343,9 @@ mod tests {
         let mut r = run_with("warlock", "shadow_bolt", false);
         foe(&mut r, (10.0, 0.0), 1e6);
         let big = foe(&mut r, (25.0, 0.0), 1e9);
-        let ev = play(&mut r, 16.0);
+        // eight bolts, and Soulfire's flight
+        let cd = r.content.ability("shadow_bolt").unwrap().cooldown;
+        let ev = play(&mut r, 0.5 + 7.0 * cd + 1.5);
         let soulfire: Vec<u32> = ev.iter().filter_map(|e| if let Event::EnemyHit { id, source: HitSource::Spell(s), .. } = e { (s == "soulfire").then_some(*id) } else { None }).collect();
         assert_eq!(soulfire, [big]);
     }

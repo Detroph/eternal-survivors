@@ -1200,8 +1200,8 @@ impl Game {
             .u32(field::UNIT_NATIVEDISPLAYID, kind.display_id)
             .f32(field::UNIT_MOD_CAST_SPEED, 1.0);
         // a lasting look it wears from the start (the Phoenix burns)
-        if let Some(spell) = kind.aura {
-            let worn = [present::Aura { spell, stacks: 1, until: 0.0 }];
+        if !kind.auras.is_empty() {
+            let worn: Vec<present::Aura> = kind.auras.iter().map(|&spell| present::Aura { spell, stacks: 1, until: 0.0 }).collect();
             f.extend(&present::aura_fields(&worn, 0, 0));
         }
         // it appears facing the way its hero faces (one that flies at its height)
@@ -2406,21 +2406,24 @@ mod tests {
             return;
         };
         let looks = content.legendary_looks.iter().flat_map(|l| l.moments.iter().map(|(_, s)| *s));
-        for spell in looks.chain(content.pets.iter().filter_map(|p| p.aura)) {
+        for spell in looks.chain(content.pets.iter().flat_map(|p| p.auras.iter().copied())) {
             assert!(names.get(esurv_content::ClientName::Spell(spell)).is_some(), "look {spell} is not in the client's Spell.dbc");
         }
     }
 
-    /// The Phoenix wears its fire from the moment it appears (`aura` in
-    /// pets.ron, in its first aura slot).
+    /// The Phoenix wears its looks from the moment it appears (`auras` in
+    /// pets.ron, in its first aura slots).
     #[test]
     fn the_phoenix_appears_burning() {
         let (mut game, _client) = game_with_a_player();
-        let fire = game.run.content.pets.iter().find(|p| p.name == "Phoenix").and_then(|p| p.aura).expect("the Phoenix has an aura");
+        let auras = game.run.content.pets.iter().find(|p| p.name == "Phoenix").map(|p| p.auras.clone()).unwrap_or_default();
+        assert!(!auras.is_empty(), "the Phoenix has auras");
         game.run.summon_pet(0, "Phoenix", Some(game.run.now + 8.0));
         let i = game.run.pets.iter().position(|p| p.pet == "Phoenix").unwrap();
         let Some((ObjectUpdate::Create { fields, .. }, _)) = game.pet_object(i, game.run.now) else { panic!("a pet create") };
-        assert_eq!(fields.get(field::UNIT_AURA), Some(fire));
+        for (slot, &spell) in auras.iter().enumerate() {
+            assert_eq!(fields.get(field::UNIT_AURA + slot as u16), Some(spell), "aura slot {slot}");
+        }
         assert_eq!(fields.get(field::UNIT_AURAFLAGS).map(|f| f & 0xF), Some(0x02), "its flags say it is on");
     }
 

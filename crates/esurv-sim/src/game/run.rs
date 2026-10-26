@@ -203,7 +203,7 @@ impl HeroSetup {
         for (e, rank) in effects {
             match e {
                 TalentEffect::Stat { stat, per_rank } => self.modifiers.push(Modifier::new(*stat, per_rank * rank as f32)),
-                TalentEffect::AbilityMod { .. } => self.spell_modifiers.extend(SpellModifier::from_effect(e, rank)),
+                TalentEffect::AbilityMod { .. } | TalentEffect::CooldownSeconds { .. } => self.spell_modifiers.extend(SpellModifier::from_effect(e, rank)),
                 TalentEffect::Milestone(m) => {
                     let mut m = m.clone();
                     if let Some(v) = m.rank_value_mut() {

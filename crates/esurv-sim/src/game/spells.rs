@@ -28,6 +28,8 @@ pub struct SpellModifier {
     pub filter: SpellFilter,
     pub kind: Upgrade,
     pub value: f32,
+    /// A `Cooldown` modifier in seconds off the listed cooldown (`TalentEffect::CooldownSeconds`), not a share.
+    pub seconds: bool,
 }
 
 impl SpellModifier {
@@ -36,7 +38,10 @@ impl SpellModifier {
     pub fn from_effect(effect: &TalentEffect, rank: u32) -> Option<Self> {
         match effect {
             TalentEffect::AbilityMod { filter, kind, per_rank } => {
-                Some(Self { filter: filter.clone(), kind: *kind, value: per_rank * rank as f32 })
+                Some(Self { filter: filter.clone(), kind: *kind, value: per_rank * rank as f32, seconds: false })
+            }
+            TalentEffect::CooldownSeconds { filter, per_rank } => {
+                Some(Self { filter: filter.clone(), kind: Upgrade::Cooldown, value: per_rank * rank as f32, seconds: true })
             }
             _ => None,
         }
@@ -62,18 +67,24 @@ impl Default for SpellMods {
 }
 
 /// Sums the modifiers that reach `spell`: power, area and duration `1 + Σ`, cooldown
-/// `max(0.4, 1 − Σ)`, targets `Σ` rounded, and the gains `1 + Σ`. The kinds that add whole units
+/// `max(0.4, (1 − Σ) × (listed − Σ seconds) ÷ listed)`, targets `Σ` rounded, and the gains `1 + Σ`. The kinds that add whole units
 /// (stacks, strikes, imps, pets, critters) add to the targets, as their cards do.
 pub fn spell_mods(modifiers: &[SpellModifier], spell: &Ability) -> SpellMods {
     let mut sum = [0.0f32; Upgrade::ALL.len()];
+    let mut seconds = 0.0;
     for m in modifiers.iter().filter(|m| m.filter.matches(spell)) {
-        sum[m.kind as usize] += m.value;
+        if m.seconds {
+            seconds += m.value;
+        } else {
+            sum[m.kind as usize] += m.value;
+        }
     }
+    let flat = if spell.cooldown > 0.0 { ((spell.cooldown - seconds) / spell.cooldown).max(0.0) } else { 1.0 };
     let counts: f32 = Upgrade::ALL.iter().filter(|k| k.is_count()).map(|k| sum[*k as usize]).sum();
     let gains: f32 = Upgrade::ALL.iter().filter(|k| k.is_gain()).map(|k| sum[*k as usize]).sum();
     SpellMods {
         power: 1.0 + sum[Upgrade::Power as usize],
-        cooldown: (1.0 - sum[Upgrade::Cooldown as usize]).max(MOD_COOLDOWN_FLOOR),
+        cooldown: ((1.0 - sum[Upgrade::Cooldown as usize]) * flat).max(MOD_COOLDOWN_FLOOR),
         targets: counts.round().max(0.0) as u32,
         area: 1.0 + sum[Upgrade::Area as usize],
         duration: 1.0 + sum[Upgrade::Duration as usize],
@@ -257,7 +268,7 @@ mod tests {
     }
 
     fn m(filter: SpellFilter, kind: Upgrade, value: f32) -> SpellModifier {
-        SpellModifier { filter, kind, value }
+        SpellModifier { filter, kind, value, seconds: false }
     }
 
     #[test]

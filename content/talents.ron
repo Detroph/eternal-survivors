@@ -2419,13 +2419,13 @@
                 id: "divine_fury",
                 name: Spell(18530),
                 icon: "Spell_Holy_SealOfWrath",
-                text: "{Spell(585)} and {Spell(14914)}: cooldown -{v}%.",
+                text: "{Spell(585)} and {Spell(14914)}: cooldown -{v} sec.",
                 row: 1,
                 col: 0,
                 max_rank: 5,
                 requires: None,
                 effects: [
-                    AbilityMod(filter: Spells(["smite", "holy_fire"]), kind: Cooldown, per_rank: 0.01),
+                    CooldownSeconds(filter: Spells(["smite", "holy_fire"]), per_rank: 0.1),
                 ],
             ),
             (
@@ -3489,13 +3489,13 @@
                 id: "imp_fireball",
                 name: Spell(11069),
                 icon: "Spell_Fire_FlameBolt",
-                text: "{Spell(133)}: cooldown -{v}%.",
+                text: "{Spell(133)}: cooldown -{v} sec.",
                 row: 0,
                 col: 1,
                 max_rank: 5,
                 requires: None,
                 effects: [
-                    AbilityMod(filter: Spell("fireball"), kind: Cooldown, per_rank: 0.02),
+                    CooldownSeconds(filter: Spell("fireball"), per_rank: 0.1),
                 ],
             ),
             (
@@ -3684,13 +3684,13 @@
                 id: "imp_frostbolt",
                 name: Spell(11070),
                 icon: "Spell_Frost_FrostBolt02",
-                text: "{Spell(116)}: cooldown -{v}%.",
+                text: "{Spell(116)}: cooldown -{v} sec.",
                 row: 0,
                 col: 2,
                 max_rank: 5,
                 requires: None,
                 effects: [
-                    AbilityMod(filter: Spell("frostbolt"), kind: Cooldown, per_rank: 0.02),
+                    CooldownSeconds(filter: Spell("frostbolt"), per_rank: 0.1),
                 ],
             ),
             (
@@ -4250,13 +4250,13 @@
                 id: "bane",
                 name: Spell(17788),
                 icon: "Spell_Shadow_DeathPact",
-                text: "{Spell(686)} and {Spell(348)}: cooldown -{v}%.",
+                text: "{Spell(686)} and {Spell(348)}: cooldown -{v} sec.",
                 row: 1,
                 col: 0,
                 max_rank: 5,
                 requires: None,
                 effects: [
-                    AbilityMod(filter: Spells(["shadow_bolt", "immolate"]), kind: Cooldown, per_rank: 0.01),
+                    CooldownSeconds(filter: Spells(["shadow_bolt", "immolate"]), per_rank: 0.1),
                 ],
             ),
             (

@@ -1928,7 +1928,7 @@ impl PrestigeStat {
     /// What one rank adds.
     pub fn per_rank(&self) -> f32 {
         match &self.effect {
-            TalentEffect::Stat { per_rank, .. } | TalentEffect::AbilityMod { per_rank, .. } => *per_rank,
+            TalentEffect::Stat { per_rank, .. } | TalentEffect::AbilityMod { per_rank, .. } | TalentEffect::CooldownSeconds { per_rank, .. } => *per_rank,
             TalentEffect::Milestone(_) => 0.0,
         }
     }
@@ -1940,6 +1940,7 @@ impl PrestigeStat {
                 stat,
                 Stat::HealthPerSecond | Stat::HealPerKill | Stat::FlatMaxHealth | Stat::ExtraLives | Stat::DotStacks | Stat::ExtraTargets
             ),
+            TalentEffect::CooldownSeconds { .. } => false,
             _ => true,
         }
     }
@@ -1963,7 +1964,7 @@ impl PrestigeStat {
         match &self.effect {
             TalentEffect::Stat { stat, .. } => *stat == Stat::ExtraTargets,
             TalentEffect::AbilityMod { kind, .. } => kind.is_count(),
-            TalentEffect::Milestone(_) => false,
+            TalentEffect::CooldownSeconds { .. } | TalentEffect::Milestone(_) => false,
         }
     }
 }
@@ -1977,6 +1978,9 @@ pub enum TalentEffect {
     /// `Area` and `Duration` grow by it, `Cooldown` shrinks by it (all cuts together at most
     /// 60 %), `Targets` adds it (the sum is rounded).
     AbilityMod { filter: SpellFilter, kind: Upgrade, per_rank: f32 },
+    /// `per_rank × rank` seconds off the listed cooldown of every spell `filter` lets through
+    /// (with the other cooldown cuts, at most 60 % shorter).
+    CooldownSeconds { filter: SpellFilter, per_rank: f32 },
     /// A rule change (see `Milestone`). Its main number grows with rank.
     Milestone(Milestone),
 }
@@ -1986,7 +1990,7 @@ impl TalentEffect {
     pub fn spells(&self) -> Vec<&String> {
         match self {
             TalentEffect::Stat { .. } => vec![],
-            TalentEffect::AbilityMod { filter, .. } => filter.spells(),
+            TalentEffect::AbilityMod { filter, .. } | TalentEffect::CooldownSeconds { filter, .. } => filter.spells(),
             TalentEffect::Milestone(m) => m.spells(),
         }
     }
@@ -2873,10 +2877,11 @@ pub struct Pet {
     /// place of `scale`. Missing: it keeps `scale`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub family: Option<PetFamily>,
-    /// A lasting look it wears from the moment it appears: the `Spell.dbc` id of an aura whose
-    /// state look plays on its body (the Phoenix burns).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub aura: Option<u32>,
+    /// Lasting looks it wears from the moment it appears: the `Spell.dbc` ids of auras whose
+    /// state looks play on its body (the Phoenix burns, see-through), in aura slot order. Of two
+    /// that tint or fade the body, the later one shows.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub auras: Vec<u32>,
     /// A pet that flies: it hovers this many yards above the ground, bobbing gently. Missing: it
     /// walks on the ground.
     #[serde(default, skip_serializing_if = "Option::is_none")]

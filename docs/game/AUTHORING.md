@@ -769,6 +769,8 @@ and `effects`:
 * `AbilityMod(filter: ..., kind: ..., per_rank: ...)`: improves one number (`Power`, `Cooldown`,
   `Targets`, `Area`, `Duration`) of every spell the filter lets through (`Spell("id")`,
   `Spells([...])`, `School(Fire)`, `Delivery(DamageOverTime)`, `Category(DamageOverTime)` ...).
+* `CooldownSeconds(filter: ..., per_rank: ...)`: seconds off the listed cooldown of every spell the
+  filter lets through (write `cooldown -{v} sec.` in the talent's text).
 * `Milestone(...)`: one of the rule-changing kinds in classes.md's table, with its trigger and
   filter.
 

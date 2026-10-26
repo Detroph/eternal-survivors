@@ -173,16 +173,21 @@
         school: Nature,
     ),
     (
-        // Fireball's phoenix (a red carrion bird; the client has no phoenix); numbers from the Imp
+        // Fireball's phoenix (a red carrion bird; the client has no phoenix); its damage carries the legendary's
+        // strength with Fireball's own bonus at 125 %
         name: "Phoenix",
         display_id: 3248,
         scale: 0.8,
-        damage: 36.0,
+        damage: 120.0,
         swing: 2.0,
         school: Fire,
-        // it burns while it lives: an aura whose state look sets flames
-        // over its body and wings and tints it flame red (Spell.dbc 28330, an Immolate look)
-        aura: Some(28330),
+        // it burns while it lives, see-through like a spirit: flames at its feet (Spell.dbc 20564,
+        // Elemental Fire), half see-through (66, Lesser Invisibility's look, no tint), bright yellow
+        // fire streaming from both wing tips (830, Fearless: its look puts a fire-cast glow in each
+        // hand, and this bird's hand points are its wing tips), a ring of yellow-orange flames and a
+        // fiery glow round its body (23097, Fire Reflector's look), and flames over its body and
+        // wings, tinting it flame red (28330, an Immolate look; last, so its tint shows)
+        auras: [20564, 66, 830, 23097, 28330],
     ),
     (
         // Eviscerate's avatar of vengeance (a shade); numbers from the Felguard

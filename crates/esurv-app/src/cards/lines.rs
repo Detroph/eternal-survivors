@@ -238,6 +238,8 @@ pub(crate) fn effect_line(
             Some(line)
         }
         TalentEffect::Milestone(m) => milestone_line(m),
+        // a talent's only, never an amulet's
+        TalentEffect::CooldownSeconds { .. } => None,
     }
 }
 

@@ -230,9 +230,9 @@ mod tests {
             (EnemyType::Elite, 10.0, 3.0, 2.0, 10.0, 12.5, 3.5),
             (EnemyType::Rare, 10.0, 3.0, 3.0, 4.0, 2.5, 1.5),
             (EnemyType::Rare, 10.0, 3.0, 8.0, 12.0, 18.0, 4.5),
-            (EnemyType::Boss, 30.0, 2.0, 1.0, 3.0, 2.125, 1.375),
-            (EnemyType::Boss, 30.0, 2.0, 9.0, 16.0, 36.0, 7.0),
-            (EnemyType::FinalBoss, 75.0, 1.0, 10.0, 16.0, 36.0, 7.0),
+            (EnemyType::Boss, 37.5, 2.0, 1.0, 3.0, 2.125, 1.375),
+            (EnemyType::Boss, 37.5, 2.0, 9.0, 16.0, 36.0, 7.0),
+            (EnemyType::FinalBoss, 94.0, 1.0, 10.0, 16.0, 36.0, 7.0),
         ];
         for (kind, kh, kd, d, m, hc, dc) in cases {
             // 240 × kind × zone health × health clock (a boss's to boss_clock_power), 8 × kind × zone

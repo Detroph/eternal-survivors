@@ -515,8 +515,8 @@ speed  = speed% × enemy_speed × base speed   (every enemy alike; `balance.ron`
   | normal enemy | ×1 | ×1 |
   | elite | ×10 | ×3 |
   | rare | ×10 | ×3 |
-  | boss | ×30 | ×2 |
-  | final boss (`is_final`) | ×75 | ×1 |
+  | boss | ×37.5 | ×2 |
+  | final boss (`is_final`) | ×94 | ×1 |
 * **D:** the zone's `difficulty`, its place in the unlock order: Elwynn 1, Duskwood 2 … Ahn'Qiraj
   10 (section 5 leaves room for a zone at 6). Every number that
   follows D lives in one block, `balance.ron` `zone_scaling`, and is built on the hero we expect a

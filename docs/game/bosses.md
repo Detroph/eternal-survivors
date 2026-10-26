@@ -33,7 +33,7 @@ this page is [guides/bosses.txt](guides/bosses.txt). Zones, rosters and rares ar
 | `name`, `yell` | Shown over its head; shouted when it arrives. |
 | `display_id`, `scale`, `creature_type` | Its look, as for roster enemies (zones.md). |
 | `spawn_minute` | Run minute it arrives. |
-| (health, damage) | Not set per boss: the boss kind of the enemy formula (zones.md section 4) at the minute it arrives, 240 × 30 × `normal_health`(D)^`boss_health_power` × health clock^`boss_clock_power` and 8 × 2 × `normal_damage`(D)^`boss_damage_power` × damage clock; the final boss (`is_final`) takes ×75 health and ×1 damage instead. Then the run options and ×1.22 health, ×1.12 damage per Endless minute. It swings every 2 s and its abilities scale off this damage. |
+| (health, damage) | Not set per boss: the boss kind of the enemy formula (zones.md section 4) at the minute it arrives, 240 × 37.5 × `normal_health`(D)^`boss_health_power` × health clock^`boss_clock_power` and 8 × 2 × `normal_damage`(D)^`boss_damage_power` × damage clock; the final boss (`is_final`) takes ×75 health and ×1 damage instead. Then the run options and ×1.22 health, ×1.12 damage per Endless minute. It swings every 2 s and its abilities scale off this damage. |
 | `move_speed` | Optional, `Some(..)`: its own yards per second instead of `boss_move_speed` in `enemy_kinds.ron` (6 for every boss). Both × the speed run option. |
 | `abilities` | Its special attacks (section 3). |
 | `is_final` | Killing the final boss wins the run; with several, killing the last of them. |

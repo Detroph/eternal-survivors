@@ -1480,10 +1480,15 @@ What the options look and sound like, all from the player's client:
     run speed whenever their place moved half a yard) while the area lasts; each time it strikes,
     each plays a small Shred (6800) on one enemy it struck. They go when it ends; the damage is the
     area's (8% of max health a second within 5 yd).
-* **The Phoenix** (Fireball's legendary) burns while it lives: a pet may wear a lasting `aura`
-  (`pets.ron`) from the moment it appears, sent in its first aura slot; the Phoenix wears 28330,
-  an Immolate look whose state sets flames over its body and wings and tints it flame red, and it
-  rises from a great burst of fire (16049).
+* **The Phoenix** (Fireball's legendary) burns while it lives, half see-through: a pet may wear
+  lasting `auras` (`pets.ron`) from the moment it appears, sent in its first aura slots in order;
+  the Phoenix wears 20564 (Elemental Fire: flames at its feet), 66 (Lesser Invisibility's look: half
+  see-through, no tint), 830 (Fearless's look: a fire-cast glow in each hand, which on the carrion
+  bird are its wing tips, so bright yellow fire streams from both wings), 23097 (Fire Reflector's
+  look: a ring of yellow-orange flames and a fiery glow round its body) and 28330 (an Immolate
+  look: flames over its body and wings, a flame-red tint; last, so its tint is the one shown), and
+  it rises from a great burst of fire (16049). Its fire burns at half strength too, as a kit's
+  particles take their unit's see-through alpha.
 * **A line's runners** (`LineHit`'s `runners`, [classes.md](classes.md); `game::line_runners`):
   as the line strikes, the simulation says so (`Event::LineRunners`: the hero's spot, the line's
   end, its width) and the server puts a row of units across the line's whole width, each in a

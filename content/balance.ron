@@ -60,8 +60,10 @@
     normal: (health: 1.0, damage: 1.0),
     elite: (health: 10.0, damage: 3.0),
     rare: (health: 10.0, damage: 3.0),
-    boss: (health: 30.0, damage: 2.0),
-    final_boss: (health: 75.0, damage: 1.0),
+    // Bosses and final bosses: a quarter above the health that met the boss-time goals, so a hero
+    // built around one big spell and a hero who is not both get a fight (AUTHORING.md "Power budgets").
+    boss: (health: 37.5, damage: 2.0),
+    final_boss: (health: 94.0, damage: 1.0),
     // The run clocks, read at the minute the enemy appears: (minute, multiplier) points joined by
     // straight lines; past the last point the last step's pace goes on.
     health_clock: [(0.0, 1.0), (4.0, 2.5), (8.0, 7.0), (12.0, 18.0), (16.0, 36.0), (20.0, 65.0)],
