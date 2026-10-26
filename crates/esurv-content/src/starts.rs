@@ -245,6 +245,8 @@ pub enum SummonKind {
     WaterElemental,
     /// A pet that fights the whole run (Kill Command's).
     HunterPet,
+    /// A see-through copy of the hero that runs ahead, then spins after enemies (Blade Dance).
+    Reflection,
 }
 
 /// A form kept the whole run.

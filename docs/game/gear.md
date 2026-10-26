@@ -195,7 +195,7 @@ to settle.
 | warrior | `revenge` | Mark of the Fallen Champion | Revenge deals 260% more. Enemies that hit you are marked for 5 sec; Revenge deals 650% more to marked enemies and each of its hits on one heals you 7% of your health. |
 | warrior | `cleave` | Hateful Strike | Cleave deals 75% more. Every 2nd Cleave also hits the healthiest enemy in reach for 550%. |
 | warrior | `thunder_clap` | Hammer of the Mountain King | Thunder Clap deals 60% more and reaches 50% farther. Each clap throws a Storm Bolt at the healthiest enemy it hit: 300% and a 2 sec stun. |
-| warrior | `mortal_strike` | Blade Dance | Mortal Strike deals 25% more. After the strike you dash through 3 more enemies, striking each for 35%. |
+| warrior | `mortal_strike` | Blade Dance | Mortal Strike deals 25% more. Each strike sends out 2 ghostly reflections of you that spin after enemies for 5 sec, each spin striking up to 3 enemies near them for 3.5%. Our rule (owner): reflections spinning as the Ravager's Bladestorm, in place of a dash through 3 enemies for 35% each; the same 105% at most. |
 | warrior | `execute` | Gorehowl | Execute deals 130% more. A kill readies it again and gives Bloodlust: 20% more damage for 20 sec, up to 5 times. |
 | warrior | `demo_shout` | Bellowing Roar | Demoralizing Shout fears the enemies it hits for 2 sec, and they take 95% more damage from you for 6 sec. |
 | warrior | `battle_shout` | Endurance Aura | Battle Shout lasts twice as long. While it lasts your swings are 30% faster and give 3 more rage, and every blow you strike lands again for 25%. |

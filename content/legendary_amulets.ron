@@ -72,10 +72,12 @@
         spells: ["mortal_strike"],
         name: "Blade Dance",
         icon: "Ability_Warrior_SavageBlow",
-        text: "{Spell(12294)} deals 25% more. After the strike you dash through 3 more enemies, striking each for 35%.",
+        text: "{Spell(12294)} deals 25% more. Each strike sends out 2 ghostly reflections of you that spin after enemies for 5 sec, each spin striking up to 3 enemies near them for 3.5%.",
         effects: [
             AbilityMod(filter: Spell("mortal_strike"), kind: Power, per_rank: 0.25),
-            Milestone(ExtraTargets(count: 3, share: 0.35, trigger: Hit, filter: Spell("mortal_strike"))),
+            // our rule (owner): the reflections spin as the Ravager's Bladestorm, in place of the
+            // dash through 3 enemies for 35% each; the same 105% at most (2 × 5 spins × 3 × 3.5%)
+            Milestone(Reflections(count: 2, seconds: 5, interval: 1, radius: 8, targets: 3, share: 0.035, trigger: Hit, filter: Spell("mortal_strike"))),
         ],
         rarity: Legendary,
         growth: Slowest,

@@ -405,6 +405,7 @@ spell the client names as `{Spell(id)}`. A talent's effects:
   | `Splash(`**`share`**`, radius, look_spell, requires_aura, trigger, filter)` | the hit splashes around its target (only on targets with `requires_aura`, if given) | Splitting Ice |
   | `ExtraTargets(count, `**`share`**`, trigger, filter, per_swing_second)` | the hit sweeps on to `count` more enemies; with `per_swing_second: true` a weapon swing's `share` is per second of the weapon's swing time, so slow weapons sweep for more | Sweeping Strikes |
   | `StrikeAgain(`**`chance`**`, times, share, trigger, filter)` | chance to strike `times` more for `share` of the hit | Windfury |
+  | `Reflections(count, seconds, interval, radius, targets, `**`share`**`, trigger, filter)` | `count` see-through copies of the hero run ahead, then chase and spin for `seconds`, each spin every `interval` striking up to `targets` within `radius` for `share` of the hit (our rule) | Blade Dance |
   | `Afflict(`**`chance`**`, effect, trigger, filter)` | chance to slow, root, stun, make vulnerable, or heal the hero | Blackout |
   | `DotOnHit(look_spell, `**`share`**`, seconds, trigger, filter)` | the target takes `share` of the hit again over `seconds`; one per enemy: a new one adds what the old one had left and starts afresh | Ignite, Deep Wounds |
   | `ResetOnKill(min_interval, filter)` | a killing blow readies the spell again | Mortal Wounds |

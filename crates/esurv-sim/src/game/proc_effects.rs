@@ -276,6 +276,12 @@ impl Run {
                     slot.timer = 0.0;
                 }
             }
+            Milestone::Reflections { count, seconds, interval, radius, targets, share, look_spell, .. } => {
+                // their spins count as the spell's, and set nothing off again
+                let credit = self.repeat_source(h, source);
+                let blade = super::kit::BladeSpin { strike: share * dealt, credit, radius: *radius, targets: *targets, interval: *interval, look: *look_spell };
+                self.summon_reflections(h, *count, *seconds, blade);
+            }
             Milestone::StrikeOne { pick, reach, share, effects, look_spell, reflection, .. } => {
                 let Some(target) = target else { return };
                 let reach = match (*reach, source) {
@@ -666,7 +672,7 @@ impl Run {
 mod tests {
     use std::sync::Arc;
 
-    use esurv_content::{AfflictEffect, Content, SpellFilter, Stat, Trigger};
+    use esurv_content::{AfflictEffect, Content, SpellFilter, Stat, SummonKind, Trigger};
 
     use super::*;
     use crate::game::enemy::RunOptions;
@@ -800,6 +806,34 @@ mod tests {
         assert_eq!(r.heroes[0].kit.worn_looks, [(9632, now + 3.0)]);
     }
 
+
+    /// Blade Dance (our rule): each strike sends two reflections that run ahead, then spin
+    /// after enemies, striking up to three near them for their share each second, and go at 5 sec.
+    #[test]
+    fn blade_dance_reflections_run_ahead_spin_and_go() {
+        let m = Milestone::Reflections { count: 2, seconds: 5.0, interval: 1.0, radius: 8.0, targets: 3, share: 0.035, look_spell: Some(9632), trigger: Trigger::Hit, filter: SpellFilter::Spell("mortal_strike".into()) };
+        let mut r = run_as("warrior", vec![m]);
+        let a = enemy(&mut r, 6.0);
+        let start = r.heroes[0].pos;
+        r.hit_enemy(Some(0), a, 1000.0, false, spell("mortal_strike"));
+        let events = r.drain_events();
+        let made = events.iter().filter(|e| matches!(e, Event::SummonAppeared { kind: SummonKind::Reflection, .. })).count();
+        assert_eq!(made, 2);
+        let after_strike = lost(&r, a);
+        // they run a bit forwards before they spin
+        let dist = |a: (f32, f32), b: (f32, f32)| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
+        assert!(r.pets.iter().all(|p| dist(p.segment.from, start) < 3.0 && dist(p.segment.to, p.segment.from) > 1.0));
+        let mut gone = 0;
+        for _ in 0..60 {
+            r.now += 0.1;
+            r.pets_tick();
+            gone += r.drain_events().iter().filter(|e| matches!(e, Event::SummonGone { .. })).count();
+        }
+        let spun = lost(&r, a) - after_strike;
+        // two reflections, a spin a second for five seconds, 3.5 % of the strike each
+        assert!(spun > 0.0 && spun <= 2.0 * 5.0 * 35.0 + 0.01, "spun for {spun}");
+        assert!(r.pets.is_empty() && gone == 2, "both go at 5 sec");
+    }
     #[test]
     fn a_dot_bursts_on_death_and_passes_to_those_it_strikes() {
         let m = Milestone::DotBurst { share: 1.0, radius: 6.0, on_end: false, on_death: true, spreads: true, look_spell: None, filter: SpellFilter::Spell("sw_pain".into()) };

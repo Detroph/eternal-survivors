@@ -1170,6 +1170,10 @@ impl Game {
     }
 
     fn pet_object(&self, i: usize, now: f32) -> Option<(ObjectUpdate, u64)> {
+        // Blade Dance's reflections look like their hero, not like a pet
+        if self.run.pets[i].summon.as_ref().is_some_and(|s| s.blade.is_some()) {
+            return self.blade_reflection_object(i, now);
+        }
         let content = &self.run.content;
         let p = &self.run.pets[i];
         let kind = content.pets.iter().find(|k| k.name == p.pet)?;

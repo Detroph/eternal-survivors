@@ -21,8 +21,8 @@
     (legendary: "cleave", moments: [(StrikeOne, 28308)]),
     // Hammer of the Mountain King: the Storm Bolt hammer flies at the healthiest
     (legendary: "thunder_clap", moments: [(StrikeOne, 20685)]),
-    // Blade Dance: a cleaving slash on each enemy it dances to
-    (legendary: "mortal_strike", moments: [(ExtraTargets, 9633)]),
+    // Blade Dance: the reflections spin as the Ravager's Bladestorm (our rule: reflections, not a dash)
+    (legendary: "mortal_strike", moments: [(Reflections, 9632)]),
     // Gorehowl: Bloodlust while the kills stack
     (legendary: "execute", moments: [(TimedBuff, 6742)]),
     // Bellowing Roar: Onyxia's roar of fear on each enemy; exposed: Sunder Armor's purple strike, small, pulsing while it lasts

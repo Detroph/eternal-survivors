@@ -33,6 +33,8 @@ pub enum Moment {
     /// On each enemy a sweep or a jump strikes.
     ExtraTargets,
     StrikeAgain,
+    /// Worn by each reflection while it spins.
+    Reflections,
     DotSpread,
     SpreadOnDeath,
     /// Worn by the hero while the stacks last.
@@ -63,7 +65,7 @@ pub enum Moment {
 
 impl Moment {
     /// Every moment.
-    pub const ALL: [Moment; 33] = [
+    pub const ALL: [Moment; 34] = [
         Moment::Burst,
         Moment::BurstMark,
         Moment::LeaveArea,
@@ -80,6 +82,7 @@ impl Moment {
         Moment::Retaliate,
         Moment::ExtraTargets,
         Moment::StrikeAgain,
+        Moment::Reflections,
         Moment::DotSpread,
         Moment::SpreadOnDeath,
         Moment::TimedBuff,
@@ -198,6 +201,7 @@ fn slot(m: &mut Milestone, moment: Moment) -> Option<&mut Option<u32>> {
         | (Milestone::Retaliate { look_spell, .. }, M::Retaliate)
         | (Milestone::ExtraTargets { look_spell, .. }, M::ExtraTargets)
         | (Milestone::StrikeAgain { look_spell, .. }, M::StrikeAgain)
+        | (Milestone::Reflections { look_spell, .. }, M::Reflections)
         | (Milestone::DotSpread { look_spell, .. }, M::DotSpread)
         | (Milestone::SpreadOnDeath { look_spell, .. }, M::SpreadOnDeath)
         | (Milestone::TimedBuff { look_spell, .. }, M::TimedBuff)
