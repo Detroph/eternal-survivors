@@ -14,7 +14,7 @@ use super::choices::{damaging, head_start};
 use super::offers::{spell_card_effect, Rarity, SpellCardEffect};
 use super::spells::{cooldown, SpellModifier, SpellSlot};
 use super::stats::StatSheet;
-use super::upgrades::{step, SpellUpgrades};
+use super::upgrades::{spell_step, SpellUpgrades};
 
 /// The numbers of `a` cast as `inst` by a hero with `stats`, by name:
 ///
@@ -263,7 +263,7 @@ pub fn head_start_gain(a: &Ability, rarity: Rarity) -> Option<(Upgrade, f32)> {
 /// says it: power, area and duration grow by this share of what they are, the cooldown shrinks by
 /// it, targets rise by it.
 pub fn upgrade_gain(a: &Ability, u: &SpellUpgrades, kind: Upgrade, rarity: Rarity) -> f32 {
-    let g = step(u, kind, rarity);
+    let g = spell_step(a, u, kind, rarity);
     match kind {
         Upgrade::Power => power_gain(a, g),
         Upgrade::Cooldown => g / u.cooldown.max(f32::EPSILON),
@@ -371,6 +371,7 @@ pub fn spell_totals(a: &Ability, slot: &SpellSlot, plain: &StatSheet, bonused: &
 mod tests {
     use super::*;
     use crate::game::stats::compute;
+    use crate::game::upgrades::step;
     use esurv_content::Content;
 
     fn content() -> Content {

@@ -14,7 +14,7 @@ use super::offers::{
 use super::run::{Event, Phase, Run};
 use super::spells::{cooldown, SpellModifier};
 use super::stats::Modifier;
-use super::upgrades::{apply as apply_upgrade, kinds_per_card, new_spell_weight, offerable, step, COMMON_CARD_WEIGHT_FACTOR, EMPTY_SCREEN_GOLD, UPGRADE_WEIGHT};
+use super::upgrades::{apply_to_spell, kinds_per_card, new_spell_weight, offerable, spell_step, COMMON_CARD_WEIGHT_FACTOR, EMPTY_SCREEN_GOLD, UPGRADE_WEIGHT};
 
 /// Free rerolls a hero starts a run with; paid rerolls also start again at none.
 pub const FREE_REROLLS: u32 = 3;
@@ -229,7 +229,7 @@ impl Run {
             let all = offerable(a, &slot.upgrades, still, true);
             // a kind that adds nothing at the card's rarity (Targets below rare)
             // is left off; a card left with none rolls rare instead
-            let adds = |r: Rarity| all.iter().copied().filter(|&k| step(&slot.upgrades, k, r) > 0.0).collect::<Vec<_>>();
+            let adds = |r: Rarity| all.iter().copied().filter(|&k| spell_step(a, &slot.upgrades, k, r) > 0.0).collect::<Vec<_>>();
             let (rarity, mut kinds) = match adds(rarity) {
                 k if k.is_empty() && rarity < Rarity::Rare => (Rarity::Rare, adds(Rarity::Rare)),
                 k => (rarity, k),
@@ -378,8 +378,9 @@ impl Run {
                 }
             }
             Offer::UpgradeSpell { spell, kinds, rarity } => {
-                if let Some(slot) = self.heroes[i].spells.known.iter_mut().find(|s| &s.spell == spell) {
-                    apply_upgrade(&mut slot.upgrades, kinds, *rarity);
+                let a = content.ability(spell);
+                if let (Some(a), Some(slot)) = (a, self.heroes[i].spells.known.iter_mut().find(|s| &s.spell == spell)) {
+                    apply_to_spell(a, &mut slot.upgrades, kinds, *rarity);
                 }
             }
             Offer::NewJewelry { id, value, .. } => {
