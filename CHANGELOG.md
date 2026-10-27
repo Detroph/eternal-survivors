@@ -25,6 +25,7 @@ A small balance and fixes update.
 **Fixes**
 - Some creatures could show an old, wrong name (an Eye Tentacle named "Bear"); the saved name list now starts afresh after each update.
 - Less slowdown when some warband allies fight big packs.
+- Boss timer bars and warnings no longer stay on the warband screen when you end a run during a boss fight.
 
 ## v0.5.3
 

@@ -347,7 +347,8 @@ fn build_parts(mut commands: Commands, stock: Stock, parts: Option<Res<AlertPart
     alerts.dirty = true;
 }
 
-/// The server's warnings and bars; a new run forgets them all.
+/// The server's warnings and bars; a new run forgets them all, and so does leaving the world
+/// (`count_down`).
 fn read_alerts(mut events: MessageReader<ServerEvent>, mut alerts: ResMut<BossAlerts>, options: Res<AlertOptions>, time: Res<Time>, script: Option<NonSend<UiScript>>) {
     let now = time.elapsed_secs();
     for ServerEvent(m) in events.read() {
@@ -402,6 +403,13 @@ fn read_options(
 }
 
 fn count_down(mut alerts: ResMut<BossAlerts>, run: Res<RunHud>, time: Res<Time>) {
+    // the hero left the world (a run ended mid-fight): its warnings and bars go with it
+    if run.ready.is_none() {
+        if !alerts.warnings.is_empty() || !alerts.bars.is_empty() {
+            alerts.clear();
+        }
+        return;
+    }
     let running = run.phase() == Some(Phase::Running);
     alerts.tick(time.delta_secs(), running, time.elapsed_secs());
 }
