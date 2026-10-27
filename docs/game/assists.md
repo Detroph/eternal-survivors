@@ -171,7 +171,9 @@ The simulation's side (`crates/esurv-sim/src/game/assists.rs`):
   screen); Snutz's rain of fire (his script's and each rotation cast's) strikes at most 5 enemies
   a pulse, the nearest its middle, so each cast's Corruption, Curse of Agony, Shadow Bolt or Death
   Coil shows on at most 5. With 60 enemies about, a stay sends about ten times fewer hits and
-  impact looks (Wayze 660 hits before, now 55; Snutz 3519, now 320).
+  impact looks (Wayze 660 hits before, now 55; Snutz 3519, now 320). Moffel's Thunderfury
+  lightning and its debuff show on her first swing only (our rule, owner), her eight swings
+  still striking the 5 nearest her: 5 lightning looks a stay instead of 40.
 - **A two-hander** in a character's main hand leaves its off hand empty (no class shield under
   it): Noami holds Sulfuras, Hand of Ragnaros (item 17182, display 29698) in both hands.
 - **Buffs** add their stats while they last (a raised max health raises health with it); their
@@ -232,7 +234,9 @@ What the ally does once its script is done (`crates/esurv-sim/src/game/assist_ro
   her portal and hearthstones away at once.
 - **A caster with an empty rotation** casts nothing after its script and keeps beside the hero
   until its stay is up, then leaves its way.
-- **How it moves** (`style`): `Melee` runs to the enemy nearest it and stays 1.6 yd from it;
+- **How it moves** (`style`): `Melee` runs to the enemy nearest it and stays 1.6 yd from it,
+  strafing and jumping round it as `ErraticMelee` does (our rule, owner: melee allies never stand
+  still as they strike, in their script too; one stands only while a taunt of its holds);
   `ErraticMelee` also, in melee, strafes left, then right (0.4 sec each at its run speed, facing its
   enemy) and every third time jumps sideways instead (a 1.12 jump's 0.82 sec in the air); `Caster`
   stands where it is and runs back beside the hero (2.5 yd to its left) once the hero is more than

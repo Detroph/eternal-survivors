@@ -995,3 +995,55 @@ fn the_crowd_assists_reach_at_most_five_enemies_at_a_time() {
         assert_eq!(garrote, Some((Targets::Nearest(5), 10.0)), "{who}");
     }
 }
+
+/// Our rule (owner): every melee ally strafes round its enemy, while its script strikes too; one
+/// that taunts stands while its taunt holds.
+#[test]
+fn a_melee_ally_strafes_while_it_strikes_but_stands_while_it_taunts() {
+    let strike = AssistStep::Repeat { every: 1.0, times: 6, steps: vec![AssistStep::Hit { targets: Targets::Nearest(1), damage: true, look_spell: None, melee: true, effects: vec![], wears: vec![], over_time: None }] };
+    let (mut r, id) = run_with_rotation(script(vec![strike]), MoveStyle::Melee, vec![]);
+    let e = enemy_at(&mut r, 3.0);
+    hold_and_keep(&mut r, e);
+    r.summon_character(0, &id);
+    let ev = tick_alone(&mut r, e, 5.0);
+    let ways: Vec<AllyMove> = ev.iter().filter_map(|x| if let Event::AllyMoved { how, .. } = x { Some(*how) } else { None }).collect();
+    assert!(ways.contains(&AllyMove::StrafeLeft) && ways.contains(&AllyMove::StrafeRight), "strafes in its script: {ways:?}");
+
+    let taunt = AssistStep::Taunt { targets: Targets::OnScreen, seconds: 10.0, look_spell: None };
+    let (mut r, id) = run_with_rotation(script(vec![taunt, AssistStep::Cast { look_spell: 355 }]), MoveStyle::Melee, vec![]);
+    let e = enemy_at(&mut r, 3.0);
+    hold_and_keep(&mut r, e);
+    r.summon_character(0, &id);
+    let ev = tick_alone(&mut r, e, 6.0);
+    assert!(!ev.iter().any(|x| matches!(x, Event::AllyMoved { how: AllyMove::StrafeLeft | AllyMove::StrafeRight | AllyMove::Jump, .. })), "it stands while it taunts");
+}
+
+/// Moffel's Thunderfury lightning shows on her first swing only (for performance), while all
+/// eight swings still strike up to 5 enemies.
+#[test]
+fn moffels_lightning_shows_once_and_her_swings_still_strike_five() {
+    let mut r = run_in(Arc::new(content()), "elwynn", "human", 5);
+    immune(&mut r);
+    for i in 0..30 {
+        let (a, d) = (i as f32 * 0.4, 4.0 + (i % 6) as f32);
+        let p = r.heroes[0].pos;
+        if !r.spawn_roster_enemy(0, Some((p.0 + a.cos() * d, p.1 + a.sin() * d))) {
+            break;
+        }
+        let k = r.enemies.len() - 1;
+        r.enemies[k].health = 1e9;
+    }
+    let ids: Vec<u32> = r.enemies.iter().map(|e| e.id).collect();
+    r.summon_character(0, "moffel");
+    let mut ev = r.drain_events();
+    let end = r.now + 10.0;
+    while r.now < end {
+        r.enemies.retain(|e| ids.contains(&e.id));
+        r.tick(0.05);
+        ev.extend(r.drain_events());
+    }
+    let lightning = ev.iter().filter(|e| matches!(e, Event::SpellGo { caster: Unit::Ally(_), spell: 21992, .. })).count();
+    assert_eq!(lightning, 1);
+    let hits = ev.iter().filter(|e| matches!(e, Event::EnemyHit { source: HitSource::Assist(_), .. })).count();
+    assert!(hits >= 8 * 6, "eight swings of 1 + 5: {hits}");
+}

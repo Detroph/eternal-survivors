@@ -27,8 +27,9 @@
 //!   over `AUTO_ATTACK_SECONDS` as any of its hits.
 //! - **Nothing:** a `LeavesAfterScript` ally leaves once its script is done and no taunt of its
 //!   holds.
-//! - **Its movement:** `Melee` runs to the enemy nearest it and stays there; `ErraticMelee` also
-//!   strafes left and right in melee and jumps every third strafe; `Caster` stands beside the hero
+//! - **Its movement:** `Melee` and `ErraticMelee` run to the enemy nearest them and (our rule)
+//!   strafe left and right in melee and jump every third strafe, also while their script strikes,
+//!   but stand while a taunt of theirs holds; `Caster` stands beside the hero
 //!   and follows when the hero is too far; `NovaKiteCaster` also jumps away after an instant cast
 //!   with an enemy close; `Healer` keeps close to the hero. A cast with a cast time is cast
 //!   standing, and a channel channelled standing.
@@ -461,7 +462,7 @@ impl Run {
 
     /// Ally `k` moves as its style says, while it is not casting and its last move is done (a run
     /// is looked at again every `MOVE_LOOK_EVERY`).
-    fn ally_moves_in_rotation(&mut self, k: usize) {
+    pub(crate) fn ally_moves_in_rotation(&mut self, k: usize) {
         let now = self.now;
         let a = &self.assists.allies[k];
         if a.rotation.casting.is_some() || a.rotation.channeling.is_some() || now < a.rotation.next_move {
@@ -477,13 +478,18 @@ impl Run {
         self.assists.allies[k].rotation.next_move = now + MOVE_LOOK_EVERY;
         match style {
             MoveStyle::Melee | MoveStyle::ErraticMelee => {
+                // a taunting ally stands where the enemies it taunts come to it
+                if self.assists.allies[k].taunting {
+                    return;
+                }
                 let Some(e) = nearest else { return };
                 let Some(p) = self.enemy_pos(e) else { return };
                 let d = dist(here, p);
                 if d > ALLY_BESIDE_ENEMY + MELEE_SLACK {
                     let to = step(p, toward(p, here), ALLY_BESIDE_ENEMY);
                     self.move_ally(k, to, p, AllyMove::Run, dist(here, to) / ALLY_RUN_SPEED, None);
-                } else if style == MoveStyle::ErraticMelee && !self.assists.allies[k].segment.moving(now) {
+                } else if !self.assists.allies[k].segment.moving(now) {
+                    // our rule (owner): every melee ally strafes and jumps round its enemy, not only an erratic one
                     let a = &mut self.assists.allies[k];
                     a.rotation.strafes += 1;
                     let n = a.rotation.strafes;

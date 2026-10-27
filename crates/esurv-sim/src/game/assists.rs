@@ -396,6 +396,16 @@ impl Run {
         if !self.heroes[self.assists.allies[k].hero].alive {
             return self.ally_leaves(k);
         }
+        // our rule (owner): a melee ally keeps moving round its enemy while its script strikes,
+        // as after it (never during a move of the script)
+        let a = &mut self.assists.allies[k];
+        if !a.frames.is_empty() && matches!(a.rotation.style, MoveStyle::Melee | MoveStyle::ErraticMelee) && !a.segment.moving(now) {
+            // its moves are planned from the script's end; in the script they start at once
+            if !a.rotation.started && a.rotation.next_move == a.rotation.start {
+                a.rotation.next_move = now;
+            }
+            self.ally_moves_in_rotation(k);
+        }
         for _ in 0..STEPS_PER_TICK {
             let a = &mut self.assists.allies[k];
             // its script still running at the end of its stay: it goes whatever is left
@@ -572,7 +582,9 @@ impl Run {
                 self.assists.allies[k].picked = picked.clone();
                 let Some(&first) = picked.first() else { return 0.0 };
                 if *melee {
-                    if let Some(p) = self.enemy_pos(first) {
+                    // one strafing or jumping round its enemy swings on the move
+                    let dodging = self.assists.allies[k].segment.moving(now) && self.assists.allies[k].moving != AllyMove::Run;
+                    if let Some(p) = self.enemy_pos(first).filter(|_| !dodging) {
                         let from = self.assists.allies[k].segment.position(now);
                         self.move_ally(k, short_of(from, p, ALLY_BESIDE_ENEMY), p, AllyMove::Step, 0.0, None);
                     }
