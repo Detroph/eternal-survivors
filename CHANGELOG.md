@@ -3,6 +3,29 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.5.4
+
+A small balance and fixes update.
+
+### Patch notes
+
+**Gameplay**
+- **Blade Dance** (Mortal Strike legendary) no longer dashes: each strike now sends two ghostly reflections of your hero that run ahead, then chase and spin through enemies for 5 seconds. Their total damage is the same as before.
+- **Warband allies** who fight in melee now move around their enemy while they strike, like real players, instead of standing still. Tanks still hold their ground while they taunt.
+- **Warsong Gulch:** enemy rogues and cat druids run a little faster (6.8 yards a second).
+
+**Balance**
+- **Cooldown cards for damage and speed buffs** (Tiger's Fury, Power Infusion, Battle Shout, Adrenaline Rush, Slice and Dice, Perception, Blood Fury, Berserking and Arcane Power) take 30% less off: 5 / 7 / 9 / 12 / 14% instead of 7 / 10 / 13 / 17 / 20%. Other spells' cooldown cards are unchanged.
+
+**Quality of life**
+- **Codex:** rings, trinkets and necklaces, ordinary and legendary, are added to the codex as soon as a card shows them, taken or not, Challenge Mode included.
+
+### Changelog
+
+**Fixes**
+- Some creatures could show an old, wrong name (an Eye Tentacle named "Bear"); the saved name list now starts afresh after each update.
+- Less slowdown when some warband allies fight big packs.
+
 ## v0.5.3
 
 A weapon balance update.
