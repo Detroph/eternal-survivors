@@ -32,6 +32,9 @@ pub const EMPTY_SCREEN_GOLD: u32 = 25;
 /// Step size per rarity (common .. legendary) of each upgrade kind (our numbers).
 pub const POWER_STEP: [f32; 5] = [0.15, 0.25, 0.35, 0.5, 0.65];
 pub const COOLDOWN_STEP: [f32; 5] = [0.07, 0.10, 0.13, 0.17, 0.20];
+/// Our rule (owner): a damage or haste buff's Cooldown card cuts 30 % less than another
+/// spell's (`COOLDOWN_STEP` × 0.7, to whole percents).
+pub const BUFF_COOLDOWN_STEP: [f32; 5] = [0.05, 0.07, 0.09, 0.12, 0.14];
 /// Extra targets a card adds: none below rare, so a Targets card is never common or uncommon.
 pub const TARGETS_STEP: [u32; 5] = [0, 0, 1, 2, 2];
 pub const AREA_STEP: [f32; 5] = [0.10, 0.15, 0.25, 0.35, 0.5];
@@ -89,6 +92,22 @@ pub fn step(u: &SpellUpgrades, kind: Upgrade, rarity: Rarity) -> f32 {
         }
         Upgrade::Pets => MAX_EXTRA_PETS.saturating_sub(u.extra_targets).min(1) as f32,
         _ => MAX_EXTRA_TARGETS.saturating_sub(u.extra_targets).min(TARGETS_STEP[r]) as f32,
+    }
+}
+
+/// Whether `a` is a buff the hero casts on itself for more damage or speed (its Cooldown cards
+/// are `BUFF_COOLDOWN_STEP`'s).
+pub fn is_damage_or_haste_buff(a: &Ability) -> bool {
+    a.delivery == Delivery::SelfEffect && matches!(a.effect, SpellEffect::DamageBuff { .. } | SpellEffect::HasteBuff { .. })
+}
+
+/// How much one step of `kind` at `rarity` would add to `spell`: [`step`], with a damage or haste
+/// buff's smaller cooldown steps.
+pub fn spell_step(spell: &Ability, u: &SpellUpgrades, kind: Upgrade, rarity: Rarity) -> f32 {
+    if kind == Upgrade::Cooldown && is_damage_or_haste_buff(spell) {
+        ((u.cooldown - COOLDOWN_FLOOR) / (1.0 - COOLDOWN_FLOOR)).max(0.0) * BUFF_COOLDOWN_STEP[rarity as usize]
+    } else {
+        step(u, kind, rarity)
     }
 }
 
@@ -152,13 +171,22 @@ pub fn offerable(spell: &Ability, u: &SpellUpgrades, cooldown_still_matters: boo
         .iter()
         .copied()
         .filter(|&k| applies(spell, k, cooldown_still_matters, extra_targets_on))
-        .filter(|&k| step(u, k, Rarity::Legendary) >= MIN_GAIN)
+        .filter(|&k| spell_step(spell, u, k, Rarity::Legendary) >= MIN_GAIN)
         .collect()
 }
 
 /// Applies one upgrade card: the rank goes up once per kind taken, each kind steps once, and
 /// every step adds the small rank power bonus.
 pub fn apply(u: &mut SpellUpgrades, kinds: &[Upgrade], rarity: Rarity) {
+    apply_with(u, kinds, rarity, step);
+}
+
+/// [`apply`] to a card for `spell` (a damage or haste buff's cooldown steps are smaller).
+pub fn apply_to_spell(spell: &Ability, u: &mut SpellUpgrades, kinds: &[Upgrade], rarity: Rarity) {
+    apply_with(u, kinds, rarity, |u, k, r| spell_step(spell, u, k, r));
+}
+
+fn apply_with(u: &mut SpellUpgrades, kinds: &[Upgrade], rarity: Rarity, step: impl Fn(&SpellUpgrades, Upgrade, Rarity) -> f32) {
     for &k in kinds {
         u.rank += 1;
         let g = step(u, k, rarity);
@@ -226,6 +254,29 @@ mod tests {
         for k in [Upgrade::Cooldown, Upgrade::Targets, Upgrade::Area, Upgrade::Duration] {
             assert_eq!(step(&u, k, Rarity::Legendary), 0.0, "{k:?}");
         }
+    }
+
+    /// Our rule (owner): a damage or haste buff's Cooldown card cuts 30 % less, to whole percents;
+    /// every other spell's and kind's card is as before.
+    #[test]
+    fn a_buffs_cooldown_card_cuts_less() {
+        let content = esurv_content::Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).expect("content loads");
+        let u = SpellUpgrades::default();
+        let buffs: Vec<&str> = content.abilities.iter().filter(|a| is_damage_or_haste_buff(a) && a.upgrades.contains(&Upgrade::Cooldown)).map(|a| a.id.as_str()).collect();
+        println!("buffs with cooldown cards: {buffs:?}");
+        assert!(!buffs.is_empty());
+        for id in buffs {
+            let a = content.ability(id).unwrap();
+            for r in Rarity::ALL {
+                assert!((spell_step(a, &u, Upgrade::Cooldown, r) - BUFF_COOLDOWN_STEP[r as usize]).abs() < 1e-6);
+                assert_eq!(spell_step(a, &u, Upgrade::Power, r), step(&u, Upgrade::Power, r));
+            }
+            let mut v = u;
+            apply_to_spell(a, &mut v, &[Upgrade::Cooldown], Rarity::Legendary);
+            assert!((v.cooldown - 0.86).abs() < 1e-6, "{id}: 14 % off");
+        }
+        let fireball = content.ability("fireball").unwrap();
+        assert_eq!(spell_step(fireball, &u, Upgrade::Cooldown, Rarity::Legendary), COOLDOWN_STEP[4]);
     }
 
     #[test]

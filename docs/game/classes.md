@@ -337,7 +337,7 @@ rarity (common → legendary):
 | Kind | Step | Limit |
 |---|---|---|
 | power | ×(1 + [0.15, 0.25, 0.35, 0.5, 0.65] ÷ (1 + 0.5 × power upgrades taken)) | none; shrinks each time |
-| cooldown | multiplier − [0.07, 0.10, 0.13, 0.17, 0.20] × room, room = (multiplier − 0.2) ÷ 0.8 | 0.2 (−80 %) |
+| cooldown | multiplier − [0.07, 0.10, 0.13, 0.17, 0.20] × room, room = (multiplier − 0.2) ÷ 0.8; a damage or haste buff on the hero (Battle Shout, Power Infusion, Arcane Power, Slice and Dice …) [0.05, 0.07, 0.09, 0.12, 0.14] (our rule, owner: 30 % less, whole percents) | 0.2 (−80 %) |
 | targets | + [0, 0, 1, 2, 2] (no Targets card below rare; a card left with nothing to add rolls rare) | +12 |
 | area | + [0.10, 0.15, 0.25, 0.35, 0.5] × (5 − area) × 0.25 | 5× |
 | duration | + [0.15, 0.20, 0.30, 0.40, 0.60] × (6 − duration) ÷ 5 | 6× |
