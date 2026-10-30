@@ -3,6 +3,15 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.5.5
+
+A small balance update.
+
+### Patch notes
+
+**Balance**
+- **Fan of Knives** (Rogue legendary amulet) now grows when you rank it up: each cast has a 10% chance of a third ring of knives, 0.5 sec after the second, and that chance grows with each rank. Before, ranking it up did nothing.
+
 ## v0.5.4
 
 A small balance and fixes update.
