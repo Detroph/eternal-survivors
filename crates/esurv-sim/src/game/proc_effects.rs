@@ -434,8 +434,11 @@ impl Run {
                 let (look, shown) = self.proc_shown(*look_spell, source);
                 self.procs.barrages.push(PendingBarrage { hero: h, until: now + seconds, next: now, interval: interval.max(0.05), reach: *reach, hit, look, shown });
             }
-            Milestone::CastAgain { delay, opposite, elsewhere, .. } => {
+            Milestone::CastAgain { delay, chance, opposite, elsewhere, .. } => {
                 let HitSource::Spell(spell) = source else { return };
+                if *chance < 1.0 && self.rng.unit() >= *chance {
+                    return;
+                }
                 self.procs.casts.push(PendingCast { hero: h, spell: spell.clone(), at: now + delay, opposite: *opposite, elsewhere: *elsewhere });
             }
             Milestone::ApplyPoison { .. } => {
@@ -975,7 +978,7 @@ mod tests {
     fn small_rules_reset_strike_recast_strike_back_and_echo() {
         let reset = Milestone::ResetOnTrigger { chance: 1.0, min_interval: 0.0, trigger: Trigger::Crit, filter: SpellFilter::Spell("fire_blast".into()) };
         let one = Milestone::StrikeOne { pick: Pick::Healthiest, reach: 20.0, share: 2.0, effects: vec![], look_spell: None, reflection: false, trigger: Trigger::Hit, filter: fb() };
-        let again = Milestone::CastAgain { delay: 0.5, opposite: false, elsewhere: false, filter: SpellFilter::Spell("frost_nova".into()) };
+        let again = Milestone::CastAgain { delay: 0.5, chance: 1.0, opposite: false, elsewhere: false, filter: SpellFilter::Spell("frost_nova".into()) };
         let back = Milestone::Retaliate { share: 0.25, look_spell: None };
         let echo = Milestone::HealAfter { share: 0.5, seconds: 6.0, filter: SpellFilter::Spell("healing_wave".into()) };
         let mut r = run(vec![reset, one, again, back, echo]);

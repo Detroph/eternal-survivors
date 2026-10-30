@@ -130,6 +130,13 @@ mod tests {
     }
 
     #[test]
+    fn a_chance_to_cast_again_grows_but_a_sure_one_stays() {
+        let again = |chance| TalentEffect::Milestone(Milestone::CastAgain { delay: 0.5, chance, opposite: false, elsewhere: false, filter: SpellFilter::Any });
+        assert_eq!(empowered(&again(1.0), 2.0), again(1.0));
+        assert_eq!(empowered(&again(0.1), 2.0), again(0.2));
+    }
+
+    #[test]
     fn a_legendary_remakes_its_spells_by_name() {
         let c = content();
         let l = legendary_named(&c, "legendary:fireball").unwrap();

@@ -2583,11 +2583,14 @@ pub enum Milestone {
         trigger: Trigger,
         filter: SpellFilter,
     },
-    /// Each own cast of a matching spell casts it again for free `delay` seconds later; with
-    /// `opposite` a returning spell flies the other way, with `elsewhere` a ground area falls on
-    /// the best spot its first did not cover.
+    /// Each own cast of a matching spell casts it again for free `delay` seconds later (with
+    /// `chance`, if less than 1: only then, and the chance grows with rank); with `opposite` a
+    /// returning spell flies the other way, with `elsewhere` a ground area falls on the best spot
+    /// its first did not cover.
     CastAgain {
         delay: f32,
+        #[serde(default = "one", skip_serializing_if = "is_one")]
+        chance: f32,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
         opposite: bool,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -2711,7 +2714,7 @@ impl Milestone {
                 | Milestone::HealAfter { .. }
                 | Milestone::DotFromHeal { .. }
                 | Milestone::Retaliate { .. }
-        )
+        ) || matches!(self, Milestone::CastAgain { chance, .. } if *chance < 1.0)
     }
 
     /// The number a talent rank multiplies (and the tooltip shows), if any.
@@ -2747,6 +2750,7 @@ impl Milestone {
             }
             Milestone::DotCrits { bonus } => Some(bonus),
             Milestone::CooldownOnTrigger { seconds, .. } => Some(seconds),
+            Milestone::CastAgain { chance, .. } if *chance < 1.0 => Some(chance),
             _ => None,
         }
     }

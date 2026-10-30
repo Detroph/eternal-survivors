@@ -236,7 +236,7 @@ to settle.
 | rogue | `adrenaline_rush` | Mirror Image | Adrenaline Rush lasts twice as long. While it lasts two images copy your strikes for 130% each. |
 | rogue | `backstab` | Critical Strike | Backstab deals 70% more and has a 75% chance to strike again for 500%; a kill readies it again. |
 | rogue | `slice_and_dice` | Wind Walk | Slice and Dice lasts twice as long. While it lasts you wind-walk: you move 30% faster and every strike hits again for 260%; the first strike after it starts hits again for 500%. |
-| rogue | `fan_of_knives` | Fan of Knives | A second ring of Fan of Knives follows 0.5 sec later, and every knife applies your poison. (the poison is the starting option's (Mutilate's); other options have none) |
+| rogue | `fan_of_knives` | Fan of Knives | A second ring of Fan of Knives follows 0.5 sec later, with a 10% chance of a third 0.5 sec after it, and every knife applies your poison. (the poison is the starting option's (Mutilate's); other options have none; the third ring's chance grows with rank: our rule) |
 | rogue | `garrote` | Silent Strangler | Garrote deals 10% more and hits 2 more targets. Garroted enemies cannot cast, and it spreads on death. |
 | priest | `smite` | Penance of Light | Smite deals 90% more. Every 2nd Smite becomes a beam that also strikes 2 more enemies near the target for 215%. |
 | priest | `holy_fire` | Holy Fire | Holy Fire deals 300% more. Its burn spreads to 2 enemies near the target, and burning enemies take 65% more damage from you. ("10 % more holy damage" is 10 % more damage (a vulnerability is not by school)) |

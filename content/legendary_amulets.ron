@@ -600,10 +600,12 @@
         spells: ["fan_of_knives"],
         name: "Fan of Knives",
         icon: "INV_ThrowingKnife_01",
-        text: "A second ring of Fan of Knives follows 0.5 sec later, and every knife applies your poison.",
-        // the poison is the starting option's (Mutilate's); other options have none
+        text: "A second ring of Fan of Knives follows 0.5 sec later, with a 10% chance of a third 0.5 sec after it, and every knife applies your poison.",
+        // the poison is the starting option's (Mutilate's); other options have none. The third
+        // ring's chance grows with rank (our rule, owner 2026-10-28).
         effects: [
             Milestone(CastAgain(delay: 0.5, filter: Spell("fan_of_knives"))),
+            Milestone(CastAgain(delay: 1.0, chance: 0.1, filter: Spell("fan_of_knives"))),
             Milestone(ApplyPoison(trigger: Hit, filter: Spell("fan_of_knives"))),
         ],
         rarity: Legendary,
