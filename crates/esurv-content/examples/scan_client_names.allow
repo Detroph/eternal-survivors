@@ -53,3 +53,50 @@ crates/esurv-sim/src/game/boss_rules_zones_3_to_6_tests.rs | Priest | test fixtu
 # --- roster enemies' names a boss names (our text by decision, as the enemies' own `name:`)
 content/zones/feralas.ron | Eye of Immol'thar | the Eye of Immol'thar, a roster enemy Immol'thar's portals bring and lay marks from (its own name)
 crates/esurv-sim/src/game/boss_rules_zones_3_to_6_tests.rs | Eye of Immol'thar | test expectation: the Eye of Immol'thar, an enemy's name
+
+# --- our own names and words in the camp's text (the rest of its client names are pointers)
+content/camp_chatter.ron | Darkspear | the Darkspear, the trolls' tribe (an Area's name too, but the tribe is meant)
+content/camp_chatter.ron | Argent Dawn | the Argent Dawn, the order a hero's brother rides with (a faction, not the client's name for its area)
+content/camp_chatter.ron | Druid | "Arch Druid Staghelm", a title, not the class
+content/camp_chatter.ron | Warrior | "the Night Warrior", the moon goddess's aspect, not the class
+content/achievements.ron | Onyxia | Onyxia the dragon herself, not the client's name it matches
+content/achievements.ron | Restoration | the druid's Restoration form in our achievement's text, not the talent tree
+content/achievements.ron | Elemental Mastery | our achievement's name
+content/achievements.ron | Dark Pact | our achievement's name
+content/companions.ron | Baby Murloc | our companion's name
+content/companions.ron | Mechanical Squirrel | our companion's name
+content/companions.ron | Lifelike Mechanical Toad | our companion's name
+content/companions.ron | Tranquil Mechanical Yeti | our companion's name
+content/decorations.ron | Night Elf | our decoration's name
+content/decorations.ron | Cooking | our decoration's name
+content/decorations.ron | Onyxia | our decoration's name (Onyxia's head)
+content/decorations.ron | Slime | our decoration's name
+content/decorations.ron | Troll | our decoration's name
+content/decorations.ron | Ahn'Qiraj | our decoration's name
+content/weapon_glows.ron | Frost Oil | our weapon glow's name
+content/weapon_glows.ron | Impact | our weapon glows' names (Lesser Impact, Impact, Superior Impact)
+content/weapon_glows.ron | Intellect | the stat in a glow's text ("a Spirit or Intellect enchant"), not the spell
+crates/esurv-server/src/game/camp/anachronos.rs | Zeal | the word "zeal" in Anachronos's words, not the spell
+crates/esurv-app/src/menus/sheet.rs | Cataclysm | the Cataclysm, the world's breaking, in the Future time period's words; not the spell
+crates/esurv-app/src/menus/guide/entries.rs | Thorns | our stat's name in the guide (Stat::Thorns), not the spell
+crates/esurv-app/src/menus/guide/entries.rs | Enrage | the game's name in the guide (rares and bosses enrage), not the spell
+crates/esurv-app/src/menus/guide/entries.rs | Restoration | the Restoration Rune, our pickup's name (an English word, not the talent tree)
+crates/esurv-content/src/camp_looks.rs | Human | a client file path (World\...\Human\...) the camp reads a model from, not a race's name
+crates/esurv-content/src/camp_looks.rs | Dwarf | a client file path (...\Dwarf\...) the camp reads a model from, not a race's name
+crates/esurv-content/src/camp_looks.rs | Troll | a client file path (...\Troll\...) the camp reads a model from, not a race's name
+crates/esurv-content/src/camp_looks.rs | Orc | a client file path (...\Orc\...) the camp reads a model from, not a race's name
+crates/esurv-content/src/camp_looks.rs | Gnome | a client file path (...\Gnome\...) the camp reads a model from, not a race's name
+
+# --- test strings: assertion messages and fixtures, never shown to players (client-name fix)
+crates/esurv-app/src/achievements/cosmetics.rs | Impact | test expectation: the Impact glow's name, our glow's name
+crates/esurv-app/src/hud/boss_stack.rs | Head Butt | test fixture: a boss cast's label
+crates/esurv-protocol/src/to_client.rs | Head Butt | test fixture: a boss cast's label round-tripped through the protocol
+crates/esurv-content/src/legendary_counters.rs | Flash Freeze | test assertion message
+crates/esurv-server/src/game/assists/tests.rs | Frostbolt | test assertion message
+crates/esurv-server/src/game/screens/tests.rs | Smite | test fixture: Mr. Smite, a boss's name
+crates/esurv-server/src/game/starting_looks.rs | Sunder Armor | test assertion message
+crates/esurv-server/src/save.rs | Ahn'Qiraj | test assertion message
+crates/esurv-sim/src/game/assists_tests.rs | Frost Nova | test assertion message
+crates/esurv-sim/src/game/assists_tests.rs | Blizzard | test assertion message
+crates/esurv-sim/src/game/milestones.rs | Frostbolt Volley | test assertion message
+crates/esurv-sim/src/game/milestones.rs | Flash Freeze | test assertion message

@@ -26,5 +26,11 @@ chacha20poly1305 = "0.10"
 
 
 [dev-dependencies]
+# The model sizes example reads models out of the player's archives.
+benilla-mpq = { path = "../benilla-mpq" }
+benilla-m2 = { path = "../benilla-m2" }
+benilla-wmo = { path = "../benilla-wmo" }
+# The camp plan example draws over the overhead photos.
+image = { version = "0.25", default-features = false, features = ["png"] }
 # The client tests read the content's names from the client, as the launcher does.
 esurv-content = { path = "../esurv-content", features = ["client"] }

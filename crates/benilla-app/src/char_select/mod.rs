@@ -244,6 +244,14 @@ impl Plugin for CharSelectPlugin {
                     .chain()
                     .after(benilla_world::schedule::WorldStage::Net),
             )
+            // An embedder's model in the glue booth over the world (`SelectModel`).
+            .add_systems(
+                Update,
+                refresh::feed_glue_preview_in_world
+                    .before(crate::glue::GlueVisuals)
+                    .after(benilla_world::schedule::WorldStage::Net)
+                    .run_if(in_state(ClientState::InWorld)),
+            )
             // After the cover's stage, so the raise it reads is this frame's.
             .add_systems(
                 Update,

@@ -21,20 +21,25 @@
 
 pub mod look;
 
+mod achievements;
 mod art;
 mod class_picker;
 mod codex;
+mod companions;
+mod decorate;
 mod dev;
 mod facts;
 mod guide;
 mod options;
 pub(crate) mod outline;
+mod over_the_camp;
 mod over_the_run;
 mod preview;
 mod save_files;
-mod scroll;
+pub(crate) mod scroll;
 mod sheet;
 mod warband;
+mod wears;
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
@@ -45,8 +50,9 @@ use benilla_app::{
 };
 use benilla_protocol::CharAction;
 use esurv_content::{Content, Faction};
-use esurv_protocol::{PreRunAsk, ToServer};
+use esurv_protocol::{PreRunAsk, TimePeriod, ToServer};
 
+use crate::achievements::AchievementsPage;
 use crate::hero_sheet::codex::CodexList;
 use crate::hero_sheet::item_icons::ItemIcons;
 use crate::hero_sheet::racials::RacialIcons;
@@ -94,6 +100,10 @@ pub struct Draft {
     pub sex: u8,
     pub look: [u8; 5],
     pub name: String,
+    /// Its temperaments (ids of `camp_chatter.ron`), the leading one first; none: Quiet.
+    pub temperament: Vec<String>,
+    /// The time period it was pulled in from (flavour: which of the camp's lines it says).
+    pub time_period: TimePeriod,
 }
 
 /// The hero sheet's state.
@@ -110,6 +120,16 @@ pub struct Sheet {
     pub piece: Option<(u32, u32, Option<u32>)>,
     /// The equipment slot picked on the left, for its look choices.
     pub slot: Option<u32>,
+    /// The Collection's Companions open in the details (the Companion box on the left), with the
+    /// companion picked there (its id), if any.
+    pub companions: bool,
+    pub companion: Option<String>,
+    /// The Collection's Title, Tabard or Weapon glow pick open in the details (its box on the
+    /// left), with the choice picked there (its id), if any.
+    pub wear: Option<esurv_protocol::WearKind>,
+    pub wear_pick: Option<String>,
+    /// Which of the temperaments' sample lines shows (a click on it shows the next).
+    pub sample: usize,
 }
 
 /// Which screen of the menus shows.
@@ -155,7 +175,7 @@ pub enum MenuAction {
     /// The starting option (its id) the picked hero's next runs start with.
     PickStart(String),
     /// The weapon loadout (its id) the picked hero's class fights with from its next run
-    /// (roadmap R3).
+    ///.
     PickLoadout(String),
     OpenRunOptions,
     CloseRunOptions,
@@ -174,6 +194,8 @@ pub enum MenuAction {
     /// The box telling that Challenge Mode is open, closed: never shown again for the save.
     CloseChallengeNews,
     StartRun,
+    /// The window open over the camp closed: back to walking it ([`over_the_camp`]).
+    CloseCampWindow,
     /// Pick the hero of this name (a dev script's press; a click on a hero in the camp picks it
     /// through benilla's scene).
     PickHeroNamed(String),
@@ -182,6 +204,43 @@ pub enum MenuAction {
     CodexList(CodexList),
     CodexPage(bool),
     CloseCodex,
+    /// The Achievements window (the warband screen's Achievements button): open it (what was
+    /// earned is then seen), a page, an achievement tracked in runs or no longer, close it.
+    OpenAchievements,
+    AchievementsPage(AchievementsPage),
+    TrackAchievement {
+        id: String,
+        on: bool,
+    },
+    CloseAchievements,
+    /// The warband screen's Shop button: the shop alone (the Achievements window on its Shop).
+    OpenShop,
+    /// The Achievements window's Shop: a tile picked (its shop item), Buy (the question first),
+    /// the question answered No or Yes.
+    ShopPick(String),
+    /// A tab of the Shop.
+    ShopTab(companions::ShopTab),
+    ShopBuy,
+    ShopAnswer(bool),
+    /// The hero sheet's Companions (the Collection's Companion box): open them, a companion
+    /// picked there (its id), the hero to bring it (empty: none).
+    OpenCompanions,
+    CompanionPick(String),
+    ChooseCompanion(String),
+    /// The hero sheet's Title, Tabard and Weapon glow picks: open one, a choice picked there
+    /// (its id), the hero to wear it (empty: none).
+    OpenWear(esurv_protocol::WearKind),
+    WearPick(esurv_protocol::WearKind, String),
+    ChooseWear(esurv_protocol::WearKind, String),
+    /// The warband screen's Decorate camp (beside the camp switch): open it, a spot picked,
+    /// a piece set on it (empty: none), the spot opened for points (the question first, then
+    /// its answer), close it.
+    OpenDecorate,
+    DecorateSpot(String),
+    DecoratePiece(String),
+    DecorateBuySpot,
+    DecorateAnswer(bool),
+    CloseDecorate,
     /// The guide (the warband screen's Guide button): open it, a tab, close it.
     OpenGuide,
     GuideTab(guide::GuideTab),
@@ -219,6 +278,14 @@ pub enum MenuAction {
         up: bool,
     },
     Randomize,
+    /// The Temperament block: a temperament clicked (the leading one, then the second; a picked
+    /// one let go), Quiet, two at random, the next sample line.
+    Temperament(String),
+    Quiet,
+    RandomTemperament,
+    /// The Time period block: a time period clicked.
+    TimePeriod(TimePeriod),
+    SampleLine,
     Turn(bool),
     ConfirmSheet,
     Slot(u32),
@@ -301,6 +368,16 @@ pub struct Menus {
     pub codex: Option<(CodexList, usize)>,
     /// The guide open: the tab shown.
     pub guide: Option<guide::GuideTab>,
+    /// The Achievements window open: the page shown.
+    pub achievements: Option<AchievementsPage>,
+    /// The Shop: the tile picked (its shop item) and whether Buy's question is asked.
+    pub shop_pick: Option<String>,
+    pub shop_confirm: bool,
+    /// The Shop's tab shown.
+    pub shop_tab: companions::ShopTab,
+    /// Decorate camp open over the warband screen: the spot picked and whether opening it for
+    /// points is asked.
+    pub decorate: Option<DecorateState>,
     /// The options panel open, with what it is changing.
     pub game_options: Option<options::OptionsDraft>,
     /// Over a paused run: what the options panel's Okay left for later, which the run's Escape
@@ -310,9 +387,26 @@ pub struct Menus {
     deleted_at: Option<(Faction, usize)>,
     /// A run is being entered: nothing more is asked meanwhile.
     entering: bool,
+    /// The window open over the camp, if any ([`over_the_camp`]).
+    pub over_the_camp: Option<over_the_camp::CampWindow>,
+}
+
+/// Decorate camp's state ([`decorate`]): the spot picked (its id), and whether opening it for
+/// points is asked.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct DecorateState {
+    pub spot: Option<String>,
+    pub confirm: bool,
 }
 
 impl Menus {
+    /// Whether the hero is on the way into the world rather than to a screen of the menus: a run
+    /// or the camp being entered, or with the hub on the warband screen, which gives way to the
+    /// camp ([`enter_the_camp`]). The title keeps its art over the way in ([`crate::title_screen`]).
+    pub(crate) fn on_the_way_in(&self) -> bool {
+        self.entering || (self.screen == Screen::Warband && crate::camp::hub_on())
+    }
+
     /// Whether the options panel is open over a paused run (with the key binding window it
     /// opened, if any): the run's Escape menu hides under it, and Escape closes it.
     pub fn options_over_the_run(&self) -> bool {
@@ -361,7 +455,11 @@ impl Plugin for MenusPlugin {
             (
                 replace_the_stock_screen,
                 (clicks_to_presses, right_clicks_to_presses),
-                choose_the_first_screen,
+                // the launch rule waits until the title screen is passed
+                choose_the_first_screen.run_if(crate::title_screen::passed),
+                enter_the_camp,
+                over_the_camp::f1_opens_the_menu,
+                over_the_camp::open_camp_windows,
                 (escape_goes_back, sheet::type_the_name),
                 act,
                 over_the_run::follow_the_run,
@@ -378,6 +476,8 @@ impl Plugin for MenusPlugin {
                 warband::place_name_over_head,
                 preview::show_the_hero,
                 preview::drag_to_turn,
+                companions::drive_creature_model,
+                decorate::place_spot_markers,
             )
                 .after(StockSystems),
         );
@@ -448,9 +548,11 @@ fn choose_the_first_screen(
     content: Option<Res<GameContent>>,
     mut menus: ResMut<Menus>,
     mut facts: ResMut<PreRunFacts>,
+    mut visit: ResMut<crate::camp::CampVisit>,
 ) {
     if !screen.open {
-        if menus.screen != Screen::Unset || menus.entering {
+        // walking the camp, the menus keep what its windows show
+        if (menus.screen != Screen::Unset || menus.entering) && !visit.in_camp {
             // off to a run, or back to the login: everything starts over on the way back
             *menus = Menus::default();
             facts.forget();
@@ -463,9 +565,11 @@ fn choose_the_first_screen(
     if menus.screen != Screen::Unset {
         return;
     }
+    // left the camp to recruit a new hero (`over_the_camp`): the class picker
+    let recruit = std::mem::take(&mut visit.recruit);
     menus.screen = if dev::sample_wanted() {
         Screen::Sample
-    } else if screen.characters.is_empty() {
+    } else if screen.characters.is_empty() || recruit {
         Screen::ClassPicker {
             class: first_class(&content.0),
         }
@@ -474,11 +578,54 @@ fn choose_the_first_screen(
     };
 }
 
+/// With the hub on ([`crate::camp`]), the warband screen gives way to the camp: as soon as it is
+/// up with the roster in, the hero taken over in the camp (or sent off to its run from it), else
+/// the picked hero, goes into the world, when its faction has a camp. A Horde hero stays at the
+/// warband screen while only the Alliance has one.
+fn enter_the_camp(
+    screen: Res<SelectScreen>,
+    content: Option<Res<GameContent>>,
+    mut menus: ResMut<Menus>,
+    mut visit: ResMut<crate::camp::CampVisit>,
+    mut picker: ResMut<PickerState>,
+    mut enter: MessageWriter<SelectEnterWorld>,
+) {
+    if !crate::camp::hub_on() || !screen.open || menus.screen != Screen::Warband || menus.entering {
+        return;
+    }
+    let Some(content) = content else {
+        return;
+    };
+    let next = visit.enter_next.take();
+    let hero = next
+        .and_then(|g| screen.characters.iter().find(|c| c.guid == g))
+        .or_else(|| screen.selected_character());
+    let Some(hero) = hero else {
+        return;
+    };
+    let faction = crate::picker::faction_of(&content.0, hero);
+    let has_camp = faction.is_some_and(crate::camp::has_camp);
+    // a hero of the other faction going in: the warband's camp shown is now its (the list, and
+    // what Decorate camp decorates)
+    if let Some(f) = faction.filter(|f| *f != picker.faction) {
+        picker.faction = f;
+    }
+    // off to a run is always entered; the camp only for a faction that has one
+    if next.is_some() || has_camp {
+        info!("camp: {} goes into the world", hero.name);
+        visit.roster = screen.characters.clone();
+        menus.entering = true;
+        enter.write(SelectEnterWorld(hero.guid));
+    }
+}
+
 /// The ways the menus reach the server: benilla's select requests, and the asks before a run.
 #[derive(SystemParam)]
 pub(crate) struct Asks<'w> {
     pick: MessageWriter<'w, SelectCharacter>,
     enter: MessageWriter<'w, SelectEnterWorld>,
+    /// The teleport a run starts with ([`crate::run_start_sound`]).
+    teleport: MessageWriter<'w, benilla_app::SoundThroughLoading>,
     create: MessageWriter<'w, SelectCreate>,
     delete: MessageWriter<'w, SelectDelete>,
     refresh: MessageWriter<'w, SelectRefresh>,
@@ -501,13 +648,16 @@ fn refusal(verb: &str) -> &'static str {
         "zone" => "That zone is not open to the class yet.",
         "loadout" => "That weapon loadout is not the class's.",
         "rename" => "That name cannot be taken.",
+        "track" => "At most three achievements can be tracked, and only ones not yet earned.",
         "reshape" => "That race cannot be this class, or its camp is full.",
+        "temper" => "Those temperaments cannot be kept.",
+        "period" => "That time period cannot be kept.",
         _ => "That cannot be done now.",
     })
 }
 
 /// The hero sheet on hero `c`, at `tab`.
-fn hero_sheet(content: &Content, c: &benilla_protocol::Character, tab: SheetTab) -> Option<Sheet> {
+fn hero_sheet(content: &Content, facts: &PreRunFacts, c: &benilla_protocol::Character, tab: SheetTab) -> Option<Sheet> {
     let class = class_of(content, c.class)?;
     Some(Sheet {
         mode: SheetMode::Modify(c.guid),
@@ -518,11 +668,18 @@ fn hero_sheet(content: &Content, c: &benilla_protocol::Character, tab: SheetTab)
             sex: c.gender.min(1),
             look: [c.skin, c.face, c.hair_style, c.hair_color, c.facial_hair],
             name: c.name.clone(),
+            temperament: facts.hero(c.guid).map(|h| h.temperament.clone()).unwrap_or_default(),
+            time_period: facts.hero(c.guid).map(|h| h.time_period).unwrap_or_default(),
         },
         talent: None,
         prestige: None,
         piece: None,
         slot: None,
+        companions: false,
+        companion: None,
+        wear: None,
+        wear_pick: None,
+        sample: 0,
     })
 }
 
@@ -572,6 +729,7 @@ fn act(
         MessageWriter<AppExit>,
         Res<Time<Real>>,
     ),
+    (mut visit, mut requests): (ResMut<crate::camp::CampVisit>, MessageWriter<crate::protocol::Request>),
     script: Option<NonSend<benilla_ui::script::UiScript>>,
 ) {
     let Some(content) = content else {
@@ -584,11 +742,15 @@ fn act(
             continue;
         }
         menus.notice = None;
-        // the hero picked in the camp shown
-        let picked = screen
-            .selected_character()
-            .filter(|c| crate::picker::faction_of(content, c) == Some(camp.faction))
-            .cloned();
+        // the hero picked in the camp shown; walking the camp, the hero walking it
+        let picked = if visit.in_camp {
+            over_the_camp::camp_hero(&visit).cloned()
+        } else {
+            screen
+                .selected_character()
+                .filter(|c| crate::picker::faction_of(content, c) == Some(camp.faction))
+                .cloned()
+        };
         match action {
             MenuAction::Nothing => {}
             MenuAction::SwitchCamp => {
@@ -599,7 +761,11 @@ fn act(
                     MenuAction::OpenHeroTab(t) => *t,
                     _ => SheetTab::Character,
                 };
-                if let Some(s) = picked.as_ref().and_then(|c| hero_sheet(content, c, tab)) {
+                // the hero's facts told afresh (one not yet given its temperaments is given them)
+                if let Some(c) = picked.as_ref() {
+                    asks.ask(&PreRunAsk::Hero(c.guid));
+                }
+                if let Some(s) = picked.as_ref().and_then(|c| hero_sheet(content, &asks.facts, c, tab)) {
                     see(&mut asks, &s);
                     menus.screen = Screen::Sheet(Box::new(s));
                 }
@@ -670,6 +836,137 @@ fn act(
                 }
             }
             MenuAction::CloseCodex => menus.codex = None,
+            MenuAction::OpenAchievements => {
+                menus.achievements = Some(AchievementsPage::Summary);
+                if asks.facts.achievements_news() {
+                    asks.ask(&PreRunAsk::AchievementsSeen);
+                }
+            }
+            MenuAction::OpenShop => {
+                menus.achievements = Some(AchievementsPage::Shop);
+                menus.shop_confirm = false;
+            }
+            MenuAction::AchievementsPage(page) => {
+                if menus.achievements.is_some() {
+                    menus.achievements = Some(page.clone());
+                    // the window opened on the Shop, then turned to the achievements: what was
+                    // earned is seen now, and the Achievements button stops glowing
+                    if *page != AchievementsPage::Shop && asks.facts.achievements_news() {
+                        asks.ask(&PreRunAsk::AchievementsSeen);
+                    }
+                }
+            }
+            MenuAction::TrackAchievement { id, on } => {
+                menus.notice = asks.ask(&PreRunAsk::Track { id: id.clone(), on: *on });
+            }
+            MenuAction::CloseAchievements => {
+                menus.achievements = None;
+                menus.shop_confirm = false;
+            }
+            MenuAction::ShopTab(tab) => {
+                menus.shop_tab = *tab;
+                menus.shop_pick = None;
+                menus.shop_confirm = false;
+            }
+            MenuAction::ShopPick(item) => {
+                menus.shop_pick = Some(item.clone());
+                menus.shop_confirm = false;
+            }
+            MenuAction::ShopBuy => {
+                let told = asks.facts.achievements().cloned().unwrap_or_default();
+                menus.shop_confirm = menus
+                    .shop_pick
+                    .as_deref()
+                    .and_then(|i| crate::achievements::shop::tile(content, asks.facts.zones_discovered(), &told, i))
+                    .is_some_and(|t| t.buyable());
+            }
+            MenuAction::ShopAnswer(yes) => {
+                if let (true, true, Some(item)) = (*yes, menus.shop_confirm, menus.shop_pick.clone()) {
+                    menus.notice = asks.ask(&PreRunAsk::Buy { item });
+                }
+                menus.shop_confirm = false;
+            }
+            MenuAction::OpenCompanions | MenuAction::CompanionPick(_) => {
+                if let Screen::Sheet(s) = &mut menus.screen {
+                    let current = match s.mode {
+                        SheetMode::Modify(g) => asks.facts.hero(g).map(|h| h.companion.clone()).filter(|c| !c.is_empty()),
+                        SheetMode::Create => None,
+                    };
+                    s.companions = true;
+                    s.slot = None;
+                    s.piece = None;
+                    s.companion = match action {
+                        MenuAction::CompanionPick(id) => Some(id.clone()),
+                        _ => current,
+                    };
+                }
+            }
+            MenuAction::ChooseCompanion(id) => {
+                if let Screen::Sheet(s) = &menus.screen {
+                    if let SheetMode::Modify(hero) = s.mode {
+                        menus.notice = asks.ask(&PreRunAsk::Companion { hero, companion: id.clone() });
+                    }
+                }
+            }
+            MenuAction::OpenWear(kind) | MenuAction::WearPick(kind, _) => {
+                if let Screen::Sheet(s) = &mut menus.screen {
+                    let current = match s.mode {
+                        SheetMode::Modify(g) => asks.facts.hero(g).map(|h| wear_of(h, *kind).to_owned()).filter(|c| !c.is_empty()),
+                        SheetMode::Create => None,
+                    };
+                    s.wear = Some(*kind);
+                    s.companions = false;
+                    s.slot = None;
+                    s.piece = None;
+                    s.wear_pick = match action {
+                        MenuAction::WearPick(_, id) => Some(id.clone()),
+                        _ => current,
+                    };
+                }
+            }
+            MenuAction::ChooseWear(kind, id) => {
+                if let Screen::Sheet(s) = &menus.screen {
+                    if let SheetMode::Modify(hero) = s.mode {
+                        menus.notice = asks.ask(&PreRunAsk::Dress { hero, kind: *kind, id: id.clone() });
+                    }
+                }
+            }
+            MenuAction::OpenDecorate => {
+                menus.decorate = Some(DecorateState::default());
+                menus.achievements = None;
+                menus.codex = None;
+                menus.guide = None;
+                menus.run_options_open = false;
+            }
+            MenuAction::DecorateSpot(spot) => {
+                if let Some(d) = &mut menus.decorate {
+                    d.spot = Some(spot.clone());
+                    d.confirm = false;
+                }
+            }
+            MenuAction::DecoratePiece(piece) => {
+                if let Some(spot) = menus.decorate.as_ref().and_then(|d| d.spot.clone()) {
+                    let camp = crate::achievements::cosmetics::camp_word(camp.faction).to_owned();
+                    menus.notice = asks.ask(&PreRunAsk::Decorate { camp, spot, piece: piece.clone() });
+                }
+            }
+            MenuAction::DecorateBuySpot => {
+                if let Some(d) = &mut menus.decorate {
+                    d.confirm = d.spot.is_some();
+                }
+            }
+            MenuAction::DecorateAnswer(yes) => {
+                if let Some(d) = menus.decorate.clone() {
+                    if let (true, true, Some(spot)) = (*yes, d.confirm, d.spot) {
+                        let item = esurv_content::camp_spot_item(&spot);
+                        menus.notice = asks.ask(&PreRunAsk::Buy { item });
+                    }
+                }
+                if let Some(d) = &mut menus.decorate {
+                    d.confirm = false;
+                }
+            }
+            MenuAction::CloseDecorate => menus.decorate = None,
             MenuAction::OpenGuide => menus.guide = Some(guide::GuideTab::default()),
             MenuAction::GuideTab(tab) => menus.guide = Some(*tab),
             MenuAction::CloseGuide => menus.guide = None,
@@ -803,10 +1100,15 @@ fn act(
             | MenuAction::Sex(_)
             | MenuAction::Feature { .. }
             | MenuAction::Randomize
+            | MenuAction::Temperament(_)
+            | MenuAction::Quiet
+            | MenuAction::RandomTemperament
+            | MenuAction::TimePeriod(_)
+            | MenuAction::SampleLine
             | MenuAction::Slot(_)
             | MenuAction::TypeName(_) => {
                 if let Screen::Sheet(s) = &mut menus.screen {
-                    shape(s, action, &choices);
+                    shape(s, action, content, &choices);
                     if matches!(action, MenuAction::Tab(_)) {
                         let s = (**s).clone();
                         see(&mut asks, &s);
@@ -827,7 +1129,7 @@ fn act(
                 let Screen::Sheet(s) = &mut menus.screen else {
                     continue;
                 };
-                shape(s, action, &choices);
+                shape(s, action, content, &choices);
                 if !double {
                     continue;
                 }
@@ -878,6 +1180,10 @@ fn act(
                     continue;
                 };
                 let s = s.clone();
+                // not while the Orb's changes are shut (the button is shut; Enter too)
+                if sheet::appearance_shut(visit.in_camp, visit.recruited, s.mode) {
+                    continue;
+                }
                 if !sheet::name_ready(&s.draft.name) {
                     menus.notice = Some("A hero's name is two to twelve letters.".into());
                     continue;
@@ -886,6 +1192,15 @@ fn act(
                     SheetMode::Create => {
                         let d = &s.draft;
                         let class = content.class(&d.class).map_or(0, |c| c.wow_class_id as u8);
+                        // the temperaments first, kept for the hero the create makes
+                        asks.ask(&PreRunAsk::Temperament {
+                            hero: 0,
+                            temperament: d.temperament.clone(),
+                        });
+                        asks.ask(&PreRunAsk::TimePeriod {
+                            hero: 0,
+                            time_period: d.time_period,
+                        });
                         asks.create
                             .write(SelectCreate(benilla_protocol::CharCreateReq {
                                 name: d.name.clone(),
@@ -900,10 +1215,19 @@ fn act(
                             }));
                     }
                     SheetMode::Modify(guid) => {
-                        menus.notice = save_changes(&mut asks, &screen, guid, &s.draft);
+                        // walking the camp, the roster kept on the way in (the world has none)
+                        let roster = if visit.in_camp { &visit.roster } else { &screen.characters };
+                        menus.notice = save_changes(&mut asks, roster, guid, &s.draft);
                         if menus.notice.is_none() {
                             asks.refresh.write(SelectRefresh);
                             menus.screen = Screen::Warband;
+                            if visit.in_camp {
+                                // back into the camp as the hero, wearing its new look
+                                info!("camp: {} comes back in with its new look", s.draft.name);
+                                visit.enter_next = Some(guid);
+                                visit.in_camp = false;
+                                requests.write(crate::protocol::Request(ToServer::Leave));
+                            }
                         }
                     }
                 }
@@ -921,9 +1245,19 @@ fn act(
                 if let Some(c) = &picked {
                     info!("menus: {} starts a run", c.name);
                     menus.entering = true;
-                    asks.enter.write(SelectEnterWorld(c.guid));
+                    if visit.in_camp {
+                        // from the camp: the server sends the hero back in as its run
+                        menus.over_the_camp = None;
+                        requests.write(crate::protocol::Request(ToServer::CampRun));
+                    } else {
+                        // from the warband screen: the teleport, on into the loading screen (from the
+                        // camp it sounds as the server says to leave it, `crate::run_start_sound`)
+                        asks.teleport.write(crate::run_start_sound::RUN_START_SOUND);
+                        asks.enter.write(SelectEnterWorld(c.guid));
+                    }
                 }
             }
+            MenuAction::CloseCampWindow => menus.over_the_camp = None,
             MenuAction::PickClass(class) => {
                 if let Screen::ClassPicker { class: picked } = &mut menus.screen {
                     *picked = class.clone();
@@ -940,6 +1274,11 @@ fn act(
                         prestige: None,
                         piece: None,
                         slot: None,
+                        companions: false,
+                        companion: None,
+                        wear: None,
+                        wear_pick: None,
+                        sample: 0,
                     }));
                 }
             }
@@ -964,7 +1303,7 @@ fn act(
 }
 
 /// A change of the sheet's hero: a tab, a race, a sex, a feature, a random look, a slot picked.
-fn shape(s: &mut Sheet, action: &MenuAction, choices: &CreateChoices) {
+fn shape(s: &mut Sheet, action: &MenuAction, content: &Content, choices: &CreateChoices) {
     match action {
         MenuAction::Tab(t) => s.tab = *t,
         MenuAction::Race(r) => {
@@ -979,19 +1318,31 @@ fn shape(s: &mut Sheet, action: &MenuAction, choices: &CreateChoices) {
             sheet::step_feature(choices, &mut s.draft, *index, *up)
         }
         MenuAction::Randomize => {
-            let seed = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_or(7, |d| d.as_nanos() as u64);
-            sheet::randomize(choices, &mut s.draft, seed);
+            sheet::randomize(choices, &mut s.draft, sheet::seed_now());
         }
+        MenuAction::Temperament(id) => sheet::pick_temperament(&mut s.draft.temperament, id),
+        MenuAction::Quiet => s.draft.temperament.clear(),
+        MenuAction::TimePeriod(p) => {
+            s.draft.time_period = *p;
+            s.sample = 0;
+        }
+        MenuAction::RandomTemperament => {
+            s.draft.temperament = sheet::random_temperaments(content, sheet::seed_now());
+            s.sample = 0;
+        }
+        MenuAction::SampleLine => s.sample += 1,
         MenuAction::Slot(slot) => {
             s.slot = Some(*slot);
             s.piece = None;
+            s.companions = false;
+            s.wear = None;
         }
         MenuAction::TypeName(n) => s.draft.name = n.chars().take(sheet::NAME_LIMIT).collect(),
         MenuAction::Piece { slot, zone, look } => {
             s.piece = Some((*slot, *zone, *look));
             s.slot = None;
+            s.companions = false;
+            s.wear = None;
         }
         _ => {}
     }
@@ -1067,13 +1418,35 @@ fn armory(asks: &mut Asks, content: &Content, s: &Sheet, action: &MenuAction) ->
     asks.ask(&PreRunAsk::armory(class, &change)?)
 }
 
+/// The warband's heroes: walking the camp, the roster kept on the way in (the select screen lists
+/// none once in the world), else the select screen's.
+fn warband<'a>(visit: &'a crate::camp::CampVisit, screen: &'a SelectScreen) -> &'a [benilla_protocol::Character] {
+    if visit.in_camp { &visit.roster } else { &screen.characters }
+}
+
 /// A modified hero's name, race, sex and look go to the save; what was refused, said.
-fn save_changes(asks: &mut Asks, screen: &SelectScreen, guid: u64, d: &Draft) -> Option<String> {
-    let row = screen.characters.iter().find(|c| c.guid == guid)?;
+fn save_changes(asks: &mut Asks, roster: &[benilla_protocol::Character], guid: u64, d: &Draft) -> Option<String> {
+    let row = roster.iter().find(|c| c.guid == guid)?;
     if row.name != d.name {
         if let Some(n) = asks.ask(&PreRunAsk::Rename {
             hero: guid,
             name: d.name.clone(),
+        }) {
+            return Some(n);
+        }
+    }
+    if asks.facts.hero(guid).is_none_or(|h| h.temperament != d.temperament) {
+        if let Some(n) = asks.ask(&PreRunAsk::Temperament {
+            hero: guid,
+            temperament: d.temperament.clone(),
+        }) {
+            return Some(n);
+        }
+    }
+    if asks.facts.hero(guid).is_none_or(|h| h.time_period != d.time_period) {
+        if let Some(n) = asks.ask(&PreRunAsk::TimePeriod {
+            hero: guid,
+            time_period: d.time_period,
         }) {
             return Some(n);
         }
@@ -1105,6 +1478,7 @@ fn escape_goes_back(
     mut menus: ResMut<Menus>,
     mut presses: MessageWriter<MenuPress>,
 ) {
+    // walking the camp, Escape over a window is the game menu's ask (`hud`), which closes it
     if !keys.just_pressed(KeyCode::Escape) || !screen.open {
         return;
     }
@@ -1119,7 +1493,11 @@ fn escape_goes_back(
         presses.write(MenuPress(MenuAction::OptionsCancel));
         return;
     }
-    if menus.codex.take().is_some() || menus.guide.take().is_some() {
+    if menus.codex.take().is_some()
+        || menus.guide.take().is_some()
+        || menus.achievements.take().is_some()
+        || menus.decorate.take().is_some()
+    {
         return;
     }
     if menus.run_options_open {
@@ -1140,6 +1518,7 @@ fn take_answers(
     content: Option<Res<GameContent>>,
     mut picks: MessageWriter<SelectCharacter>,
     mut facts: ResMut<PreRunFacts>,
+    mut visit: ResMut<crate::camp::CampVisit>,
 ) {
     for a in answers.read() {
         let ok = match a.action {
@@ -1160,7 +1539,11 @@ fn take_answers(
                 menus.deleted_at = None;
                 menus.notice = Some("The hero could not be deleted.".into());
             }
-            (CharAction::Create, true) => menus.screen = Screen::Warband,
+            (CharAction::Create, true) => {
+                menus.screen = Screen::Warband;
+                // recruited from the camp: the new hero (picked) walks in, not the one who left
+                visit.enter_next = None;
+            }
             (CharAction::Create, false) => menus.notice = Some(create_refusal(a.code).into()),
         }
     }
@@ -1202,6 +1585,9 @@ fn new_draft(content: &Content, choices: &CreateChoices, class: &str) -> Draft {
         sex: 0,
         look: [0; 5],
         name: String::new(),
+        // a hero made starts with two at random, so one made in haste lives anyway (the plan)
+        temperament: sheet::random_temperaments(content, sheet::seed_now()),
+        time_period: TimePeriod::Present,
     }
 }
 
@@ -1240,19 +1626,37 @@ fn learn_what_is_shown(
     content: Option<Res<GameContent>>,
     link: Option<Res<PreRunLink>>,
     mut facts: ResMut<PreRunFacts>,
+    visit: Res<crate::camp::CampVisit>,
 ) {
     let link = link.as_deref();
     match &menus.screen {
         Screen::ClassPicker { class } => facts.need_class(link, class),
-        Screen::Sheet(s) => facts.need_class(link, &s.draft.class),
+        Screen::Sheet(s) => {
+            facts.need_class(link, &s.draft.class);
+            // the heroes' records (the hero modified's companion, wear and temperament)
+            if let SheetMode::Modify(_) = s.mode {
+                for c in warband(&visit, &screen) {
+                    facts.need_hero(link, c.guid);
+                }
+            }
+        }
         Screen::Warband => {
-            let (Some(content), Some(c)) = (content, screen.selected_character()) else {
+            // walking the camp, its windows are about the hero walking it
+            let hero = match visit.hero.filter(|_| visit.in_camp) {
+                Some(_) => over_the_camp::camp_hero(&visit),
+                None => screen.selected_character(),
+            };
+            let (Some(content), Some(c)) = (content, hero) else {
                 return;
             };
             if let Some(class) = class_of(&content.0, c.class) {
                 facts.need_class(link, &class.id);
             }
             facts.need_hero(link, c.guid);
+            // every hero's companion stands by it at the camp fire
+            for c in &screen.characters {
+                facts.need_hero(link, c.guid);
+            }
         }
         Screen::Unset | Screen::Sample => {}
     }
@@ -1273,6 +1677,14 @@ pub(crate) struct Ctx<'a> {
     pub racials: &'a RacialIcons,
     /// The update notice ([`crate::update`]), when the updater runs.
     pub update: Option<&'a crate::update::UpdateNotice>,
+    /// The creature pane's picture (a companion turning), while one is shown.
+    pub creature: Option<&'a Handle<Image>>,
+    /// The Shop's tile picked and whether Buy's question is asked.
+    pub shop_pick: Option<&'a str>,
+    pub shop_confirm: bool,
+    pub shop_tab: companions::ShopTab,
+    /// The hero sheet's race portraits and Save changes are shut ([`sheet::appearance_shut`]).
+    pub appearance_shut: bool,
 }
 
 /// A hash of what the menus show, to draw them anew when it changes.
@@ -1281,6 +1693,7 @@ fn view_key(menus: &Menus, ctx: &Ctx, scale: StockScale) -> u64 {
     let mut h = std::collections::hash_map::DefaultHasher::new();
     format!("{:?}", menus.screen).hash(&mut h);
     menus.notice.hash(&mut h);
+    menus.entering.hash(&mut h);
     // content loaded again (dev builds) draws the screens anew
     std::ptr::hash(ctx.content, &mut h);
     ctx.screen.open.hash(&mut h);
@@ -1291,9 +1704,15 @@ fn view_key(menus: &Menus, ctx: &Ctx, scale: StockScale) -> u64 {
     ctx.facts.version().hash(&mut h);
     ctx.choices.loaded().hash(&mut h);
     (ctx.camp == Faction::Horde).hash(&mut h);
+    ctx.appearance_shut.hash(&mut h);
     (menus.run_options_open, menus.confirm_delete).hash(&mut h);
     format!("{:?}", menus.codex).hash(&mut h);
     menus.guide.hash(&mut h);
+    menus.achievements.hash(&mut h);
+    (&menus.shop_pick, menus.shop_confirm, menus.shop_tab).hash(&mut h);
+    menus.decorate.hash(&mut h);
+    menus.over_the_camp.hash(&mut h);
+    ctx.creature.is_some().hash(&mut h);
     format!("{:?}", menus.game_options).hash(&mut h);
     // the notice's phase, not its progress (the progress line changes in place)
     ctx.update.and_then(|u| u.view()).hash(&mut h);
@@ -1314,15 +1733,17 @@ fn draw(
     images: Res<Assets<Image>>,
     art: Res<MenuArt>,
     choices: Res<CreateChoices>,
-    (camp, icons, model, racials, update): (
+    (camp, icons, model, racials, update, creature): (
         Res<PickerState>,
         Res<ItemIcons>,
         Res<SelectModelImage>,
         Res<RacialIcons>,
         Option<Res<crate::update::UpdateNotice>>,
+        Res<benilla_app::CreatureModelImage>,
     ),
     look: MenuLook,
     mut view: ResMut<MenuView>,
+    visit: Res<crate::camp::CampVisit>,
 ) {
     let Some(content) = content else {
         return;
@@ -1338,6 +1759,14 @@ fn draw(
         icons: &icons,
         racials: &racials,
         update: update.as_deref(),
+        creature: creature.0.as_ref(),
+        shop_pick: menus.shop_pick.as_deref(),
+        shop_confirm: menus.shop_confirm,
+        shop_tab: menus.shop_tab,
+        appearance_shut: match &menus.screen {
+            Screen::Sheet(s) => sheet::appearance_shut(visit.in_camp, visit.recruited, s.mode),
+            _ => false,
+        },
     };
     let key = view_key(&menus, &ctx, look.scale());
     if view.drawn_for == Some(key) {
@@ -1352,7 +1781,9 @@ fn draw(
         .game_options
         .as_ref()
         .filter(|d| d.over_run && !d.key_bindings && !screen.open);
-    if over_run.is_none() && (!screen.open || menus.screen == Screen::Unset) {
+    // walking the camp, the window one of its things opened, alone
+    let over_camp = menus.over_the_camp.filter(|_| visit.in_camp && !screen.open);
+    if over_run.is_none() && over_camp.is_none() && (!screen.open || menus.screen == Screen::Unset) {
         return;
     }
     let root = commands
@@ -1374,6 +1805,19 @@ fn draw(
         options::draw(&mut commands, root, &look, d);
         return;
     }
+    if let Some(window) = over_camp {
+        // the hero sheet over the camp, as the warband screen opens it
+        if let (over_the_camp::CampWindow::Sheet, Screen::Sheet(s)) = (window, &menus.screen) {
+            sheet::draw(&mut commands, root, &look, &ctx, s, menus.notice.as_deref(), model.0.clone());
+            return;
+        }
+        let hero = over_the_camp::camp_hero(&visit);
+        over_the_camp::draw(&mut commands, root, &look, &ctx, &menus, window, hero);
+        if let Some(n) = &menus.notice {
+            dev::draw_notice(&mut commands, root, &look, n);
+        }
+        return;
+    }
     match &menus.screen {
         Screen::Sample => dev::draw_sample(&mut commands, root, &look),
         Screen::ClassPicker { class } => class_picker::draw(
@@ -1384,7 +1828,17 @@ fn draw(
             class,
             menus.notice.as_deref(),
         ),
+        // with the hub on, the hero goes straight into the camp (`enter_the_camp`): no warband
+        // screen on the way
+        Screen::Warband if crate::camp::hub_on() && menus.entering => {}
         Screen::Warband => {
+            if let Some(d) = &menus.decorate {
+                decorate::draw(&mut commands, root, &look, &ctx, d);
+                if let Some(n) = &menus.notice {
+                    dev::draw_notice(&mut commands, root, &look, n);
+                }
+                return;
+            }
             warband::draw(&mut commands, root, &look, &ctx);
             if let Some(n) = &menus.notice {
                 dev::draw_notice(&mut commands, root, &look, n);
@@ -1397,6 +1851,9 @@ fn draw(
             }
             if let Some(tab) = menus.guide {
                 guide::draw(&mut commands, root, &look, &ctx, tab);
+            }
+            if let Some(page) = &menus.achievements {
+                achievements::draw(&mut commands, root, &look, &ctx, page);
             }
             if let Some(d) = &menus.game_options {
                 options::draw(&mut commands, root, &look, d);
@@ -1414,6 +1871,7 @@ fn draw(
             // per save, over nothing else
             let overlay = menus.run_options_open
                 || menus.codex.is_some()
+                || menus.achievements.is_some()
                 || menus.game_options.is_some()
                 || menus.confirm_delete.is_some();
             if ctx.facts.challenge_news() && !overlay {
@@ -1475,6 +1933,38 @@ pub(crate) fn script_action(words: &str) -> Option<MenuAction> {
         ("guide", None) => MenuAction::OpenGuide,
         ("guide-tab", Some(t)) => MenuAction::GuideTab(guide::GuideTab::named(t)?),
         ("close-guide", None) => MenuAction::CloseGuide,
+        ("achievements", None) => MenuAction::OpenAchievements,
+        ("achievements-page", Some(p)) => MenuAction::AchievementsPage(AchievementsPage::named(p)),
+        ("track", Some(id)) => MenuAction::TrackAchievement { id: id.into(), on: true },
+        ("untrack", Some(id)) => MenuAction::TrackAchievement { id: id.into(), on: false },
+        ("close-achievements", None) => MenuAction::CloseAchievements,
+        ("shop", None) => MenuAction::OpenShop,
+        ("shop-pick", Some(i)) => MenuAction::ShopPick(i.into()),
+        ("shop-tab", Some(t)) => MenuAction::ShopTab(companions::ShopTab::named(t)?),
+        ("shop-buy", None) => MenuAction::ShopBuy,
+        ("shop-yes", None) => MenuAction::ShopAnswer(true),
+        ("shop-no", None) => MenuAction::ShopAnswer(false),
+        ("companions", None) => MenuAction::OpenCompanions,
+        ("companion-pick", Some(id)) => MenuAction::CompanionPick(id.into()),
+        ("companion", Some(id)) => MenuAction::ChooseCompanion(id.into()),
+        ("no-companion", None) => MenuAction::ChooseCompanion(String::new()),
+        ("wear", Some(k)) => MenuAction::OpenWear(esurv_protocol::WearKind::from_word(k)?),
+        ("wear-pick", Some(a)) => {
+            let (k, id) = a.split_once('=')?;
+            MenuAction::WearPick(esurv_protocol::WearKind::from_word(k)?, id.into())
+        }
+        ("dress", Some(a)) => {
+            let (k, id) = a.split_once('=').unwrap_or((a, ""));
+            MenuAction::ChooseWear(esurv_protocol::WearKind::from_word(k)?, id.into())
+        }
+        ("decorate", None) => MenuAction::OpenDecorate,
+        ("decorate-spot", Some(s)) => MenuAction::DecorateSpot(s.into()),
+        ("decorate-piece", Some(p)) => MenuAction::DecoratePiece(p.into()),
+        ("decorate-clear", None) => MenuAction::DecoratePiece(String::new()),
+        ("decorate-buy", None) => MenuAction::DecorateBuySpot,
+        ("decorate-yes", None) => MenuAction::DecorateAnswer(true),
+        ("decorate-no", None) => MenuAction::DecorateAnswer(false),
+        ("close-decorate", None) => MenuAction::CloseDecorate,
         ("game-options", None) => MenuAction::OpenGameOptions,
         ("quit-game", None) => MenuAction::QuitGame,
         ("update", None) => MenuAction::UpdateGame,
@@ -1523,6 +2013,11 @@ pub(crate) fn script_action(words: &str) -> Option<MenuAction> {
             }
         }
         ("randomize", None) => MenuAction::Randomize,
+        ("temperament", Some(t)) => MenuAction::Temperament(t.into()),
+        ("quiet", None) => MenuAction::Quiet,
+        ("random-temperament", None) => MenuAction::RandomTemperament,
+        ("time-period", Some(p)) => MenuAction::TimePeriod(TimePeriod::from_word(p)?),
+        ("sample", None) => MenuAction::SampleLine,
         ("turn", Some(d)) => MenuAction::Turn(d == "right"),
         ("confirm", None) => MenuAction::ConfirmSheet,
         ("slot", Some(s)) => MenuAction::Slot(s.parse().ok()?),
@@ -1572,11 +2067,18 @@ mod tests {
                 sex: 0,
                 look: [0; 5],
                 name: "Bo".into(),
+                temperament: Vec::new(),
+                time_period: TimePeriod::Present,
             },
             talent: None,
             prestige: None,
             piece: None,
             slot: None,
+            companions: false,
+            companion: None,
+            wear: None,
+            wear_pick: None,
+            sample: 0,
         }
     }
 
@@ -1631,6 +2133,14 @@ mod tests {
         );
         assert_eq!(script_action("guide-tab:nothing"), None);
         assert_eq!(script_action("close-guide"), Some(MenuAction::CloseGuide));
+        assert_eq!(
+            script_action("achievements-page:warrior"),
+            Some(MenuAction::AchievementsPage(AchievementsPage::Class("warrior".into())))
+        );
+        assert_eq!(
+            script_action("untrack:slayer_1"),
+            Some(MenuAction::TrackAchievement { id: "slayer_1".into(), on: false })
+        );
         assert_eq!(script_action("fly"), None);
     }
 
@@ -1641,5 +2151,37 @@ mod tests {
         let d = new_draft(&content, &choices, "warlock");
         assert_eq!((d.class.as_str(), d.sex, d.look), ("warlock", 0, [0; 5]));
         assert_eq!(d.race, 1, "with no data every race the content has passes");
+    }
+
+    /// A new hero is from the Present; the sheet's Time period block picks another, and its
+    /// sample lines are only those of its own time period or of any time.
+    #[test]
+    fn a_hero_sheet_picks_a_time_period_and_samples_its_lines() {
+        let content = Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap();
+        let mut d = new_draft(&content, &CreateChoices::default(), "warrior");
+        assert_eq!(d.time_period, TimePeriod::Present);
+        assert_eq!(script_action("time-period:past"), Some(MenuAction::TimePeriod(TimePeriod::Past)));
+        assert_eq!(script_action("time-period:later"), None);
+        let all: Vec<String> = content.camp_chatter.temperaments.iter().map(|t| t.id.clone()).collect();
+        for period in TimePeriod::ALL {
+            d.time_period = period;
+            let mut own = 0;
+            for k in 0..content.camp_chatter.lines.len() {
+                let text = sheet::sample_line(&content, &d, &all, k).unwrap();
+                let line = content.camp_chatter.lines.iter().find(|l| l.text == text).unwrap();
+                assert!(line.time_period.is_none_or(|p| p == period), "{text} for {}", period.word());
+                own += usize::from(line.time_period == Some(period));
+            }
+            assert!(own > 0, "a {} hero samples lines of its own time", period.word());
+        }
+    }
+}
+
+/// What hero `h` wears of `kind` (its id; empty for none).
+fn wear_of(h: &esurv_protocol::HeroFacts, kind: esurv_protocol::WearKind) -> &str {
+    match kind {
+        esurv_protocol::WearKind::Title => &h.title,
+        esurv_protocol::WearKind::Tabard => &h.tabard,
+        esurv_protocol::WearKind::Glow => &h.glow,
     }
 }

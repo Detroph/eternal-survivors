@@ -333,6 +333,7 @@ pub fn classify_entity_interior(
             Option<&LitEmitters>,
             Option<&mut ParticleLight>,
             Option<&mut NodeAmbient>,
+            Option<&crate::world_unit::WorldUnit>,
         ),
         Or<(With<LitParts>, With<LitEmitters>)>,
     >,
@@ -361,6 +362,7 @@ pub fn classify_entity_interior(
         lit_emitters,
         particle_light,
         node_ambient,
+        unit,
     ) in &mut anchors
     {
         n_anchors += 1;
@@ -447,6 +449,7 @@ pub fn classify_entity_interior(
             attach_at,
             bake,
             seated,
+            unit.is_some_and(|u| u.stands_outdoors),
         );
         resolve_us += _r.elapsed().as_secs_f32() * 1e6;
         let fog = anchor_room_fogged(room, &instances);
@@ -709,15 +712,22 @@ fn resolve_anchor_law(
     attach_at: Vec3,
     bake_center: Option<Vec3>,
     seated: Option<u16>,
+    stands_outdoors: bool,
 ) -> (AppliedLaw, Option<crate::wmo_portal::WmoRoom>) {
-    let (verdict, claimed) = indoor_verdict_at(
-        wmos,
-        instances.iter(),
-        streamer,
-        adt_tiles,
-        attach_at,
-        attach,
-    );
+    // A body a game says stands outdoors takes the outdoor light unrayed, as its room claim does
+    // (`WorldUnit::stands_outdoors`): rayed from under the terrain it would take a cave's below.
+    let (verdict, claimed) = if stands_outdoors {
+        (IndoorVerdict::Outdoors, None)
+    } else {
+        indoor_verdict_at(
+            wmos,
+            instances.iter(),
+            streamer,
+            adt_tiles,
+            attach_at,
+            attach,
+        )
+    };
     // An outdoor-class WMO surface (street, deck, porch) sets the node's skip-shadow bit: the lit
     // 2.5 target with no MCSH beneath, which `entity_shade` reads.
     let on_wmo = matches!(verdict, IndoorVerdict::OutdoorsOnWmo);

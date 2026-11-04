@@ -18,7 +18,7 @@ use esurv_content::Content;
 use esurv_sim::game::run::{Walk, World};
 
 use crate::walk_graph::Walking;
-use crate::wmo_floor::{Tri, WmoFloors, FLOOR_STEP};
+use crate::wmo_floor::{placement_turn, Tri, WmoFloors, FLOOR_STEP};
 
 /// The game data the server reads, opened once.
 pub struct GameData {
@@ -46,6 +46,9 @@ pub struct GameData {
     /// An item look by its icon (the icon's file name, lower case), for the run's jewelry, whose
     /// content names an icon: the lowest look of that icon with no model, else the lowest.
     icon_displays: HashMap<String, u32>,
+    /// The companions' looks' own sizes (`CreatureModelData` × `CreatureDisplayInfo` scale), by
+    /// display id: a unit's `OBJECT_FIELD_SCALE_X` folds them in, as a server does.
+    model_scales: HashMap<u32, f32>,
     /// Each race's player models, (male, female) display ids, by 1.12 race id; empty if unread.
     race_displays: HashMap<u8, (u32, u32)>,
     /// The ranged-slot spells (`Spell.dbc` `Attributes & 0x2`): the client fills their look's
@@ -230,8 +233,19 @@ impl GameData {
             .read_file(CHR_RACES)
             .map(|b| race_displays(&b))
             .unwrap_or_default();
+        // the companions' own sizes, which their units' scale folds in
+        let model_scales = benilla_formats::load_creature_catalog(&mut chain)
+            .map(|catalog| {
+                content
+                    .companions
+                    .iter()
+                    .filter_map(|c| Some((c.display(), catalog.model_scale(c.display())?)))
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(Arc::new(Self {
             chain: Mutex::new(chain),
+            model_scales,
             maps,
             missile_speeds,
             radii,
@@ -246,6 +260,11 @@ impl GameData {
             ranged_slot_spells,
             display_shot_visuals,
         }))
+    }
+
+    /// A companion look's own size (display `display`), if read.
+    pub fn model_scale(&self, display: u32) -> Option<f32> {
+        self.model_scales.get(&display).copied()
     }
 
     /// The starting outfit the create screen dresses 1.12 race `race` as class `class` in (sex 0
@@ -357,6 +376,63 @@ impl GameData {
             walking: Walking::default(),
             loaded: Mutex::default(),
         })
+    }
+
+    /// The ground of map `map_id` within `reach` yards of `middle` with `models` set on it as
+    /// game objects (a camp's stairs, platforms and tents: each its file, position, turn as a
+    /// quaternion and size): the terrain's faces there, the buildings and the solid doodads (their
+    /// collision hulls) the map's tiles place there, and every model's, as one. A building that
+    /// is tilted or a model that cannot be read is left out.
+    pub fn ground_near(&self, map_id: u32, middle: (f32, f32), reach: f32, models: &[(&str, [f32; 3], [f32; 4], f32)]) -> Result<WmoFloors> {
+        let dir = self.maps.directory(map_id).with_context(|| format!("map {map_id} is not in Map.dbc"))?.to_string();
+        let mut chain = self.chain.lock().unwrap();
+        let tiles = MapTiles::load(&mut chain, &dir).with_context(|| format!("reading {dir}.wdt"))?;
+        let near = |t: &Tri| t.iter().any(|p| (p[0] - middle.0).hypot(p[1] - middle.1) <= reach);
+        let (mut walk, mut sight) = (Vec::new(), Vec::new());
+        let mut add = |(w, s): (Vec<Tri>, Vec<Tri>)| {
+            walk.extend(w.into_iter().filter(|t| near(t)));
+            sight.extend(s.into_iter().filter(|t| near(t)));
+        };
+        // a building or doodad on two tiles is placed by each; and one far off (its origin past twice
+        // the reach) reaches no ground here
+        let (mut buildings, mut doodads) = (HashSet::new(), HashSet::new());
+        let within = |p: [f32; 3]| (p[0] - middle.0).hypot(p[1] - middle.1) <= 2.0 * reach;
+        for (x, y) in tiles.existing_in_radius(middle.0, middle.1, 1) {
+            let Ok(mesh) = load_tile_mesh(&mut chain, tiles.map(), x, y) else {
+                continue;
+            };
+            let mut terrain = Vec::new();
+            for c in &mesh.chunks {
+                for t in c.indices.chunks_exact(3) {
+                    let v = |k: usize| c.positions.get(t[k] as usize).copied();
+                    if let (Some(a), Some(b), Some(d)) = (v(0), v(1), v(2)) {
+                        terrain.push([a, b, d]);
+                    }
+                }
+            }
+            add((terrain.clone(), terrain));
+            for w in mesh.wmos {
+                if within(w.position) && buildings.insert(w.unique_id) && w.rotation[0] == 0.0 && w.rotation[2] == 0.0 {
+                    let wmo = benilla_formats::GlobalWmo { model: w.model, position: w.position, rotation: w.rotation, doodad_set: w.doodad_set, name_set: w.name_set };
+                    if let Ok(faces) = WmoFloors::placed(&mut chain, &wmo) {
+                        add(faces);
+                    }
+                }
+            }
+            for d in mesh.doodads {
+                if within(d.position) && doodads.insert(d.unique_id) {
+                    if let Ok(faces) = WmoFloors::object(&mut chain, &d.model, d.position, placement_turn(d.rotation), d.scale) {
+                        add(faces);
+                    }
+                }
+            }
+        }
+        for &(model, position, rotation, scale) in models {
+            if let Ok(faces) = WmoFloors::object(&mut chain, model, position, rotation, scale) {
+                add(faces);
+            }
+        }
+        Ok(WmoFloors::from_triangles(walk, sight))
     }
 }
 

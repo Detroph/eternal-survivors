@@ -282,19 +282,19 @@ impl Game {
     }
 
     /// `message` for every client that said `hello`.
-    fn for_everyone(&self, message: &ToClient) -> Vec<(u32, ToClient)> {
+    pub(super) fn for_everyone(&self, message: &ToClient) -> Vec<(u32, ToClient)> {
         self.told
             .keys()
             .map(|&hero| (hero, message.clone()))
             .collect()
     }
 
-    fn hero_guid(&self, hero: u32) -> u64 {
+    pub(super) fn hero_guid(&self, hero: u32) -> u64 {
         self.guid_of(Unit::Hero(hero)).unwrap_or(0)
     }
 
     /// The saved hero `hero` plays.
-    fn saved(&self, hero: u32) -> Option<&crate::save::SavedHero> {
+    pub(super) fn saved(&self, hero: u32) -> Option<&crate::save::SavedHero> {
         self.players
             .iter()
             .find(|p| p.hero == hero)
@@ -322,17 +322,19 @@ impl Game {
 
     /// Pays `hero` what the run earned since it last paid (nothing for a run that never began):
     /// its records, its class's talent experience and, once on a win, the next zone for its class.
-    /// The chat lines that tell it, for its client.
+    /// Its kills go into the warband's achievement counters. The chat lines that tell it, for its
+    /// client (an achievement earned is told to every client).
     pub(super) fn pay_out(&mut self, hero: u32) -> Vec<(u32, Packet)> {
         if self.run.now <= 0.0 {
             return Vec::new();
         }
+        let mut told = self.bank_kills(hero);
         let content = self.run.content.clone();
         let Some(saved) = self.saved(hero).cloned() else {
-            return Vec::new();
+            return told;
         };
         let Some(i) = self.run.heroes.iter().position(|h| h.id == hero) else {
-            return Vec::new();
+            return told;
         };
         let summary = self.run.summary(i);
         let paid = self.paid.entry(hero).or_default();
@@ -350,7 +352,7 @@ impl Game {
             challenge: self.run.options.challenge.is_some(),
         };
         let Some(payout) = self.saves.finish_run(&content, saved.guid, &run) else {
-            return Vec::new();
+            return told;
         };
         paid.parts = parts_max(summary.experience_parts, paid.parts);
         paid.seconds = paid.seconds.max(summary.seconds);
@@ -362,7 +364,6 @@ impl Game {
             .iter()
             .find(|c| c.id == saved.class)
             .map_or_else(String::new, |c| format!("{}s", c.name));
-        let mut told = Vec::new();
         if payout.experience > 0 {
             let earned = esurv_sim::game::lines::talent_experience_earned(
                 &classes,
@@ -376,6 +377,11 @@ impl Game {
             told.push((hero, packets::system_message(&opened)));
         }
         told
+    }
+
+    /// Hero `hero`'s damage meter lines (what it, its pets and procs did), as the meter has them.
+    pub(super) fn meter_done(&self, hero: u32) -> Vec<(protocol::Source, f64)> {
+        self.meters.get(&hero).map_or_else(Vec::new, |m| m.done.clone())
     }
 
     /// After a tick: when the run has just ended (each end once), every hero still in it is paid
@@ -431,6 +437,8 @@ impl Game {
                 self.run.phase == Phase::Choosing && self.run.choose(hero, *n as usize)
             }
             ToServer::Reroll => self.run.phase == Phase::Choosing && self.run.reroll(hero),
+            ToServer::Banish(n) => self.run.phase == Phase::Choosing && self.run.banish(hero, *n as usize),
+            ToServer::Skip => self.run.phase == Phase::Choosing && self.run.skip(hero),
             ToServer::Pause => self.run.pause(),
             ToServer::Resume => self.run.resume(),
             ToServer::Endless => self.run.continue_endless(),
@@ -458,6 +466,24 @@ impl Game {
                     }
                 }
                 left
+            }
+            ToServer::CampRun => {
+                let off = self.camp_run(hero);
+                let done = off.is_some();
+                told.extend(off.map(|m| (hero, m)));
+                done
+            }
+            ToServer::CampDress => self.camp_dress(hero),
+            ToServer::CampChatter(level) => self.camp_chatter(*level),
+            ToServer::CampClosed => {
+                self.tour_closed(hero);
+                self.is_camp()
+            }
+            ToServer::CampDecorate { spot, piece } => {
+                let done = self.camp_decorate(hero, spot, piece.as_deref());
+                // what stands where, told again for the list
+                told.extend(self.camp_decoration_spots().filter(|_| done).map(|s| (hero, s)));
+                done
             }
             ToServer::RunOptions(o) => {
                 let asked = SavedRunOptions::from(*o);
@@ -504,6 +530,7 @@ impl Game {
         self.ended = None;
         self.drops.clear();
         self.meters.clear();
+        self.achievements_start_over();
         let heroes: Vec<u32> = self
             .told
             .keys()
@@ -536,8 +563,8 @@ impl Game {
     }
 
     /// A client says it speaks the protocol: it is told who and where it is, its class's
-    /// progress, the run options, the codex, the boss bars up and the choice it has open; its HUD
-    /// follows with the next tick.
+    /// progress, the run options, the codex, the warband's achievements, the boss bars up and the
+    /// choice it has open; its HUD follows with the next tick.
     fn hello(&mut self, hero: u32, screens: Screens) -> Vec<(u32, ToClient)> {
         self.told.insert(
             hero,
@@ -547,10 +574,18 @@ impl Game {
             },
         );
         let mut told: Vec<(u32, ToClient)> = Vec::new();
-        told.extend(self.ready(hero).map(|r| (hero, r)));
+        // in the camp, who the hero is in place of where its run is
+        let ready = if self.is_camp() { self.camp_hello(hero) } else { self.ready(hero) };
+        told.extend(ready.map(|r| (hero, r)));
+        told.push((hero, self.arena_edge()));
+        told.extend(self.camp_decoration_spots().map(|s| (hero, s)));
         told.extend(self.progress(hero).map(|p| (hero, p)));
         told.push((hero, self.run_options(self.saves.run_options())));
         told.push((hero, self.codex()));
+        told.push((
+            hero,
+            crate::prerun::achievements(&self.run.content, &self.saves),
+        ));
         told.extend(self.option_hello(hero).into_iter().map(|m| (hero, m)));
         for bar in self.bars.values() {
             told.push((
@@ -574,6 +609,14 @@ impl Game {
             }
         }
         told
+    }
+
+    /// The edge of where the hero may go, to be drawn: the zone's arena, or the
+    /// camp's reach round its fire.
+    fn arena_edge(&self) -> ToClient {
+        let zone = &self.run.content.zones[self.run.zone];
+        let (x, y) = zone.arena_centre.unwrap_or((zone.spawn.x, zone.spawn.y));
+        ToClient::ArenaEdge { at: [x, y, zone.spawn.z], radius: zone.arena_radius, camp: self.is_camp() }
     }
 
     /// Who `hero` is and where its run is.
@@ -622,6 +665,7 @@ impl Game {
                 h.rerolls_free,
             )
         });
+        let (banishes, skips) = h.map_or((0, 0), |h| (h.banishes_left, h.skips_left));
         ToClient::Choices(protocol::Choices {
             hero: self.hero_guid(hero),
             kind: match kind {
@@ -632,6 +676,8 @@ impl Game {
             level,
             reroll_cost: reroll,
             free_rerolls: free,
+            banishes,
+            skips,
             offers: offers.iter().map(|o| self.offer(hero, o)).collect(),
             kit: self.kit(hero),
         })
@@ -817,7 +863,7 @@ impl Game {
                 Event::ScreenOpened { hero, kind, offers } if self.told.contains_key(hero) => {
                     told.push((*hero, self.choices(*hero, *kind, offers)));
                 }
-                Event::OfferTaken { hero, .. } if self.told.contains_key(hero) => {
+                Event::OfferTaken { hero, .. } | Event::ScreenSkipped { hero } if self.told.contains_key(hero) => {
                     let hero_guid = self.hero_guid(*hero);
                     told.push((*hero, ToClient::ChoicesClosed { hero: hero_guid }));
                 }

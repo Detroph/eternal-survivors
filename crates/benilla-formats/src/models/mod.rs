@@ -25,7 +25,7 @@ pub use art_extent::*;
 pub use bounds::*;
 pub use collision::*;
 pub(crate) use key_anim::{bake_track, SeqSlot};
-pub use key_anim::{KeyAnim, SeqLoops};
+pub use key_anim::{reslot, KeyAnim, SeqLoops};
 pub use m2_batches::*;
 pub use mat_anim::{AlphaAnim, AlphaSeq, RgbAnim, ScalarAnim};
 pub use records::*;

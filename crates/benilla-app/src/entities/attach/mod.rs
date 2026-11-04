@@ -919,7 +919,7 @@ pub(super) fn attach_entity_visuals(
 
 /// The union of a model's part boxes, its bind-pose extent: the election bound when the idle
 /// authors no CAaBox. Over-large only admits, never hides.
-fn union_aabb(
+pub(super) fn union_aabb(
     boxes: impl Iterator<Item = bevy::camera::primitives::Aabb>,
 ) -> Option<bevy::camera::primitives::Aabb> {
     let mut boxes = boxes;

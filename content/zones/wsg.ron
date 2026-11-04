@@ -46,7 +46,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
             looks_like: Some((class: "warrior")),
         ),
@@ -58,7 +58,7 @@
             // 7.16 x the game's enemy speed (0.95) = 6.8 yd/s, just under the
             // hero's 7 (the kind's 8 runs 7.6)
             move_speed: Some(7.16),
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.5,
             looks_like: Some((class: "rogue")),
         ),
@@ -69,7 +69,7 @@
             kind: FastFodder,
             // 6.8 yd/s in play, as the rogue above
             move_speed: Some(7.16),
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 1.0,
             looks_like: Some((class: "druid", form: Some(Cat))),
         ),
@@ -78,7 +78,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 2.0,
             look_spell: Some(116),
             looks_like: Some((class: "mage")),
@@ -88,7 +88,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 2.5,
             look_spell: Some(585),
             looks_like: Some((class: "priest")),
@@ -98,7 +98,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Mid,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 3.0,
             looks_like: Some((class: "paladin")),
         ),
@@ -107,7 +107,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: ToughMid,
-            toughness: 2.0,
+            role: Tough,
             appears_at_minute: 4.5,
             looks_like: Some((class: "shaman")),
         ),
@@ -116,7 +116,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 5.0,
             look_spell: Some(686),
             looks_like: Some((class: "warlock")),
@@ -126,7 +126,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Mid,
-            toughness: 1.0,
+            role: Sturdy,
             appears_at_minute: 6.0,
             looks_like: Some((class: "warrior")),
         ),
@@ -135,7 +135,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 6.5,
             look_spell: Some(403),
             looks_like: Some((class: "shaman")),
@@ -145,7 +145,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 7.5,
             look_spell: Some(75),
             looks_like: Some((class: "hunter")),
@@ -155,7 +155,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 8.0,
             look_spell: Some(5176),
             looks_like: Some((class: "druid")),
@@ -165,7 +165,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: ToughMid,
-            toughness: 3.0,
+            role: Brute,
             appears_at_minute: 9.0,
             looks_like: Some((class: "paladin")),
         ),
@@ -217,7 +217,7 @@
                 Summon(),
             ],
             is_final: false,
-            health_share: Some(0.8), // lived 42 s against a 35 s goal
+            health_share: Some(0.91), // About 60 s, halfway between plain play and the damage build
             // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),
@@ -239,6 +239,7 @@
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),
             looks_like: Some((class: "mage")),
+            health_share: Some(1.01), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "",
@@ -256,6 +257,7 @@
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),
             looks_like: Some((class: "rogue")),
+            health_share: Some(0.95), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "",
@@ -273,6 +275,7 @@
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),
             looks_like: Some((class: "warlock")),
+            health_share: Some(0.84), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "",
@@ -286,7 +289,7 @@
                 Summon(),
             ],
             is_final: true,
-            health_share: Some(0.5), // lived 122 s against a 90 s goal (110 s at 0.8)
+            health_share: Some(0.87), // About 120 s, halfway between plain play and the damage build
             // the heroes' own flag: Silverwing against the Alliance, Warsong against the Horde
             carries: Some((vs_alliance: 23335, vs_horde: 23333)),
             played_by: Some(Any),

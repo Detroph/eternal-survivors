@@ -120,6 +120,11 @@ impl Run {
         self.drop(kind, 0, at);
     }
 
+    /// A pile of `value` gold laid at `at` (a dev grant).
+    pub fn lay_gold(&mut self, at: Vec2, value: u32) {
+        self.drop(Pickup::Gold, value, at);
+    }
+
     pub(crate) fn drop(&mut self, kind: Pickup, value: u32, at: Vec2) {
         if kind == Pickup::BattlegroundCache {
             let caches: Vec<usize> = (0..self.pickups.len()).filter(|&k| self.pickups[k].kind == kind).collect();

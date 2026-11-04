@@ -697,6 +697,42 @@ pub(super) fn stop_source(out: &mut SoundOutput, source: Entity) -> usize {
     before - out.channels.len()
 }
 
+/// A kit by name, 2D on SFX at its base volume, whose handle the caller keeps: no channel of the
+/// pump's, so neither the voice cap nor the world's leave ([`stop_all_channels`]) touches it, and
+/// no loading-screen hold refuses it ([`super::through_loading`]). `None` with no device.
+pub(super) fn play_kit_held(
+    kits: &mut SoundKits,
+    assets: &WorldAssets,
+    out: &mut SoundOutput,
+    config: &SoundConfig,
+    name: &str,
+) -> Result<Option<mixer::StaticSoundHandle>> {
+    let kit = kits
+        .catalog
+        .by_name(name)
+        .ok_or_else(|| anyhow!("unknown sound kit"))?;
+    let (id, volume) = (kit.id, kit.volume);
+    let weights: Vec<u32> = kit.files.iter().map(|(_, w)| *w).collect();
+    if weights.is_empty() {
+        return Ok(None);
+    }
+    let pick = kits.pick_variation(id, &weights);
+    let path = kits.catalog.get(id).expect("resolved above").files[pick]
+        .0
+        .clone();
+    let data = kits.sfx(assets, &path)?;
+    let amp = config.category_amp(SoundCategory::Sfx) * math::variation_volume(None, volume, 1.0);
+    let Some(mixer) = out.mixer.as_mut() else {
+        return Ok(None);
+    };
+    let handle = mixer.play_2d(data.volume(mixer::amp_to_db(amp)))?;
+    debug!("sound: play kit {id} ({name}) sfx 2d, held through the loading screen");
+    if let Some(probe) = out.probe.as_ref() {
+        probe.note_play(id, name, "sfx", "2d");
+    }
+    Ok(Some(handle))
+}
+
 /// The `PlaySoundFile` path: a raw file with no gates and no variation, volume 1.0, 2D on the
 /// caller's category, through the kit decode cache. Kit id 0 keeps it out of kit dedupe.
 pub(crate) fn play_file(

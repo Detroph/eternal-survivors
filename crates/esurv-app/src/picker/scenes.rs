@@ -240,6 +240,21 @@ impl FactionScene {
         v
     }
 
+    /// The point `right` yards to the camera's right of the campfire (negative: to its left) and
+    /// `beyond` yards past it, on the campfire's ground (WoW world coordinates).
+    pub fn point(&self, right: f32, beyond: f32) -> [f32; 3] {
+        let [x, y, z] = self.campfire;
+        let (fx, fy) = self.ahead();
+        // the camera's right: its bearing turned a quarter clockwise
+        let (rx, ry) = (fy, -fx);
+        [x + fx * beyond + rx * right, y + fy * beyond + ry * right, z]
+    }
+
+    /// The facing of something standing at `at` towards the campfire.
+    pub fn facing_the_fire(&self, at: [f32; 3]) -> f32 {
+        (self.campfire[1] - at[1]).atan2(self.campfire[0] - at[0])
+    }
+
     /// Where hero `i` of `n` waits, its facing (towards the campfire) and which place it is;
     /// `None` past the last place. The semicircle fills first, from its middle out (so a camp of
     /// fewer than five stays centred), then the back, in roster order.

@@ -31,6 +31,8 @@ Ready-to-copy blocks are in [templates/](templates):
 | [jewelry.ron](templates/jewelry.ron) | `content\jewelry.ron` (a ring or a trinket) |
 | [amulet.ron](templates/amulet.ron) | `content\amulets.ron` |
 | [player_character.ron](templates/player_character.ron) | `content\player_characters.ron` (a Warsong boss and an assist) |
+| [achievement.ron](templates/achievement.ron) | `content\achievements.ron` |
+| [companion.ron](templates/companion.ron) | `content\companions.ron` |
 
 Every template is checked by `cargo test -p esurv-content`, so a template that stops
 loading is caught at once.
@@ -107,9 +109,11 @@ class spell's role (section 7).
 * **Winning a zone opens every zone up to it and the next one.** A class starts with the first
   zone only. A zone added below a class's hardest win is open at once.
 * **Health and damage are never set per enemy.** Every enemy, elite, rare and boss takes them
-  from one formula in `balance.ron`: health grows by a fixed factor for every step of D, damage by
-  0.6 of that factor's exponent, both with the run clock (section 3). A normal enemy only says how
-  sturdy it is next to its zone's average (`toughness`, a quarter step: 0.25, 0.5, 0.75, 1, 1.25 ...).
+  from one formula in `balance.ron`: one zone curve (health × D^`health_power`, damage that curve
+  to `damage_share`) and the run clocks, the same for every kind; an elite, rare, boss or final
+  boss is a plain multiple of a normal enemy of its zone and minute (section 3). A normal enemy
+  only says how sturdy it is next to its zone's curve (`role`: Swarm, Light, Standard, Sturdy,
+  Tough or Brute).
 * **Roster numbers come from the enemy's kind** (`enemy_kinds.ron`), boss ability numbers from
   the ability's kind, and every boss moves at one speed. A single enemy or ability may override
   a number for itself.
@@ -171,21 +175,24 @@ it follows.
 |---|---|
 | `base_health`, `base_damage` | What every enemy starts from: 240 health and 8 damage. |
 | `zone_scaling` | Everything that follows D: enemy health and damage growth, gear, drops, talent experience, gear tiers (below). |
-| `normal`, `elite`, `rare`, `boss`, `final_boss` | Each kind's multipliers on health and damage (an elite ×10 health and ×3 damage ...). |
-| `health_clock`, `damage_clock` | How much sturdier and harder-hitting enemies are by the run minute they appear: points `(minute, multiplier)`, straight lines between them, and past the last point the last step's pace goes on. |
+| `normal`, `elite`, `rare`, `boss`, `final_boss` | Each kind's plain multipliers on health and damage, of a normal enemy of the same zone and minute (an elite ×22.2 health and ×2.25 damage, a rare ×19.8 and ×2.25, a boss ×40.2 and ×1.3, a final boss ×54 and ×0.65; fitted to the boss-time targets, section 16, then ×1.2 on the health). |
+| `boss_clock_power` | Bosses and final bosses read the health clock to this power (0.45; 1 when left out), so a zone's late bosses grow less than the swarm and its bosses live about as long as each other. |
+| `roles` | A normal enemy's health multiplier by its zone file's `role`: `swarm` 0.25, `light` 0.5, `standard` 0.75, `sturdy` 1 (the default), `tough` 2, `brute` 3. |
+| `health_clock`, `damage_clock` | How much sturdier and harder-hitting enemies are by the run minute they appear, every kind alike (bosses read the health clock to `boss_clock_power`): points `(minute, multiplier)`, straight lines between them, and past the last point the last step's pace goes on. |
 | `spawn_budget` | How much enemy arrives each second at 100 % density, by minute (each enemy costs its kind's `spawn_cost`). |
 | `live_cap` | Most normal enemies alive at once: at 100 % density, and at the highest density. |
 | `battle_standard` | The pickup that summons an assist (section 13a, [assists.md](assists.md)): how many a run lays (`per_run`, 1 to 2), one more every `endless_every` seconds in Endless (600), the zones it never lies in (`never_in`: `wsg`), its looks per faction, the ally's size (`ally_scale`, 2), how long an ally stays (`assist_seconds`, 15) and what every assist deals a second (`assist_damage_per_second`: `normal` 0.05, `elite_rare_boss` 0.01 of the struck enemy's max health). |
 | `experience` | What kills drop (normal, elite, boss), what each level costs (`level_cost`), and the orb sizes. |
 | `spell_tags` | One multiplier per spell tag (`level_1`, `nuke`, `cleave`, `dot`, `nova`, `area`, `pet`, `sustain`, `buffs`, `defensive`), all 1.0 today. A damage tag scales damage (and a hit's burn, and an area's impact), `pet` also every talent pet; `sustain` scales healing, `buffs` buff amounts, `defensive` shields, weakening and reflected damage. Never cooldowns or durations. |
-| `challenge_factor` | Challenge Mode (zones.md, "Challenge Mode"): every enemy of a challenge run takes Ahn'Qiraj's D, then its final health and damage are × this (1.1) × the challenge slider (1x-5x), one flat factor outside the kind and zone powers; a challenge run's talent experience is Ahn'Qiraj's × this (never the slider). |
+| `challenge_factor` | Challenge Mode (zones.md, "Challenge Mode"): every enemy of a challenge run takes Ahn'Qiraj's D, then its final health and damage are × this (1.1) × the challenge slider (1x-5x), one flat factor on the dial, the same for every kind; a challenge run's talent experience is Ahn'Qiraj's × this (never the slider). |
 
 The whole formula is written out at the top of the file and in zones.md, section 4:
 
-    health = 240 × kind health × growth^(D − 1) × health clock(minute) × toughness × health option × 1.22^endless minutes
-    damage =   8 × kind damage × growth^(0.6 × (D − 1)) × damage clock(minute) × damage option × 1.12^endless minutes
+    health = 240 × kind health × D^health_power × health clock(minute) × role × dial
+    damage =   8 × kind damage × (D^health_power)^damage_share × damage clock(minute) × dial
+    dial   = health (damage) option × 1.22 (1.12)^endless minutes × [Challenge Mode: challenge_factor × slider]
 
-In Challenge Mode D is Ahn'Qiraj's in every zone, and both lines end × `challenge_factor` × the challenge slider.
+The dial is the one place a difficulty multiplies, the same on every kind. In Challenge Mode D is also Ahn'Qiraj's in every zone.
 
 ### `enemy_kinds.ron`
 
@@ -258,11 +265,8 @@ hero's actual power, and the code reads it from there:
 
 | Number | What it does | Today |
 |---|---|---|
-| `normal_health` | normal enemy health by D: `(D, ×)` points joined by straight lines, past the last at the last step's pace; bigger steps where the expected hero gains a milestone row (D 3, 5, 7) | 1, 1.4, 2.25, 4, 5.75, 6.75, 7.25, 8.75, 9, 11, 12, 17.25 (D 1–12; fitted 2026-10-25, refitted with the final talents to the original game's kill seconds with the baseline hero: rare and epic amulets, bought caches, kiting) |
-| `elite_health_power`, `boss_health_power` | elites and rares take that multiplier to the first power, bosses to the second: gentler, so their fights keep their length | 0.87, 0.7 |
-| `boss_clock_power` (`balance.ron`, beside the clocks) | bosses and final bosses read the health clock to this power, so a zone's bosses last about as long as each other (fitted to the boss-time goals) | 0.3 |
-| `damage_share`, `elite_boss_damage_share` | damage × the enemy's own health multiplier to this power: normal enemies, then elites, rares and bosses (not read while `normal_damage` is set) | 0.6, 0.45 |
-| `normal_damage`, `elite_damage_power`, `boss_damage_power` | normal enemy damage by D, its own table (the blows the health table gave before its 2026-10-25 refit, kept); elites and rares take it to the first power, bosses to the second | 1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75, 4.25, 5; 0.65, 0.5 |
+| `health_power` | the zone curve: every enemy's health × D^this, the same for every kind (elites, rares and bosses are plain multiples of it, `normal` ... `final_boss`) | 1.0 (fitted 2026-10-30 to the hand table it replaced, D 1–10: 1, 1.4, 2.25, 4, 5.75, 6.75, 7.25, 8.75, 9, 11; plansenemy-formula.md) |
+| `damage_share` | every enemy's damage × the zone curve to this power | 0.53 (fitted to the hand damage table it replaced: 1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75) |
 | `gear_exponent`, `gear_steeper_from`, `gear_growth_after` | gear stats × D^exponent up to `gear_steeper_from`, then × `gear_growth_after` a step of D | 0.55, 9, 1.3 |
 | `gear_drop_chance` | each boss gear piece's drop chance, in `(D, chance)` steps: each holds from its D until the next, no blending | 100 %, 80 % from 2, 70 % from 4, 60 % from 6, 40 % from 8 |
 | `talent_exponent` | a run's talent experience × D^this (with the point cost it meets the talent schedule) | 0.7 |
@@ -294,7 +298,7 @@ to 5.
   between (zones.md, section 4, has the shipped ones: Elwynn 1, Duskwood 2, Warsong Gulch 3 ...
   Gates of Ahn'Qiraj 10; 6 is kept free between Dire Maul and the Arena).
 * `enemies`: the roster. Each has a `name`, a model (`display_id`), `scale`,
-  `creature_type`, its `kind`, `toughness` (normal enemies) and `appears_at_minute`; a caster
+  `creature_type`, its `kind`, `role` (normal enemies) and `appears_at_minute`; a caster
   (kind `Ranged`) also names the look of its spell (`look_spell`). An elite's `scale` is
   min(2.0, 6.0 / its model's size), to 2 decimals: 1.3× to 2× its model, never drawn above 6; a
   boss is drawn at 9, a final boss at 12 (zones.md, "Sizes").
@@ -317,11 +321,11 @@ to 5.
     difficulty: 1.6,
     enemies: [
         (name: "Test Wolf", display_id: 165, scale: 0.7, creature_type: Beast,
-         kind: FastFodder, toughness: 0.25, appears_at_minute: 0.0),
+         kind: FastFodder, role: Swarm, appears_at_minute: 0.0),
         (name: "Test Kobold", display_id: 26, scale: 0.9, creature_type: Humanoid,
-         kind: Fodder, toughness: 0.5, appears_at_minute: 0.0),
+         kind: Fodder, role: Light, appears_at_minute: 0.0),
         (name: "Test Caster", display_id: 163, scale: 1.0, creature_type: Humanoid,
-         kind: Ranged, toughness: 0.5, appears_at_minute: 0.5, look_spell: Some(133)),
+         kind: Ranged, role: Light, appears_at_minute: 0.5, look_spell: Some(133)),
         (name: "Test Brute", display_id: 377, scale: 1.62, creature_type: Humanoid,
          kind: Elite, appears_at_minute: 4.0),
     ],
@@ -591,7 +595,7 @@ names exists, it has three talent trees and one gear set, every pool spell has a
 screen entry, icon and colour in `esurv-app` `menus::art::class_cell` and
 `ui::CLASS_COLOURS`, how the server finds a class by its id in `esurv-server` `world`, and
 the gear item numbers in `esurv-sim` `game::rewards`); a new kind of power bar or a use for
-`power` in play (the roadmap's rage and procs); the hero's stats per level (`game::stats`).
+`power` in play (rage and procs, if added later); the hero's stats per level (`game::stats`).
 
 ### 8a. Starting options
 
@@ -695,7 +699,7 @@ tree first.
 
 ### 8b. Weapon loadouts
 
-**File:** `content\loadouts.ron` (roadmap R3, classes.md "Weapon
+**File:** `content\loadouts.ron` (classes.md "Weapon
 loadouts"). Each class has **three** loadouts, the default first; the player picks one per class
 on the warband screen, under the starting spell, and the save keeps it (a loadout id the class no
 longer has falls back to its first). `HeroSetup::loadout` names it in the sim.
@@ -1093,6 +1097,140 @@ class's, loads and validates).
 
 **Still code:** a new block or target rule (section 15).
 
+## 13b. An achievement
+
+Achievements are shared by the whole warband and live in `content\achievements.ron`, one record
+each. What every field and criteria kind means, and what a run counts, is in
+[achievements.md](achievements.md); copy [templates/achievement.ron](templates/achievement.ron).
+
+**Worked example: "Win Duskwood with Smite, never dropping below half health."**
+
+```ron
+(
+    id: "unshaken_faith",
+    name: "Unshaken Faith",
+    text: "Win Duskwood with Smite, never dropping below half health.",
+    points: 10,
+    icon: "Spell_Holy_HolySmite",
+    category: Class("priest"),
+    rewards: [Title("the Unshaken")],
+    criteria: Win([Zone("duskwood"), Start("smite"), HealthNeverBelow(0.5)]),
+),
+```
+
+* **`id` is kept in the save** the moment anyone earns it: never change or reuse one.
+* **Points** are 0 (Feats of Strength), 5, 10, 25 or 50. The score adds them up.
+* **Text in our own words**, and an **icon** from the client's `Interface\Icons` (the test
+  `every_achievement_icon_is_in_the_players_data` checks it against your client).
+* **What earns it** is one criteria kind: `Win([...])` (a won run where every condition held, any
+  mode, Challenge too), `Fight(...)` (a boss fight, earned as the boss falls), `Counter(...)` (a
+  warband number reaching its goal), `Checklist(...)`, `AllOf([...])` (a meta) or `Never`. Mix the
+  `Win` conditions freely: zone, class, starting option, loadout, Challenge slider, run options at
+  most, gold, battle standard, health, killing blows, the damage meter, a boss fight.
+* **A series** (`series: Some("slayer")`) is two or more steps in one category, in the file's
+  order.
+* **Rewards** are stored by id (`Title("text")`, `Companion("id")`, `Trophy("id")`,
+  `Unlock("id")`); the steps that build titles, companions and the camp read them.
+
+**How to check it:** `cargo test -p esurv-content` (every id it names exists, the points are on
+the scale, a meta never needs itself). A new criteria kind or run condition is code (section 15).
+
+## 13c. A companion
+
+Companions follow a hero in runs and fetch the gold piles out of its reach (the rules are in
+[achievements.md](achievements.md), section 11). They live in `content\companions.ron`, one record
+each; copy [templates/companion.ron](templates/companion.ron). Any creature model can be one.
+
+**Worked example: a tiny kobold sold in the shop.**
+
+```ron
+(
+    id: "tiny_kobold",
+    name: "Tiny Kobold",
+    icon: "INV_Misc_Head_Kobold_01",
+    look: Creature(display: 365),
+    scale: 0.45,
+    price: 50,
+    text: "You no take candle. It takes gold.",
+),
+```
+
+* **`id` is kept in the save** once anyone buys or picks it: never change or reuse one.
+* **The look** is `Pet(npc: n)`, a 1.12 companion pet by the creature its item summons (the list
+  is `PET_NPCS` in `crates\esurv-content\src\companions.rs`, from the vmangos world database; keep
+  `scale: 1.0`, its size is WoW's), or `Creature(display: n)`, any creature model by its
+  `CreatureDisplayInfo.dbc` number (a database site's "model" or "display id", or vmangos's
+  `creature_template.display_id1`).
+* **A normal creature model** is usually man-sized or bigger: set `scale` so it reads as a pet
+  (0.1 to 0.6; the game multiplies the model's own size by it). It must have walk and run moves;
+  one that only stands (the Eye of C'Thun) can glide instead with `hover: 1.2` (yards up, bobbing).
+* **Sold or earned:** give it a `price` (points to spend, the shop sells it) or
+  `unlock: Achievement("<id>")` and add `Companion("<its id>")` to that achievement's `rewards`;
+  never both.
+* **Text in our own words**, and an **icon** from the client's `Interface\Icons` (the test
+  `every_companion_icon_is_in_the_players_data` checks it against your client).
+* **Check it in game**: its size beside a hero and that it walks; the hero sheet's Companions show
+  it turning.
+* **Spell looks** (optional): `kits: (appear: 165, hand_over: 193)` plays those
+  `SpellVisualKit.dbc` kits on it, at its size, as it appears in a run and as it hands gold over
+  (the Warhorse Foal's are Summon Charger's). Find a spell's kits through `Spell.dbc` (its
+  `spellVisual`) and `SpellVisual.dbc` (precast, cast and impact kits).
+
+**How to check it:** `cargo test -p esurv-content --test companions` (a known pet npc, a size above
+0, a price or an achievement that gives it). The upgrade's ranks are `content\shop.ron`
+(`companion_ranks`: price, reach past the pickup range, speed, piles carried), checked to grow
+rank by rank.
+
+## 13d. A tabard, a weapon glow, a camp decoration, a title
+
+The rules are in [achievements.md](achievements.md), sections 12 to 15. Each is one record; ids are
+kept in the save once shipped, so never change one.
+
+**A tabard** (`content\tabards.ron`):
+
+```ron
+(
+    id: "tabard_of_the_wild",
+    name: "Tabard of the Wild",
+    icon: "INV_Shirt_GuildTabard_01",
+    look: Neutral(display: 12345), // an ItemDisplayInfo.dbc id with tabard textures
+    price: 50,
+    text: "Our own words.",
+),
+```
+
+`look` is `Neutral(display: d)` (any hero), `Faction(horde: d, alliance: d)` (a pair sold as one)
+or `Only(faction: Alliance, display: d)` (that faction's heroes only). Find a tabard's display in
+vmangos: `select entry, name, display_id from item_template where inventory_type = 19`.
+
+**A weapon glow** (`content\weapon_glows.ron`): `enchant` is a `SpellItemEnchantment.dbc` id whose
+item visual (its field 22) is not 0; `needs: Some("<glow id>")` sells it only after that one.
+
+**A camp decoration** (`content\decorations.ron`, `pieces`): `spot` (`Ground` for a set's ground
+piece, which may also stand on an extra spot; `BannerPost`; `Campfire` for a fire look; `Trophy`
+for the trophy corner; `Sign` for a set's signpost), `look` (`Same(d)` or
+`Faction(horde: d, alliance: d)`, with `horde_scale` or `alliance_scale` when the two models differ
+in size; a `GameObjectDisplayInfo.dbc` id; vmangos `gameobject_template.displayId`), `scale` to
+bring the model to its height (nothing taller than a hero but the battle banner; look at it in
+game), `at: (right, beyond)` for a set's ground piece (its place while its set is the camp theme)
+and for a trophy (its place in the trophy corner), `turn` (degrees from facing the fire), and
+either `price` with an optional `set` and `needs: ["<piece>", ...]`, or `earned`:
+`Achievement("<id>")` (a trophy: add `Trophy("<its id>")` to that achievement's `rewards`),
+`ZoneClear("<zone id>")`, `Set("<set id>")` or a `Ladder([...])` of achievements and looks. A new
+spot is a line of `spots` (`Campfire`, `BannerPost`, `Theme`, `Ground`): its kind and
+`at: (right, beyond)`, yards from the fire as the camera sees it (heroes stand 3 yards out on the
+far side and 4.6 to 5.2 at the back; keep the camera's side, negative `beyond`, the left of the
+fire and the middle of the back edge clear; [achievements.md](achievements.md) section 15). A
+pennant is a line of `banner_line.banners` with its `scale`.
+`ESURV_PICKER_FRAMING=14,16,3,0` with Decorate camp open (once decorations are on again) shows the camp from above, every spot
+numbered.
+
+**A title:** add `Title("{name} the Bold")` (or `"{name}, Bold"`, `"Bold {name}"`) to an
+achievement's `rewards`; `{name}` once.
+
+**How to check it:** `cargo test -p esurv-content --test cosmetics` and `cargo test -p esurv-server
+every_cosmetic_icon` (the icons against your client).
+
 ## 14. Changing a whole kind of thing at once
 
 | To change | Edit |
@@ -1122,6 +1260,7 @@ What data cannot do yet, and where it would go:
 | run option | `esurv-sim` `game::rewards` (`option_bonus`) and `game::enemy` (`RunOptions`), the menus |
 | class or race | sections 8 and 10 |
 | reward curves (talent experience per run and point costs; the D-driven parts are in `balance.ron` `zone_scaling`) | `esurv-sim` `game::rewards` |
+| achievement criteria kind or run condition | `Criteria`, `RunCondition` in `crates\esurv-content\src\achievements.rs` (and its checks there); what a run counts in `esurv-server` `game::achievements`, what the save counts in `save::achievements` |
 
 The content types themselves (every field above) are in `crates\esurv-content\src\schema.rs`
 (as played) and `kinds.rs` (zone files as written); the loader and its checks are in
@@ -1206,16 +1345,51 @@ deaths. The zone table can be measured over every pair too:
 
 (the same per-zone lines, each over every starting option × loadout of every class).
 
-**The rule for bosses** (the owner's boss-time goals, 2026-10-24): a zone's normal bosses should
-live about the first number of seconds, its final bosses the second, measured from appearing to
-dying (the zone table's "lived s", best with `--kite --boss-circle`). Flat in the first three
-zones, then rising evenly; every normal boss of a zone shares one goal. `balance_check` keeps the
-same table (`BOSS_TIME_GOALS`) and prints each boss's goal beside its lived seconds.
+**The rule for bosses** (players reported bosses dying in 10-15 s):
+every normal boss should live about **60 s** and every final boss about **120 s**, in every zone,
+measured from appearing to dying (the zone table's "lived s", with `--kite --boss-circle`)
+**halfway between plain play and the damage build** below: the mean of the two builds' lived
+seconds (the damage build alone was the first fit). `balance_check` keeps the goals (`BOSS_TIME_GOALS`) and prints each
+boss's goal beside its lived seconds. (Before: 35-55 s and 90-150 s by zone, with plain play.)
+How it is met: the `boss` (×33.5) and `final_boss` (×45) health (×1.2 since, see below), the gentle boss clock
+(`boss_clock_power` 0.45: halfway, the spread between a zone's early and late bosses is smallest
+there, about ×1.17 left against ×1.64 on the full clock; the damage build alone would ask 0.55,
+plain play 0.36) and then each boss's own `health_share`, fitted on both builds (a boss's new
+share = its share × goal ÷ the mean of its two lived seconds; a final boss plain play rarely
+kills takes its plain seconds from the damage build × its zone's plain-to-damage ratio).
+Ramstein and the Baron are fitted each on his own.
+Bosses whose fight follows a mechanic (Rend, Rajaxx, the Avatar of Hakkar, Majordomo, Ossirian,
+and Cho'Rush, who joins King Gordok) keep the health they had before.
 
-| zone | elwynn | duskwood | wsg | scarlet | sunken_temple | feralas | arena | strat | brm | aq |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| normal boss (s) | 35 | 35 | 35 | 38 | 41 | 44 | 46 | 49 | 52 | 55 |
-| final boss (s) | 90 | 90 | 90 | 100 | 110 | 115 | 125 | 135 | 140 | 150 |
+**The rule for elites and rares**: the hero's full damage takes
+about **15 s** on an elite and **25 s** on a rare with the damage build (the zone table's elite
+and rare "kill" seconds, the mean over the zones): `elite` ×18.5 and `rare` ×16.5 health. These
+stay on the damage build when the bosses moved to halfway; halfway would put
+an elite at about 18 s and a rare at about 30 s (plain play alone: about 22 s and 38 s).
+
+**Then 20 % longer**: all four kinds' health ×1.2, so `elite` ×22.2, `rare` ×19.8, `boss` ×40.2 and
+`final_boss` ×54 (the ×33.5 and ×45 above are the halfway fit before it). The goals read about
+72 s for a boss and 144 s for a final boss halfway, and about 18 s and 30 s for an elite and a
+rare with the damage build. The mechanic bosses grow with it too.
+
+**The enemy formula's measure** (2026-10-30, plans\enemy-formula.md): every kind is a plain
+multiple of a normal enemy on one zone curve, with bosses on the gentler
+boss clock. Measure every zone, plain play and the damage build (the boss goals take the
+mean of the two; the elite and rare goals the damage build), with
+
+    cargo run --release -p esurv-sim --example balance_check -- --seeds 200 --kite --boss-circle --take-amulets rare,epic --buy-caches --overtime 180 --summary plain.csv
+    cargo run --release -p esurv-sim --example balance_check -- --seeds 200 --kite --boss-circle --take-amulets rare,epic --buy-caches --overtime 180 --prefer mortal_strike,hammer_of_wrath,aimed_shot,ghostly_strike,mind_blast,earth_shock,pyroblast,searing_pain,wrath --damage-focus --summary focus.csv
+
+(both stop early; a whole pass takes about two minutes on 16 threads). Each zone ends with its
+normal enemies' kill seconds (as they come and at role ×1), its elites' and rares' kill and lived
+seconds, the hero's damage taken and cheat deaths a run; `--summary` writes them with every boss's
+lived seconds to a file; `--death-causes` adds what the cheat deaths came from, by minute, and
+how often the kiting hero was held back by a wall or a shut door (it keeps off them since
+2026-10-31; before, it ran into Stratholme's gates and Warsong Gulch's and the Scarlet
+Monastery's walls and stood there, which made most of those zones' cheat deaths). A boss's `health_share` for its goal is the share it was measured at ×
+goal ÷ lived seconds; repeat until it lands within about ±10 %. A final boss that often lives
+to the end of the run shows only its quicker kills, so its lived seconds read low; do not push
+it further.
 
 Measure one zone with `--zones scarlet --seeds 200` (the zones before it are played only for the
 kills that give its hero's talent points).
@@ -1227,7 +1401,7 @@ together should come to about ×1.1 each.
 **The rule for zones:** with our target kill seconds (`--targets`), a normal enemy's kill seconds
 (its health ÷ the expected hero's DPS) should sit within ×0.8–1.25 of the target from minute 5 to
 18 in every zone, and elites, rares and bosses should keep their kill seconds and their damage
-per hit next to the hero's health. Tune `zone_scaling`'s growths for that, never a single zone.
+per hit next to the hero's health. Tune the zone curve (`health_power`, `damage_share`) and the kind multipliers for that, never a single zone.
 
 **Early stop** (every mode of `balance_check`, by default; every simulation
 stops early once its results are clear). `--seeds` and `--check-seeds` are the *most* seeds a

@@ -28,8 +28,8 @@ pub const INPUT_GUARD: f32 = 0.45;
 /// At most this many cards show.
 pub const MAX_CARDS: usize = 4;
 
-/// The keys the open screen takes: the four card keys, the keypad's, R, and Escape.
-pub const SCREEN_KEYS: [KeyCode; 10] = [
+/// The keys the open screen takes: the four card keys, the keypad's, R, B, X, and Escape.
+pub const SCREEN_KEYS: [KeyCode; 12] = [
     KeyCode::Digit1,
     KeyCode::Digit2,
     KeyCode::Digit3,
@@ -39,6 +39,8 @@ pub const SCREEN_KEYS: [KeyCode; 10] = [
     KeyCode::Numpad3,
     KeyCode::Numpad4,
     KeyCode::KeyR,
+    KeyCode::KeyB,
+    KeyCode::KeyX,
     KeyCode::Escape,
 ];
 
@@ -48,6 +50,10 @@ pub enum CardAction {
     /// Take card `n` (from 0).
     Take(usize),
     Reroll,
+    /// Banish: the next card picked is banished (again: no longer).
+    Banish,
+    /// Skip: the screen closes, nothing taken.
+    Skip,
 }
 
 /// What a key does on the screen, if anything.
@@ -58,6 +64,8 @@ pub fn key_action(key: KeyCode) -> Option<CardAction> {
         KeyCode::Digit3 | KeyCode::Numpad3 => CardAction::Take(2),
         KeyCode::Digit4 | KeyCode::Numpad4 => CardAction::Take(3),
         KeyCode::KeyR => CardAction::Reroll,
+        KeyCode::KeyB => CardAction::Banish,
+        KeyCode::KeyX => CardAction::Skip,
         _ => return None,
     })
 }
@@ -80,6 +88,8 @@ pub struct OpenCards {
     pub taken: Option<usize>,
     /// A dev aid's made-up screen: its answers go nowhere.
     pub made_up: bool,
+    /// Banish was pressed: the next card picked is banished, not taken.
+    pub banishing: bool,
 }
 
 impl OpenCards {
@@ -90,9 +100,13 @@ impl OpenCards {
             return None;
         }
         match action {
+            CardAction::Take(n) if n < self.choices.offers.len().min(MAX_CARDS) && self.banishing => {
+                (self.choices.banishes > 0).then_some(ToServer::Banish(n as u32))
+            }
             CardAction::Take(n) if n < self.choices.offers.len().min(MAX_CARDS) => {
                 Some(ToServer::Choose(n as u32))
             }
+            CardAction::Skip if self.choices.skips > 0 => Some(ToServer::Skip),
             CardAction::Reroll
                 if can_reroll(self.choices.free_rerolls, self.choices.reroll_cost, gold) =>
             {
@@ -158,13 +172,14 @@ pub(super) fn read_server(
                     answered: false,
                     taken: None,
                     made_up: false,
+                    banishing: false,
                 });
             }
             ToClient::ChoicesClosed { .. } | ToClient::RunEnd(_) | ToClient::Ready(_) => {
                 screen.open = None;
             }
             // the server said no (a reroll it could not pay): the screen answers again
-            ToClient::Refused(verb) if verb == "choose" || verb == "reroll" => {
+            ToClient::Refused(verb) if ["choose", "reroll", "banish", "skip"].contains(&verb.as_str()) => {
                 if let Some(open) = screen.open.as_mut() {
                     open.answered = false;
                     open.taken = None;
@@ -215,6 +230,13 @@ fn answer(
     let Some(open) = screen.open.as_mut() else {
         return;
     };
+    // Banish picks the card next: pressed again, it lets go
+    if action == CardAction::Banish {
+        if !open.answered && now - open.since >= INPUT_GUARD && open.choices.banishes > 0 {
+            open.banishing = !open.banishing;
+        }
+        return;
+    }
     if let Some(request) = open.answer(action, now, gold) {
         open.answered = true;
         if let ToServer::Choose(n) = request {
@@ -250,6 +272,8 @@ mod tests {
                 level: 2,
                 reroll_cost: cost,
                 free_rerolls: free,
+                banishes: 1,
+                skips: 1,
                 offers: (0..offers)
                     .map(|_| Offer {
                         kind: OfferKind::Gold,
@@ -266,6 +290,7 @@ mod tests {
             answered: false,
             taken: None,
             made_up: false,
+            banishing: false,
         }
     }
 

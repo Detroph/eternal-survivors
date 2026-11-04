@@ -10,6 +10,7 @@ pub mod game {
     pub mod assist_rotation;
     pub mod assists;
     pub mod beams;
+    pub mod companions;
     pub mod boss_abilities;
     pub mod boss_damage;
     pub mod boss_phases;

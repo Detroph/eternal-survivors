@@ -148,6 +148,10 @@ fn start_server(live: Arc<LiveContent>) -> Result<Started> {
         &save_path().context("no folder to keep the heroes in")?,
     )?);
     saves.rein_in(&content);
+    // a save from before achievements gets what it can prove, once
+    for id in saves.catch_up_achievements(&content) {
+        eprintln!("esurv: achievement earned from the save: {id}");
+    }
     let data = match benilla_formats::wow_data() {
         Some(dir) => match esurv_server::ground::GameData::open(&dir, &content) {
             Ok(d) => Some(d),
@@ -181,6 +185,7 @@ fn start_server(live: Arc<LiveContent>) -> Result<Started> {
             })
             .unwrap_or_default(),
         move_log: std::env::var_os("ESURV_MOVE_LOG").map(Into::into),
+        hub: esurv_app::camp::hub_on(),
     })?;
     // read by the client's login screen, before any of its threads start
     std::env::set_var("WOW_HOST", server.realmd.to_string());

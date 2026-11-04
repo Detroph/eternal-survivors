@@ -45,6 +45,8 @@ pub struct Challenge {
     pub enemy_factor: f32,
     /// The run's talent experience, worked out at `difficulty`, is × this: `challenge_factor`.
     pub talent_experience_factor: f32,
+    /// The slider it was set at, on its steps (100: 1x to 500: 5x); achievements read it.
+    pub slider_pct: u16,
 }
 
 impl Challenge {
@@ -53,8 +55,9 @@ impl Challenge {
     pub fn new(content: &Content, slider_pct: u16) -> Option<Self> {
         let difficulty = content.zone(CHALLENGE_ZONE)?.difficulty;
         let factor = content.balance.challenge_factor;
-        let slider = f32::from(slider_on_its_steps(slider_pct)) / 100.0;
-        Some(Self { difficulty, enemy_factor: factor * slider, talent_experience_factor: factor })
+        let slider_pct = slider_on_its_steps(slider_pct);
+        let slider = f32::from(slider_pct) / 100.0;
+        Some(Self { difficulty, enemy_factor: factor * slider, talent_experience_factor: factor, slider_pct })
     }
 }
 

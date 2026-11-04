@@ -12,8 +12,12 @@
 //! micro and bag buttons are hidden ([`LUA`] lists it all); the main menu's micro button stays and
 //! opens the run's Escape menu. Besides:
 //!
-//! * the main action bar is compact ([`action_bar`]): eight buttons, the page arrows, four micro
-//!   buttons, a gryphon at each end, the experience bar over it in ten segments;
+//! * the main action bar is recreated in our own art ([`action_bar`]): eight buttons in a bronze
+//!   frame, a dragon at each end, the experience bar on its top edge, four micro buttons apart;
+//! * the minimap is recreated in our own art ([`minimap`]): larger, in a gold ring, under a
+//!   ribbon with the zone's name and the clock;
+//! * the player and target frames are recreated in our own art ([`unit_frames`]): a larger
+//!   round portrait in a bronze ring, a slim plate with the name, the bars and larger texts;
 //! * the character pane's stat rows show the run's numbers (the server's `ESURV` line, read
 //!   through the addon message event) and what worn gear adds, each row with a tooltip of ours;
 //! * the stock interface's level cap (`MAX_PLAYER_LEVEL`) is the run's
@@ -50,6 +54,8 @@ use crate::stock::TipLine;
 use crate::ui::{in_world, GameContent, GOLD_TEXT, GRAY_TEXT, GREEN_TEXT, WHITE_TEXT};
 
 pub mod action_bar;
+pub mod minimap;
+pub mod unit_frames;
 pub mod buff_tips;
 pub mod class_bar;
 mod key_presses;
@@ -181,6 +187,37 @@ fn keep_the_frames(
                     Ok(true) => {}
                     Ok(false) => warn!("run frames: the action bar: the stock bar is not loaded"),
                     Err(e) => warn!("run frames: the action bar did not load: {e}"),
+                }
+                // the minimap, switched with them too
+                match script.eval::<bool>(minimap::LUA) {
+                    Ok(true) => {}
+                    Ok(false) => warn!("run frames: the minimap: the stock minimap is not loaded"),
+                    Err(e) => warn!("run frames: the minimap did not load: {e}"),
+                }
+                // the player and target frames, switched with them too, kept clear of the HUD's
+                // top ribbon
+                let ribbon = format!("ESURV_TOP_RIBBON_HALF = {}", crate::hud::top_box::RIBBON_HALF);
+                if let Err(e) = script.run(&ribbon) {
+                    warn!("run frames: the top ribbon's width: {e}");
+                }
+                match script.eval::<bool>(unit_frames::LUA) {
+                    // `ESURV_TARGET_DEMO=1`, a development aid: the hero targets themself, to see
+                    // the target's frame with no one else about
+                    Ok(true) if std::env::var("ESURV_TARGET_DEMO").is_ok_and(|v| v == "1") => {
+                        if let Err(e) = script.run("TargetUnit(\"player\")") {
+                            warn!("run frames: the target demo: {e}");
+                        }
+                    }
+                    Ok(true) => {}
+                    Ok(false) => warn!("run frames: the unit frames: the stock frames are not loaded"),
+                    Err(e) => warn!("run frames: the unit frames did not load: {e}"),
+                }
+                // `ESURV_FRAMES_LAYOUT=modern` (or `classic`), a development aid: the frames'
+                // layout chosen as the minimap's layout button would
+                if let Ok(layout) = std::env::var("ESURV_FRAMES_LAYOUT") {
+                    if let Err(e) = script.run(&format!("ESURV_UNIT_FRAMES.set_layout({layout:?})")) {
+                        warn!("run frames: the frames' layout: {e}");
+                    }
                 }
             }
             Ok(false) => return,

@@ -133,8 +133,7 @@ fn is_weapon_slot(slot: usize) -> bool {
     (15..=17).contains(&slot)
 }
 
-/// `worn` armed with the weapon loadout `class` fights with (`progress`'s choice, else its first;
-/// roadmap R3): the class gear weapons give way to the loadout's
+/// `worn` armed with the weapon loadout `class` fights with (`progress`'s choice, else its first): the class gear weapons give way to the loadout's
 /// weapons, each in its hand's slot, in the armaments of the class gear weapon's look (a
 /// zone's weapon drop unlocks its armaments for all three loadouts;
 /// `gear::weapon_look`). A class without loadouts keeps `worn` as it is.
@@ -642,7 +641,7 @@ mod tests {
         assert_eq!(slots.iter().filter(|&&e| e != 0).count(), 3);
     }
 
-    /// Roadmap R3: a hero shows the weapons of its class's weapon
+    /// A hero shows the weapons of its class's weapon
     /// loadout (the one chosen, else the first) in their hands' slots, in the armaments of the
     /// class gear weapon worn (its zone's, or the look chosen for its slot; Elwynn's with none);
     /// the class gear's weapon gives way; the item query answers each.

@@ -58,7 +58,8 @@ pub fn orb_look(size: OrbSize) -> Look {
         scale,
         go_type: None,
         flags: 0,
-        name: "Experience",
+        // no name: the client draws none over the wisp
+        name: "",
     }
 }
 
@@ -408,5 +409,6 @@ mod tests {
             assert!(gameobject_look(entry).is_some(), "{entry}");
         }
         assert_eq!(gameobject_look(ORB_ENTRY), None, "the orb is a unit");
+        assert_eq!(orb_look(OrbSize::Small).name, "", "with no name over it");
     }
 }

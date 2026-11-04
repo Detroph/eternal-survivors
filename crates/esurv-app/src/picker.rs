@@ -7,6 +7,7 @@
 //! The scene is the world itself, through benilla's select-scene hooks
 //! ([`benilla_app::SelectScene`], [`benilla_app::SceneFigure`], [`benilla_app::SelectScreen`]).
 
+mod decor;
 mod pointer;
 pub mod scenes;
 
@@ -28,16 +29,19 @@ pub(crate) struct PickerState {
     pub(crate) faction: Faction,
     /// The selection last seen, to follow a pick into the other camp once.
     last_selected: Option<(u64, u8)>,
-    /// The heroes standing, by roster guid, in their places' order, and the campfire.
+    /// The heroes standing, by roster guid, in their places' order.
     heroes: Vec<(u64, Entity, Place)>,
     /// What the heroes standing were made from (camp, race, sex, look, gear), so a hero changed
     /// on the hero sheet stands anew.
     stood_for: u64,
-    campfire: Option<(Faction, Entity)>,
     /// The back hero that last greeted on being picked, so it greets once per pick.
     greeted: Option<u64>,
     /// When the heroes last stood anew: a greeting waits for their models.
     stood_at: f32,
+    /// The companions standing by their heroes: (hero guid, companion id, figure), and what they
+    /// were stood for.
+    companions: Vec<(u64, String, Entity)>,
+    companions_for: u64,
 }
 
 impl PickerState {
@@ -111,18 +115,20 @@ pub struct PickerPlugin;
 impl Plugin for PickerPlugin {
     fn build(&self, app: &mut App) {
         let first = faction_from(std::env::var("ESURV_PICKER_FACTION").ok().as_deref());
+        app.init_resource::<decor::CampProps>();
         app.insert_resource(PickerState {
             faction: first.unwrap_or(Faction::Horde),
             last_selected: None,
             stood_for: 0,
             heroes: Vec::new(),
-            campfire: None,
             greeted: None,
             stood_at: 0.0,
+            companions: Vec::new(),
+            companions_for: 0,
         })
         .add_systems(
             Update,
-            (follow_selection, show_scene, list_the_camp, stand_heroes).chain(),
+            (follow_selection, show_scene, list_the_camp, stand_heroes, stand_companions, decor::stand_decorations).chain(),
         );
         shot::register(app);
         pointer::register(app);
@@ -175,6 +181,83 @@ fn show_scene(
     if *scene != want {
         *scene = want;
     }
+}
+
+/// A companion stands this far to its hero's left (the camera's right, as the hero faces it) and
+/// this far ahead of it, yards.
+const COMPANION_SIDE: f32 = 0.85;
+const COMPANION_AHEAD: f32 = 0.45;
+
+/// Where hero `i` of `n`'s companion stands, and its facing: beside its hero, facing as it does.
+fn companion_place(place: &FactionScene, i: usize, n: usize) -> Option<([f32; 3], f32)> {
+    let (at, facing, _) = place.slot(i, n)?;
+    let (fx, fy) = (facing.cos(), facing.sin());
+    // the hero's left: its facing turned a quarter anticlockwise
+    let (lx, ly) = (-fy, fx);
+    Some((
+        [at[0] + lx * COMPANION_SIDE + fx * COMPANION_AHEAD, at[1] + ly * COMPANION_SIDE + fy * COMPANION_AHEAD, at[2]],
+        facing,
+    ))
+}
+
+/// Each hero's companion (picked on its hero sheet) stands beside it at the camp fire.
+fn stand_companions(
+    mut commands: Commands,
+    content: Option<Res<GameContent>>,
+    facts: Res<crate::menus::PreRunFacts>,
+    mut state: ResMut<PickerState>,
+) {
+    let wanted: Vec<(u64, String)> = match &content {
+        Some(c) => state
+            .heroes
+            .iter()
+            .filter_map(|(guid, _, _)| {
+                let id = facts.hero(*guid).map(|h| h.companion.clone()).filter(|id| c.0.companion(id).is_some())?;
+                Some((*guid, id))
+            })
+            .collect(),
+        None => Vec::new(),
+    };
+    // stood anew when the companions, the camp or the heroes' places change
+    let key = {
+        use std::hash::{Hash, Hasher};
+        let mut h = std::collections::hash_map::DefaultHasher::new();
+        (state.faction == Faction::Horde, state.heroes.len(), state.stood_for).hash(&mut h);
+        for (guid, id) in &wanted {
+            (guid, id, state.heroes.iter().position(|(g, _, _)| g == guid)).hash(&mut h);
+        }
+        h.finish()
+    };
+    if key == state.companions_for {
+        return;
+    }
+    state.companions_for = key;
+    for (_, _, e) in state.companions.drain(..) {
+        commands.entity(e).despawn();
+    }
+    let Some(content) = content else {
+        return;
+    };
+    let place = faction_scene(state.faction);
+    let n = state.heroes.len();
+    let mut stood = Vec::new();
+    for (guid, id) in wanted {
+        let Some(i) = state.heroes.iter().position(|(g, _, _)| *g == guid) else {
+            continue;
+        };
+        let (Some(c), Some((at, facing))) = (content.0.companion(&id), companion_place(&place, i, n)) else {
+            continue;
+        };
+        let e = commands
+            .spawn((
+                Name::new(format!("picker companion {}", c.name)),
+                SceneFigure::Creature { display_id: c.display(), scale: c.scale },
+                SceneFigure::place(at, facing),
+            ))
+            .id();
+        stood.push((guid, id, e));
+    }
+    state.companions = stood;
 }
 
 /// The camp's heroes, by guid in roster order, as many as the camp holds.
@@ -237,8 +320,11 @@ fn stand_heroes(
     mut figures: Query<&mut SceneFigure>,
     mut greetings: MessageWriter<FigureEmote>,
     time: Res<Time>,
+    facts: Res<crate::menus::PreRunFacts>,
 ) {
     let content = content.map(|c| c.0.clone());
+    // what each hero wears besides its gear: its tabard and weapon glow (its hero sheet's picks)
+    let wears = |guid: u64| facts.hero(guid).map(|h| (h.tabard.clone(), h.glow.clone())).unwrap_or_default();
     let wanted: Vec<&Character> = match (&content, screen.open) {
         (Some(content), true) => screen
             .characters
@@ -263,28 +349,8 @@ fn stand_heroes(
     // a held pick (a dev switch) makes a fixed picture: the mouse stands nobody up
     let hovered = if held.is_some() { None } else { screen.hovered };
 
-    // the campfire burns while the screen is up
-    let campfire_wanted = screen.open && content.is_some();
-    match state.campfire {
-        Some((f, e)) if !campfire_wanted || f != state.faction => {
-            commands.entity(e).despawn();
-            state.campfire = None;
-        }
-        _ => {}
-    }
-    if campfire_wanted && state.campfire.is_none() {
-        let e = commands
-            .spawn((
-                Name::new("picker campfire"),
-                SceneFigure::Prop {
-                    display_id: place.campfire_display,
-                },
-                SceneFigure::place(place.campfire, 0.0),
-            ))
-            .id();
-        state.campfire = Some((state.faction, e));
-    }
-
+    // the campfire burns while the screen is up, as the camp's decorations have it
+    // ([`decor::stand_decorations`])
     // a different set of heroes (a camp switched, a hero made or deleted) stands anew
     let made_from = {
         use std::hash::{Hash, Hasher};
@@ -298,6 +364,7 @@ fn stand_heroes(
                 c.gender,
                 look,
                 c.equipment.map(|e| e.display_id),
+                wears(c.guid),
             )
                 .hash(&mut h);
         }
@@ -322,16 +389,20 @@ fn stand_heroes(
                 break;
             };
             let held = [15, 16, 17].map(|s| weapon_sheath(content, c.equipment[s].display_id));
+            let mut character = (*c).clone();
+            let (tabard, glow) = wears(c.guid);
+            let enchants = crate::achievements::cosmetics::dress_figure(content, Some(state.faction), &tabard, &glow, &mut character.equipment);
             let up = spot == Place::Front && (standing == Some(c.guid) || hovered == Some(c.guid));
             let pose = if up { PICKED_POSE } else { place.pose(spot) };
             let e = commands
                 .spawn((
                     Name::new(format!("picker hero {}", c.name)),
                     SceneFigure::Hero(FigureHero {
-                        character: (*c).clone(),
+                        character,
                         stand_state: pose.stand_state(),
                         held_sheath: held,
                         start_outfit_under: true,
+                        enchants,
                     }),
                     SceneFigure::place(at, facing),
                 ))

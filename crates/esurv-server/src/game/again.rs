@@ -6,7 +6,7 @@
 
 use esurv_sim::game::run::{Flat, HeroSetup, Phase, Run};
 
-use super::{hero_setup, run_seed, Game, HeroShown};
+use super::{run_seed, run_setup, Game, HeroShown};
 use crate::packets;
 use crate::update::update_object;
 use crate::wire::Packet;
@@ -179,11 +179,7 @@ impl Game {
                     .iter()
                     .find(|p| p.hero == h.id && !self.left.contains(&h.id));
                 match playing {
-                    Some(p) => hero_setup(
-                        &content,
-                        &p.saved,
-                        &self.saves.class_progress(&content, &p.saved.class),
-                    ),
+                    Some(p) => run_setup(&content, &p.saved, &self.saves),
                     None => HeroSetup {
                         class: content.classes[h.class].id.clone(),
                         race: content.races[h.race].id.clone(),

@@ -43,6 +43,16 @@ pub const RARE_CACHE: u32 = OBJECTS_FROM + 8;
 /// plus the object's display id, one entry per look; past the zone props' range.
 pub const GROUND_OBJECTS_FROM: u32 = 200_000;
 
+/// The camp's things to use (the hub, `game::camp`): this plus the thing's number
+/// (`game::camp::Service`); past the companions' range.
+pub const CAMP_SERVICES_FROM: u32 = 600_000;
+/// The camp's people (`game::camp::Keeper::entry`): this plus a number of each one's; the first,
+/// named by their jobs (0, 1, and 100 plus a 1.12 class id), are never reused.
+pub const CAMP_KEEPERS_FROM: u32 = 600_100;
+/// The camp's pieces that only stand there (fire, banners, trophies, decorations): this plus the
+/// piece's display id, one entry per look.
+pub const CAMP_PIECES_FROM: u32 = 610_000;
+
 /// Rares: a creature entry of their own per elite they copy (this plus the elite's entry past
 /// the content's first creature), so the creature query can give them the rare rank (the silver
 /// dragon) while the elite keeps the gold one. Past the zone props' range.
@@ -53,6 +63,22 @@ pub const RARES_FROM: u32 = 300_000;
 pub const BATTLE_STANDARDS_FROM: u32 = 400_000;
 /// The battle standards' range ends here.
 pub const BATTLE_STANDARDS_END: u32 = BATTLE_STANDARDS_FROM + 100_000;
+
+/// Companions: this plus the companion's place in companions.ron, one entry each, so the creature
+/// query names it; past the battle standards' range.
+pub const COMPANIONS_FROM: u32 = BATTLE_STANDARDS_END;
+/// How many companions the numbering has room for.
+pub const MAX_COMPANIONS: u32 = 10_000;
+
+/// The entry of the companion at place `place` in companions.ron.
+pub fn companion(place: usize) -> u32 {
+    COMPANIONS_FROM + place as u32
+}
+
+/// The place in companions.ron of the companion entry `entry` shows; `None` for another entry.
+pub fn companion_of(entry: u32) -> Option<usize> {
+    (COMPANIONS_FROM..COMPANIONS_FROM + MAX_COMPANIONS).contains(&entry).then(|| (entry - COMPANIONS_FROM) as usize)
+}
 
 /// The entry a rare copy of the creature `elite` shows under.
 pub fn rare(elite: u32) -> u32 {

@@ -173,17 +173,17 @@ version is screens.md in the folder above this one.
 5. THE HUD
 ----------
 
-  The run's numbers, at the top in the middle of the screen, in the normal WoW lettering:
+  The run's numbers, at the top in the middle of the screen: the clock on a crest hanging in
+  the middle, the kills and the gold on a ribbon either side of it:
 
-      Foes slain        12:34          Gold
-         132     Boss arrives in 2:26   245
-                                        Next cache: 50
+       skull 132   |   12:34    |   245 coin
+      Foes slain   | Boss in 2:26 | Next cache: 50
 
     12:34                how long the run has gone (minutes:seconds)
-    Boss arrives in 2:26 how long until the next boss comes. Once you went on into Endless it
+    Boss in 2:26         how long until the next boss comes. Once you went on into Endless it
                          says "Endless mode"; when no boss is left to come it says nothing.
-    Foes slain           how many enemies you have killed this run
-    Gold                 your gold, and under it what the next cache costs to open
+    Foes slain           how many enemies you have killed this run (by the skull)
+    Next cache           your gold (by the coin), and under it what the next cache costs to open
 
   While a boss is up, a bar under the numbers shows its name (on a red strip, like the
   target frame shows an enemy) and its health in green, in a frame like the casting bar's,
@@ -427,7 +427,11 @@ version is screens.md in the folder above this one.
                    it: letters only, up to twelve), and the hero itself on a lit floor: drag it
                    or use the arrows to turn it. On the right the looks: skin colour, face, hair
                    style, hair colour and the race's own extra (beard, piercings, tusks ...),
-                   each with arrows and dots, and Randomize. "Create" makes the hero; "Save
+                   each with arrows and dots, and Randomize. Under them the hero's
+                   Temperament (how it talks at the camp) and its Time period: Past (before
+                   the classic era), Present (the classic era) or Future (after it), the time
+                   it was pulled in from, which picks what it says of home at the camp; it
+                   changes nothing in a run. "Create" makes the hero; "Save
                    changes" keeps the changes of a hero you modify. A hero's race and looks can
                    always change before a run; a hero who becomes Alliance or Horde moves to that
                    camp.

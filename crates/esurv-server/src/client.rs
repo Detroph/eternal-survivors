@@ -201,3 +201,18 @@ mod tests {
         );
     }
 }
+
+/// `CMSG_GOSSIP_SELECT_OPTION`: the talk window's speaker and the option picked (its index);
+/// a code, which no option of ours asks for, is not read.
+pub fn gossip_select(mut r: &[u8]) -> io::Result<(u64, u32)> {
+    let guid = read_u64_le(&mut r)?;
+    let option = read_u32_le(&mut r)?;
+    Ok((guid, option))
+}
+
+/// `CMSG_NPC_TEXT_QUERY`: the text asked for and the speaker it was asked of.
+pub fn npc_text_query(mut r: &[u8]) -> io::Result<(u32, u64)> {
+    let text = read_u32_le(&mut r)?;
+    let guid = read_u64_le(&mut r)?;
+    Ok((text, guid))
+}

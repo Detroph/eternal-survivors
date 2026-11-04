@@ -90,7 +90,7 @@ pub(crate) use chain_beam::ChainHops;
 use chain_beam::{simulate_chain_beams, spawn_chain_beams};
 /// Displays a game on top composes from two of the player's models (a crown on a base model).
 mod composed;
-pub use composed::{ComposedDisplay, ComposedDisplays, PartModel, PartPlacement};
+pub use composed::{ComposedDisplay, ComposedDisplays, DressedDisplay, DressedDisplays, HueShift, PartModel, PartPlacement};
 // `equip_slot` is the one InventoryType → slot table; the dressing room places items by it.
 pub(crate) use attach::{equip_slot, BodyPartsDesc};
 pub(crate) use equipment::ItemDisplays;
@@ -380,7 +380,27 @@ pub(crate) struct DisplayRig<'a> {
 struct GameObjects {
     catalog: GameObjectCatalog,
     models: HashMap<u32, DisplayModel>,
+    /// [`RecoloredGameObjectDisplays`], by display.
+    recolored: HashMap<u32, [f32; 3]>,
 }
+
+/// Game-object displays a game adds to `GameObjectDisplayInfo` (a building of the world that has
+/// no object of its own); empty in stock benilla. Fill it before the client runs
+/// (`benilla_app::run_with`'s extend).
+#[derive(Resource, Clone, Debug, Default)]
+pub struct AddedGameObjectDisplays(pub Vec<(u32, String)>);
+
+/// Game-object displays a game draws recoloured (not the reference's): each texel its brightest
+/// channel times the hue, before the light, so the hour's light still colours it (the material's
+/// `recolor`, w 2); empty in stock benilla. Fill it before the client runs, as [`AddedGameObjectDisplays`].
+#[derive(Resource, Clone, Debug, Default)]
+pub struct RecoloredGameObjectDisplays(pub Vec<(u32, [f32; 3])>);
+
+/// Game-object displays a game says stand in no WMO room (not the reference's): their bodies'
+/// `WorldUnit::stands_outdoors`. Empty in stock benilla. Fill it before the client runs, as
+/// [`AddedGameObjectDisplays`].
+#[derive(Resource, Clone, Debug, Default)]
+pub struct OutdoorGameObjectDisplays(pub Vec<u32>);
 
 /// The customization → visible-geoset tables; without them players render every geoset.
 #[derive(Resource)]
@@ -521,6 +541,7 @@ fn publish_world_units(
     all_bodies: Query<WireBody>,
     mut unanchored: RemovedComponents<crate::transport::TransportAnchor>,
     viewers: Query<ViewerRow, ViewerCandidate>,
+    outdoor_displays: Res<OutdoorGameObjectDisplays>,
 ) {
     let freed: Vec<Entity> = unanchored.read().collect();
     let due = bodies
@@ -544,6 +565,8 @@ fn publish_world_units(
                     |b| b.0,
                 )
             }),
+            stands_outdoors: net.kind == EntityKind::GameObject
+                && net.display_id.is_some_and(|d| outdoor_displays.0.contains(&d)),
         };
         // Written only on a real change: its readers are change-detected.
         let same = current.is_some_and(|c| {
@@ -551,6 +574,7 @@ fn publish_world_units(
                 && c.scale == want.scale
                 && c.height == want.height
                 && c.bound == want.bound
+                && c.stands_outdoors == want.stands_outdoors
         });
         if !same {
             commands.entity(entity).insert(want);
@@ -599,6 +623,9 @@ impl Plugin for EntitiesPlugin {
         .add_message::<MissileMiss>()
         .add_message::<dest_fx::GroundBurst>()
         .init_resource::<GroundLookModels>()
+        .init_resource::<AddedGameObjectDisplays>()
+        .init_resource::<RecoloredGameObjectDisplays>()
+        .init_resource::<OutdoorGameObjectDisplays>()
         // A display swap's rebuild edge, for the impact-kit replay the reference runs at the end
         // of `0x60abe0`.
         .add_message::<live_display::DisplaySwapped>()
@@ -654,7 +681,12 @@ impl Plugin for EntitiesPlugin {
                 (attach_item_glows, attach_spell_fx),
                 (
                     attach_missile_models,
-                    attach_ground_fx_models,
+                    (
+                        attach_ground_fx_models,
+                        dest_fx::keep_whole_ground_fx_drawn,
+                        dest_fx::lean_whole_ground_fx,
+                    )
+                        .chain(),
                     spell_fx::tend_world_plants,
                 ),
                 // After attach, so a tint clone's first drawn frame is on its own clock.
@@ -744,6 +776,8 @@ fn setup_entities(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     world_assets: Option<ResMut<WorldAssets>>,
+    added_displays: Res<AddedGameObjectDisplays>,
+    recolored_displays: Res<RecoloredGameObjectDisplays>,
 ) {
     // A person-sized box; its origin is centred, so it is lifted by half its height.
     let mesh = meshes.add(Cuboid::new(2.0, 4.0, 2.0));
@@ -781,11 +815,19 @@ fn setup_entities(
         Err(e) => warn!("creature catalog unavailable, NPCs stay cubes: {e:#}"),
     }
     match load_gameobject_catalog(&mut chain) {
-        Ok(catalog) => {
-            info!("gameobject catalog: {} display entries", catalog.len());
+        Ok(mut catalog) => {
+            for (id, path) in &added_displays.0 {
+                catalog.add(*id, path.clone());
+            }
+            info!(
+                "gameobject catalog: {} display entries, {} of them added",
+                catalog.len(),
+                added_displays.0.len()
+            );
             commands.insert_resource(GameObjects {
                 catalog,
                 models: HashMap::new(),
+                recolored: recolored_displays.0.iter().copied().collect(),
             });
         }
         Err(e) => warn!("gameobject catalog unavailable, GameObjects stay cubes: {e:#}"),
@@ -1056,6 +1098,7 @@ fn update_display_models(
                     let dm = new_gameobject_display(&go.catalog, disp, &asset_server);
                     go.models.insert(disp, dm);
                 }
+                let hue = go.recolored.get(&disp).copied();
                 if let Some(dm) = go.models.get_mut(&disp) {
                     if dm.parts.is_none() {
                         build_parts(
@@ -1068,6 +1111,33 @@ fn update_display_models(
                             &mut uv,
                             true, // gameobject: hull collider and the interior bake variant
                         );
+                        // a recoloured display draws with its own copies of its materials, each
+                        // variant it may draw with (an M2 under a WMO's room draws its interior ones)
+                        if let (Some([r, g, b]), Some(parts)) = (hue, dm.parts.as_mut()) {
+                            let store = mats.materials();
+                            let mut recolor = |handle: &mut Handle<
+                                benilla_assets::materials::WowModelMaterial,
+                            >| {
+                                benilla_world::model_render::lazy::realize(store, handle.id());
+                                if let Some(mut mat) = store.get(handle.id()).cloned() {
+                                    mat.extension.recolor = Vec4::new(r, g, b, 2.0);
+                                    *handle = store.add(mat);
+                                }
+                            };
+                            for part in parts {
+                                recolor(&mut part.material);
+                                for variant in [
+                                    &mut part.material_interior,
+                                    &mut part.material_interior_bake,
+                                    &mut part.material_interior_bake_blend,
+                                    &mut part.fade_blend,
+                                ] {
+                                    if let Some(handle) = variant {
+                                        recolor(handle);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

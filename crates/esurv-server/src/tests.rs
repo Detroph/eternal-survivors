@@ -31,6 +31,7 @@ fn server_with(saves: Arc<Saves>) -> (ServerHandle, Arc<Content>) {
         zone: None,
         granted: Vec::new(),
         move_log: None,
+        hub: false,
     };
     (start(config).unwrap(), content)
 }
@@ -600,6 +601,7 @@ fn a_pair_the_create_screen_does_not_offer_is_refused() {
         zone: None,
         granted: Vec::new(),
         move_log: None,
+        hub: false,
     })
     .unwrap();
     let codes = create_the_added_pairs(&server, &content);
@@ -807,7 +809,7 @@ fn a_hero_wears_its_class_gear_in_the_run() {
 }
 
 /// The character list arms each hero with its class's chosen weapon loadout, so the camp's
-/// figure holds it (roadmap R3): the warrior's two-hander alone in the
+/// figure holds it: the warrior's two-hander alone in the
 /// main hand, then his sword and shield once chosen.
 #[test]
 fn the_character_list_holds_the_chosen_loadout() {

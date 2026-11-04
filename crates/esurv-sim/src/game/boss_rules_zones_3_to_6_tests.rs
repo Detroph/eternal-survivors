@@ -450,6 +450,8 @@ fn eranikus_is_shielded_while_his_suppressors_live_and_his_clouds_drift() {
     boss_near(&mut r, "Shade of Eranikus");
     assert_eq!(roster_count(&r, "Nightmare Suppressor"), 3, "they come with him, once");
     let k = boss(&r, "Shade of Eranikus").unwrap();
+    // health enough for every hit below, whatever the formula gives him at minute 0
+    (r.enemies[k].max_health, r.enemies[k].health) = (100_000.0, 100_000.0);
     let (me, max) = (r.enemies[k].id, r.enemies[k].max_health);
     let hit = |r: &mut Run| {
         let k = boss(r, "Shade of Eranikus").unwrap();

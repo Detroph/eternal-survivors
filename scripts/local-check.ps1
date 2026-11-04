@@ -1,5 +1,6 @@
 # The local check (the game has no CI yet, so it stands in for one).
-# In order: the game crates' tests, the golden run, the client-name scan, then the
+# In order: the game crates' tests, the golden run, the client-name scan, the private-word scan
+# (the repository's tracked text against %USERPROFILE%\.esurv\leak-terms.txt), then the
 # release build and archive with their leak scans. Prints a pass/fail line for each and exits 0
 # only when all pass.
 #
@@ -8,7 +9,7 @@
 # -GoldenHash compares the golden run's hash with a recorded one (design.md step 9, item 2);
 # without it the hash is printed. -Version defaults to the workspace version (release-archive.ps1);
 # -Junction is the release build's neutral path (release-build.ps1). benilla-app's own tests do
-# not build on Windows, so only the game's crates are tested. Uses CARGO_BUILD_JOBS (8 when unset).
+# not build on Windows, so only the game's crates are tested. Uses CARGO_BUILD_JOBS (14 when unset).
 
 param(
     [string]$GoldenHash = '',
@@ -20,7 +21,7 @@ param(
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..')).ProviderPath
 Set-Location $repo
-if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '8' }
+if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '14' }
 $logs = Join-Path $repo 'logs'
 New-Item -ItemType Directory -Force $logs | Out-Null
 $results = [ordered]@{}
@@ -83,6 +84,16 @@ Step 'client-name scan' (Join-Path $logs 'check-client-names.log') {
     if (-not $line) { return @{ Ok = $false; Note = "(no result, exit $code)" } }
     $n = [int]$line.Matches[0].Groups[1].Value
     @{ Ok = ($code -eq 0 -and $n -eq 0); Note = "($n client names written as text elsewhere)" }
+}
+
+Step 'private-word scan' (Join-Path $logs 'check-private-words.log') {
+    param($log)
+    $termsFile = Join-Path $env:USERPROFILE '.esurv\leak-terms.txt'
+    $terms = @(if (Test-Path $termsFile) { Get-Content $termsFile | Where-Object { $_ -and -not $_.StartsWith('#') } })
+    if (-not $terms) { return @{ Ok = $true; Note = '(no private words file)' } }
+    $hits = @(git -C $repo grep -n -i -E ($terms -join '|') 2>$null)
+    $hits | Set-Content -Path $log -Encoding utf8
+    @{ Ok = ($hits.Count -eq 0); Note = "($($hits.Count) tracked lines name a private word)" }
 }
 
 if (-not $SkipRelease) {

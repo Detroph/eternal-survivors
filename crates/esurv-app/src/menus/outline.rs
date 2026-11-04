@@ -31,7 +31,7 @@ pub(crate) const PULSE: f32 = 0.25;
 /// The picked hero's mask (`SceneFigureMask`).
 pub(crate) const HERO_MASK: usize = 0;
 /// The gold, in gamma bytes; its alpha is the glow's strength at the edge.
-const GOLD: Vec4 = Vec4::new(1.0, 0.80, 0.38, 0.55);
+pub(crate) const GOLD: Vec4 = Vec4::new(1.0, 0.80, 0.38, 0.55);
 
 /// The outline's material: the mask, the colour and the sizes.
 #[derive(Asset, TypePath, AsBindGroup, Debug, Clone)]

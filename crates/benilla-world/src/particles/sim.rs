@@ -586,6 +586,7 @@ pub(super) fn simulate_particles(
             draining,
             alpha_src,
             alpha,
+            dim,
             anchor,
             anchor_pos,
             particles,
@@ -693,8 +694,10 @@ pub(super) fn simulate_particles(
         }
         // The model's render alpha (`emitter+0x1a8 = Model+0x19c`, `0x718960` at `0x719073`): an
         // entity cloud's composed model alpha, or a placed doodad's distance fade.
+        // Times the embedding game's own dim (`set_dim`), which also thins the births below.
         *alpha = alpha_src.map_or(1.0, |e| owner_mul.alpha(e))
-            * fade.as_ref().map_or(1.0, |f| f.distance_alpha(cam_pos));
+            * fade.as_ref().map_or(1.0, |f| f.distance_alpha(cam_pos))
+            * *dim;
         // The model's live translation, or the last known while the pool drains.
         match *anchor {
             Some(a) => {
@@ -830,7 +833,7 @@ pub(super) fn simulate_particles(
             def.burst(),
             rate,
             emitting,
-            density * dist_lod,
+            density * dist_lod * *dim,
             dt,
             accumulator,
             gate_prev,
@@ -929,7 +932,7 @@ pub(super) fn simulate_particles(
                 particles,
                 c_rate,
                 c_emitting,
-                density * dist_lod,
+                density * dist_lod * *dim,
                 dt,
                 anchored,
                 &emit_place,

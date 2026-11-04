@@ -179,8 +179,8 @@ fn formula_stats(b: &Balance, kind: EnemyType, toughness: f32, difficulty: f32, 
     let k = b.multipliers(kind);
     let s = &b.zone_scaling;
     (
-        b.base_health * k.health * s.health_factor(kind, difficulty) * time_curve(&b.health_clock, m) * toughness,
-        b.base_damage * k.damage * s.damage_factor(kind, difficulty) * time_curve(&b.damage_clock, m),
+        b.base_health * k.health * s.health_factor(difficulty) * time_curve(&b.health_clock, m) * toughness,
+        b.base_damage * k.damage * s.damage_factor(difficulty) * time_curve(&b.damage_clock, m),
     )
 }
 

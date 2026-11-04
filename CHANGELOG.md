@@ -3,6 +3,36 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.6.0
+
+The Caverns of Time update: a walkable camp, achievements and a whole new look.
+
+### Patch notes
+
+**Gameplay**
+- **A walkable camp at the Caverns of Time** replaces the character screen. Walk around as your hero, with the Horde and Alliance camps side by side. Each hero has their own tent, and talking to another hero lets you take them over.
+- **The menus are now places in the camp:** the zone portal, the shop and the rest are things you walk up to and use.
+- **A guided first visit:** new players are shown around the camp and their faction's half.
+- **Achievements:** over 50 to earn, for general play and for every class's starting spells and weapon loadouts. They give points and titles.
+- **Shop:** spend points on over 60 companions that follow you and pick up gold, plus tabards, weapon glows, camp decorations and run upgrades. Some companions only come from achievements.
+- **Bounties:** repeatable goals that keep paying points after the one-off achievements are done.
+
+**Balance**
+- **Enemy strength** now follows one formula across all zones. Elites, rares and bosses are tougher: bosses last about a minute and final bosses about two.
+
+**Quality of life**
+- **New look:** a new title screen, and menus and windows in night blue, bronze and gold.
+- **New music** in Tanaris and the Caverns of Time, and a clock ticking on loading screens.
+
+### Changelog
+
+**Fixes**
+- Many smaller fixes to the camp, its people and its menus.
+
+**Install and technical**
+- WoW's own names (spells, classes, races, places) are read from your WoW files when the game starts, as before, now including all the new text.
+- Older saves are carried over: achievements you had already earned are granted when you first start 0.6.0.
+
 ## v0.5.5
 
 A small balance update.

@@ -37,6 +37,8 @@ pub(crate) mod output;
 mod probe;
 mod reverb;
 mod sheathe;
+mod carried;
+mod through_loading;
 mod spell;
 mod ui;
 mod vocal;
@@ -49,6 +51,9 @@ pub(crate) fn kit_decodes() -> u32 {
     kit::DECODES.load(std::sync::atomic::Ordering::Relaxed)
 }
 pub(crate) use glue::GlueSound;
+pub use carried::{AmbientSprinkle, CarriedSound, LoadingSound};
+pub use through_loading::SoundThroughLoading;
+pub use zone::ZoneMusicOverrides;
 pub(crate) use greeting::NpcGreetingRequest;
 /// Named by the schedule tests' class table (`game_plugins::schedule_tests::Classes`).
 #[cfg(test)]
@@ -435,6 +440,8 @@ impl Plugin for SoundPlugin {
         reverb::plugin(app);
         interior::plugin(app);
         sheathe::plugin(app);
+        through_loading::plugin(app);
+        carried::plugin(app);
     }
 }
 

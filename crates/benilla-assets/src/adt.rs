@@ -8,8 +8,8 @@
 use std::collections::HashMap;
 
 use benilla_formats::{
-    adt_to_tile_mesh, blp_bytes_to_native_chain, ChunkMesh, Doodad, WmoInstance, ALPHA_MAP_SIZE,
-    SHADOW_MAP_SIZE,
+    adt_to_tile_mesh, blp_bytes_to_native_chain, parse_wmo_root, wmo_carve, wmo_group_submeshes,
+    CarvedPieces, ChunkMesh, Doodad, TileMesh, WmoInstance, ALPHA_MAP_SIZE, SHADOW_MAP_SIZE,
 };
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, LoadContext, RenderAssetUsages};
@@ -125,6 +125,46 @@ pub fn chunks_to_mesh(parts: &[(&ChunkMesh, &ChunkShading)]) -> Option<Mesh> {
     Some(mesh)
 }
 
+/// Move the baked shadows of a carved building on this tile with its pieces (`set_wmo_carve`):
+/// each untilted placement of a building with a carve and a sun has its pieces' shadows moved.
+async fn reshade_carved(ctx: &mut LoadContext<'_>, tile: &mut TileMesh) -> anyhow::Result<()> {
+    for wmo in tile.wmos.clone() {
+        let Some(carve) = wmo_carve(&wmo.model).filter(|c| c.sun.is_some()) else {
+            continue;
+        };
+        let [rx, ry, rz] = wmo.rotation;
+        if rx != 0.0 || rz != 0.0 {
+            continue;
+        }
+        let root_path = wmo.model.replace('\\', "/").to_ascii_lowercase();
+        let root = parse_wmo_root(&ctx.read_asset_bytes(format!("mpq://{root_path}")).await?)?;
+        let stem = root_path
+            .strip_suffix(".wmo")
+            .unwrap_or(&root_path)
+            .to_string();
+        let mut batches = Vec::new();
+        for gi in 0..root.group_count() {
+            if let Ok(group) = ctx
+                .read_asset_bytes(format!("mpq://{stem}_{gi:03}.wmo"))
+                .await
+            {
+                batches.extend(wmo_group_submeshes(&group, &root)?);
+            }
+        }
+        // the placement turns the building `ry − 180°` about up when untilted (`wmo_floor`)
+        let (sin, cos) = (ry - 180.0).to_radians().sin_cos();
+        let place = |p: [f32; 3]| {
+            [
+                p[0] * cos - p[1] * sin + wmo.position[0],
+                p[0] * sin + p[1] * cos + wmo.position[1],
+                p[2] + wmo.position[2],
+            ]
+        };
+        CarvedPieces::new(carve, &batches).reshade(&mut tile.chunks, place);
+    }
+    Ok(())
+}
+
 /// Loads a `*.adt` tile into an [`AdtTile`].
 #[derive(Default, TypePath)]
 pub struct AdtLoader;
@@ -143,7 +183,8 @@ impl AssetLoader for AdtLoader {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
         let to_io = |e: anyhow::Error| std::io::Error::other(format!("{e:#}"));
-        let tile = adt_to_tile_mesh(&bytes).map_err(to_io)?;
+        let mut tile = adt_to_tile_mesh(&bytes).map_err(to_io)?;
+        reshade_carved(ctx, &mut tile).await.map_err(to_io)?;
 
         // Layer array: a solid-green fallback at index 0, then each unique layer texture, packed
         // once the whole tile is read.

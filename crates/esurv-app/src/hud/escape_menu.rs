@@ -18,7 +18,9 @@
 //!   the client alone ([`MenuHere`]), with Continue (it closes), Options, End Run and Quit Game;
 //! * on the end panel (a fall or a victory) likewise, with only Options, Return to main menu (`leave`, as
 //!   the panel's own) and Quit Game: nothing that would cross the panel's Run Again or Go Endless.
-//!   The end panel hides while it is up.
+//!   The end panel hides while it is up;
+//! * in the camp ([`CampMenuOpen`]) there is no run: the menu opens on the client with only
+//!   Options and Quit Game, once a window open over the camp has closed.
 //!
 //! A second Escape closes a menu opened on the client; so does the phase moving on (a step taken
 //! under it, a fresh run, the hero out of the world). One ask at a time ([`PendingAsk`]). How it
@@ -45,10 +47,13 @@ pub enum MenuKind {
     BeforeStart,
     /// Over the end panel (a fall or a victory), opened on the client.
     RunOver,
+    /// In the camp, opened on the client: Options and Quit Game alone.
+    Camp,
 }
 
 impl MenuKind {
-    pub const ALL: [MenuKind; 3] = [MenuKind::Paused, MenuKind::BeforeStart, MenuKind::RunOver];
+    pub const ALL: [MenuKind; 4] =
+        [MenuKind::Paused, MenuKind::BeforeStart, MenuKind::RunOver, MenuKind::Camp];
 
     /// Its buttons, top to bottom.
     pub fn buttons(self) -> &'static [MenuButton] {
@@ -61,19 +66,48 @@ impl MenuKind {
                 MenuButton::Quit,
             ],
             MenuKind::RunOver => &[MenuButton::Options, MenuButton::End, MenuButton::Quit],
+            MenuKind::Camp => &[MenuButton::Options, MenuButton::Quit],
         }
     }
 
     /// Its heading and the hint under it.
     pub fn words(self) -> (&'static str, &'static str) {
         use super::state::{
-            BEFORE_START_HINT, GAME_MENU_TITLE, MENU_HINT, MENU_TITLE, RUN_OVER_HINT,
+            BEFORE_START_HINT, CAMP_HINT, GAME_MENU_TITLE, MENU_HINT, MENU_TITLE, RUN_OVER_HINT,
         };
         match self {
             MenuKind::Paused => (MENU_TITLE, MENU_HINT),
             MenuKind::BeforeStart => (GAME_MENU_TITLE, BEFORE_START_HINT),
             MenuKind::RunOver => (GAME_MENU_TITLE, RUN_OVER_HINT),
+            MenuKind::Camp => (GAME_MENU_TITLE, CAMP_HINT),
         }
+    }
+}
+
+/// The menu is open in the camp: the run's menu stands in for the stock game menu in the camp too, on the client alone
+/// (there is no run to pause), as [`MenuKind::Camp`]. A window open over the camp, the Decorate
+/// list and the stock windows (a talk window) take Escape first and close.
+#[derive(Resource, Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CampMenuOpen(pub bool);
+
+/// The menu showing, the camp's included: the camp's while it is open there, else
+/// [`menu_kind`].
+pub fn menu_showing(phase: Option<Phase>, here: MenuHere, camp: CampMenuOpen) -> Option<MenuKind> {
+    if camp.0 {
+        return Some(MenuKind::Camp);
+    }
+    menu_kind(phase, here)
+}
+
+/// What Escape does in the camp, with the menu open there or not and the Options panel open or
+/// not: the panel closes first, then the menu; else the menu opens.
+pub fn answer_escape_in_camp(camp: CampMenuOpen, options_open: bool) -> EscapeAnswer {
+    if options_open {
+        EscapeAnswer::CloseOptions
+    } else if camp.0 {
+        EscapeAnswer::CloseInCamp
+    } else {
+        EscapeAnswer::OpenInCamp
     }
 }
 
@@ -109,6 +143,10 @@ pub enum EscapeAnswer {
     OpenHere(Phase),
     /// The menu opened on the client closes.
     CloseHere,
+    /// The camp's menu opens ([`CampMenuOpen`]).
+    OpenInCamp,
+    /// The camp's menu closes.
+    CloseInCamp,
     Nothing,
 }
 
@@ -460,6 +498,30 @@ mod tests {
             assert!(kind.buttons().contains(&MenuButton::Quit));
             assert!(!kind.words().0.is_empty());
         }
+    }
+
+    /// In the camp Escape opens the menu with Options and Quit Game alone, a second Escape closes
+    /// it, and the Options panel closes before it; the runs' menus keep their run buttons.
+    #[test]
+    fn the_camp_menu_has_only_options_and_quit_game() {
+        use EscapeAnswer::*;
+        assert_eq!(MenuKind::Camp.buttons(), &[MenuButton::Options, MenuButton::Quit]);
+        for b in [MenuButton::Continue, MenuButton::Reset, MenuButton::End] {
+            assert!(!MenuKind::Camp.buttons().contains(&b), "{b:?}: no run in the camp");
+        }
+        assert_eq!(MenuKind::Paused.buttons(), &MenuButton::ALL, "a run's menu as it was");
+        assert!(MenuKind::BeforeStart.buttons().contains(&MenuButton::End));
+        assert_eq!(MenuKind::Camp.words().1, "Press Escape to return to the camp.");
+        let (shut, open) = (CampMenuOpen(false), CampMenuOpen(true));
+        assert_eq!(answer_escape_in_camp(shut, false), OpenInCamp);
+        assert_eq!(answer_escape_in_camp(open, false), CloseInCamp);
+        assert_eq!(answer_escape_in_camp(open, true), CloseOptions, "the Options panel first");
+        let none = MenuHere::default();
+        assert_eq!(menu_showing(None, none, open), Some(MenuKind::Camp));
+        assert_eq!(menu_showing(None, none, shut), None);
+        assert_eq!(menu_showing(Some(Phase::Paused), none, shut), Some(MenuKind::Paused));
+        assert_eq!(MenuButton::Options.press(MenuKind::Camp), Press::Nothing, "the menus open the panel");
+        assert_eq!(MenuButton::Quit.press(MenuKind::Camp), Press::Ask(ToServer::Leave));
     }
 
     #[test]

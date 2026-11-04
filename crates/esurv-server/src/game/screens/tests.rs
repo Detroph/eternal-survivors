@@ -94,22 +94,25 @@ fn the_bar_holds_seven_spells_then_the_race_spell() {
 }
 
 #[test]
-fn hello_brings_the_armory_the_options_the_codex_then_the_hud() {
+fn hello_brings_the_armory_the_options_the_codex_the_achievements_then_the_hud() {
     let (mut game, _client, saves) = game();
     let hero = game.hero_id(0);
     saves.add_to_codex("accuria");
     assert!(after_tick(&mut game).is_empty(), "nothing before hello");
     let t = told(&game.ask(hero, hello(Screens::default())));
-    let [ToClient::Ready(r), ToClient::Progress(p), ToClient::RunOptions { options, bonus }, ToClient::Codex { found }, ToClient::LookStyles(styles), ToClient::SheathHolds(holds)] =
+    let [ToClient::Ready(r), ToClient::ArenaEdge { radius, camp, .. }, ToClient::Progress(p), ToClient::RunOptions { options, bonus }, ToClient::Codex { found }, ToClient::Achievements(achievements), ToClient::LookStyles(styles), ToClient::SheathHolds(holds)] =
         &t[..]
     else {
         panic!("{t:?}")
     };
     assert_eq!((r.name.as_str(), r.class.as_str()), ("Ana", "Class 8"));
     assert_eq!(r.zone, game.run.content.zones[0].name);
+    // a run's edge, red, round its arena
+    assert_eq!((*radius, *camp), (game.run.content.zones[0].arena_radius, false));
     assert_eq!((p.class.as_str(), p.points, p.zones_open), ("mage", 0, 1));
     assert_eq!((options.density, options.speed, *bonus), (100, 100, 1.0));
     assert_eq!(found, &["accuria"]);
+    assert_eq!((achievements.score, achievements.earned.len()), (0, 0));
     assert!(!styles.is_empty(), "how the options' looks are drawn");
     assert!(holds.is_empty(), "a mage holds no sheath state");
     let t = after_tick(&mut game);
@@ -1125,7 +1128,7 @@ fn a_reset_in_a_running_run_started_at_once_starts_the_next_at_once() {
 fn a_reset_never_ends_another_heros_run() {
     let (mut game, _client, saves) = game();
     let ana = game.hero_id(0);
-    // a second hero joins the same run (roadmap R6): the run is rebuilt with both
+    // a second hero joins the same run: the run is rebuilt with both
     let bo = saves.create("Bo", "warrior", "orc", 0, [0; 5]).unwrap();
     let content = game.run.content.clone();
     let ana_saved = game.saved(ana).unwrap().clone();

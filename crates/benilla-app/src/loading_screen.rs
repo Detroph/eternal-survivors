@@ -158,6 +158,9 @@ pub(crate) struct LoadingScreen {
     pub(crate) tip_edge: Option<TipEdge>,
     /// Capture only: the clear is skipped while set ([`Self::hold_for_capture`]).
     held: bool,
+    /// The screens with art raised since launch, one per screen: a raise onto one already up is
+    /// the same screen ([`Self::shown_screens`]).
+    screens: u32,
 
     /// `Time::elapsed_secs` at the last raise and at the last wait log line.
     active_since: f32,
@@ -172,6 +175,25 @@ impl LoadingScreen {
         self.active
     }
 
+    /// Whether the cover is up with its art: a load, not the plain black of the world's leave.
+    pub(crate) fn shows_art(&self) -> bool {
+        self.active && !self.blackout
+    }
+
+    /// How many screens with art have risen since launch: each counts once, however many raises
+    /// it takes (a portal's onto the world entry's), and the world's black leave not at all. The
+    /// loading sound plays once for each ([`crate::sound`]).
+    pub(crate) fn shown_screens(&self) -> u32 {
+        self.screens
+    }
+
+    /// A raise: a new screen unless one with art is already up.
+    fn count_the_screen(&mut self) {
+        if !self.shows_art() {
+            self.screens = self.screens.wrapping_add(1);
+        }
+    }
+
     /// An active cover, for tests.
     #[cfg(test)]
     pub(crate) fn test_covering() -> Self {
@@ -179,6 +201,21 @@ impl LoadingScreen {
             active: true,
             ..Self::default()
         }
+    }
+
+    /// A raise, a dismiss and the world's black leave, for tests elsewhere in the crate.
+    #[cfg(test)]
+    pub(crate) fn test_raise(&mut self, map: Option<u32>) {
+        self.raise("test", false, map, 0.0);
+    }
+    #[cfg(test)]
+    pub(crate) fn test_dismiss(&mut self) {
+        self.dismiss();
+    }
+    #[cfg(test)]
+    pub(crate) fn test_blackout(&mut self) {
+        self.active = true;
+        self.blackout = true;
     }
 
     /// Take the pending raise's tip edge; read once, by [`crate::game_tip::drive_game_tip`].
@@ -189,6 +226,7 @@ impl LoadingScreen {
     /// The capture instrument (`WOW_CAPTURE=loading-tip`): raise as the glue→world entry does,
     /// with art, bar and a `Pick` tip, and never clear. `map` latches the art as a raise's does.
     pub(crate) fn hold_for_capture(&mut self, map: Option<u32>) {
+        self.count_the_screen();
         self.active = true;
         self.blackout = false;
         self.awaiting_snap = false;
@@ -201,6 +239,7 @@ impl LoadingScreen {
     /// announced destination passes the current map). Only an edge that reaches the reference's
     /// transition entries calls this, never a snap ([`Self::snap_landed`]).
     fn raise(&mut self, reason: &str, awaiting_snap: bool, map: Option<u32>, now: f32) {
+        self.count_the_screen();
         self.active = true;
         self.blackout = false;
         self.awaiting_snap = awaiting_snap;

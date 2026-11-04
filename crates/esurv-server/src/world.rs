@@ -1,6 +1,7 @@
 //! The world server: one listener for every zone, and per connection the session handshake, the
 //! character screen (heroes from the save) and the hero in the run, in the zone chosen for it.
 
+use std::collections::HashSet;
 use std::net::{TcpListener, TcpStream};
 use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
@@ -39,6 +40,11 @@ pub struct Shared {
     pub granted: Vec<String>,
     /// Where every hero's moves are logged (a dev switch; `Game::log_moves_to`).
     pub move_log: Option<std::path::PathBuf>,
+    /// A hero of a faction with a camp enters its camp, not a run, unless sent off to one from
+    /// the camp's war table (the hub, on unless `ESURV_HUB=0`; `game::camp`).
+    pub hub: bool,
+    /// The heroes sent off to a run from the camp: their next time into the world is the run.
+    pub runs_asked: Arc<Mutex<HashSet<u32>>>,
 }
 
 impl Shared {
@@ -195,8 +201,15 @@ fn session(stream: TcpStream, shared: &Shared) -> Result<()> {
                     }
                 }
                 opcode::CMSG_MESSAGECHAT => {
-                    let asked = client::message_chat(&body)
-                        .ok()
+                    let line = client::message_chat(&body).ok();
+                    // `.gps`, typed in the chat: where the hero stands (a dev aid)
+                    if let (Some(w), Some(l)) = (&world, &line) {
+                        if l.text.trim().eq_ignore_ascii_case(".gps") {
+                            let _ = w.host.send(Input::Gps { hero: w.hero });
+                            continue;
+                        }
+                    }
+                    let asked = line
                         .filter(|line| line.is_addon())
                         .and_then(|line| requests.read(&line.text));
                     if let (Some(w), Some(request)) = (&world, asked) {
@@ -239,10 +252,13 @@ fn session(stream: TcpStream, shared: &Shared) -> Result<()> {
                     let asked = client::guid(&body)?;
                     let save = game::clone_of(asked).or_else(|| u32::try_from(asked).ok());
                     if let Some(h) = save.and_then(|g| shared.saves.hero(g)) {
-                        let (race, class) = wow_ids(&content_in_use(&world, shared), &h);
+                        let content = content_in_use(&world, shared);
+                        let (race, class) = wow_ids(&content, &h);
+                        // with its title, shown over its head when names are shown
+                        let name = shared.saves.run_wears(&content, &h).name;
                         reply(packets::name_query_response(
                             asked,
-                            &h.name,
+                            &name,
                             race,
                             h.gender,
                             class,
@@ -258,6 +274,7 @@ fn session(stream: TcpStream, shared: &Shared) -> Result<()> {
                             name: l.name.into(),
                             data: [0; 24],
                         })
+                        .or_else(|| game::camp_object_info(entry))
                         .or_else(|| game::door_info(&content_in_use(&world, shared), entry))
                         .or_else(|| game::object_info(&content_in_use(&world, shared), entry));
                     reply(packets::gameobject_query_response(entry, info.as_ref()))?;
@@ -273,8 +290,28 @@ fn session(stream: TcpStream, shared: &Shared) -> Result<()> {
                     let entry = client::creature_query(&body)?;
                     reply(packets::creature_query_response(
                         entry,
-                        creature_info(&content_in_use(&world, shared), entry).as_ref(),
+                        game::camp_creature_info(entry).or_else(|| creature_info(&content_in_use(&world, shared), entry)).as_ref(),
                     ))?;
+                }
+                // in the camp: talking to a hero at its tent, using a thing, the talk window's
+                // options and words
+                opcode::CMSG_GOSSIP_HELLO | opcode::CMSG_GAMEOBJ_USE => {
+                    if let Some(w) = &world {
+                        let speaker = client::guid(&body)?;
+                        let _ = w.host.send(Input::Talked { hero: w.hero, speaker });
+                    }
+                }
+                opcode::CMSG_GOSSIP_SELECT_OPTION => {
+                    if let Some(w) = &world {
+                        let (speaker, option) = client::gossip_select(&body)?;
+                        let _ = w.host.send(Input::Picked { hero: w.hero, speaker, option });
+                    }
+                }
+                opcode::CMSG_NPC_TEXT_QUERY => {
+                    if let Some(w) = &world {
+                        let (text, _) = client::npc_text_query(&body)?;
+                        let _ = w.host.send(Input::TextAsked { hero: w.hero, text });
+                    }
                 }
                 op if is_movement(op) => {
                     if let Some(w) = &world {
@@ -342,9 +379,14 @@ fn roster(shared: &Shared) -> Vec<RosterEntry> {
                     // its class gear, its weapons its weapon loadout's
                     let progress = shared.saves.class_progress(&content, &h.class);
                     let worn = crate::looks::worn_looks(&content, &h.class, &progress);
-                    crate::looks::char_enum_equipment(&crate::looks::armed(
+                    let mut slots = crate::looks::char_enum_equipment(&crate::looks::armed(
                         &content, &h.class, &progress, worn,
-                    ))
+                    ));
+                    // its tabard over any armour (step 3 of the achievements)
+                    if let Some(display) = shared.saves.run_wears(&content, h).tabard {
+                        slots[crate::game::TABARD_SLOT] = (display, crate::game::TABARD_INVENTORY_TYPE as u8);
+                    }
+                    slots
                 },
             }
         })
@@ -390,8 +432,11 @@ fn create_hero(shared: &Shared, req: &client::CharCreate) -> u8 {
 /// What a pet's creature query answers under its name.
 const PET_SUBNAME: &str = "Companion";
 
-/// What the creature query tells about `entry`: a zone enemy, a boss, a totem, an experience orb
-/// or a pet. A rare answers under its own entry as the elite it copies, ranked rare: the
+/// `CreatureType.dbc`'s critter, what a companion is.
+const CRITTER: u32 = 8;
+
+/// What the creature query tells about `entry`: a zone enemy, a boss, a totem, an experience orb,
+/// a pet or a companion. A rare answers under its own entry as the elite it copies, ranked rare: the
 /// silver dragon on its portrait where the elite wears the gold one.
 fn creature_info(content: &Content, entry: u32) -> Option<CreatureInfo> {
     if let Some(elite) = crate::entries::rare_of(entry) {
@@ -438,6 +483,16 @@ fn creature_info(content: &Content, entry: u32) -> Option<CreatureInfo> {
             display_id: game::BUNNY_DISPLAY,
         });
     }
+    // a companion: its name, a critter (`CreatureType.dbc` 8)
+    if let Some(c) = crate::entries::companion_of(entry).and_then(|place| content.companions.get(place)) {
+        return Some(CreatureInfo {
+            name: c.name.clone(),
+            subname: String::new(),
+            creature_type: CRITTER,
+            rank: RANK_NORMAL,
+            display_id: c.display(),
+        });
+    }
     if entry == crate::entries::BATTLE_STANDARD {
         return Some(CreatureInfo {
             name: game::STANDARD_NAME.into(),
@@ -482,6 +537,9 @@ fn enter_world(
         .ok_or(code::CHAR_LOGIN_NO_CHARACTER)?;
     // the run takes the content as it is now and keeps it to its end, whatever is loaded meanwhile
     let content = shared.content();
+    if let Some(camp) = camp_for(shared, &content, &saved) {
+        return enter_camp(shared, &content, camp, &saved, writer);
+    }
     let zone = shared.zone_of(&content, &saved);
     // a class enters only the zones it has opened (the first is always open), or any in Challenge Mode
     if !shared.saves.zone_open_for_next_run(&content, &saved.class, zone) {
@@ -521,6 +579,48 @@ fn enter_world(
         guid: game::player_guid(&saved),
         host,
         content,
+        _mark: shared.saves.enter_world(),
+    })
+}
+
+/// The camp hero `saved` enters in place of a run: its faction's, with the hub on, unless the
+/// camp's war table sent it off to a run (which this takes back).
+fn camp_for(shared: &Shared, content: &Content, saved: &SavedHero) -> Option<game::CampPlace> {
+    if !shared.hub || shared.runs_asked.lock().unwrap().remove(&saved.guid) {
+        return None;
+    }
+    let faction = content.races.iter().find(|r| r.id == saved.race)?.faction;
+    game::camp_of(faction)
+}
+
+/// Brings hero `saved` into its faction's camp, with the warband's other heroes, both sides', at their
+/// tents.
+fn enter_camp(
+    shared: &Shared,
+    content: &Content,
+    place: game::CampPlace,
+    saved: &SavedHero,
+    writer: Arc<Mutex<PacketWriter>>,
+) -> Result<InWorld, u8> {
+    let (camp, zone) = game::camp_content(content, place, game::camp_hour(shared.saves.runs_back())).ok_or(code::CHAR_LOGIN_NO_WORLD)?;
+    let temperaments: Vec<String> = content.camp_chatter.temperaments.iter().map(|t| t.id.clone()).collect();
+    shared.saves.give_temperaments(&temperaments);
+    // both sides' heroes in the one camp
+    let warband = shared.saves.heroes();
+    let (host, inputs) = mpsc::channel();
+    let mut game = Game::new(camp.clone(), shared.data.as_ref(), zone, saved, shared.saves.clone(), inputs)
+        .ok_or(code::CHAR_LOGIN_NO_WORLD)?;
+    game.make_camp(place, saved.guid, &warband, shared.runs_asked.clone());
+    let hero = game.hero_id(0);
+    if !game.join(Player { hero, saved: saved.clone(), writer }) {
+        return Err(code::CHAR_LOGIN_NO_WORLD);
+    }
+    std::thread::spawn(move || game.host());
+    Ok(InWorld {
+        hero,
+        guid: game::player_guid(saved),
+        host,
+        content: camp,
         _mark: shared.saves.enter_world(),
     })
 }
@@ -604,6 +704,8 @@ mod tests {
             zone: None,
             granted: Vec::new(),
             move_log: None,
+            hub: false,
+            runs_asked: Default::default(),
         };
         let old_health = warrior_health(&shared.content());
         let (writer, _peer) = quiet_writer();

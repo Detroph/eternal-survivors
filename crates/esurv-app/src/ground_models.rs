@@ -202,6 +202,10 @@ fn model(look: &LookModel, once: bool) -> GroundLookModel {
         tint: look.tint,
         once,
         recolor: false,
+        whole: false,
+        lean_back_degrees: 0.0,
+        level_sideways: false,
+        rest_on: Vec::new(),
     }
 }
 
@@ -219,6 +223,10 @@ fn model_of_switch(text: &str) -> Option<GroundLookModel> {
         tint: None,
         once: false,
         recolor: false,
+        whole: false,
+        lean_back_degrees: 0.0,
+        level_sideways: false,
+        rest_on: Vec::new(),
     })
 }
 

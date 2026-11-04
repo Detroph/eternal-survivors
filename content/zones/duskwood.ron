@@ -30,7 +30,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
         ),
         (
@@ -39,7 +39,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.5,
         ),
         (
@@ -48,7 +48,7 @@
             scale: 0.6,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 1.0,
         ),
         (
@@ -57,7 +57,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 2.0,
             look_spell: Some(686),
         ),
@@ -67,7 +67,7 @@
             scale: 1.1,
             creature_type: Undead,
             kind: Mid,
-            toughness: 1.0,
+            role: Sturdy,
             appears_at_minute: 3.0,
         ),
         (
@@ -76,7 +76,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: FastMid,
-            toughness: 1.0,
+            role: Sturdy,
             appears_at_minute: 4.5,
         ),
         (
@@ -85,7 +85,7 @@
             scale: 0.35,
             creature_type: Beast,
             kind: FastMid,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 6.0,
         ),
         (
@@ -94,7 +94,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 7.5,
             look_spell: Some(116),
         ),
@@ -104,7 +104,7 @@
             scale: 1.5,
             creature_type: Undead,
             kind: ToughMid,
-            toughness: 3.25,
+            role: Brute,
             appears_at_minute: 9.0,
         ),
         (
@@ -139,7 +139,7 @@
             scale: 1.0,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -170,6 +170,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.85), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Mor'Ladim",
@@ -199,6 +200,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.97), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Stitches",
@@ -230,6 +232,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.84), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Lupos",
@@ -265,6 +268,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.79), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Morbent Fel",
@@ -324,6 +328,7 @@
                 ),
             ],
             is_final: true,
+            health_share: Some(0.1), // About 120 s, halfway between plain play and the damage build
         ),
     ],
 )

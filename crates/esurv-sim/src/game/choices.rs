@@ -61,6 +61,19 @@ pub enum Offer {
     Gold(u32),
 }
 
+/// What banishing offer `o` bars from the hero's offers for the rest of the run:
+/// a spell's cards (learning or upgrading it), a ring's or trinket's (new or upgrade), an amulet,
+/// empowering, or the gold card.
+pub fn banish_key(o: &Offer) -> String {
+    match o {
+        Offer::NewSpell { spell, .. } | Offer::UpgradeSpell { spell, .. } => format!("spell:{spell}"),
+        Offer::NewJewelry { id, .. } | Offer::UpgradeJewelry { id, .. } => format!("jewelry:{id}"),
+        Offer::Amulet { amulet } => format!("amulet:{}", amulet.id),
+        Offer::Empower => "empower".into(),
+        Offer::Gold(_) => "gold".into(),
+    }
+}
+
 impl Offer {
     /// The codex entry this offer collects once its card is shown: a new ring or trinket, or a
     /// new necklace (ordinary or legendary), by its id.
@@ -192,12 +205,15 @@ impl Run {
         let partners = super::kit::option_of(&content, h).map_or(0, |o| o.spells.len().saturating_sub(1));
         if let Some(w) = new_spell_weight(h.spells.known.len().saturating_sub(partners)) {
             let common = super::kit::option_of(&content, h).map_or(&[][..], |o| o.common_cards.as_slice());
-            for id in class.card_pool(Some(&h.start)).iter().filter(|id| !h.spells.knows(id)) {
+            for id in class.card_pool(Some(&h.start)).iter().filter(|id| !h.spells.knows(id) && !self.barred(hero, &format!("spell:{id}"))) {
                 let w = if common.contains(id) { w * COMMON_CARD_WEIGHT_FACTOR } else { w };
                 cands.push((w, None, id.clone()));
             }
         }
         for slot in &h.spells.known {
+            if self.barred(hero, &format!("spell:{}", slot.spell)) {
+                continue;
+            }
             let Some(a) = content.ability(&slot.spell) else { continue };
             let inst = slot.instance();
             let lasting = matches!(a.effect, SpellEffect::DamageBuff { .. } | SpellEffect::HasteBuff { .. } | SpellEffect::Thorns { .. })
@@ -264,7 +280,7 @@ impl Run {
         let buffs = h.spells.known.iter().chain(h.spells.racial.iter()).filter_map(spell).any(strengthened_by_buff_power);
         let dots = h.spells.known.iter().filter_map(spell).any(|a| a.delivery == Delivery::DamageOverTime);
         let mut cands: Vec<(f32, Cand)> = Vec::new();
-        for j in &content.jewelry {
+        for j in content.jewelry.iter().filter(|j| !self.barred(hero, &format!("jewelry:{}", j.id))) {
             match h.jewelry.iter().find(|w| w.id == j.id) {
                 Some(w) => {
                     let open = match j.stat {
@@ -290,7 +306,7 @@ impl Run {
             }
         }
         cands.push((AMULET_WEIGHT, Cand::Amulet));
-        if h.amulet.is_some() {
+        if h.amulet.is_some() && !self.barred(hero, "empower") {
             cands.push((EMPOWER_WEIGHT, Cand::Empower));
         }
         let picks = pick_distinct(&mut self.rng, cands.iter().map(|c| c.0).collect(), OFFERS_PER_SCREEN);
@@ -332,7 +348,8 @@ impl Run {
                 Cand::Amulet => {
                     let known: Vec<&Ability> = h.spells.known.iter().filter_map(|s| content.ability(&s.spell)).collect();
                     let worn = h.amulet.as_ref().map(|a| a.amulet.id.clone());
-                    let list = amulet_candidates(&content, rarity, worn.as_deref(), &known);
+                    let mut list = amulet_candidates(&content, rarity, worn.as_deref(), &known);
+                    list.retain(|a| !self.barred(hero, &format!("amulet:{}", a.id)));
                     if let Some(amulet) = pick_amulet(&mut self.rng, &list) {
                         offers.push(Offer::Amulet { amulet: Box::new(amulet) });
                     }
@@ -352,10 +369,81 @@ impl Run {
                 }
             }
         }
-        if offers.len() < OFFERS_PER_SCREEN {
+        if offers.len() < OFFERS_PER_SCREEN && !self.barred(hero, "gold") {
             offers.push(Offer::Gold(gold_card(self.field.cache_price)));
         }
         offers
+    }
+
+    /// Whether `key` (`banish_key`) is barred from hero `hero`'s offers: banished this run, or on
+    /// the screen already while a banished card's slot is filled.
+    fn barred(&self, hero: usize, key: &str) -> bool {
+        self.heroes[hero].banished.iter().any(|b| b == key) || self.offer_exclude.iter().any(|b| b == key)
+    }
+
+    /// The open screen's hero banishes offer `index`: it is never offered to
+    /// the hero again this run, and a fresh offer takes its slot (none left: the slot empties; a
+    /// screen left with no offer closes, taking nothing). Spends one of the run's banishes; false
+    /// with none left, no screen, another hero's, or no such offer.
+    pub fn banish(&mut self, hero: u32, index: usize) -> bool {
+        let Some(screen) = self.screen.clone() else { return false };
+        let i = screen.hero;
+        if self.heroes[i].id != hero || index >= screen.offers.len() || self.heroes[i].banishes_left == 0 {
+            return false;
+        }
+        self.heroes[i].banishes_left -= 1;
+        let key = banish_key(&screen.offers[index]);
+        self.heroes[i].banished.push(key);
+        // a fresh offer, none of those still on the screen
+        self.offer_exclude = screen.offers.iter().enumerate().filter(|&(k, _)| k != index).map(|(_, o)| banish_key(o)).collect();
+        let fresh = self.build_offers(i, screen.kind);
+        self.offer_exclude.clear();
+        let refill = fresh
+            .into_iter()
+            .filter(|o| !self.barred(i, &banish_key(o)) && !screen.offers.iter().any(|s| banish_key(s) == banish_key(o)))
+            // a level-up's gold card is only what a screen with nothing else offers
+            .find(|o| !(screen.kind == ScreenKind::LevelUp && matches!(o, Offer::Gold(_))));
+        let mut offers = screen.offers.clone();
+        match refill {
+            Some(o) => offers[index] = o,
+            None => {
+                offers.remove(index);
+            }
+        }
+        if offers.is_empty() {
+            self.close_screen(&screen, hero);
+            return true;
+        }
+        self.screen = Some(ChoiceScreen { offers: offers.clone(), ..screen });
+        self.push(Event::ScreenOpened { hero, kind: screen.kind, offers });
+        true
+    }
+
+    /// The open screen's hero skips it: it closes, nothing taken, nothing given.
+    /// Spends one of the run's skips; false with none left, no screen or another hero's.
+    pub fn skip(&mut self, hero: u32) -> bool {
+        let Some(screen) = self.screen.clone() else { return false };
+        let i = screen.hero;
+        if self.heroes[i].id != hero || self.heroes[i].skips_left == 0 {
+            return false;
+        }
+        self.heroes[i].skips_left -= 1;
+        self.close_screen(&screen, hero);
+        true
+    }
+
+    /// `screen` closes, nothing taken: its owed screen is done, and the run goes on.
+    fn close_screen(&mut self, screen: &ChoiceScreen, hero: u32) {
+        let i = screen.hero;
+        match screen.kind {
+            ScreenKind::LevelUp => self.heroes[i].pending_choices -= 1,
+            ScreenKind::Cache => self.heroes[i].pending_caches -= 1,
+            ScreenKind::RareCache => self.heroes[i].pending_rare_caches -= 1,
+        }
+        self.push(Event::ScreenSkipped { hero });
+        self.screen = None;
+        self.run_again();
+        self.open_pending_screen();
     }
 
     /// The open screen's hero takes offer `index`.
@@ -619,6 +707,48 @@ mod tests {
         if new_spell.is_some() {
             assert_eq!(r.heroes[0].spells.known.len(), 2);
         }
+    }
+
+    /// Banish: the card goes for the rest of the run, a fresh one takes its
+    /// slot, rerolls never bring it back; with no banish left it is refused.
+    #[test]
+    fn a_banished_card_is_replaced_and_never_offered_again() {
+        let mut r = run("mage");
+        r.heroes[0].banishes_left = 1;
+        r.gain_experience(0, 200);
+        r.tick(0.05);
+        let id = r.heroes[0].id;
+        let before = r.screen.clone().unwrap().offers;
+        let gone = banish_key(&before[1]);
+        assert!(r.banish(id, 1));
+        let after = r.screen.clone().unwrap().offers;
+        assert_eq!(r.heroes[0].banishes_left, 0);
+        assert!(after.iter().all(|o| banish_key(o) != gone), "{gone} is gone");
+        assert_eq!((&after[0], &after.get(2)), (&before[0], &before.get(2)), "the others stay");
+        assert!(!r.banish(id, 0), "none left");
+        r.heroes[0].gold = 1_000_000_000;
+        for _ in 0..8 {
+            assert!(r.reroll(id));
+            assert!(r.screen.as_ref().unwrap().offers.iter().all(|o| banish_key(o) != gone), "rerolls never bring it back");
+        }
+    }
+
+    /// Skip: the screen closes with nothing taken; with no skip left it is
+    /// refused.
+    #[test]
+    fn a_skip_closes_the_screen_taking_nothing() {
+        let mut r = run("mage");
+        r.gain_experience(0, 200);
+        r.tick(0.05);
+        let id = r.heroes[0].id;
+        assert!(!r.skip(id), "no skip bought");
+        r.heroes[0].skips_left = 1;
+        let (gold, known) = (r.heroes[0].gold, r.heroes[0].spells.known.len());
+        assert!(r.skip(id));
+        assert_eq!(r.phase, Phase::Running);
+        assert_eq!(r.heroes[0].pending_choices, 0);
+        assert_eq!((r.heroes[0].gold, r.heroes[0].spells.known.len(), r.heroes[0].skips_left), (gold, known, 0));
+        assert!(r.drain_events().contains(&Event::ScreenSkipped { hero: id }));
     }
 
     #[test]

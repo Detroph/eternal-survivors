@@ -27,6 +27,8 @@ esurv-sim = { path = "../esurv-sim" }
 # The meter window's kept place and size (`meter.ron`).
 serde = { version = "1", features = ["derive"] }
 ron = "0.12"
+# The title screen's art, a JPEG carried inside the exe and decoded once at launch (`title_screen`).
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 # The game window's icon, loaded from the game exe's own icon resource (`window_icon`).
 winit = { version = "0.30", default-features = false }
 # The update check and download (`update`): ureq over rustls with its ring provider, the server

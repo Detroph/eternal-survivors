@@ -373,7 +373,9 @@ pub fn attacker_state_hand(attacker: u64, victim: u64, damage: u32, crit: bool, 
 /// Chat types and languages the server speaks with.
 const CHAT_MSG_WHISPER: u8 = 0x06;
 const CHAT_MSG_SYSTEM: u8 = 0x0A;
+const CHAT_MSG_MONSTER_SAY: u8 = 0x0B;
 const CHAT_MSG_MONSTER_YELL: u8 = 0x0C;
+const CHAT_MSG_MONSTER_EMOTE: u8 = 0x0D;
 const CHAT_MSG_RAID_BOSS_EMOTE: u8 = 0x5A;
 const CHAT_MSG_RAID_WARNING: u8 = 0x58;
 const LANGUAGE_UNIVERSAL: u32 = 0;
@@ -386,8 +388,26 @@ fn len_string(b: &mut Body, s: &str) {
 
 /// `SMSG_MESSAGECHAT`: unit `guid` named `name` yells `text`.
 pub fn monster_yell(guid: u64, name: &str, text: &str) -> Packet {
+    monster_chat(CHAT_MSG_MONSTER_YELL, guid, name, text)
+}
+
+/// `SMSG_MESSAGECHAT`: unit `guid` named `name` says `text`.
+pub fn monster_say(guid: u64, name: &str, text: &str) -> Packet {
+    monster_chat(CHAT_MSG_MONSTER_SAY, guid, name, text)
+}
+
+/// `Emotes.dbc` ids [`emote`] plays: talking, and a wave.
+pub const EMOTE_TALK: u32 = 1;
+pub const EMOTE_WAVE: u32 = 3;
+
+/// `SMSG_EMOTE`: unit `guid` plays emote `emote` (an `Emotes.dbc` id) once.
+pub fn emote(guid: u64, emote: u32) -> Packet {
+    Body::new().u32(emote).u64(guid).packet(opcode::SMSG_EMOTE)
+}
+
+fn monster_chat(kind: u8, guid: u64, name: &str, text: &str) -> Packet {
     let mut b = Body::new();
-    b.u8(CHAT_MSG_MONSTER_YELL)
+    b.u8(kind)
         .u32(LANGUAGE_UNIVERSAL)
         .u64(guid);
     len_string(&mut b, name);
@@ -398,8 +418,17 @@ pub fn monster_yell(guid: u64, name: &str, text: &str) -> Packet {
 
 /// `SMSG_MESSAGECHAT`: a line across the middle of the screen; `%s` in `text` is `name`.
 pub fn raid_boss_emote(name: &str, text: &str) -> Packet {
+    named_emote(CHAT_MSG_RAID_BOSS_EMOTE, name, text)
+}
+
+/// `SMSG_MESSAGECHAT`: an emote line in the chat frame; `%s` in `text` is `name`.
+pub fn monster_emote(name: &str, text: &str) -> Packet {
+    named_emote(CHAT_MSG_MONSTER_EMOTE, name, text)
+}
+
+fn named_emote(kind: u8, name: &str, text: &str) -> Packet {
     let mut b = Body::new();
-    b.u8(CHAT_MSG_RAID_BOSS_EMOTE).u32(LANGUAGE_UNIVERSAL);
+    b.u8(kind).u32(LANGUAGE_UNIVERSAL);
     len_string(&mut b, name);
     b.u64(0);
     len_string(&mut b, text);
@@ -659,6 +688,11 @@ pub fn play_sound(sound: u32) -> Packet {
     Body::new().u32(sound).packet(opcode::SMSG_PLAY_SOUND)
 }
 
+/// `SMSG_PLAY_SPELL_VISUAL`: a `SpellVisualKit.dbc` kit played on `unit`, outside any cast.
+pub fn play_spell_visual(unit: u64, kit: u32) -> Packet {
+    Body::new().u64(unit).u32(kit).packet(opcode::SMSG_PLAY_SPELL_VISUAL)
+}
+
 /// `SMSG_PLAY_OBJECT_SOUND`: a `SoundEntries.dbc` sound, played where object `source` stands.
 pub fn play_object_sound(sound: u32, source: u64) -> Packet {
     Body::new().u32(sound).u64(source).packet(opcode::SMSG_PLAY_OBJECT_SOUND)
@@ -707,15 +741,32 @@ pub fn monster_move(
     duration_ms: u32,
     run: bool,
 ) -> Packet {
+    monster_move_facing(guid, start, spline_id, path, duration_ms, run, None)
+}
+
+/// [`monster_move`], the unit turned to `facing` (a world angle) at the end, if given.
+pub fn monster_move_facing(
+    guid: u64,
+    start: [f32; 3],
+    spline_id: u32,
+    path: &[[f32; 3]],
+    duration_ms: u32,
+    run: bool,
+    facing: Option<f32>,
+) -> Packet {
     const MOVE_STOP: u8 = 1;
+    const MOVE_FACING_ANGLE: u8 = 4;
     const SPLINE_FLAG_RUNMODE: u32 = 0x100;
     let mut b = Body::new();
     b.packed_guid(guid).vec3(start).u32(spline_id);
     let Some((&end, before)) = path.split_last() else {
         return b.u8(MOVE_STOP).packet(opcode::SMSG_MONSTER_MOVE);
     };
-    b.u8(0)
-        .u32(if run { SPLINE_FLAG_RUNMODE } else { 0 })
+    match facing {
+        Some(angle) => b.u8(MOVE_FACING_ANGLE).f32(angle),
+        None => b.u8(0),
+    }
+    .u32(if run { SPLINE_FLAG_RUNMODE } else { 0 })
         .u32(duration_ms);
     b.u32(path.len() as u32).vec3(end);
     // the points before the last, as quarter-yard offsets back from it
@@ -751,6 +802,11 @@ pub fn teleport(guid: u64, counter: u32, position: [f32; 3], facing: f32) -> Pac
     b.packed_guid(guid).u32(counter);
     b.u32(0).u32(0).vec3(position).f32(facing).u32(0); // movement flags, time, place, facing, fall time
     b.packet(opcode::MSG_MOVE_TELEPORT_ACK)
+}
+
+/// `SMSG_STANDSTATE_UPDATE`: the client's own hero takes stand state `state` (sat on a chair).
+pub fn stand_state_update(state: u8) -> Packet {
+    Body::new().u8(state).packet(opcode::SMSG_STANDSTATE_UPDATE)
 }
 
 /// `SMSG_FORCE_MOVE_ROOT` (or `_UNROOT` when `rooted` is false): the client's own hero cannot
@@ -1265,4 +1321,39 @@ mod tests {
             assert_eq!(mode, benilla_protocol::MoveMode::Root);
         }
     }
+}
+
+/// `SMSG_GOSSIP_MESSAGE`: the talk window of `speaker` (a unit or a game object), its words the
+/// text `text_id` (answered by [`npc_text_update`]) and its options, each a chat bubble, numbered
+/// from 0 in order; no quests.
+pub fn gossip_message(speaker: u64, text_id: u32, options: &[String]) -> Packet {
+    let mut b = Body::new();
+    b.u64(speaker).u32(text_id).u32(options.len() as u32);
+    for (i, o) in options.iter().enumerate() {
+        // its index, the chat icon, no code asked
+        b.u32(i as u32).u8(0).u8(0).cstr(o);
+    }
+    b.u32(0);
+    b.packet(opcode::SMSG_GOSSIP_MESSAGE)
+}
+
+/// `SMSG_NPC_TEXT_UPDATE`: the words of text `text_id`, the same for either sex, in its first of
+/// the eight greetings (always picked), the others empty.
+pub fn npc_text_update(text_id: u32, words: &str) -> Packet {
+    let mut b = Body::new();
+    b.u32(text_id);
+    for i in 0..8 {
+        let w = if i == 0 { words } else { "" };
+        b.f32(if i == 0 { 1.0 } else { 0.0 }).cstr(w).cstr(w).u32(0);
+        // three emotes: delay and emote, none
+        for _ in 0..3 {
+            b.u32(0).u32(0);
+        }
+    }
+    b.packet(opcode::SMSG_NPC_TEXT_UPDATE)
+}
+
+/// `SMSG_GOSSIP_COMPLETE`: the talk window closes.
+pub fn gossip_complete() -> Packet {
+    Body::new().packet(opcode::SMSG_GOSSIP_COMPLETE)
 }

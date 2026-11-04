@@ -82,7 +82,7 @@ pub fn next_boss_text(endless: bool, next_boss: Option<u32>) -> Option<String> {
     if endless {
         return Some("Endless mode".into());
     }
-    next_boss.map(|s| format!("Boss arrives in {}", clock_text(s)))
+    next_boss.map(|s| format!("Boss in {}", clock_text(s)))
 }
 
 /// A boss bar's health, as the stock status bars write it.
@@ -134,12 +134,13 @@ pub const GAME_MENU_TITLE: &str = "Game Menu";
 pub const BEFORE_START_HINT: &str =
     "The fight begins with your first step. Press Escape to return.";
 pub const RUN_OVER_HINT: &str = "Press Escape to return to the run report.";
+/// The menu opened in the camp: no run to pause, end or reset.
+pub const CAMP_HINT: &str = "Press Escape to return to the camp.";
 /// Said when the server will not reset the run: another hero still fights in it.
 pub const RESET_REFUSED: &str = "The run cannot be reset while another hero is still in it.";
 
-/// The readouts' labels.
+/// The kills' label, under their count.
 pub const KILLS_LABEL: &str = "Foes slain";
-pub const GOLD_LABEL: &str = "Gold";
 
 /// The next cache's price, under the gold.
 pub fn cache_text(price: u32) -> String {
@@ -196,7 +197,7 @@ mod tests {
     fn the_next_boss_line_has_three_cases() {
         assert_eq!(
             next_boss_text(false, Some(146)).as_deref(),
-            Some("Boss arrives in 2:26")
+            Some("Boss in 2:26")
         );
         assert_eq!(next_boss_text(false, None), None, "none left to come");
         assert_eq!(

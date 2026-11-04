@@ -33,12 +33,12 @@ this page is [guides/bosses.txt](guides/bosses.txt). Zones, rosters and rares ar
 | `name`, `yell` | Shown over its head; shouted when it arrives. |
 | `display_id`, `scale`, `creature_type` | Its look, as for roster enemies (zones.md). |
 | `spawn_minute` | Run minute it arrives. |
-| (health, damage) | Not set per boss: the boss kind of the enemy formula (zones.md section 4) at the minute it arrives, 240 × 37.5 × `normal_health`(D)^`boss_health_power` × health clock^`boss_clock_power` and 8 × 2 × `normal_damage`(D)^`boss_damage_power` × damage clock; the final boss (`is_final`) takes ×75 health and ×1 damage instead. Then the run options and ×1.22 health, ×1.12 damage per Endless minute. It swings every 2 s and its abilities scale off this damage. |
+| (health, damage) | Not set per boss: the boss kind of the enemy formula (zones.md section 4) at the minute it arrives, a plain multiple of a normal enemy of its zone at that minute: 240 × 40.2 × D^`health_power` × health clock^`boss_clock_power` (0.45, the gentle boss clock) and 8 × 1.3 × (D^`health_power`)^`damage_share` × damage clock; the final boss (`is_final`) takes ×45 health and ×0.65 damage instead; its `health_share` on top. Then the difficulty dial: the run options and ×1.22 health, ×1.12 damage per Endless minute (and Challenge Mode's factor). It swings every 2 s and its abilities scale off this damage. |
 | `move_speed` | Optional, `Some(..)`: its own yards per second instead of `boss_move_speed` in `enemy_kinds.ron` (6 for every boss). Both × the speed run option. |
 | `abilities` | Its special attacks (section 3). |
 | `is_final` | Killing the final boss wins the run; with several, killing the last of them. |
 | `at` | Optional: the spot it comes at (x, y, z, facing) instead of the boss ring. |
-| `health_share` | Optional: its share of the formula's health, above 1 for more. Fitted to the boss-time goals (AUTHORING.md section 16, "The rule for bosses") with the baseline hero (2026-10-25): Loksey, Herod 0.75; Doan, Morphaz 0.8; Zevrim 1.1; Fairbanks 0.6; Jin'do 1.5; Baroness Anastari 1.25; Bloodlord Mandokir 0.85 (his pair with Ohgan); Warsong's first player boss 0.8 and its final 0.5; Mograine 0.75 and Whitemane 0.6 (the pair); King Gordok, Nefarian 0.6; C'Thun 1.2; Shade of Eranikus 0.3. |
+| `health_share` | Optional: its share of the formula's health, above 1 for more. Every boss has its own, fitted so it lives about 60 s (a final boss about 120 s) halfway between plain play and the damage build, the mean of the two (AUTHORING.md section 16, "The rule for bosses"); the value and why sit beside it in its zone file. Bosses whose fight follows a mechanic (Rend, Rajaxx, the Avatar of Hakkar, Majordomo, Ossirian, Cho'Rush) keep the health they had before. |
 | `called` | Optional, `true`: only a script brings it (`Call`, section 6); the schedule passes it by (Whitemane, Cho'Rush the Observer, Ohgan). |
 | `aggro_sound` | Optional, `Some(..)`: the original boss's own pull voice line, a `SoundEntries.dbc` id, played to everyone (`SMSG_PLAY_SOUND`) as it arrives, with its yell. The yell's text stays ours; the audio is the client's. Left out for a boss the 1.12 client gives no voice, and never played for one a hand-made character plays. The ids are in section 5. |
 
@@ -418,8 +418,8 @@ fall, the undead come in just inside the square's south gate (`Wave` at `Spot`, 
 staying shut), the Slaughterhouse door opens on the run clock at 19:57 (`opens_at_minute`
 19.95), the Baron's door by his script (`Door`), the Death Pact skeletons stay up (WoW kills
 them), and the Baron's line before Ramstein is an emote with his name, as he is not up yet. Ours,
-open to tuning: the 0.3 / 0.7 split, the wind-ups, Maleki's heal share and timer, the Death
-Pact share, the adds' kinds and toughness, the six scarabs (WoW 4, 6 or 8). From WoW: the 34
+open to tuning: Ramstein's and the Baron's shares (each fitted on its own since 2026-10-30, 0.3 / 0.7 before), the wind-ups, Maleki's heal share and timer, the Death
+Pact share, the adds' kinds and roles, the six scarabs (WoW 4, 6 or 8). From WoW: the 34
 undead, the 5 Sentries, the 60 s, the six skeletons every 15 s and 12 s later, the 10 yd Crowd
 Pummel, the 10 s Knockout and Shadow Bolt, the spots. Dropped as crowd control or with no
 building block: Barthilas's Draining Blow, Anastari's Silence, Banshee Curse and the mind control

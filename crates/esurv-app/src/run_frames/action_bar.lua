@@ -2,15 +2,19 @@
 -- `run_frames::action_bar` runs this once in each interface VM, right after the run frames'
 -- Lua, which calls `ESURV_ACTION_BAR.apply()` whenever the run turns on or off.
 --
--- In a run the stock main bar (MainMenuBar.xml, 1024 wide) is laid out compact and centred, from
--- its own art: eight buttons (seven spells, the race spell on the eighth), the page arrows and the
--- page number, then four micro buttons (character, spellbook, talents, main menu: its tooltip
--- "Options"), a gryphon at each end. The bar's slots past the eighth and the bag slots' strip are
--- left out (ActionButton9 to 12, the bag buttons and the latency bar the run frames hide). The
--- experience bar above it takes the new width in ten segments: the stock strip's first and last
--- quarters, five segments each.
+-- In a run the stock main bar (MainMenuBar.xml, 1024 wide) is recreated in our own art, after a mock-up; the art is
+-- esurv-app's `stock_look::BAR_ART`): eight buttons (seven spells, the race spell on the eighth)
+-- in one bronze frame, each in its own dark well and bronze rim, centred, a dragon at each end
+-- (`stock_look.lua`); the experience bar over it, seated on the frame's top edge, in a bronze
+-- frame ticked in tenths; and apart, at the screen's bottom right, four micro buttons in a frame
+-- of their own (character, the hero's portrait in a bronze frame; spellbook, a book; talents, a
+-- target; main menu, a computer, its tooltip "Options"). The bar's frame and the micro buttons' sit
+-- at one distance from the screen's foot.
+-- Left out: the stock strips, the page arrows and number, the
+-- slots past the eighth and the bag slots (ActionButton9 to 12, the bag buttons and the latency
+-- bar the run frames hide).
 --
--- Out of a run every piece is put back as the stock file laid it out.
+-- Out of a run every piece is put back as the stock file laid it out, and ours hidden.
 --
 -- Returns true once installed, false while the stock bar is not loaded yet.
 
@@ -26,29 +30,40 @@ local M = {}
 ESURV_ACTION_BAR = M
 
 -- ── The layout, in the stock bar's units ─────────────────────────────────────────────────────
--- Button `i` sits at 8 + (i - 1) × 42 as in the stock bar; the eighth ends at 338. The stock art
--- strips are 256 wide: strip 0 holds the bar's left end and buttons 1 to 6, strip 1 buttons 7 to
--- 12 and, at its last 6, the pillar before the arrows, strip 2 the arrows, the page number and
--- the micro buttons, strip 3 the latency bar and the bag slots.
+-- Button `i` sits at 8 + (i - 1) × 42 as in the stock bar; the eighth ends at 338.
 M.BUTTONS = 8
 local SLOTS_END = 338
-local PILLAR = 6
--- where strip 2 starts: the arrows' centre 10 in, the page number 30, the first micro button 40
-local ARROWS_AT = SLOTS_END + PILLAR
-local MICRO_STEP = 26
-local MICRO_WIDTH = 29
-local MICRO_BUTTONS = 4
-local MICRO_END = ARROWS_AT + 40 + (MICRO_BUTTONS - 1) * MICRO_STEP + MICRO_WIDTH
--- the bar ends just past the last micro button, where the right gryphon's body starts
-M.WIDTH = MICRO_END + 3
--- the gryphons overlap each end by 32, as the stock caps do
-local CAP_OVERLAP = 32
--- the experience bar's segments: ten, of a tenth each
+-- the frame round the buttons: this far out from them, its edge this thick
+local TRAY_PAD = 5
+local EDGE = 8
+-- the bar ends as far past the eighth button as the first starts in
+M.WIDTH = SLOTS_END + 8
+-- the frame's foot and the micro buttons' frame's, above the screen's foot
+M.BOTTOM_GAP = 6
+-- the micro buttons: their size (the art's shape), the step between them, their frame's padding,
+-- and how far in from the screen's right edge it sits
+local MICRO_WIDTH, MICRO_HEIGHT = 28, 38
+local MICRO_GAP = 1
+local MICRO_PAD = 5
+M.MICRO_RIGHT = 8
+-- each button's rim, this much past the button on each side
+local RIM_OUT = 2
+-- the experience bar: its height, how far in from the frame's ends, how far down over its edge
+M.XP_HEIGHT = 10
+local XP_IN = 14
+local XP_DOWN = 6
+-- the experience frame's art (1024 by 32): the bar's window in it
+local XP_ART_W, XP_ART_H = 1024, 32
+local XP_WIN_L, XP_WIN_R, XP_WIN_T, XP_WIN_B = 14, 1010, 7, 25
+-- the experience bar's ticks: ten segments of a tenth each, drawn in the frame's art
 M.XP_SEGMENTS = 10
+-- the dragons' caps (`stock_look.lua` draws a dragon on each) overlap each end by this much
+local CAP_OVERLAP = 38
 
--- the art rows of strips 1 and 2 (MainMenuBar.xml's TexCoords)
-local STRIP1_TOP, STRIP1_BOTTOM = 0.58203125, 0.75
-local STRIP2_TOP, STRIP2_BOTTOM = 0.33203125, 0.5
+-- our art (esurv-app's `stock_look::BAR_ART`)
+local ART = "Interface\\ESurv\\"
+-- the micro buttons' art: the button in the top 172 of its 256 rows
+local MICRO_ART_BOTTOM = 172 / 256
 
 -- ── Keeping the stock layout ─────────────────────────────────────────────────────────────────
 -- Each piece the run moves, as the stock file left it: its anchors, size, art rows and whether
@@ -109,18 +124,177 @@ local function hide(region)
     end
 end
 
--- The pillar before the arrows, cut from strip 1's last 6 (made once, shown only in a run).
-local function pillar()
-    local t = EsurvActionBarPillar
-    if not t then
-        t = MainMenuBarArtFrame:CreateTexture("EsurvActionBarPillar", "ARTWORK")
-        t:SetTexture("Interface\\MainMenuBar\\UI-MainMenuBar-Dwarf")
-        t:SetTexCoord(1 - PILLAR / 256, 1, STRIP1_TOP, STRIP1_BOTTOM)
-        t:SetHeight(43)
-        t:SetWidth(PILLAR)
-        t:SetPoint("BOTTOMLEFT", MainMenuBarArtFrame, "BOTTOMLEFT", SLOTS_END, 0)
+-- A button's state art as the stock file left it (normal, pushed, disabled, highlight) and its
+-- hit insets.
+local stock_art = {}
+local STATES = { "Normal", "Pushed", "Disabled", "Highlight" }
+
+local function remember_art(button)
+    if stock_art[button] then
+        return
     end
-    return t
+    local s = {}
+    for _, state in ipairs(STATES) do
+        local t = button["Get" .. state .. "Texture"](button)
+        if t then
+            s[state] = { path = t:GetTexture(), tex = { t:GetTexCoord() } }
+        end
+    end
+    s.insets = { button:GetHitRectInsets() }
+    stock_art[button] = s
+end
+
+local function restore_art(button, s)
+    for _, state in ipairs(STATES) do
+        local was = s[state]
+        if was then
+            button["Set" .. state .. "Texture"](button, was.path)
+            local t = button["Get" .. state .. "Texture"](button)
+            local c = was.tex
+            t:SetTexCoord(c[1], c[2], c[3], c[4], c[5], c[6], c[7], c[8])
+            t:SetVertexColor(1, 1, 1, 1)
+        end
+    end
+    local i = s.insets
+    button:SetHitRectInsets(i[1] or 0, i[2] or 0, i[3] or 0, i[4] or 0)
+end
+
+-- ── Our pieces ───────────────────────────────────────────────────────────────────────────────
+-- Made on the first run, shown only in a run.
+local ours = {}
+
+-- A frame of `art` round `frame`, nine-sliced: its corners a quarter of the art, `edge` wide.
+local function nine_slice(frame, art, edge, layer)
+    local q = 0.25
+    local corners = {
+        { "TOPLEFT", 0, q, 0, q }, { "TOPRIGHT", 1 - q, 1, 0, q },
+        { "BOTTOMLEFT", 0, q, 1 - q, 1 }, { "BOTTOMRIGHT", 1 - q, 1, 1 - q, 1 },
+    }
+    for _, c in ipairs(corners) do
+        local t = frame:CreateTexture(nil, layer)
+        t:SetTexture(art)
+        t:SetTexCoord(c[2], c[3], c[4], c[5])
+        t:SetWidth(edge)
+        t:SetHeight(edge)
+        t:SetPoint(c[1], frame, c[1], 0, 0)
+    end
+    -- the sides, between the corners: from `tl` of the frame to `br`, cut l to r, t to b
+    local function side(tl, tl_x, tl_y, br, br_x, br_y, l, r, t, b)
+        local s = frame:CreateTexture(nil, layer)
+        s:SetTexture(art)
+        s:SetTexCoord(l, r, t, b)
+        s:SetPoint("TOPLEFT", frame, tl, tl_x, tl_y)
+        s:SetPoint("BOTTOMRIGHT", frame, br, br_x, br_y)
+    end
+    side("TOPLEFT", edge, 0, "TOPRIGHT", -edge, -edge, q, 1 - q, 0, q)
+    side("BOTTOMLEFT", edge, edge, "BOTTOMRIGHT", -edge, 0, q, 1 - q, 1 - q, 1)
+    side("TOPLEFT", 0, -edge, "BOTTOMLEFT", edge, edge, 0, q, q, 1 - q)
+    side("TOPRIGHT", -edge, -edge, "BOTTOMRIGHT", 0, edge, 1 - q, 1, q, 1 - q)
+end
+
+-- A small shadow round a frame's outline: `BarShadow.tga` nine-sliced, its corners SHADOW_EDGE wide with the
+-- outline half way in, so it stands out that far round the frame, dropped a little.
+local SHADOW_EDGE, SHADOW_DROP = 16, 2
+local function shadow(frame)
+    local s = CreateFrame("Frame", nil, frame)
+    -- under the frame and all it holds
+    s:SetFrameLevel(math.max(0, frame:GetFrameLevel() - 1))
+    local out = SHADOW_EDGE / 2
+    s:SetPoint("TOPLEFT", frame, "TOPLEFT", -out, out - SHADOW_DROP)
+    s:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", out, -out - SHADOW_DROP)
+    nine_slice(s, ART .. "BarShadow.tga", SHADOW_EDGE, "BACKGROUND")
+end
+
+-- The night-dark fill inside a frame.
+local function fill(frame)
+    local t = frame:CreateTexture(nil, "BORDER")
+    t:SetTexture(0.055, 0.035, 0.02, 0.85)
+    t:SetPoint("TOPLEFT", frame, "TOPLEFT", 3, -3)
+    t:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -3, 3)
+end
+
+local function make_ours()
+    if ours.tray then
+        return
+    end
+    local level = MainMenuBar:GetFrameLevel()
+    -- the frame round the buttons, under them: its fill and each button's well
+    local tray = CreateFrame("Frame", "EsurvActionBarTray", MainMenuBar)
+    tray:SetFrameLevel(level)
+    tray:SetPoint("TOPLEFT", ActionButton1, "TOPLEFT", -TRAY_PAD, TRAY_PAD)
+    tray:SetPoint("BOTTOMRIGHT", getglobal("ActionButton" .. M.BUTTONS), "BOTTOMRIGHT", TRAY_PAD,
+        -TRAY_PAD)
+    fill(tray)
+    shadow(tray)
+    -- over the buttons: the frame's edge and each button's rim
+    local over = CreateFrame("Frame", "EsurvActionBarRims", MainMenuBar)
+    over:SetAllPoints(tray)
+    over:SetFrameLevel(ActionButton1:GetFrameLevel() + 2)
+    nine_slice(over, ART .. "BarFrame.tga", EDGE, "ARTWORK")
+    for i = 1, M.BUTTONS do
+        local b = getglobal("ActionButton" .. i)
+        local well = tray:CreateTexture("EsurvActionBarWell" .. i, "ARTWORK")
+        well:SetTexture(ART .. "BarWell.tga")
+        well:SetAllPoints(b)
+        local rim = over:CreateTexture("EsurvActionBarRim" .. i, "OVERLAY")
+        rim:SetTexture(ART .. "BarRim.tga")
+        rim:SetPoint("TOPLEFT", b, "TOPLEFT", -RIM_OUT, RIM_OUT)
+        rim:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", RIM_OUT, -RIM_OUT)
+    end
+    -- the experience bar's frame, over the bar (its spark over that, `stock_look.lua`)
+    local xp = CreateFrame("Frame", "EsurvXpFrame", MainMenuExpBar)
+    xp:SetAllPoints(MainMenuExpBar)
+    xp:SetFrameLevel(MainMenuExpBar:GetFrameLevel() + 2)
+    ours.xp_art = xp:CreateTexture("EsurvXpFrameArt", "ARTWORK")
+    ours.xp_art:SetTexture(ART .. "XpFrame.tga")
+    -- the micro buttons' frame, at the screen's bottom right
+    local micro = CreateFrame("Frame", "EsurvMicroFrame", MainMenuBar)
+    micro:SetFrameLevel(level)
+    micro:SetWidth(4 * MICRO_WIDTH + 3 * MICRO_GAP + 2 * MICRO_PAD)
+    micro:SetHeight(MICRO_HEIGHT + 2 * MICRO_PAD)
+    micro:SetPoint("BOTTOMRIGHT", UIParent, "BOTTOMRIGHT", -M.MICRO_RIGHT, M.BOTTOM_GAP)
+    fill(micro)
+    shadow(micro)
+    local micro_edge = CreateFrame("Frame", "EsurvMicroFrameEdge", micro)
+    micro_edge:SetAllPoints(micro)
+    micro_edge:SetFrameLevel(CharacterMicroButton:GetFrameLevel() + 2)
+    nine_slice(micro_edge, ART .. "BarFrame.tga", EDGE - 2, "ARTWORK")
+    ours.tray, ours.over, ours.xp, ours.micro = tray, over, xp, micro
+end
+
+-- The experience frame's art round the bar, its window on the bar.
+local function seat_xp_art()
+    local w, h = MainMenuExpBar:GetWidth(), MainMenuExpBar:GetHeight()
+    local sx = w / (XP_WIN_R - XP_WIN_L)
+    local sy = h / (XP_WIN_B - XP_WIN_T)
+    local art = ours.xp_art
+    art:ClearAllPoints()
+    art:SetPoint("TOPLEFT", MainMenuExpBar, "TOPLEFT", -XP_WIN_L * sx, XP_WIN_T * sy)
+    art:SetWidth(XP_ART_W * sx)
+    art:SetHeight(XP_ART_H * sy)
+end
+
+-- A micro button in our art, the `n`th in its frame: `picture` its art (nil: the character
+-- button's frame, the hero's portrait showing through it).
+local function micro_button(button, n, picture)
+    remember_art(button)
+    place(button, "BOTTOMLEFT", ours.micro, "BOTTOMLEFT",
+        MICRO_PAD + (n - 1) * (MICRO_WIDTH + MICRO_GAP), MICRO_PAD, MICRO_WIDTH)
+    button:SetHeight(MICRO_HEIGHT)
+    button:SetHitRectInsets(0, 0, 0, 0)
+    local path = ART .. (picture or "MicroPortrait.tga")
+    -- held down a shade darker, unusable greyed
+    local shades = { Normal = 1, Pushed = 0.7, Disabled = 0.45 }
+    for state, shade in pairs(shades) do
+        button["Set" .. state .. "Texture"](button, path)
+        local t = button["Get" .. state .. "Texture"](button)
+        t:SetTexCoord(0, 1, 0, MICRO_ART_BOTTOM)
+        t:SetVertexColor(shade, shade, shade, 1)
+    end
+    button:SetHighlightTexture(ART .. "MicroGlow.tga")
+    local glow = button:GetHighlightTexture()
+    glow:SetTexCoord(0, 1, 0, MICRO_ART_BOTTOM)
+    glow:SetBlendMode("ADD")
 end
 
 -- ── The compact bar ──────────────────────────────────────────────────────────────────────────
@@ -128,26 +302,44 @@ local function lay_out_compact()
     local art = MainMenuBarArtFrame
     remember(MainMenuBar)
     MainMenuBar:SetWidth(M.WIDTH)
+    make_ours()
 
-    -- strip 0 whole, strip 1 up to the eighth button's frame, the pillar, then strip 2
-    place(MainMenuBarTexture0, "BOTTOMLEFT", art, "BOTTOMLEFT", 0, 0)
-    place(MainMenuBarTexture1, "BOTTOMLEFT", art, "BOTTOMLEFT", 256, 0, SLOTS_END - 256)
-    MainMenuBarTexture1:SetTexCoord(0, (SLOTS_END - 256) / 256, STRIP1_TOP, STRIP1_BOTTOM)
-    pillar():Show()
-    local rest = M.WIDTH - ARROWS_AT
-    place(MainMenuBarTexture2, "BOTTOMLEFT", art, "BOTTOMLEFT", ARROWS_AT, 0, rest)
-    MainMenuBarTexture2:SetTexCoord(0, rest / 256, STRIP2_TOP, STRIP2_BOTTOM)
-    hide(MainMenuBarTexture3)
+    -- the stock strips, arrows and page number gone; the buttons up so the frame's foot sits at
+    -- the gap
+    for i = 0, 3 do
+        hide(getglobal("MainMenuBarTexture" .. i))
+    end
+    hide(ActionBarUpButton)
+    hide(ActionBarDownButton)
+    hide(MainMenuBarPageNumber)
+    place(ActionButton1, "BOTTOMLEFT", art, "BOTTOMLEFT", 8, M.BOTTOM_GAP + TRAY_PAD)
+    -- the stock buttons' own frames give way to our rims
+    for i = 1, M.BUTTONS do
+        local n = getglobal("ActionButton" .. i .. "NormalTexture")
+        if n then
+            n:SetAlpha(0)
+        end
+    end
+    for _, frame in pairs({ ours.tray, ours.over, ours.micro, ours.xp }) do
+        frame:Show()
+    end
 
     place(MainMenuBarLeftEndCap, "BOTTOM", art, "BOTTOMLEFT", -CAP_OVERLAP, 0)
     place(MainMenuBarRightEndCap, "BOTTOM", art, "BOTTOMRIGHT", CAP_OVERLAP, 0)
 
-    place(ActionBarUpButton, "CENTER", art, "TOPLEFT", ARROWS_AT + 10, -22)
-    place(ActionBarDownButton, "CENTER", art, "TOPLEFT", ARROWS_AT + 10, -42)
-    place(MainMenuBarPageNumber, "CENTER", art, "TOPLEFT", ARROWS_AT + 30, -31.5)
-
-    place(CharacterMicroButton, "BOTTOMLEFT", art, "BOTTOMLEFT", ARROWS_AT + 40, 2)
-    place(MainMenuMicroButton, "BOTTOMLEFT", TalentMicroButton, "BOTTOMRIGHT", -3, 0)
+    micro_button(CharacterMicroButton, 1, nil)
+    micro_button(SpellbookMicroButton, 2, "MicroBook.tga")
+    micro_button(TalentMicroButton, 3, "MicroTarget.tga")
+    micro_button(MainMenuMicroButton, 4, "MicroPc.tga")
+    -- the hero's portrait in the character button's frame's window
+    if MicroButtonPortrait then
+        local inset = 3.5
+        remember(MicroButtonPortrait)
+        MicroButtonPortrait:ClearAllPoints()
+        MicroButtonPortrait:SetPoint("TOPLEFT", CharacterMicroButton, "TOPLEFT", inset, -inset)
+        MicroButtonPortrait:SetPoint("BOTTOMRIGHT", CharacterMicroButton, "BOTTOMRIGHT", -inset,
+            inset)
+    end
     -- the last micro button opens the run's Escape menu, so its tooltip reads "Options" (with its
     -- key binding as the stock tooltip shows it)
     if stock_menu_tooltip == nil then
@@ -155,23 +347,18 @@ local function lay_out_compact()
     end
     MainMenuMicroButton.tooltipText = MicroButtonTooltipText and MicroButtonTooltipText("Options", "TOGGLEGAMEMENU") or "Options"
 
-    -- the experience bar: strip 0's first five segments, then strip 3's last five
-    local half = M.WIDTH / 2
+    -- the experience bar seated on the frame's top edge, the
+    -- frame's width less its ends, in our frame; the stock strips and the level cap's rail gone
     remember(MainMenuExpBar)
-    MainMenuExpBar:SetWidth(M.WIDTH)
-    place(MainMenuXPBarTexture0, "BOTTOMLEFT", MainMenuExpBar, "BOTTOMLEFT", 0, 3, half)
-    place(MainMenuXPBarTexture3, "BOTTOMRIGHT", MainMenuExpBar, "BOTTOMRIGHT", 0, 3, half)
-    hide(MainMenuXPBarTexture1)
-    hide(MainMenuXPBarTexture2)
-    -- and the rail that stands in for it at the level cap, likewise
-    if MainMenuBarMaxLevelBar then
-        remember(MainMenuBarMaxLevelBar)
-        MainMenuBarMaxLevelBar:SetWidth(M.WIDTH)
-        place(MainMenuMaxLevelBar0, "BOTTOMLEFT", MainMenuBarMaxLevelBar, "TOPLEFT", 0, 0, half)
-        place(MainMenuMaxLevelBar3, "LEFT", MainMenuMaxLevelBar0, "RIGHT", 0, 0, half)
-        hide(MainMenuMaxLevelBar1)
-        hide(MainMenuMaxLevelBar2)
+    MainMenuExpBar:ClearAllPoints()
+    MainMenuExpBar:SetPoint("BOTTOMLEFT", ours.tray, "TOPLEFT", XP_IN, -XP_DOWN)
+    MainMenuExpBar:SetPoint("BOTTOMRIGHT", ours.tray, "TOPRIGHT", -XP_IN, -XP_DOWN)
+    MainMenuExpBar:SetHeight(M.XP_HEIGHT)
+    for i = 0, 3 do
+        hide(getglobal("MainMenuXPBarTexture" .. i))
     end
+    hide(MainMenuBarMaxLevelBar)
+    seat_xp_art()
     if ExhaustionTick_Update then
         ExhaustionTick_Update()
     end
@@ -182,12 +369,22 @@ local function lay_out_stock()
         restore(region, s)
     end
     stock = {}
+    for button, s in pairs(stock_art) do
+        restore_art(button, s)
+    end
+    stock_art = {}
+    for i = 1, M.BUTTONS do
+        local n = getglobal("ActionButton" .. i .. "NormalTexture")
+        if n then
+            n:SetAlpha(1)
+        end
+    end
+    for _, frame in pairs({ ours.tray, ours.over, ours.micro, ours.xp }) do
+        frame:Hide()
+    end
     if stock_menu_tooltip ~= nil then
         MainMenuMicroButton.tooltipText = stock_menu_tooltip or nil
         stock_menu_tooltip = nil
-    end
-    if EsurvActionBarPillar then
-        EsurvActionBarPillar:Hide()
     end
     if ExhaustionTick_Update then
         ExhaustionTick_Update()
@@ -207,6 +404,10 @@ function M.apply()
         lay_out_compact()
     else
         lay_out_stock()
+    end
+    -- the bar's colour follows the new layout once the look is on (stock_look.lua)
+    if ESURV_LOOK and ESURV_LOOK.tint_bar then
+        ESURV_LOOK.tint_bar()
     end
     if UIParent_ManageFramePositions then
         UIParent_ManageFramePositions()

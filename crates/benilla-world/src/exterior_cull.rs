@@ -519,6 +519,7 @@ mod tests {
                         scale: 1.0,
                         height: 2.0,
                         bound: Some(*bound),
+                        stands_outdoors: false,
                     },
                     Visibility::Inherited,
                 ));
@@ -694,6 +695,7 @@ mod tests {
                     scale: 1.0,
                     height: 2.0,
                     bound: Some(creature_box()),
+                    stands_outdoors: false,
                 },
                 crate::wmo_portal::UnitWmoRoom::claimed(crate::wmo_portal::WmoRoom {
                     instance: inst,

@@ -307,6 +307,41 @@ pub(super) const SUBJECT_INDOOR: [f32; 3] = [-9469.4, 31.9, 57.9];
 
 /// Every other named viewpoint, capturable by name (`WOW_CAPTURE=<name>`) but not in the sweep.
 pub(super) const ON_DEMAND: &[Scenario] = &[
+    // ---- Overhead shots of the walk-around camps' spots (an embedder's planning aid) ----
+    // Straight down from 60 and 150 yards over each camp's centre at noon, the look a hair off
+    // vertical so the camera has an up; the image's top is north (+x).
+    Scenario {
+        name: "camp-alliance-overhead",
+        map: Some(MAP_AZEROTH),
+        eye: [-5161.49, -599.80, 459.36],
+        look: [-5161.39, -599.80, 399.36],
+        minute: 720,
+        ui: None,
+    },
+    Scenario {
+        name: "camp-alliance-overhead-wide",
+        map: Some(MAP_AZEROTH),
+        eye: [-5161.49, -599.80, 549.36],
+        look: [-5161.39, -599.80, 399.36],
+        minute: 720,
+        ui: None,
+    },
+    Scenario {
+        name: "camp-horde-overhead",
+        map: Some(MAP_KALIMDOR),
+        eye: [-1355.87, -3893.82, 71.09],
+        look: [-1355.77, -3893.82, 11.09],
+        minute: 720,
+        ui: None,
+    },
+    Scenario {
+        name: "camp-horde-overhead-wide",
+        map: Some(MAP_KALIMDOR),
+        eye: [-1355.87, -3893.82, 161.09],
+        look: [-1355.77, -3893.82, 11.09],
+        minute: 720,
+        ui: None,
+    },
     // ---- The Deeprun Tram's undersea tube (map 369) ----
     // The one shipped map with no `Light.dbc` row, not even the falloff-0 global maps 0 and 1
     // carry, so its atmosphere is the WMO's own MFOG (record 2: RGB(30,53,100), end 236.1 yd,

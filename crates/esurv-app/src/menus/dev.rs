@@ -10,7 +10,9 @@
 //!   ([`super::script_action`]). Over a run: `over-run` waits until the options panel is open over
 //!   the paused run (`ESURV_MENU_PRESS=options@<seconds>` opens it), and `escape` presses
 //!   Escape inside the game (a key event of the game's own, as `ESURV_MENU_PRESS` sends it),
-//!   which the stock key binding window or the run's Escape menu answers.
+//!   which the stock key binding window or the run's Escape menu answers. In the camp:
+//!   `camp:<window>` waits until the hero walks the camp, then opens the window a thing of it
+//!   opens (`camp:zones`, the war table's; `camp:menu`, F1's).
 
 use bevy::app::AppExit;
 use bevy::input::keyboard::KeyboardInput;
@@ -52,6 +54,9 @@ enum Step {
     Double(MenuAction),
     /// A made-up end panel over the run (`end-panel:victory` or `end-panel:defeat`).
     EndPanel(esurv_protocol::Ending),
+    /// Once the hero walks the camp, the window a thing of it opens (`camp:zones`), as the
+    /// server opens it when the thing is used.
+    Camp(String),
 }
 
 /// Reads a script; a step it cannot read is left out, and said.
@@ -64,6 +69,7 @@ fn parse(script: &str) -> Vec<Step> {
             let step = match s.split_once(':') {
                 Some(("wait", t)) => t.trim().parse().ok().map(Step::Wait),
                 Some(("shot", name)) => Some(Step::Shot(name.trim().into())),
+                Some(("camp", window)) => Some(Step::Camp(window.trim().into())),
                 Some(("tip-start", id)) => Some(Step::Tip(Some(MenuAction::PickStart(id.trim().into())))),
                 Some(("tip-loadout", id)) => {
                     Some(Step::Tip(Some(MenuAction::PickLoadout(id.trim().into()))))
@@ -133,6 +139,7 @@ fn run_script(
     mut keys: MessageWriter<KeyboardInput>,
     mut forced: ResMut<ForcedTip>,
     mut end: Option<ResMut<crate::run_end::RunEndState>>,
+    mut visit: ResMut<crate::camp::CampVisit>,
 ) {
     if let Some(w) = script.escape_up.take() {
         keys.write(crate::hud::escape_key(w, ButtonState::Released));
@@ -188,6 +195,13 @@ fn run_script(
             info!("menus: the script double-clicks {action:?}");
             presses.write(MenuPress(action.clone()));
             presses.write(MenuPress(action));
+        }
+        Step::Camp(window) => {
+            if !visit.in_camp {
+                return;
+            }
+            info!("menus: the script opens the camp's {window} window");
+            visit.open = Some(window);
         }
         Step::EndPanel(ending) => {
             // once the hero is in its run

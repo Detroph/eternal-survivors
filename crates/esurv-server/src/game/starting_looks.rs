@@ -191,7 +191,7 @@ pub fn form_display(content: &Content, hero: &Hero) -> Option<u32> {
 /// Moonkin Form's look (`Spell.dbc`).
 const MOONKIN_FORM: u32 = 24858;
 
-/// How a hero's weapons show in its form (roadmap R3).
+/// How a hero's weapons show in its form.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormWeapons {
     /// No form: as its class carries them.
@@ -497,7 +497,7 @@ mod tests {
         assert!(styles.iter().filter(|s| s.spell == MARK_WARNING || s.spell == MARK_FILL).all(|s| s.tint.is_none() && !s.recolor));
     }
 
-    /// Roadmap R3: Cat and Bear Form show no weapons, Moonkin Form shows
+    /// Cat and Bear Form show no weapons, Moonkin Form shows
     /// them put away, a hero in no form as its class carries them.
     #[test]
     fn a_form_hides_or_puts_away_the_loadouts_weapons() {

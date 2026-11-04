@@ -25,35 +25,6 @@ fn found<'a>(ctx: &'a Ctx) -> Option<&'a BTreeSet<String>> {
     ctx.facts.codex()
 }
 
-/// Each list's count, a line each, and the total.
-pub(super) fn counts(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx) {
-    let Some(found) = found(ctx) else {
-        p.spawn(look.hint("What the save has found is not known here."));
-        return;
-    };
-    for list in CodexList::ALL {
-        let (have, all) = codex::found_of(ctx.content, list, found);
-        p.spawn(Node {
-            justify_content: JustifyContent::SpaceBetween,
-            ..default()
-        })
-        .with_children(|row| {
-            row.spawn(look.label(list.label()));
-            row.spawn(look.text(
-                Face::Plain,
-                11.0,
-                if have > 0 {
-                    palette::HEADING
-                } else {
-                    palette::LABEL
-                },
-                format!("{have} / {all}"),
-            ));
-        });
-    }
-    p.spawn(look.hint(codex::summary(ctx.content, found)));
-}
-
 /// The codex open: the lists, a page of one, the pieces.
 pub(super) fn draw(
     commands: &mut Commands,
@@ -75,10 +46,12 @@ pub(super) fn draw(
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                // every window's title at one height near the top, growing down
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::top(look.px(super::look::WINDOW_TOP)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+            BackgroundColor(palette::DIM),
             solid(),
             GlobalZIndex(super::MENU_LAYER + 10),
         ))

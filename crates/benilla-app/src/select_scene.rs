@@ -156,6 +156,10 @@ pub struct FigureHero {
     /// A slot the roster row leaves empty shows the race and class's starting outfit piece
     /// (`CharStartOutfit`, what the stock create screen dresses a new character in).
     pub start_outfit_under: bool,
+    /// The enchant (a `SpellItemEnchantment.dbc` id, 0 for none) on what is held in the main
+    /// hand, the off hand and the ranged slot, whose glow it shows as an enchanted item's does;
+    /// the roster row carries none, so stock benilla leaves them 0.
+    pub enchants: [u32; 3],
 }
 
 /// Where each starting-outfit weapon a hero figure holds rests when the figure puts it away, by
@@ -169,9 +173,17 @@ pub struct OutfitWeaponSheaths(pub std::collections::HashMap<u32, u8>);
 #[derive(Component, Clone, Debug)]
 pub enum SceneFigure {
     Hero(FigureHero),
-    /// A game object by its `GameObjectDisplayInfo.dbc` id (a campfire).
+    /// A game object by its `GameObjectDisplayInfo.dbc` id (a campfire), at `scale` times its
+    /// own size.
     Prop {
         display_id: u32,
+        scale: f32,
+    },
+    /// A creature by its `CreatureDisplayInfo.dbc` id, standing (a hero's companion), at `scale`
+    /// times the display's own size.
+    Creature {
+        display_id: u32,
+        scale: f32,
     },
 }
 
@@ -192,6 +204,8 @@ impl SceneFigure {
 const FIGURE_GUID_TAG: u64 = 0x0000_5CE0_0000_0000;
 /// A prop's guid: a game object guid in the same unused range.
 const PROP_GUID_TAG: u64 = 0xF110_5CE0_0000_0000;
+/// A creature figure's guid: a creature guid in the same unused range.
+const CREATURE_GUID_TAG: u64 = 0xF130_5CE0_0000_0000;
 /// The sheath state a figure holds: 1, melee weapons in the hands.
 const FIGURE_SHEATH_STATE: u32 = 1;
 
@@ -252,9 +266,22 @@ pub(crate) fn seat_scene_camera(
 }
 
 /// The figure's descriptor: the fields benilla's unit pipeline reads to draw, dress and pose a
-/// player body.
-fn hero_fields(c: &Character, display_id: u32, stand_state: u8) -> ObjectFields {
-    ObjectFields::from_pairs(&[
+/// player body; `enchants` (main hand, off hand, ranged) as `PLAYER_VISIBLE_ITEM_<slot>_0`'s
+/// first enchant, which the equipment resolve reads for a held item's glow.
+fn hero_fields(c: &Character, display_id: u32, stand_state: u8, enchants: [u32; 3]) -> ObjectFields {
+    // `PLAYER_VISIBLE_ITEM_1_CREATOR` (258) + 3: slot 0's first enchant, 12 fields a slot
+    const FIRST_ENCHANT: u16 = 261;
+    let mut pairs = hero_body_pairs(c, display_id, stand_state).to_vec();
+    for (k, &e) in enchants.iter().enumerate() {
+        if e != 0 {
+            pairs.push((FIRST_ENCHANT + 12 * (15 + k as u16), e));
+        }
+    }
+    ObjectFields::from_pairs(&pairs)
+}
+
+fn hero_body_pairs(c: &Character, display_id: u32, stand_state: u8) -> [(u16, u32); 10] {
+    [
         (22, 1),                         // UNIT_FIELD_HEALTH: alive
         (28, 1),                         // UNIT_FIELD_MAXHEALTH
         (34, u32::from(c.level.max(1))), // UNIT_FIELD_LEVEL
@@ -274,7 +301,7 @@ fn hero_fields(c: &Character, display_id: u32, stand_state: u8) -> ObjectFields 
                 | u32::from(c.hair_color) << 24,
         ),
         (194, u32::from(c.facial_hair)), // PLAYER_BYTES_2: facial hair
-    ])
+    ]
 }
 
 /// Whether a starting-outfit piece fills equipment slot `slot` of row `c`: the slot is empty and,
@@ -350,6 +377,7 @@ pub(crate) fn build_scene_figures(
     char_create: Option<Res<CharCreate>>,
     mut names: Option<ResMut<crate::names::NameCache>>,
     sheaths: Option<Res<OutfitWeaponSheaths>>,
+    creatures: Option<Res<crate::entities::Creatures>>,
 ) {
     let no_sheaths = OutfitWeaponSheaths::default();
     let sheaths = sheaths.as_deref().unwrap_or(&no_sheaths);
@@ -367,7 +395,7 @@ pub(crate) fn build_scene_figures(
                         .map(|i| (i.display_id, i.inv_type))
                         .collect();
                 commands.entity(entity).insert((
-                    ObjectStore(hero_fields(c, display_id, hero.stand_state)),
+                    ObjectStore(hero_fields(c, display_id, hero.stand_state, hero.enchants)),
                     hero_items(hero, &outfit, sheaths),
                 ));
             }
@@ -416,17 +444,33 @@ pub(crate) fn build_scene_figures(
                         display_id: Some(display_id),
                         scale: 1.0,
                     },
-                    ObjectStore(hero_fields(c, display_id, hero.stand_state)),
+                    ObjectStore(hero_fields(c, display_id, hero.stand_state, hero.enchants)),
                     hero_items(hero, &outfit, sheaths),
                 ));
             }
-            SceneFigure::Prop { display_id } => {
+            SceneFigure::Prop { display_id, scale } => {
                 e.insert((
                     Guid(PROP_GUID_TAG | u64::from(entity.index_u32())),
                     NetEntity {
                         kind: EntityKind::GameObject,
                         display_id: Some(*display_id),
-                        scale: 1.0,
+                        scale: *scale,
+                    },
+                    ObjectStore(ObjectFields::default()),
+                ));
+            }
+            SceneFigure::Creature { display_id, scale } => {
+                // its size is the display's own times the figure's, as a server folds it into
+                // a spawned unit's `OBJECT_FIELD_SCALE_X`; it waits for the catalog
+                let Some(own) = creatures.as_deref().map(|c| c.model_scale(*display_id).unwrap_or(1.0)) else {
+                    continue;
+                };
+                e.insert((
+                    Guid(CREATURE_GUID_TAG | u64::from(entity.index_u32())),
+                    NetEntity {
+                        kind: EntityKind::Unit,
+                        display_id: Some(*display_id),
+                        scale: own * scale,
                     },
                     ObjectStore(ObjectFields::default()),
                 ));
@@ -654,7 +698,7 @@ pub(crate) fn point_at_scene_figures(
                 t.translation(),
                 figure_height(h.stand_state, h.character.race),
             )),
-            SceneFigure::Prop { .. } => None,
+            SceneFigure::Prop { .. } | SceneFigure::Creature { .. } => None,
         });
         figure_under_ray(ray, heroes)
     })();
@@ -983,7 +1027,7 @@ pub(crate) fn publish_create_choices(
 // ── A figure drawn alone: the embedder's masks of it ────────────────────────────────────────────
 
 /// How many masks there are, each a picture of its own: an embedder gives each its own colour.
-pub const FIGURE_MASKS: usize = 4;
+pub const FIGURE_MASKS: usize = 5;
 
 /// Put on a [`SceneFigure`] or a streamed object's entity (a unit, a game object): its body, gear
 /// and weapons are also drawn alone, through a camera that follows the world camera, into mask
@@ -1183,6 +1227,7 @@ mod tests {
             stand_state: 8,
             held_sheath: [1, 0, 0],
             start_outfit_under: true,
+            enchants: [0; 3],
         }
     }
 
@@ -1339,7 +1384,7 @@ mod tests {
     #[test]
     fn a_hero_figure_reads_back_its_look_and_pose() {
         let h = hero([CharEnumItem::default(); 19]);
-        let f = hero_fields(&h.character, 51, 8);
+        let f = hero_fields(&h.character, 51, 8, [0; 3]);
         assert_eq!(f.unit_stand_state(), 8);
         assert_eq!((f.unit_race(), f.unit_class()), (Some(2), Some(1)));
         assert_eq!(

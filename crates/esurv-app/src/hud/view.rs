@@ -20,15 +20,46 @@ pub(super) const TOAST_SLOTS: usize = 3;
 // Where the parts sit, in units down from the top of the screen. The stock centre lines take
 // 122 to 282: `UIErrorsFrame` (60 tall at 122), then 10 below it `RaidWarningFrame` (40 tall),
 // then 10 below that `RaidBossEmoteFrame` (40 tall).
-const READOUTS_TOP: f32 = 8.0;
+const READOUTS_TOP: f32 = 2.0;
 const BANNERS_TOP: f32 = 292.0;
 const TOASTS_TOP: f32 = 352.0;
 
 /// `GameFontNormalHuge` (20; the kit's fonts go up to 16): the clock and the banners, as the
 /// stock raid warning's lines.
 const HUGE_FONT: f32 = 20.0;
-const READOUT_GAP: f32 = 28.0;
-const READOUT_SIDE_WIDTH: f32 = 90.0;
+/// A ribbon side's cell, across: the kills on the left, the gold on the right.
+const READOUT_SIDE_WIDTH: f32 = 110.0;
+/// The kills' skull and the gold's coin, a side.
+const READOUT_ICON: f32 = 14.0;
+/// Our own skull and coin, as the mock-up drew them, 64 square.
+const KILLS_ICON: &[u8] = include_bytes!("../../assets/hud_skull.png");
+const GOLD_ICON: &[u8] = include_bytes!("../../assets/hud_coin.png");
+
+/// An embedded PNG as a texture, or an empty one when it does not decode.
+fn icon_image(png: &[u8]) -> Image {
+    let Ok(art) = image::load_from_memory_with_format(png, image::ImageFormat::Png) else {
+        return Image::default();
+    };
+    let pixels = art.to_rgba8();
+    let mut texture = Image::new(
+        bevy::render::render_resource::Extent3d {
+            width: pixels.width(),
+            height: pixels.height(),
+            depth_or_array_layers: 1,
+        },
+        bevy::render::render_resource::TextureDimension::D2,
+        pixels.into_raw(),
+        bevy::render::render_resource::TextureFormat::Rgba8UnormSrgb,
+        bevy::asset::RenderAssetUsages::RENDER_WORLD,
+    );
+    texture.sampler = bevy::image::ImageSampler::linear();
+    texture
+}
+/// How far down the crest the clock starts.
+const CLOCK_DROP: f32 = 6.0;
+/// The top box's labels, the menus' bronze-light, so its numbers (kills, clock, gold, the cache's
+/// price) stand out in gold.
+const TOP_LABEL: Color = crate::menus::look::palette::LABEL;
 /// The stock centre lines' width.
 const LINE_WIDTH: f32 = 512.0;
 
@@ -82,6 +113,7 @@ pub(super) fn build(
     stock: &Stock,
     fonts: &UiFonts,
     look: &crate::menus::look::MenuLook,
+    images: &mut Assets<Image>,
 ) -> HudParts {
     let scale = stock.scale();
     let u = |v: f32| stock.px(v);
@@ -122,14 +154,36 @@ pub(super) fn build(
             .id()
     };
 
-    // ── the readouts: kills | clock and next boss | gold and the cache's price ──
-    let readouts = root(commands, "hud readouts", READOUTS_TOP, Some(READOUT_GAP));
-    let side = |align: AlignItems| Node {
+    // ── the readouts: kills on the ribbon's left, the clock and next boss on the crest, gold and
+    // the cache's price on the ribbon's right ──
+    let readouts = root(commands, "hud readouts", READOUTS_TOP, Some(0.0));
+    // a ribbon side's cell: its number beside its icon, its small line under them
+    let cell = Node {
         width: u(READOUT_SIDE_WIDTH),
+        height: u(super::top_box::RIBBON_HEIGHT - READOUTS_TOP),
         flex_direction: FlexDirection::Column,
-        align_items: align,
-        padding: UiRect::top(u(4.0)),
+        align_items: AlignItems::Center,
+        justify_content: JustifyContent::Center,
         ..default()
+    };
+    let number_row = Node {
+        flex_direction: FlexDirection::Row,
+        align_items: AlignItems::Center,
+        column_gap: u(4.0),
+        ..default()
+    };
+    let skull = images.add(icon_image(KILLS_ICON));
+    let coin = images.add(icon_image(GOLD_ICON));
+    let icon = |image: Handle<Image>| {
+        (
+            ImageNode::new(image),
+            Node {
+                width: u(READOUT_ICON),
+                height: u(READOUT_ICON),
+                flex_shrink: 0.0,
+                ..default()
+            },
+        )
     };
     let mut kills = Entity::PLACEHOLDER;
     let mut clock = Entity::PLACEHOLDER;
@@ -137,21 +191,43 @@ pub(super) fn build(
     let mut gold = Entity::PLACEHOLDER;
     let mut cache = Entity::PLACEHOLDER;
     commands.entity(readouts).with_children(|row| {
-        row.spawn(side(AlignItems::FlexEnd)).with_children(|c| {
+        // the ribbon and the crest, hung from the top of the screen, under them, their shadow's
+        // margin round them
+        let size = super::top_box::IMAGE_SIZE;
+        row.spawn((
+            Name::new("hud top box"),
+            Node {
+                position_type: PositionType::Absolute,
+                top: u(-READOUTS_TOP),
+                left: Val::Percent(50.0),
+                margin: UiRect::left(u(-size.x / 2.0)),
+                width: u(size.x),
+                height: u(size.y),
+                ..default()
+            },
+            ImageNode::new(images.add(super::top_box::image(scale))),
+            ZIndex(-1),
+            Pickable::IGNORE,
+        ));
+        row.spawn(cell.clone()).with_children(|c| {
+            c.spawn(number_row.clone()).with_children(|r| {
+                r.spawn(icon(skull));
+                kills = r
+                    .spawn((stock.text(StockFont::NumberFontNormal, ""), one_line(Justify::Left)))
+                    .insert(TextColor(GOLD_TEXT))
+                    .id();
+            });
             c.spawn((
                 stock.text(StockFont::GameFontNormalSmall, super::state::KILLS_LABEL),
-                one_line(Justify::Right),
-            ));
-            kills = c
-                .spawn((
-                    stock.text(StockFont::NumberFontNormal, ""),
-                    one_line(Justify::Right),
-                ))
-                .id();
+                one_line(Justify::Center),
+            ))
+            .insert(TextColor(TOP_LABEL));
         });
         row.spawn(Node {
+            width: u(super::top_box::CREST_HALF * 2.0),
             flex_direction: FlexDirection::Column,
             align_items: AlignItems::Center,
+            padding: UiRect::top(u(CLOCK_DROP)),
             ..default()
         })
         .with_children(|c| {
@@ -160,31 +236,30 @@ pub(super) fn build(
                     stock.text(StockFont::GameFontHighlightLarge, ""),
                     one_line(Justify::Center),
                 ))
-                .insert(huge.clone())
+                .insert((huge.clone(), TextColor(GOLD_TEXT)))
                 .id();
             next_boss = c
                 .spawn((
-                    stock.text(StockFont::GameFontNormal, ""),
+                    stock.text(StockFont::GameFontNormalSmall, ""),
                     one_line(Justify::Center),
                 ))
+                .insert(TextColor(TOP_LABEL))
                 .id();
         });
-        row.spawn(side(AlignItems::FlexStart)).with_children(|c| {
-            c.spawn((
-                stock.text(StockFont::GameFontNormalSmall, super::state::GOLD_LABEL),
-                one_line(Justify::Left),
-            ));
-            gold = c
-                .spawn((
-                    stock.text(StockFont::NumberFontNormal, ""),
-                    one_line(Justify::Left),
-                ))
-                .id();
+        row.spawn(cell).with_children(|c| {
+            c.spawn(number_row).with_children(|r| {
+                gold = r
+                    .spawn((stock.text(StockFont::NumberFontNormal, ""), one_line(Justify::Right)))
+                    .insert(TextColor(GOLD_TEXT))
+                    .id();
+                r.spawn(icon(coin));
+            });
             cache = c
                 .spawn((
-                    stock.text(StockFont::GameFontDisableSmall, ""),
-                    one_line(Justify::Left),
+                    stock.text(StockFont::GameFontNormalSmall, ""),
+                    one_line(Justify::Center),
                 ))
+                .insert(TextColor(GOLD_TEXT))
                 .id();
         });
     });

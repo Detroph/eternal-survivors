@@ -18,14 +18,14 @@ pub mod talents;
 use benilla_app::CreateChoices;
 use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
-use esurv_content::Faction;
+use esurv_content::{CampLine, Content, Faction, LineWhen, TimePeriod};
 
 use super::art::{cell_rect, race_cell};
 use super::look::{palette, Arrow, ButtonStyle, Face, MenuLook};
 use super::preview::TurnArea;
 use super::{
-    race_allowed, races_in_order, Ctx, Draft, MenuAction, MenuPress, Menus, Screen, Sheet,
-    SheetMode, SheetTab,
+    race_allowed, races_in_order, Ctx, Draft, MenuAction, MenuPress, Menus, Screen,
+    Sheet, SheetMode, SheetTab,
 };
 use crate::hero_sheet::gear::{stat_line, ClassGear};
 use crate::stock::{MenuLookTip, Tip, TipLine};
@@ -38,6 +38,7 @@ pub(super) const SIDE: f32 = 300.0;
 const PORTRAIT: f32 = 40.0;
 const SLOT_ICON: f32 = 26.0;
 const RACIAL_ICON: f32 = 36.0;
+const TEMPERAMENT_ICON: f32 = 28.0;
 
 /// The longest name, as the stock create screen takes it.
 pub const NAME_LIMIT: usize = 12;
@@ -122,6 +123,7 @@ pub(super) fn draw(
     model: Option<Handle<Image>>,
 ) {
     commands.entity(root).with_children(|r| {
+        // a solid backdrop, the panels' night-blue art, nothing of the camp's world through it
         r.spawn((
             Node {
                 position_type: PositionType::Absolute,
@@ -129,8 +131,9 @@ pub(super) fn draw(
                 height: Val::Percent(100.0),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.72)),
+            BackgroundColor(palette::NIGHT_DEEP),
             Pickable::IGNORE,
+            children![crate::splash_art::cut(crate::splash_art::Cut::Night, super::look::NIGHT_TEXTURE)],
         ));
         top_bar(r, look);
         // the Talents tab's trees take the left column's room
@@ -200,6 +203,10 @@ pub(super) fn left_column(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &C
         }
         look.heading(p, "Equipment", 18.0);
         equipment(p, look, ctx, sheet);
+        if sheet.tab == SheetTab::Collection {
+            super::companions::sheet_box(p, look, ctx, sheet);
+            super::wears::sheet_boxes(p, look, ctx, sheet);
+        }
     });
 }
 
@@ -261,7 +268,7 @@ fn appearance(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, d: &Draf
                 if r.faction != faction {
                     continue;
                 }
-                let allowed = race_allowed(ctx.content, ctx.choices, race, class);
+                let allowed = race_allowed(ctx.content, ctx.choices, race, class) && !ctx.appearance_shut;
                 let sheet = ctx.art.race_icons.clone();
                 let rect = race_cell(race, d.sex).and_then(|c| cell_rect(ctx.images, &sheet, c));
                 let mut e = look.icon(row, sheet, rect, PORTRAIT, race == d.race, false, !allowed);
@@ -577,15 +584,28 @@ fn middle(
             look.arrow(turn, Arrow::Right, 26.0, true)
                 .insert(MenuAction::Turn(true));
         });
-        let ready = name_ready(&d.name);
+        let shut = ctx.appearance_shut;
+        let ready = name_ready(&d.name) && !shut;
         let label = match sheet.mode {
             SheetMode::Create => "Create",
             SheetMode::Modify(_) => "Save changes",
         };
         look.button(m, label, ButtonStyle::Primary, ready, Some(220.0))
             .insert(MenuAction::ConfirmSheet);
+        if shut {
+            m.spawn(look.hint(AFTER_THE_TOUR));
+        }
     });
 }
+
+/// The Transmutation Orb's changes (race and Save changes) are shut in the camp till the warband
+/// has the Recruit title, for every hero after.
+pub(super) fn appearance_shut(in_camp: bool, recruited: bool, mode: SheetMode) -> bool {
+    in_camp && matches!(mode, SheetMode::Modify(_)) && !recruited
+}
+
+/// Said under the shut Save changes.
+const AFTER_THE_TOUR: &str = "You can change your appearance after the tutorial!";
 
 /// The right column: the features, Randomize.
 fn features(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, sheet: &Sheet) {
@@ -645,8 +665,186 @@ fn features(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, sheet: &Sh
         }
         look.button(p, "Randomize", ButtonStyle::Text, true, None)
             .insert(MenuAction::Randomize);
+        temperament(p, look, ctx, sheet);
+        time_period(p, look, ctx.content, sheet);
         p.spawn(look.hint("Race and looks can change on any hero before a run."));
     });
+}
+
+/// The Quiet choice's icon: the client's Silence.
+const QUIET_ICON: &str = "Spell_Holy_Silence";
+
+/// The Temperament block (plans/hub-hero-life.md, section 9): the seven and Quiet as icons (the
+/// first click the leading one, the next the second, a picked one let go), the pair named under
+/// them with Random, and a sample line in the hero's own voice, the next at a click.
+fn temperament(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, sheet: &Sheet) {
+    let chatter = &ctx.content.camp_chatter;
+    let d = &sheet.draft;
+    look.heading(p, "Temperament", 16.0);
+    p.spawn(Node {
+        column_gap: look.px(4.0),
+        justify_content: JustifyContent::Center,
+        ..default()
+    })
+    .with_children(|row| {
+        for t in &chatter.temperaments {
+            let place = d.temperament.iter().position(|x| *x == t.id);
+            let mut tip = vec![TipLine::new(t.name.clone(), palette::VALUE)];
+            match place {
+                Some(0) => tip.push(TipLine::new("Leading", palette::GOLD)),
+                Some(_) => tip.push(TipLine::new("Second", palette::LABEL)),
+                None => {}
+            }
+            tip.push(TipLine::new(t.voice.clone(), palette::LABEL));
+            if let Some(line) = sample_line(ctx.content, d, std::slice::from_ref(&t.id), 0) {
+                tip.push(TipLine::new(format!("\"{line}\""), palette::HEADING));
+            }
+            look.icon(row, look.icon_art(&t.icon), None, TEMPERAMENT_ICON, place.is_some(), false, false)
+                .insert((MenuAction::Temperament(t.id.clone()), Tip(tip), MenuLookTip));
+        }
+        let tip = vec![
+            TipLine::new("Quiet", palette::VALUE),
+            TipLine::new("Says nothing at the camp.", palette::LABEL),
+        ];
+        look.icon(row, look.icon_art(QUIET_ICON), None, TEMPERAMENT_ICON, d.temperament.is_empty(), false, false)
+            .insert((MenuAction::Quiet, Tip(tip), MenuLookTip));
+    });
+    let named = |i: usize| d.temperament.get(i).and_then(|id| chatter.temperament(id)).map(|t| t.name.as_str());
+    let words = match (named(0), named(1)) {
+        (Some(a), Some(b)) => format!("{a}, and {b}"),
+        (Some(a), None) => a.to_owned(),
+        _ => "Quiet".to_owned(),
+    };
+    p.spawn(Node {
+        justify_content: JustifyContent::SpaceBetween,
+        align_items: AlignItems::Center,
+        ..default()
+    })
+    .with_children(|row| {
+        row.spawn(look.text(Face::Plain, 12.0, palette::HEADING, words));
+        look.button(row, "Random", ButtonStyle::Text, true, Some(80.0))
+            .insert(MenuAction::RandomTemperament);
+    });
+    if let Some(line) = sample_line(ctx.content, d, &d.temperament, sheet.sample) {
+        look.frame_button(p, ButtonStyle::Row, true, None)
+            .insert((
+                MenuAction::SampleLine,
+                Tip(vec![TipLine::new("Click for another line", palette::LABEL)]),
+                MenuLookTip,
+            ))
+            .with_children(|b| {
+                b.spawn((look.text(Face::Plain, 10.5, palette::VALUE, format!("\"{line}\"")), Pickable::IGNORE));
+            });
+    }
+}
+
+/// The Time period block: when the hero was pulled in from, as icons like the
+/// Temperament's, the picked one named beside them. Flavour only: it picks the camp lines the hero
+/// says of home.
+fn time_period(p: &mut ChildSpawnerCommands, look: &MenuLook, content: &Content, sheet: &Sheet) {
+    let picked = sheet.draft.time_period;
+    look.heading(p, "Time period", 16.0);
+    p.spawn(Node {
+        justify_content: JustifyContent::SpaceBetween,
+        align_items: AlignItems::Center,
+        ..default()
+    })
+    .with_children(|row| {
+        row.spawn(Node {
+            column_gap: look.px(4.0),
+            ..default()
+        })
+        .with_children(|icons| {
+            for period in TimePeriod::ALL {
+                let (name, icon, about) = time_period_words(period);
+                let tip = vec![
+                    TipLine::new(name, palette::VALUE),
+                    TipLine::new(content.shown(about), palette::LABEL),
+                ];
+                look.icon(icons, look.icon_art(icon), None, TEMPERAMENT_ICON, period == picked, false, false)
+                    .insert((MenuAction::TimePeriod(period), Tip(tip), MenuLookTip));
+            }
+        });
+        row.spawn(look.text(Face::Plain, 12.0, palette::HEADING, time_period_words(picked).0));
+    });
+}
+
+/// A time period's name, icon (from `Interface\Icons`) and what it means, for the sheet.
+pub(super) fn time_period_words(period: TimePeriod) -> (&'static str, &'static str, &'static str) {
+    match period {
+        TimePeriod::Past => (
+            "Past",
+            "INV_Misc_Book_11",
+            "From before the classic era: the Second War, {Area(2017)} before the plague, Draenor before the Portal.",
+        ),
+        TimePeriod::Present => ("Present", "INV_Misc_PocketWatch_01", "From the classic era itself."),
+        TimePeriod::Future => (
+            "Future",
+            "Spell_Nature_CrystalBall",
+            "From after the classic era: the Lich King's fall, the Cataclysm and on.",
+        ),
+    }
+}
+
+/// A sample line for hero `d` of temperaments `temperaments`, the `k`th: the lines it may say
+/// to nobody or to the player, its race's, class's and time period's own first so its voice is
+/// heard.
+pub(super) fn sample_line<'a>(content: &'a Content, d: &Draft, temperaments: &[String], k: usize) -> Option<&'a str> {
+    let race = content.race_by_wow_id(d.race).map(|r| r.id.as_str());
+    let mut lines: Vec<&CampLine> = content
+        .camp_chatter
+        .lines
+        .iter()
+        .filter(|l| {
+            temperaments.contains(&l.temperament)
+                && matches!(l.when, LineWhen::Idle | LineWhen::ToPlayer)
+                && l.race.as_deref().is_none_or(|r| Some(r) == race)
+                && l.class.as_ref().is_none_or(|c| *c == d.class)
+                && l.time_period.is_none_or(|p| p == d.time_period)
+        })
+        .collect();
+    lines.sort_by_key(|l| (l.race.is_none() && l.class.is_none() && l.time_period.is_none(), temperaments.iter().position(|t| *t == l.temperament)));
+    lines.get(k % lines.len().max(1)).map(|l| l.text.as_str())
+}
+
+/// A temperament clicked: let go if picked (the second leads then), else the leading one, else
+/// the second (in place of the second picked before).
+pub(super) fn pick_temperament(picked: &mut Vec<String>, id: &str) {
+    if let Some(i) = picked.iter().position(|t| t == id) {
+        picked.remove(i);
+    } else if picked.len() < 2 {
+        picked.push(id.to_owned());
+    } else {
+        picked[1] = id.to_owned();
+    }
+}
+
+/// Two temperaments at random (the plan: every pair possible for everyone).
+pub(super) fn random_temperaments(content: &Content, seed: u64) -> Vec<String> {
+    let ids: Vec<&String> = content.camp_chatter.temperaments.iter().map(|t| &t.id).collect();
+    let n = ids.len() as u64;
+    if n < 2 {
+        return ids.into_iter().cloned().collect();
+    }
+    let mut x = seed | 1;
+    let a = xorshift(&mut x) % n;
+    let b = (a + 1 + xorshift(&mut x) % (n - 1)) % n;
+    vec![ids[a as usize].clone(), ids[b as usize].clone()]
+}
+
+/// The clock as a seed for the sheet's random picks.
+pub(super) fn seed_now() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(7, |d| d.as_nanos() as u64)
+}
+
+/// xorshift: enough for a look.
+fn xorshift(x: &mut u64) -> u64 {
+    *x ^= *x << 13;
+    *x ^= *x >> 7;
+    *x ^= *x << 17;
+    *x
 }
 
 /// Steps a feature, round its choices.
@@ -714,6 +912,17 @@ pub(super) fn type_the_name(
 mod tests {
     use super::*;
 
+    /// In the camp the Orb's changes stay shut till the Recruit title, and open after it for
+    /// every hero; a new hero's creation and the screens outside the camp are never shut.
+    #[test]
+    fn the_orb_opens_with_the_recruit_title() {
+        let modify = SheetMode::Modify(7);
+        assert!(appearance_shut(true, false, modify), "shut before the title");
+        assert!(!appearance_shut(true, true, modify), "open after it");
+        assert!(!appearance_shut(true, false, SheetMode::Create));
+        assert!(!appearance_shut(false, false, modify));
+    }
+
     #[test]
     fn a_name_is_two_to_twelve_letters() {
         assert!(name_ready("Ana"));
@@ -731,6 +940,8 @@ mod tests {
             sex: 0,
             look: [0; 5],
             name: String::new(),
+            temperament: Vec::new(),
+            time_period: TimePeriod::Present,
         };
         step_feature(&choices, &mut d, 2, false);
         assert_eq!(d.look[2], 0, "one choice without the data");
@@ -738,5 +949,17 @@ mod tests {
         assert_eq!(d.look, [0; 5]);
         assert_eq!(feature_name(&choices, 1, 0, 4), Some("Features"));
         assert_eq!(feature_name(&choices, 1, 0, 2), Some("Hair style"));
+    }
+
+    #[test]
+    fn temperaments_pick_the_leading_then_the_second() {
+        let mut t = Vec::new();
+        pick_temperament(&mut t, "grim");
+        pick_temperament(&mut t, "weary");
+        assert_eq!(t, ["grim", "weary"]);
+        pick_temperament(&mut t, "curious");
+        assert_eq!(t, ["grim", "curious"], "a third takes the second's place");
+        pick_temperament(&mut t, "grim");
+        assert_eq!(t, ["curious"], "the second leads once the leading one is let go");
     }
 }

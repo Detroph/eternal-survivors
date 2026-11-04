@@ -8,18 +8,22 @@
 //! ([`run_frames`]), and the stock 1.12 look kit every screen but the meter is built from
 //! ([`stock`]).
 
+pub mod achievements;
 pub mod boss_alerts;
 mod boss_bar_drag_check;
 pub mod boss_bar_places;
 pub mod buff_frame;
+pub mod camp;
 pub mod cards;
 pub mod embers;
 pub mod enemy_glow;
+mod arena_edge;
 mod ground_indicators;
 mod ground_models;
 mod window_icon;
 pub mod content_reload;
 pub mod glow_option;
+pub mod camp_chatter_option;
 pub mod hero_sheet;
 mod hero_shots;
 pub mod hud;
@@ -32,8 +36,12 @@ pub mod protocol;
 mod races;
 pub mod run_end;
 pub mod run_frames;
+pub(crate) mod run_start_sound;
 pub mod smart_numbers;
 pub mod stock;
+pub mod stock_look;
+pub mod splash_art;
+pub mod title_screen;
 pub mod ui;
 pub mod update;
 pub mod zone_discovery;
@@ -55,7 +63,25 @@ pub fn level_flight(content: &esurv_content::Content) -> benilla_app::LevelFligh
     benilla_app::LevelFlight(content.pets.iter().filter(|p| p.hover.is_some()).map(|p| p.display_id).collect())
 }
 
-/// The spells whose channel hum is kept silent (our rule, the owner's: it drones under a run),
+/// The music played in places, as `(AreaTable id, ZoneMusic id)`, over the game's own: Tanaris (440)
+/// and its subzones, the Caverns of Time (2300) among them, and the Caverns' own zone (1941) play
+/// `Zone-Mountain` (8), in place of the desert's.
+const ZONE_MUSIC: [(u32, u32); 2] = [(440, 8), (1941, 8)];
+
+/// A clock ticking once on every loading screen, 4 seconds from its start then faded out, however
+/// soon the screen goes.
+fn loading_sound() -> benilla_app::LoadingSound {
+    benilla_app::LoadingSound {
+        sound: benilla_app::CarriedSound {
+            bytes: include_bytes!("../assets/loading_clock.mp3"),
+            volume: 0.8,
+        },
+        play_secs: 4.0,
+        fade_secs: 1.5,
+    }
+}
+
+/// The spells whose channel hum is kept silent (it drones under a run),
 /// every 1.12 rank: Mind Flay, Drain Soul and Drain Life. Their cast and hit sounds still play.
 const MUTED_CHANNEL_HUMS: [u32; 16] = [
     15407, 17311, 17312, 17313, 17314, 18807, // Mind Flay
@@ -72,7 +98,26 @@ pub fn extend(app: &mut App, content: Option<Arc<LiveContent>>, link: Option<pre
     window_icon::register(app);
     app.net_handler(SessionEventKind::Chat, take_look_size);
     app.add_systems(Update, (take_look_styles, take_sheath_holds));
+    // an idle hero is never marked AFK, sat down or logged out
+    app.insert_resource(benilla_app::NoIdleTimeouts);
     app.insert_resource(benilla_app::MutedLoopSounds(MUTED_CHANNEL_HUMS.into_iter().collect()));
+    app.insert_resource(benilla_app::ZoneMusicOverrides(ZONE_MUSIC.to_vec()));
+    app.insert_resource(loading_sound());
+    // a slow click under the zone's ambience, very quiet, every 10 to 20 minutes, three click-clacks of it: it clicks once a second
+    // from 0.8 s in, so six clicks, the last at 5.8 s, faded out before the seventh
+    app.insert_resource(benilla_app::AmbientSprinkle {
+        sound: benilla_app::CarriedSound {
+            bytes: include_bytes!("../assets/ambient_click.mp3"),
+            volume: 0.15,
+        },
+        // `ESURV_AMBIENT_CLICK_EVERY=<secs>`, a dev aid, plays it that often, to hear it
+        every_secs: std::env::var("ESURV_AMBIENT_CLICK_EVERY")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .map_or((600.0, 1200.0), |s: f32| (s, s)),
+        play_secs: (6.2, 6.2),
+        fade_secs: 0.3,
+    });
     if let Some(live) = &content {
         // the create screen's added pairs and their looks are read once, at launch
         races::register(app, &live.current());
@@ -84,16 +129,23 @@ pub fn extend(app: &mut App, content: Option<Arc<LiveContent>>, link: Option<pre
         content_reload::register(app, live);
     }
     protocol::register(app);
+    camp::register(app);
+    splash_art::register(app);
+    title_screen::register(app);
+    run_start_sound::register(app);
     hero_shots::register(app);
     ground_models::register(app);
     ground_indicators::register(app);
+    arena_edge::register(app);
     buff_frame::register(app);
     embers::register(app);
     boss_alerts::register(app);
+    achievements::in_run::register(app);
     boss_bar_drag_check::register(app);
     smart_numbers::register(app);
     enemy_glow::register(app);
     minimap_buttons::register(app);
+    stock_look::add(app);
     app.add_plugins((
         stock::StockPlugin,
         cards::CardsPlugin,
@@ -186,6 +238,14 @@ fn look_size(text: &str) -> Option<(u64, u32, f32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The loading tick keeps its length: 4 seconds, then a 1.5 second fade.
+    #[test]
+    fn the_loading_tick_keeps_its_length() {
+        let sound = loading_sound();
+        assert_eq!((sound.play_secs, sound.fade_secs), (4.0, 1.5));
+        assert!(!sound.sound.bytes.is_empty());
+    }
 
     /// The pets that fly (the assist's Gargoyle) are kept level on their flights; walking pets are
     /// not listed.

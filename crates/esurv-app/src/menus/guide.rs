@@ -65,10 +65,12 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, look: &MenuLook, ctx: 
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                // every window's title at one height near the top, growing down
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::top(look.px(super::look::WINDOW_TOP)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+            BackgroundColor(palette::DIM),
             solid(),
             GlobalZIndex(super::MENU_LAYER + 10),
         ))

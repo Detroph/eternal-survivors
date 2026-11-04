@@ -90,10 +90,11 @@ pub(super) fn open_key_bindings(script: &UiScript) -> bool {
     }
 }
 
-/// Whether the panel may stay over the run: the hero in the world, the run's Escape menu under it
-/// (the run paused, or the menu opened before the first step or over the end panel).
-pub(super) fn may_stay(in_world: bool, phase: Option<Phase>, here: MenuHere) -> bool {
-    in_world && menu_kind(phase, here).is_some()
+/// Whether the panel may stay over the run: the hero in the world, walking the camp (opened from
+/// its Escape menu or the F1 menu), or with the run's Escape menu under it (the run paused, or the
+/// menu opened before the first step or over the end panel).
+pub(super) fn may_stay(in_world: bool, in_camp: bool, phase: Option<Phase>, here: MenuHere) -> bool {
+    in_world && (in_camp || menu_kind(phase, here).is_some())
 }
 
 /// Follows what is under the panel over a run: it closes (as Cancel) once the run goes on or the
@@ -102,12 +103,14 @@ pub(super) fn follow_the_run(
     mut menus: ResMut<Menus>,
     run: Option<Res<RunHud>>,
     here: Option<Res<MenuHere>>,
+    visit: Option<Res<crate::camp::CampVisit>>,
     objects: Objects,
     script: Option<NonSend<UiScript>>,
 ) {
     let phase = run.as_deref().and_then(RunHud::phase);
     let here = here.as_deref().copied().unwrap_or_default();
-    let stays = may_stay(in_world(&objects), phase, here);
+    let in_camp = visit.as_deref().is_some_and(|v| v.in_camp);
+    let stays = may_stay(in_world(&objects), in_camp, phase, here);
     if !stays && menus.run_notice.is_some() {
         menus.run_notice = None;
     }
@@ -142,17 +145,25 @@ mod tests {
     #[test]
     fn the_panel_stays_only_over_the_escape_menu() {
         let none = MenuHere::default();
-        assert!(may_stay(true, Some(Phase::Paused), none));
-        assert!(!may_stay(true, Some(Phase::Running), none), "the run went on");
-        assert!(!may_stay(true, Some(Phase::Victory), none));
-        assert!(!may_stay(false, Some(Phase::Paused), none), "out of the world");
-        assert!(!may_stay(true, None, none));
+        assert!(may_stay(true, false, Some(Phase::Paused), none));
+        assert!(!may_stay(true, false, Some(Phase::Running), none), "the run went on");
+        assert!(!may_stay(true, false, Some(Phase::Victory), none));
+        assert!(!may_stay(false, false, Some(Phase::Paused), none), "out of the world");
+        assert!(!may_stay(true, false, None, none));
         for p in [Phase::Waiting, Phase::Victory, Phase::Defeat] {
-            assert!(may_stay(true, Some(p), MenuHere(Some(p))), "{p:?}");
+            assert!(may_stay(true, false, Some(p), MenuHere(Some(p))), "{p:?}");
         }
         assert!(
-            !may_stay(true, Some(Phase::Running), MenuHere(Some(Phase::Waiting))),
+            !may_stay(true, false, Some(Phase::Running), MenuHere(Some(Phase::Waiting))),
             "a step taken under it"
         );
+    }
+
+    /// In the camp there is no run under the panel: it stays while the hero walks the camp.
+    #[test]
+    fn the_panel_stays_over_the_camp() {
+        let none = MenuHere::default();
+        assert!(may_stay(true, true, None, none));
+        assert!(!may_stay(false, true, None, none), "out of the world");
     }
 }

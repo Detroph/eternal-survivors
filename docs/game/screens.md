@@ -85,6 +85,29 @@ realm list: the class picker, the hero sheet and the warband screen over the cam
 look of their own (below), not the stock kit's. `ESURV_MENUS=0` (a dev aid) shows the stock
 screens instead (over the camps, with no camp switch).
 
+**The title screen.** Before anything else the game shows its title art,
+`title_splash_screen.jpg` (the bronze dragon before the Caverns of Time, carried inside the exe),
+filling the window (stretched up to 3% so its painted frame shows as thick on every side; a
+window further from its shape has it cover from its top left). At its top left the name,
+"Eternal" over "Survivors", in Morpheus gold in a dark outline, stands over the game's emblem,
+`title_logo.png`, large and dimmed behind it (the black round it keyed out, the teal in its ring
+painted over with the art's starry night blue). Under the emblem, centred on it, Play and Quit sit
+in a night panel: the menus' buttons in a lighter bordeaux with faint sandstone cracks and gold
+words (`esurv_app::title_screen`). The menus' cuts are still taken from the key
+art, `splash_screen.jpg`. Play (the button, or
+the Enter key) goes on: the launch rule below waits for it. With the hub on it goes into the camp,
+the key art held until the loading screen is up under it, so the heroes of character select never
+show on the way. Under it plays the game's login theme, `wow_main_theme.mp3` (the only menu music
+in the 1.12 data). Escape does nothing there; it shows once, at launch. A box at the bottom left, under the buttons' panel and as wide, shows in gold, centred, the version and the updater's notice (with its
+Update button); while a newer version is offered, a pop-up in the middle asks to update, with
+Update and Later (Later closes it; the corner keeps the offer).
+The dev aids that drive the game unattended (scripted shots, presses and runs, `ESURV_CAMP_START`,
+`ESURV_AUTOSTART`, benilla's smoke tests) skip it, as does `ESURV_SKIP_TITLE=1` and
+`ESURV_MENUS=0`; `ESURV_TITLE_SHOT=<png>` writes a shot of it, and `ESURV_TITLE_OFFER=<version>` shows an offer of
+that version without asking the feed, to see its look; with `ESURV_TITLE_SHOT`, `ESURV_TITLE_PLAY=1` presses Play
+a second after the shot, to see the way in. `ESURV_TALK_DEMO=1` opens a sample talk
+window (Chromie's greeting) once in the world, to see its look (`esurv_app::stock_look`).
+
 **The flow.** When the character select comes up, a save with any hero opens on the warband
 screen; a save with none opens the class picker. Create new character opens the class picker;
 choosing a class opens the hero sheet on a new hero of it; confirming the sheet makes the hero
@@ -134,12 +157,11 @@ The camps (below) fill the window; over them:
 
 | Part | What it shows and does |
 |---|---|
-| Top-left panel | the picked hero's name, its race and class (class colour), **Total wins** and **Runs** (the save's records), the **Starting spell** spot, and under it the **Weapon loadout** spot. The Starting spell spot shows the class's starting options as icons, three (the Druid's four forms), the hero's pick lit and its name under them; an icon's tooltip gives the option's name, each of its level-1 spells with its numbers at level 1, how it plays, and its passive ("Passive: …", in green); a click picks it (`start`), the save keeps it for the hero's next runs (the class's first until one is picked), and the run starts with it. The Weapon loadout spot (roadmap R3) lists the class's three loadouts as rows, each with its name, its weapons ("One-handed sword, Shield"), its strength in green and its drawback in red, the one the class fights with lit (gold name, the picked row's frame); a click picks one (`loadout`), the save keeps it for the class (every hero of the class; its first until one is picked), and the next run fights with it. With no hero in the camp: "No hero waits by the Horde's campfire yet." |
-| Top middle | centred over the camp, on the axis of its buttons: a row of four framed buttons, **Collection** and **Talents** (each opening the hero sheet straight on that view for the picked hero, Back returning here), a dimmed placeholder reading "TBD" (a feature to come) and **Guide** (opening the guide over the screen, below); under them **Equipped armour**: the class's slots (eight armour, then the weapons), each the worn piece's icon (tooltip: its name in its quality colour and its slot) or the slot's empty picture. **Collection** glows (gold border and the soft glow of what is picked, `ButtonStyle::TextGlow`, the glow pulsing: its strength dips to 40 % and back every 1.6 s, `look::news_pulse`) while gear was unlocked for the class since its Collection was last opened, **Talents** while talent or prestige points were earned since its Talents were (`Progress` `new_gear`, `new_points`); opening the view asks `seen <class> <collection|talents>`, so the glow is gone on coming back. The save keeps what was seen per class (`seen: Some((pieces: n, points: n))`, [server.md](server.md)); a class of a save from before it shows nothing new, a class new to the save has seen nothing |
+| Top-left panel | the picked hero's name, its race and class (class colour), **Total wins** and **Runs** (the save's records), the **Starting spell** spot, and under it the **Weapon loadout** spot. The Starting spell spot shows the class's starting options as icons, three (the Druid's four forms), the hero's pick lit and its name under them; an icon's tooltip gives the option's name, each of its level-1 spells with its numbers at level 1, how it plays, and its passive ("Passive: …", in green); a click picks it (`start`), the save keeps it for the hero's next runs (the class's first until one is picked), and the run starts with it. The Weapon loadout spot lists the class's three loadouts as rows, each with its name, its weapons ("One-handed sword, Shield"), its strength in green and its drawback in red, the one the class fights with lit (gold name, the picked row's frame); a click picks one (`loadout`), the save keeps it for the class (every hero of the class; its first until one is picked), and the next run fights with it. With no hero in the camp: "No hero waits by the Horde's campfire yet." |
+| Top middle | centred over the camp, the screen left of the zone column, as are the buttons under the fire: a row of six framed buttons, **Equipment** and **Talents** (each opening the hero sheet straight on its Collection or Talents view for the picked hero, Back returning here), **Codex** (the codex over the screen, below), **Achievements** (the Achievements window, below), **Shop** (the shop alone, below; it never glows) and **Guide** (the guide, below). The Equipped armour panel and the top-right Codex panel are gone. **Equipment** glows (gold border and the soft glow of what is picked, `ButtonStyle::TextGlow`, the glow pulsing: its strength dips to 40 % and back every 1.6 s, `look::news_pulse`) while gear was unlocked for the class since its Collection was last opened, **Talents** while talent or prestige points were earned since its Talents were (`Progress` `new_gear`, `new_points`); opening the view asks `seen <class> <collection|talents>`, so the glow is gone on coming back. The save keeps what was seen per class (`seen: Some((pieces: n, points: n))`, [server.md](server.md)); a class of a save from before it shows nothing new, a class new to the save has seen nothing. **Achievements** glows the same way while anything was earned since the window was last opened (`Achievements` `news`); opening it asks `achseen`, and the save keeps how many were earned then (`achievements.seen`, the whole warband's) |
 | Right column | the **Zone** heading; once the hero's class has won Ahn'Qiraj (zones.md "Challenge Mode"), under it the tabs **Normal Mode** and **Challenge Mode** (`mode:normal`, `mode:challenge`; the picked one filled dark red), and under Challenge Mode the **Challenge** slider, its value as "1.25x" between two arrows a 0.25 step each way, 1x to 5x (`challenge-down`, `challenge-up`; each change to the save at once with the run options, `options`), with a tooltip on what the mode does; in Challenge Mode every zone is open; the zone of the hero's next run opened as a card (number and name, its title, its lines, its enemies, its bosses with their arrival times, the final one in gold); every other zone as a row: an open one picks it for the hero (`zone`), a locked one says which final boss in which zone opens it; a zone no class of the save has opened yet (not discovered: menus.md) shows only "???" and a lock. At its foot **Difficulty modifiers** (with the reward bonus when it is not 1) and **Start run** (enters the world as the hero, in its zone; off while the zone is locked) |
-| Top right | the **Codex**, beside the zone column: how many rings, trinkets, amulets and legendary amulets the save has found (`n / m` each), how many in all, and **Open the codex** |
-| The camp | the picked hero's name over the campfire (Morpheus, gold, kept over the flames as the camera sees them); the picked hero outlined in gold (below); a round button at the camp's top left with the other camp's emblem (`UI-PVP-Alliance`, `UI-PVP-Horde`) and a badge with how many heroes that camp holds, which switches camps (its first hero picked); under the fire, in this order, **New character** (the class picker; while the camp has fewer than nine heroes and the save fewer than 18), **Modify character** (the hero sheet on the hero) and **Delete character** |
-| Bottom-left corner | **Options** (the game's settings, below) over **Quit game**, and under them the version played (`v0.5.5`, the build's `CARGO_PKG_VERSION`, small, in the label colour); Quit game closes the game through the app's own exit (`AppExit`, benilla's shutdown savers), as the Escape menu's Quit Game does once the hero is out; before a run there is nothing to pay out. Over them, while the updater has something to say ([server.md](server.md), "Updates"; `crate::update::notice_view`), a panel 200 units wide: "v0.5.0 is available" (gold) and **Update** (`update`), the panel wearing the news look of Collection and Talents (above: the gold border and a glow, pulsing; `look::NewsPulse`), the button plain; while it downloads, "Downloading v0.5.0", a progress line kept up to date in place ("42%  (17.0 of 40.4 MB)", the screen not drawn anew for it) and Update dimmed; a failure in red ("The update failed: the download failed, no connection. Nothing was changed.") with Update to try again; then "Updating to v0.5.0: the game restarts", no button. With **Check for updates** off, an offer and a failure are hidden, an update under way is not |
+| The camp | the picked hero's name with its title over the campfire ("Lumi the Eternal", [achievements.md](achievements.md) section 12; Morpheus, gold, kept over the flames as the camera sees them); the picked hero outlined in gold (below); a round button at the camp's top left with the other camp's emblem (`UI-PVP-Alliance`, `UI-PVP-Horde`) and a badge with how many heroes that camp holds, which switches camps (its first hero picked) (beside it a **Decorate camp** button while camp decorations are on; parked for a later hub, achievements.md section 15); under the fire, in this order, **New character** (the class picker; while the camp has fewer than nine heroes and the save fewer than 18), **Modify character** (the hero sheet on the hero) and **Delete character**. Each hero's companion (its hero sheet's pick) stands beside it, 0.85 yd to its left and 0.45 yd ahead, facing as it does (`picker::stand_companions`, a creature figure of the select scene) |
+| Bottom-left corner | **Options** (the game's settings, below) over **Quit game**, and under them the version played (`v0.6.0`, the build's `CARGO_PKG_VERSION`, small, in the label colour); Quit game closes the game through the app's own exit (`AppExit`, benilla's shutdown savers), as the Escape menu's Quit Game does once the hero is out; before a run there is nothing to pay out. Over them, while the updater has something to say ([server.md](server.md), "Updates"; `crate::update::notice_view`), a panel 200 units wide: "v0.5.0 is available" (gold) and **Update** (`update`), the panel wearing the news look of Collection and Talents (above: the gold border and a glow, pulsing; `look::NewsPulse`), the button plain; while it downloads, "Downloading v0.5.0", a progress line kept up to date in place ("42%  (17.0 of 40.4 MB)", the screen not drawn anew for it) and Update dimmed; a failure in red ("The update failed: the download failed, no connection. Nothing was changed.") with Update to try again; then "Updating to v0.5.0: the game restarts", no button. With **Check for updates** off, an offer and a failure are hidden, an update under way is not |
 | Delete | asks first: "Are you sure you want to delete this character?" with the hero's name, **No** (the default, filled) and **Yes**; only Yes deletes, and the camp then picks the hero now in the deleted one's place (or the last) |
 | Difficulty modifiers | a panel with each run option of `run_options.ron` (its name, its value in %, arrows a step each way, kept on its slider; its tooltip), the **Rewards** bonus the options give, a line on what harder runs pay, and **Done**; each step goes to the save at once (`options`) |
 
@@ -185,6 +207,73 @@ experience, the Warband Standard's count and time) or quoted
 from the rule's own constant in `esurv-sim` (runes, magnets, caches, rerolls, upgrade caps, the
 base stats), never copied; a test changes the balance and checks the guide follows, and a test
 holds every `Stat` (read from the type itself) and every prestige stat to a Stats entry.
+
+**Windows over the screen**: every window that does not take the
+whole screen (the Achievements window, the Shop, the codex, the guide, the options panel, the
+difficulty modifiers, the delete and import questions, the Challenge Mode box) puts its top, its
+title, at one height, 64 units from the screen's top (`look::WINDOW_TOP`), and grows down from
+there; across, each stays centred on the screen.
+
+**The Achievements window** (`menus::achievements`, built on `esurv_app::achievements`): the
+**Achievements** button over the armour opens, in the codex's look, the warband's achievements
+([achievements.md](achievements.md)) as WoW lays them out. A line under the heading gives the
+achievement score and the points to spend. The left column holds the pages, each with its count
+earned "n/m": **Summary**, **General**, under a "Classes" label a page per class (its name in its
+class colour), and **Feats**. The page on the right scrolls with the wheel and keeps its place per
+page:
+
+* **Summary:** two value boxes (Achievement score, Moments to spend), "Recently earned" (the last
+  five, newest first: icon, name, day, points) and "Progress": a bar per category (General,
+  Classes, Feats, Total) with "earned / all".
+* **General, a class, Feats:** a row per achievement in the content's order: its icon in a frame,
+  its name and what to do, a progress bar ("3,120 / 25,000", a counter not yet earned) or a
+  checklist (each starting option, loadout or meta part with a small mark, filled when done), its
+  reward lines as the content stores them ("Reward: Title - the Eternal", "Reward: Companion -
+  Tiny Gordok", the id written as a name), and at the right a shield with its points and, once
+  earned, the day ("27 Oct 2026"). Earned rows are bright (gold name, gold-edged), the others grey
+  with a dimmed icon. A series shows one row, its next step not earned (its last once all are),
+  with "Earlier steps: Slayer I (12 Oct 2026)" under it. The hidden achievement is "???" with a
+  dark "?" icon, no reward and no box until it is earned.
+* **Track:** under the shield of every row not earned (and not hidden), a small box "Track";
+  ticking it asks `track <id> on`, unticking `track <id> off`. At most three are tracked
+  (`esurv_protocol::MAX_TRACKED`): with three ticked, the others' boxes are dimmed. The save keeps
+  them (`achievements.tracked`); one earned drops out by itself. In a run they show in the tracker
+  ([Achievements in a run](#achievements-in-a-run)).
+
+**Close** (and Escape) closes it. What it shows comes from the save's `Achievements` answer (with a
+class's facts, and again after `achseen`, `track` and `buy`).
+
+**The Shop** (`menus::companions::shop`, built on `esurv_app::achievements::shop`): opened by
+the warband screen's **Shop** button (`shop`), alone: the Achievements window
+titled "Shop", with no page column (the Achievements window's own pages list no Shop), and under
+the title "240 Moments to spend, earned with achievements. Your achievement score (640) never
+drops." Its rules are [achievements.md](achievements.md), section 10. It scrolls (keeping its
+place, each tab its own). Over it the tabs: **Upgrades** (the companion upgrade's,
+the banish upgrade's and the skip upgrade's ranks), **Pets** (the
+companions), **Tabards** (by price: "Tabards, 25 Moments", "Tabards, 50 Moments"; each tile's tooltip
+says who may wear it), **Enchants** (the weapon glows by price; a damage glow waiting for the one
+before says "Needs Lesser Impact") and, with the hub on (with `ESURV_HUB=0`, only while camp decorations are on), **Decorations** (a section for each
+set, its signposts, the trophies, never sold, grey with what earns them, and the camp's two extra
+spots)
+(`shop-tab:<name>`; a tab picked lets go of the tile picked).
+
+* On Pets, a line saying everything bought is the whole warband's, whatever timeline each hero came from, and that each hero picks its companion on
+  its hero sheet (Equipment).
+* **Companion upgrade (every companion)**: Companion Rank 1, 2 and 3; **Companions, 25 Moments**;
+  **Companions, 50 Moments**; **Earned from achievements**: a tile each, 128 units wide, its icon
+  and name and under them "Owned" (green), its price (gold, red when the points do not cover it),
+  "Needs Rank 2" or "Achievement" (dark: the icon greyed until earned). A tile's tooltip: its
+  name, its text, how it stands ("Achievement: Gnoll Means No"). A click picks it (`shop-pick:<item>`).
+* On Upgrades, the line "Everything bought is the whole warband's, a rank at a time." and the
+  sections **Companion upgrade (every companion)**, **Banish (every hero, every run)** (Banish
+  Rank 1, 2, 3) and **Skip (every hero, every run)** (Skip Rank 1, 2, 3), each rank "Needs Rank n"
+  until the one before is owned.
+
+Beside it **Details**, 250 units: the companion picked turning (benilla's creature pane,
+210 units square; the upgrade shows its icon), its name, text and how it stands; "Never sold:
+earned with its achievement." for an achievement's; "You have N Moments to spend." when too dear;
+and **Buy for N Moments** (enabled only when it can be bought). Buy asks first, in place: "Spend
+25 Moments on Bombay Cat?" with **Yes** (`buy <item>`) and **No**. Nothing picked: a hint.
 
 **Options** (`menus::options`): the game's own settings in a panel of
 this look, with four tabs (the fourth, Saves, is the save's export and import, `menus::save_files`). The stock options frames exist only in the world session's Lua
@@ -265,10 +354,41 @@ off until the name has two letters. On the right **Features**: skin colour, face
 colour (horn style and horn colour for a race whose hair is horns) and the race's fifth feature
 named in our words by its glue token (facial hair, piercings, earrings, tusks, horns, markings,
 features, hair; none when the race and sex have none), each in a box with gold arrows that go
-round its choices, `n / m` and a row of dots; **Randomize** picks every feature at random;
-"Race and looks can change on any hero before a run."
+round its choices, `n / m` and a row of dots; **Randomize** picks every feature at random.
+Under it **Temperament** (the hero's voice at the camp, `camp_chatter.ron`): the seven
+temperaments and Quiet as icons, the first click the leading one, the next the second, a picked
+one let go; the pair named under them with **Random**, and a sample line in the hero's own voice,
+the next at a click. Then **Time period**: when the hero was pulled in from, three icons
+in the same look, the picked one lit and named beside them: **Past** (before the classic era: the
+Second War, Stratholme before the plague, Draenor before the Portal), **Present** (the classic era
+itself; a new hero's, and an older save's heroes') and **Future** (after it: the Lich King's fall,
+the Cataclysm and on), each with a tooltip saying so. Flavour only: it picks which of the camp's
+lines the hero says of home (and the sample line follows it), and Chromie's first words to a fresh
+warband's first hero name its time and place, one line for each race and period
+([menus.md](menus.md), "The hub"); nothing in a run changes. At the
+foot "Race and looks can change on any hero before a run."
 
-**The Collection tab.** The left column shows Equipment alone (a slot picked shows its looks). In the middle the **Collection Log**: the class's
+**The Collection tab: Companion.** Under the Equipment in the left column a **Companion** heading
+and box: the hero's companion (its icon and name; a grey "?" and "None" without one) under
+"Fetches gold in runs". A click (`companions`) opens **Companions** in place of the Details on the
+right: the companion picked there turning (benilla's creature pane, 170 units square), its name
+and text and how it stands ("With this hero", "In the Shop for 25 Moments", "From the achievement
+Gnoll Means No"), **Choose** (the warband owns it and the hero brings another: `companion <guid>
+<id>`) and **None** (`companion <guid> ~`); then "n of 62 companions owned by the warband" and
+every companion as an icon, the warband's first, as their own icons; the others hide theirs: a grey tile with a "?"
+, each with its name and how it stands in its tooltip; a click picks it (`companion-pick:<id>`). It opens on the hero's
+own companion. A hero being made has none yet ("Make the hero first ..."). A slot or a piece picked
+closes the Companions. The rules: [achievements.md](achievements.md), section 11.
+
+**The Collection tab.** The left column shows Equipment (a slot picked shows its looks), then the Companion box (above).
+Under the Companion box, **Title, tabard and glow**: a row each (its icon, "Title: shown with the
+name", "Tabard: worn over any armour", "Weapon glow: on all its weapons", and what the hero wears or
+None); a click opens its picks in the details (`wear:<title|tabard|glow>`): the one picked (its
+icon, name, text, and "Worn by this hero", where it comes from, or "Not for this hero's faction"),
+**Choose** and **None** (`dress:<kind>=<id>`, `dress:<kind>` for none), then every choice as an
+icon, the warband's bright, the others a grey "?" (`wear-pick:<kind>=<id>`). A title reads with the
+hero's name ("Lumi the Eternal"). The hero figure of the Character view wears its tabard.
+The rules: [achievements.md](achievements.md), sections 12 and 13. In the middle the **Collection Log**: the class's
 pieces in columns by slot (their names over them) and rows by quality (Common to Legendary, a
 tier each), each row headed by its quality and how many of it are found (`n/9`) and the zones
 that drop that tier; a piece found shows its icon, one not found is dark with a "?"; **E** marks
@@ -321,9 +441,11 @@ Every change on these two tabs is the class's, for every hero of it, from the ne
 to the save at once (the armory's requests as asks before a run). While a hero is made, a hint
 says so: they stay even if the hero is not made.
 
-**Confirming.** Create asks the server to make the hero (`CMSG_CHAR_CREATE`); once made it is
-picked on the warband screen, in its camp. Save changes asks `rename` when the name changed and
-`reshape` when the race, sex or look did ([server.md](server.md), "Before a run"), then the roster
+**Confirming.** Create first tells the server the new hero's temperaments and time period
+(`temper 0` and `period 0`, kept for the next hero made), then asks it to make the hero
+(`CMSG_CHAR_CREATE`); once made it is picked on the warband screen, in its camp. Save changes asks
+`rename` when the name changed, `temper` and `period` when the temperaments or the time period
+did, and `reshape` when the race, sex or look did ([server.md](server.md), "Before a run"), then the roster
 again; a hero gone over to the other faction takes the camp with it. A refusal is said over the
 sheet: a name taken or not two to twelve letters, a race the class may not be, a full camp.
 
@@ -361,6 +483,35 @@ shows a character; a starting-outfit weapon a figure puts away rests where `outf
 says, as in a run (staves on the back, one-handers on the hip;
 benilla's `OutfitWeaponSheaths` hook).
 
+### Decorate camp
+
+Parked for a later 3D hub with the camp decorations ([achievements.md](achievements.md), section 15):
+while they are off the warband screen shows the plain camp fire and no Decorate camp button, and an
+achievement's trophy reward has no line. When on:
+
+Over the camp shown, in place of the warband screen's panels (`esurv_app::menus::decorate`;
+[achievements.md](achievements.md), section 15): at the left a panel, "Decorate the Horde camp" (or
+Alliance), a line on how it works, what grows with progress (the camp fire's step, the pennant
+line's pennants of ten, the trophies in the trophy corner, the skull spear's skulls, the sets owned
+whole for the camp sign), a button to the other camp and **Done**
+(`close-decorate`; Escape closes it too). On each of the five spots (the fire, the banner post, the
+camp theme, the two extra spots) a small round gold marker with its number, kept on its spot as the camera sees it (`place_spot_markers`), a closed spot's
+number dimmed; a click picks the spot (`decorate-spot:<id>`). At the right **Spots**: a row each
+(its number, the piece's icon, none when empty, the spot's name, what stands there, "Opens for 150
+Moments" for a closed one), and under them for the spot picked what can stand there: Empty (on the fire: "The
+camp fire that grows"), then every piece of its kind, the warband's first, bright, with "Owned",
+"Owned, now on Extra spot 1: moves here" or "Stands here"; on the camp theme None, then the four
+sets, each with how many of its pieces are owned ("Shows here: 4 of 4 pieces owned"; one with none
+owned grey, "Buy a piece in the Shop"), the others grey with their price or
+what earns them; a click on an owned piece sets it out (`decorate-piece:<id>`,
+`decorate-clear`). A closed spot instead offers **Open for 150 points**, asked first
+(`decorate-buy`, `decorate-yes`, `decorate-no`).
+
+**The camp's pieces** (`esurv_app::picker::decor`): the fire, what the banner post and the extra
+spots hold, the camp theme's set (each piece in its place), the trophy corner, the camp sign, the
+pennant line and the skull spear, game-object figures of the scene in the camp's faction's looks, facing the
+fire, at their `scale`; each hero's figure wears its tabard and its weapons its glow.
+
 ### Checking the menus unattended
 
 `ESURV_MENUS_SCRIPT=<step>;<step>...` (a dev aid) presses the menus' buttons inside the
@@ -371,13 +522,14 @@ the figures), `wait:<s>`, `size:<w>x<h>` (the game's own window, resized from in
 is never raised nor pinned), `quit`, or a press: `class:<id>`, `choose`, `back`, `create-new`,
 `hero:<name>`, `camp`, `modify`, `delete`, `yes`, `no`, `zone:<id>`, `run-options`, `more:<n>`,
 `less:<n>`, `done`, `mode:<normal|challenge>`, `challenge-up`, `challenge-down`, `challenge-okay` (closes the Challenge Mode box), `start`, `codex`, `codex-list:<rings|trinkets|amulets|legendary>`,
-`codex-page:<next|prev>`, `close-codex`, `guide`, `guide-tab:<stats|enemies|upgrades|loot>`, `close-guide`, `game-options`, `options-tab:<video|sound|interface>`,
+`codex-page:<next|prev>`, `close-codex`, `achievements`, `achievements-page:<summary|general|feats|class id>`, `track:<id>`, `untrack:<id>`, `close-achievements`, `guide`, `guide-tab:<stats|enemies|upgrades|loot>`, `close-guide`, `game-options`, `options-tab:<video|sound|interface>`,
 `option:<cvar or getter>:<+|->`, `okay`, `cancel`, `options-tab:saves`, `export-save`,
 `save-file:<name, or its place in the list, 0 the newest>`, `import-save`, `import-yes`,
 `import-no`, `quit-game`, `open:<collection|talents>` (the warband screen's button), `end-panel:<victory|defeat>`
 (a made-up end panel over the run, once the hero is in it: sample numbers, kept until a button or a fresh run closes it), and on the hero sheet `tab:<character|collection|talents>`,
 `double-piece:<slot>:<zone>[:<look>]` (two clicks on a piece in one frame, a double click),
-`race:<1.12 id>`, `sex:<0|1>`, `feature:<n>:<+|->`, `randomize`, `turn:<left|right>`,
+`race:<1.12 id>`, `sex:<0|1>`, `feature:<n>:<+|->`, `randomize`, `temperament:<id>`, `quiet`,
+`random-temperament`, `sample` (the next sample line), `time-period:<past|present|future>`, `turn:<left|right>`,
 `name:<text>`, `confirm`, `slot:<n>`, `piece:<slot>:<zone>` (`piece:<slot>:<zone>:<look>` in another row of looks), `look:<slot>:<look>` (shows a look from the collection; `look:<slot>` the worn piece's own), `talent:<id>`, `learn`, `unlearn`, `reset`. On the warband screen `start:<option id>` picks a starting option, `loadout:<loadout id>` picks the class's weapon loadout (its id in `loadouts.ron`), `tip-start:<option id>` and `tip-loadout:<loadout id>` show that icon's tooltip as the pointer would and `tip-off` takes it away. `ESURV_MENUS_DEMO=1` shows a sample of the look's pieces in
 place of the first screen.
 
@@ -457,8 +609,9 @@ value boxes, framed text buttons, and a glow on what is under the pointer or tak
 | Cards (up to 4) | A near-black card whose border and glow take its rarity colour (`ITEM_QUALITY_COLORS`), dim at rest, full under the pointer, strongest once taken, with that colour washing down from its top: the key that takes it (top left, in a small box), its badge (top right, below), the icon framed in the rarity colour (its tooltip: a spell's school and cooldown, an empowered amulet's effects), the rarity in spaced small capitals in its colour, the name in Morpheus in the rarity colour, the line under the name in a muted gold (below), a gold divider, what it says (below: its numbers in green, as an item's `Equip:` lines, its words in white, how things stand now in grey; nothing else in the card's middle), and its footer: a strip across the card's foot under a thin rule, in small quiet grey, saying what taking it does to the hero's slots (below). No button: a click anywhere on the card takes it. |
 | Right column, **Jewelry** | **Rings** `n / 2`, **Trinkets** `n / 2` and **Amulet** `n / 1`: each worn piece's icon, name and rank (its tooltip: its text at its value now; the amulet's at its rank), then the empty slots. |
 | Reroll button | A framed button: **Reroll (n free)** while free rerolls are left, else **Reroll (cost gold)**; dimmed and dead when neither a free one nor the gold is there (the gold from the HUD line; until one came, the server decides). |
+| Banish, Skip buttons | **Banish (n)** and **Skip (n)**: the run's banishes and skips left for the hero, the same count on level-up and cache screens; dimmed and dead at 0 (also when the Shop sold none). Banish lights up (active style) while a card is being picked to banish; Skip is dimmed then. |
 | Gold | The hero's gold in a small value box, once the HUD line said it. |
-| Last line | The keys that work: 1 to n to choose, R to reroll. |
+| Last line | The keys that work: "1 to n: choose    R: reroll    B: banish    X: skip"; while a banish is being picked, "1 to n: banish that card    B: cancel". |
 
 ### What a card says
 
@@ -542,10 +695,14 @@ rank and empower factor; [server.md](server.md), "What the server tells a client
 ranks, the amulet replaced and the side columns.
 
 **Input.** Keys 1–4 and the keypad's 1–4 take that card, R rerolls, a click anywhere on a card
-takes it, the reroll button rerolls. Input is ignored for 0.45 s after the screen opens
-or its cards change, and one answer goes per screen: after a take or a reroll nothing more goes
+takes it, the reroll button rerolls. B (or the Banish button) starts a banish: the next card
+picked (key or click) is banished instead of taken, and B again lets go. X (or the Skip button)
+skips: the screen closes, nothing taken.
+A banished card is gone from that hero's offers for the rest of the run, rerolls included, and its
+slot fills with a fresh offer (none left: the slot stays empty; no card left: the screen closes). Input is ignored for 0.45 s after the screen opens
+or its cards change, and one answer goes per screen: after a take, a reroll, a banish or a skip nothing more goes
 until the server answers (new cards, the screen closing, or a refusal, which lets the screen
-answer again). While the screen is open those keys and Escape are the screen's: no key binding
+answer again). While the screen is open those keys (with B and X) and Escape are the screen's: no key binding
 runs for them (the action bar's 1–4 casts nothing, Escape opens no menu and pauses nothing),
 through benilla's `OverlayKeys` (above), under the name `cards`. A focused chat box still takes
 every key first.
@@ -561,7 +718,7 @@ rules, its answers going nowhere, kept over any screen the server opens until `c
 upgrade; `cache` with a new ring, trinket and amulet; `rare` with upgrades of the worn trinket
 and ring and the amulet empowered; `amulet` with one that replaces the worn amulet, a legendary
 one and a trinket upgrade; `legendary`), `lit:<n>` and `unlit` (card n shown as under the
-pointer), `key:<1-4|r>` (the screen's own key message), `click:<n>` (card n clicked, the
+pointer), `key:<1-4|r|b|x>` (the screen's own key message), `click:<n>` (card n clicked, the
 screen's own click message), `take:upgrade` (the first card that upgrades a known spell
 clicked, the cards rerolled while a free reroll is left and none does, else the first card), `close`, `wait:<s>`, `shot:<name>` (the game's own shot, into `ESURV_CARDS_SHOTS`)
 and `quit`.
@@ -798,16 +955,27 @@ it is as big as the stock frames at every window size, built from the stock look
 the stock unit frames, the minimap, the action bars and the damage meter. Positions below are
 units from the top of the screen.
 
+The readouts sit on **the top box** (`hud::top_box`): a slim ribbon hung from the top of the
+screen, 340 wide and 34 deep, its ends slanting in 10 by its foot, for the kills and the gold; and
+over its middle a crest 100 wide, its sides straight for 44 and its foot coming to a point at 66,
+for the clock and the next boss. Both are the key art's night sky (a 1030 × 200 cut of its blue
+middle, `assets/top_night.jpg`) over the menus' night panel, the crest's sky brighter; each in a bronze edge with a
+gold hairline inside it (the crest's bronze twice as broad), lit at the top and shaded at the
+foot, and a small soft shadow round both, dropped a unit and a half and fading out over 6. It is drawn once per scale from the shapes'
+distance fields into a texture at the screen's pixels, so the edges are smooth and both halves
+alike.
+
 | Part | Where (units from the top, centred) | Shows | Fed by |
 |---|---|---|---|
-| Clock | 8 | the run clock, `M:SS` (minutes go on past the hour), white, `GameFontNormalHuge`'s size (Friz Quadrata 20) | `Hud` clock |
-| Next boss | under the clock | "Boss arrives in `M:SS`" while one is to come; "Endless mode" once Endless is on; nothing when no boss is left to come. Gold, 12 (`GameFontNormal`) | `Hud` next boss, Endless |
-| Kills | left of the clock | label "Foes slain" (gold, 10), the count (white Arial Narrow 14, `NumberFontNormal`) | `Hud` kills |
-| Gold | right of the clock | label "Gold", the gold (`NumberFontNormal`), and "Next cache: n" (`GameFontDisableSmall`, grey) | `Hud` gold, cache price |
-| Boss bars | 62 | every boss up, oldest first (`hud::boss_stack`): the first on a wide bar (370 × 18) in the kit's status bar, a dark red, inside the stock skill bar border (`UI-Character-Skills-BarBorder`), the target frame's boss skull (`UI-TargetingFrame-Skull`) and its name (`GameFontHighlight`) at the left, `health / max` (`NumberFontNormalSmall`) and its share (`58%`) at the right, a gold tick at each health phase of its script with the phase's name over it (`GameFontNormalSmall`, gold: the `soon` line without " soon"). Under it, 16 apart, its cast or wind-up (200 × 11, the stock casting bar's colour and border, its icon at the left, `label` and time left); the room is kept while it does not cast. Every other boss below on a thinner bar (310 × 13) of the same look. A bar goes as its boss dies. The boss warnings move down under the stack (`boss_alerts::warnings_top`) | `BossBar`, `BossCast` |
+| Clock | on the crest, 6 down | the run clock, `M:SS` (minutes go on past the hour), gold, `GameFontNormalHuge`'s size (Friz Quadrata 20) | `Hud` clock |
+| Next boss | on the crest, under the clock | "Boss in `M:SS`" while one is to come; "Endless mode" once Endless is on; nothing when no boss is left to come. The menus' bronze-light, 10 (`GameFontNormalSmall`) | `Hud` next boss, Endless |
+| Kills | on the ribbon left of the crest, a cell 110 wide | our own gold skull (as the mock-up drew it, `assets/hud_skull.png`) and the count (gold Arial Narrow 14, `NumberFontNormal`), "Foes slain" under them (the menus' bronze-light, 10) | `Hud` kills |
+| Gold | on the ribbon right of the crest, a cell 110 wide | the gold (gold, `NumberFontNormal`) and our own gold coin (`assets/hud_coin.png`), "Next cache: n" under them (gold, `GameFontNormalSmall`) | `Hud` gold, cache price |
+| Boss bars | 66, under the top box (the first boss and its cast end by 122, over the stock error line at 122) | every boss up, oldest first (`hud::boss_stack`): the first on a wide bar (370 × 18) in the kit's status bar, a dark red, inside the stock skill bar border (`UI-Character-Skills-BarBorder`), the target frame's boss skull (`UI-TargetingFrame-Skull`) and its name (`GameFontHighlight`) at the left, `health / max` (`NumberFontNormalSmall`) and its share (`58%`) at the right, a gold tick at each health phase of its script with the phase's name over it (`GameFontNormalSmall`, gold: the `soon` line without " soon"). Under it, 16 apart, its cast or wind-up (200 × 11, the stock casting bar's colour and border, its icon at the left, `label` and time left); the room is kept while it does not cast. Every other boss below on a thinner bar (310 × 13) of the same look. A bar goes as its boss dies. The boss warnings move down under the stack (`boss_alerts::warnings_top`) | `BossBar`, `BossCast` |
 | Banners | 292, two lines, newest on top | a boss arrives (orange, the stock raid warning's colour), the final boss arrives (red), a boss falls (gold); a rare comes and falls with none. Friz Quadrata 20 (`GameFontNormalHuge`). Each holds 10 s, then fades over 3 s: a stock message frame's timing, as `RaidWarningFrame` keeps it | `Banner` |
 | Toasts | 352, three lines, newest on top | the server's HUD messages (magnet, runes, a cache that needs gold, leaving the arena) in the stock info yellow, Friz Quadrata 16 (`ErrorFont`). Each holds 5 s, then fades over 3 s: `UIErrorsFrame`'s timing | `Toast` |
 | Start hint | 292 | before the first step: "Take a step to begin the fight.", in gold, pulsing (strength \|sin(4.5 t)\| × 0.45 + 0.55) | `Hud` phase `waiting` |
+| Achievement earned | 124, sliding up from 148 | the banner of an achievement just earned (below, [Achievements in a run](#achievements-in-a-run)) | `AchievementEarned` |
 | Escape menu | the middle of the screen | see below | `Hud` phase `paused` |
 
 The stock centre lines keep their places between the readouts and the banners: the error and
@@ -835,15 +1003,39 @@ overlap one is moved straight down until its top sits under it, its tail with it
 first, then the boss bar, so a bubble moved under the clock goes on under the bar. The bubble
 still follows its speaker; only its height on the screen changes while it would cover them.
 
+### Achievements in a run
+
+`esurv_app::achievements::in_run`, in the menus' look ([achievements.md](achievements.md); the
+chat line `[Hero] has earned the achievement [Name]!` is the server's):
+
+* **The banner.** On `AchievementEarned` (any hero of the run: achievements are the warband's) a
+  near-black banner with a gold border and a soft gold glow, 300 units wide, slides up 24 units
+  into its place at the top centre, 124 units down (under the readouts and the boss bar, over the
+  error line), fading in over 0.35 s: the achievement's icon in its frame, "ACHIEVEMENT EARNED"
+  over its name in gold Morpheus, and the shield with its points. The client's quest-complete
+  sound plays with it (`PlaySound("igQuestListComplete")`). It holds 4 s and fades over 0.8 s;
+  several earned at once come one after the other. A new run's `Ready` drops those still
+  waiting.
+* **The tracker.** The achievements ticked in the window (at most three), at the right under the
+  minimap (246 units down, 16 from the edge, 210 wide), clear of the damage meter: a small panel
+  headed "ACHIEVEMENTS", each with its name in gold and its progress as a bar ("312 / 1,000", a
+  checklist's "1 / 3"), or what to do for a feat that counts nothing. It follows every
+  `Achievements` of the run (after `hello`, after each earn, after a pay-out of kills), so a
+  kill counter's bar fills as the kills are paid out; an achievement earned leaves it. It shows
+  only in the world, and not at all with nothing tracked.
+
+`ESURV_ACHIEVEMENT_DEMO=<id>[,<id>...]` (a dev aid) shows these achievements' banners 6 s into
+the world, one after the other, for a look with no achievement to earn.
+
 ### The minimap buttons
 
-Two round buttons on the stock Minimap's rim in a run, built as an
+Three round buttons on the Minimap's rim in a run, built as an
 addon's minimap icon is (`esurv_app::minimap_buttons`, its Lua `minimap_buttons.lua` in the
 interface VM): a 20 × 20 icon (its edge trimmed, `SetTexCoord` 0.075 to 0.925) under the stock
 tracking button's ring (`Interface\Minimap\MiniMap-TrackingBorder`, 52 × 52), the zoom
 buttons' highlight (`UI-Minimap-ZoomButton-Highlight`) under the pointer, 80 units from the
-minimap's middle on its lower left (200° and 225°, counting anticlockwise from the right),
-clear of the stock tracking, mail, clock and zoom buttons. They are stock frames, so the stock
+minimap's middle on its lower left (200°, 225° and 250°, counting anticlockwise from the right),
+clear of the stock tracking, mail, clock and zoom buttons; on the run's larger map (see [The minimap](#the-minimap)) 98 out, in our ring. They are stock frames, so the stock
 mouse handling clicks them as it clicks the minimap's own buttons, and a click on them never
 reaches the world.
 
@@ -851,6 +1043,7 @@ reaches the world.
 |---|---|---|---|
 | Boss timer bars | `INV_Misc_PocketWatch_01` | "Boss timer bars: show/hide drag handles", then "Drag handles shown" or "Drag handles hidden (hold Shift to drag)" | flips `esurvBossBarHandles`, the same setting as Options, Interface, "Show bar handles": show the handles, drag the bars, hide them again. Kept as that CVar is |
 | Damage meter | `INV_Sword_04` | "Damage meter: show/hide", then "Shown" or "Hidden" | shows or hides the meter window; kept in `meter.ron` (`hidden`) |
+| Frames layout | `INV_Misc_Map_01` | "Player and target frames: classic/modern", then "Classic: at the top left" or "Modern: beside the hero" | switches the player and target frames between the classic layout and the modern one ([The player and target frames](#the-player-and-target-frames)) at once; kept in `esurvFramesLayout` |
 
 A click takes hold the same frame (the game reads the buttons' clicks every frame, not only on
 its once-a-second read of the Options CVars). `ESURV_MINIMAP_SHOTS=<stem>` is the unattended
@@ -1073,8 +1266,8 @@ window).
 backpack, bag and keyring buttons; the main bar's buttons 9 to 12 and its latency bar
 ([The action bar](#the-action-bar)); the minimap's world map button and its battleground button.
 The main menu's micro button stays: a click on it opens the Escape menu, as Escape does. The
-minimap's zoom buttons, its
-tracking icon, its day and night dial and its own close button stay: they open no window.
+minimap's zoom buttons and its tracking icon stay: they open no window ([The
+minimap](#the-minimap) leaves out its day and night dial and its close button).
 
 **The run's numbers on the character pane** (design step 6). Once the server's numbers line has
 come (`ESURV`, [server.md](server.md), "The character pane"), read through the addon message
@@ -1239,29 +1432,90 @@ the first spell again once a level-up upgraded it. With `ESURV_GRANT=speed_rune,
 
 ### The action bar
 
-In a run the stock main bar (`MainMenuBar.xml`, 1024 units wide) is laid out compact and
-centred, 494 units wide, from its own art (`esurv-app` `run_frames::action_bar`,
-`action_bar.lua`, switched with the run frames); out of a run every piece goes back where the
-stock file put it. Left to right:
+In a run the stock main bar (`MainMenuBar.xml`, 1024 units wide) is recreated in our own art,
+after a mock-up, 346 units
+wide and centred (`esurv-app` `run_frames::action_bar`, `action_bar.lua`, switched with the run
+frames); out of a run every piece goes back where the stock file put it, and ours hide.
 
 | Part | In a run |
 |---|---|
-| Gryphons | the stock end caps, one over each end, overlapping it by 32 as in the stock bar |
-| Buttons 1 to 7 | the hero's spells, learned spell `n` on button `n` (keys 1 to 7): seven, as rogues and druids need; a spell past the seventh has no button and still casts |
+| Frame | one bronze frame round the eight buttons, 5 units out from them, nine-sliced from our art, a small soft shadow round it 8 out and 2 down; its foot 6 units over the screen's foot, as the menu buttons' frame's |
+| Buttons 1 to 7 | the hero's spells, learned spell `n` on button `n` (keys 1 to 7): seven, as rogues and druids need; a spell past the seventh has no button and still casts. Each sits in a dark well (a faint scale pattern in it, our touch) under a bronze rim of its own; the stock button frame is cleared |
 | Button 8 | the race spell (key 8), the server's `RACE_SPELL_SLOT` ([server.md](server.md), "The action bar") |
-| Page arrows and number | as the stock bar has them, though only page 1 holds spells |
-| Micro buttons | Character (C), Spellbook (P), Talents (N) and the main menu's (the 1.12 computer button), which opens the run's Escape menu as Escape does ([Pausing](#pausing-the-escape-menu)) |
+| Dragons | a bronze dragon for the stock gryphons, one at each end, close to the frame's ends but clear of buttons 1 and 8, both looking inward, drawn over the bar, a small shadow round their outline in their art |
+| Experience bar | seated on the frame's top edge, 14 units in from its ends, 10 tall, in a bronze frame of our own ticked in tenths |
+| Micro buttons | apart, at the screen's bottom right, in a snug frame of their own: Character (C), the hero's portrait in a chamfered bronze frame; Spellbook (P), a book; Talents (N), a target; and the main menu's, a computer, its tooltip "Options", which opens the run's Escape menu as Escape does ([Pausing](#pausing-the-escape-menu)); the frame shadowed as the bar's is |
 
-Left out: buttons 9 to 12 (hidden, whatever shows them), the bag slots' end of the art (the
-art's last quarter) and the latency bar. The art is the stock strips cut together: the first
-quarter whole (the bar's left end, buttons 1 to 6), the second up to button 8 and its last 6
-units (the pillar before the arrows), then the third from its start (the arrows, the page
-number, the micro buttons) to the bar's end, under the right gryphon.
+Left out: the stock strips, the page arrows and number,
+buttons 9 to 12 (hidden, whatever shows them), the bag slots and the latency bar.
 
-The experience bar over it (`MainMenuExpBar`, and the rail that stands in for it at the level
-cap) is the bar's width, in **ten segments** of a tenth each, not the stock twenty of 5 %: the
-stock art's first and last strips (five segments each, the bar's two ends), half the width
-each. The exhaustion tick reads the bar's width, so it stands at the right place.
+**The art** (`esurv-app/assets/bar_*.tga`, `xp_frame.tga`, `micro_*.tga`; `stock_look::BAR_ART`)
+is our own, drawn after the mock-up in grey and matched to the dragon's bronze; the archive chain
+answers it by path (`Interface\ESurv\...`, `Chain::provide` in `benilla-formats`: files the game
+provides from memory, ahead of every archive). The dragon is the game's own art too
+(`assets/dragon_cap.tga`, 128 square, cut from the art): the stock caps stay in place
+showing nothing, and a frame ten levels over the bar draws the dragon on each, the right one
+mirrored. Out of a run the stock strips and the experience bar's frame are tinted bronze
+(`stock_look.lua`): tinted
+(`CARVED_LIGHT`), and each with a twin over it, its own art added back in gold (`GOLD_DEEP`,
+additive).
+
+The experience bar's fill is a red and blue night, at its own shape and flowing: the stock fill is kept clear, and a texture of our own (a
+band of it and its mirror, twice over, 4096 by 16) shows a window of the fill's width that slides
+along it and starts again; at its tip the cast bar's spark. The exhaustion tick reads the bar's width, so it stands at the right
+place.
+
+### The minimap
+
+In a run the stock minimap (`Minimap.xml`) is recreated in our own art, `esurv-app` `run_frames::minimap` (`minimap.lua`),
+switched with the run frames; out of a run every piece goes back where the stock file put it,
+and ours hide.
+
+| Part | In a run |
+|---|---|
+| Map | 168 across, a fifth larger than the stock 140, its top 52 units down, under the ribbon's middle; still round |
+| Ring | a thin gold ring at the map's edge, a long bronze point at north, south, east and west |
+| Ribbon | over the map at the screen's top right, 200 by 36, as wide as the ring's points, night blue in a bronze edge, its ends slanting in: the zone's name at its left, the game's clock (`GetGameTime`) at its right |
+| Zoom | small gold marks, a plus and a minus, on the rim at the lower right |
+| Round buttons | the tracking, mail, battleground and meeting stone buttons and our own two ([The minimap buttons](#the-minimap-buttons)) in a thin bronze ring of ours, each icon cut round inside it |
+| Buffs | the buffs and the weapon enchants 12 units further left, clear of the ribbon |
+
+Left out: the stock border, its top and the "N" it draws, the close button and the day and
+night dial. The achievements tracker starts under the larger map. The art
+(`assets/map_*.tga`) is in `stock_look::BAR_ART`.
+
+### The player and target frames
+
+In a run the stock player and target frames (`PlayerFrame.xml`, `TargetFrame.xml`) are recreated
+in our own art, `esurv-app` `run_frames::unit_frames` (`unit_frames.lua`), switched with the run
+frames; out of a run every piece goes back where the stock files put it, and ours hide. The
+target's frame is the player's mirrored, its portrait at its right, 320 units from the screen's
+left (its own units), both at 0.8. On a screen too narrow
+for that they shrink further together, as far as needed to keep the target 12 units clear of the
+HUD's top ribbon, to no less than
+three quarters. That is the classic layout; the minimap's layout button
+([The minimap buttons](#the-minimap-buttons)) switches to the modern one: both at 0.7, either side of the
+screen's middle, the player's plate ending and the target's beginning 8% of the screen's width
+from it, the two
+portraits' middles 31% of its height above its foot, beside the hero. The layout is kept in the
+CVar `esurvFramesLayout` (`classic` or `modern`).
+
+| Part | In a run |
+|---|---|
+| Portrait | 80 across (the stock 64), round in a bronze ring |
+| Level | on a bronze diamond, 39 across, hung on the ring's lower outer side; the target's high-level skull on it too |
+| Plate | a slim dark plate beside the portrait in a bronze edge, its outer end rounded. The edge is drawn over the bars, so nothing passes it |
+| Name | on a strip across the plate's top, justified to the outer side: night blue, red for a target the hero can attack (`UnitCanAttack`) |
+| Bars | the health and power bars under it, filling the plate from under the ring to the edge; their numbers always shown, without the stock "Health" and "Mana" words, and the target's health given a number too (the stock target has none): a percent while the client knows its health only as one (out of 100) |
+| Texts | larger: the name 14, the health 15, the power 12, the level 17 |
+
+The power bar's name tab and combo pips ([The power bar](#the-power-bar)) sit 6 units lower and
+4 further in, clear of the plate's edge and the ring. Left out: the stock border, the rest and
+combat icons and glows, the PvP, leader and master looter icons. The art (`assets/uf_*.tga`) is in
+`stock_look::BAR_ART`. `ESURV_TARGET_DEMO=1` (a dev aid) has the hero target themself once the
+frames install, to see the target's frame with no one else about; `ESURV_FRAMES_LAYOUT=modern`
+(or `classic`, a dev aid) chooses the layout as the button would.
+
 
 ### The power bar
 
@@ -1397,6 +1651,13 @@ What the options look and sound like, all from the player's client:
   Mind Flay, Drain Soul and Drain Life (every rank, an ally's too) play no looping sound, so no
   channel hum (`MUTED_CHANNEL_HUMS`, benilla's `MutedLoopSounds`); their
   cast and hit sounds play.
+* **Music and sounds of our own** (`esurv_app`'s `lib.rs`): Tanaris and every subzone of it, the
+  Caverns of Time among them, play the mountains' music (`Zone-Mountain`) in place of the
+  desert's. As each loading screen starts, a clock ticks
+  (`assets/loading_clock.mp3`), 4 s and then faded out over 1.5 s (benilla's `LoadingSound`; not
+  on the plain black of leaving the world). In the world a slow click (`assets/ambient_click.mp3`)
+  plays very quietly under the zone's ambience every 10 to 20 minutes, drawn at random: three
+  click-clacks of it, six clicks a second apart, 6.2 s then faded out over 0.3 s.
 * **Debuff looks** on enemies: Deadly Poison shows as Poison State (spell 12881: the green poison
   cloud on the afflicted, its body tinted green, and the poison cloud's sound as it lands), with
   Deadly Poison's own icon in the target frame (`option_looks::DEBUFF_ICONS`; `run_frames`

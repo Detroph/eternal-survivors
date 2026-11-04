@@ -1,0 +1,235 @@
+// Companions: small pets that follow a hero in runs and fetch gold coins within reach (the gold
+// flies to the hero), and stand beside it at the camp fire. Bought ones are warband-wide; each
+// hero picks one (or none) on its hero sheet. docs/game/achievements.md has the rules,
+// docs/game/AUTHORING.md "A companion" how to add one (copy docs/game/templates/companion.ron).
+// An id is kept in the save once shipped: never change one.
+//
+// look: Pet(npc)          a 1.12 companion pet, by the creature its item summons (its look and
+//                         size as in WoW; scale 1.0 keeps that size)
+//       Creature(display) any creature model, by its CreatureDisplayInfo.dbc number; `scale`
+//                         shrinks it to a pet's size
+// price: points to spend in the shop. A companion with `unlock: Achievement(id)` is never sold:
+// it has no price and comes only from that achievement (its `rewards: [Companion(id)]`).
+// Prices and the special companions' scales are drafts (2026-10-27); prices in steps of 15 and 30
+// (2026-10-30: from 25 and 50).
+([
+    // ================================================================ Special: from achievements
+    (
+        id: "tiny_gordok",
+        name: "Tiny Gordok",
+        icon: "INV_Crown_01", // draft: the throne he lost
+        look: Creature(display: 11583), // King Gordok
+        scale: 0.15, // draft
+        text: "He lost his throne to someone who would not stop spinning.",
+        unlock: Achievement("spin_to_win"),
+    ),
+    (
+        id: "warhorse_foal",
+        name: "Warhorse Foal",
+        icon: "Ability_Mount_Charger",
+        look: Creature(display: 14584), // the Paladin's Charger
+        scale: 0.35, // draft
+        text: "Too small to ride, too stubborn to fall. It walks beside you until you do.",
+        unlock: Achievement("unbreakable_bulwark"),
+        // its counterpart's own looks, small at its size (in place of
+        // a glow): Summon Charger's (spell 23214, SpellVisual 3339) cast as it appears (kit 165:
+        // Holy_Precast_Uber_Base and the hands' light), its lighter precast as it hands gold over
+        // (kit 193: Holy_Precast_High_Base)
+        kits: (appear: 165, hand_over: 193),
+    ),
+    (
+        id: "worg_pup",
+        name: "Worg Pup",
+        icon: "INV_Box_PetCarrier_01",
+        look: Pet(npc: 10259),
+        scale: 1.0,
+        text: "Learned everything from your pet, mostly the biting.",
+        unlock: Achievement("let_the_pet_work"),
+    ),
+    (
+        id: "smolderweb_hatchling",
+        name: "Smolderweb Hatchling",
+        icon: "INV_Box_Birdcage_01",
+        look: Pet(npc: 10598),
+        scale: 1.0,
+        text: "Eight legs, one venom sac, a big fan of your poison work.",
+        unlock: Achievement("drip_feed"),
+    ),
+    (
+        id: "spirit_of_summer",
+        name: "Spirit of Summer",
+        icon: "INV_Potion_33",
+        look: Pet(npc: 16701),
+        scale: 1.0,
+        text: "A little flame that never goes out, much like your sermons.",
+        unlock: Achievement("burn_notice"),
+    ),
+    (
+        id: "jubling",
+        name: "Jubling",
+        icon: "INV_Egg_04",
+        look: Pet(npc: 14878),
+        scale: 1.0,
+        text: "A damp toad that only follows people who refuse to die.",
+        unlock: Achievement("soaked_and_standing"),
+    ),
+    (
+        id: "tiny_red_dragon",
+        name: "Tiny Red Dragon",
+        icon: "INV_Misc_Orb_05",
+        look: Pet(npc: 14756),
+        scale: 1.0,
+        text: "Hatched in Blackrock, raised on your fireballs.",
+        unlock: Achievement("kindling_the_keep"),
+    ),
+    (
+        id: "little_imp",
+        name: "Little Imp",
+        icon: "Spell_Shadow_SummonImp",
+        look: Creature(display: 4449), // the Warlock's Imp
+        scale: 0.6, // draft
+        text: "Volunteered. Has not stopped complaining since.",
+        unlock: Achievement("soul_collector"),
+    ),
+    (
+        id: "white_tiger_cub",
+        name: "White Tiger Cub",
+        icon: "INV_Misc_Head_Tiger_01",
+        look: Pet(npc: 17254),
+        scale: 1.0,
+        text: "Counts your near misses. It is up to nine.",
+        unlock: Achievement("nine_lives"),
+    ),
+    (
+        id: "tiny_hogger",
+        name: "Tiny Hogger",
+        icon: "INV_Misc_Head_Gnoll_01",
+        look: Creature(display: 384), // Hogger
+        scale: 0.4, // draft
+        text: "Finally caught. Still smug.",
+        unlock: Achievement("gnoll_means_no"),
+    ),
+    (
+        id: "tiny_stitches",
+        name: "Tiny Stitches",
+        icon: "INV_Misc_Bone_HumanSkull_01", // draft
+        look: Creature(display: 1693), // Stitches (the flesh golem)
+        scale: 0.3, // draft
+        text: "Was never actually touched. Resents it.",
+        unlock: Achievement("stitched_up"),
+    ),
+    (
+        // Hoarder III's reward, never sold
+        id: "goblin_ledgerling",
+        name: "Goblin Ledgerling",
+        icon: "INV_Misc_Note_01", // draft
+        look: Creature(display: 7160), // Viznik Goldgrubber, the Booty Bay banker
+        scale: 0.6, // draft
+        text: "Keeps a running tally of your fortune, and a running tab on his fee.",
+        unlock: Achievement("hoarder_3"),
+    ),
+    (
+        id: "mini_diablo",
+        name: "Mini Diablo",
+        icon: "INV_DiabloStone",
+        look: Pet(npc: 11326),
+        scale: 1.0,
+        text: "Thought 5× was easy. Followed you home to learn.",
+        unlock: Achievement("lord_of_nothing"),
+    ),
+    (
+        id: "baby_cthun_eye",
+        name: "Baby C'Thun Eye",
+        icon: "INV_Misc_Eye_01", // draft
+        look: Creature(display: 15556), // the Eye of C'Thun (no walk: it glides)
+        scale: 0.12, // draft
+        hover: 1.2, // glides this high, bobbing (draft)
+        text: "Watches everything. Blinks when you win.",
+        unlock: Achievement("eye_exam_passed"),
+    ),
+    (
+        id: "whiskers_the_rat",
+        name: "Whiskers the Rat",
+        icon: "INV_Box_PetCarrier_01",
+        look: Pet(npc: 16549),
+        scale: 1.0,
+        text: "Hoards coins. Never spends. A kindred spirit.",
+        unlock: Achievement("penny_pincher"),
+    ),
+    (
+        id: "disgusting_oozeling",
+        name: "Disgusting Oozeling",
+        icon: "Ability_Creature_Poison_05",
+        look: Pet(npc: 15429),
+        scale: 1.0,
+        text: "Follows anyone who clearly enjoys suffering.",
+        unlock: Achievement("glutton_for_punishment"),
+    ),
+    (
+        id: "speedy",
+        name: "Speedy",
+        icon: "INV_Crate_03",
+        look: Pet(npc: 16547),
+        scale: 1.0,
+        text: "Slow, steady, still here after 30 minutes.",
+        unlock: Achievement("tortoise_wins"),
+    ),
+
+    // ================================================================ Shop: 25 points (draft)
+    // Cats
+    (id: "bombay_cat",        name: "Bombay Cat",        icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7385), scale: 1.0, price: 15, text: "Slipped out of a cottage full of cats to follow you instead."),
+    (id: "cornish_rex_cat",   name: "Cornish Rex Cat",   icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7384), scale: 1.0, price: 15, text: "Those ears hear a coin land in the grass across the field."),
+    (id: "orange_tabby_cat",  name: "Orange Tabby Cat",  icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7382), scale: 1.0, price: 15, text: "Warms itself at the fire and warms to you slowly."),
+    (id: "silver_tabby_cat",  name: "Silver Tabby Cat",  icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7381), scale: 1.0, price: 15, text: "Silver fur from a farmhouse where the cats outnumber the chairs."),
+    (id: "maine_coon_cat",    name: "Maine Coon",        icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7383), scale: 1.0, price: 15, text: "Big as a lynx and soft as a pillow, it naps while the centuries go by."),
+    (id: "siamese_cat",       name: "Siamese Cat",       icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7380), scale: 1.0, price: 15, text: "Found aboard a pirate ship, giving the cook a hard time."),
+    (id: "white_kitten",      name: "White Kitten",      icon: "INV_Box_PetCarrier_01", look: Pet(npc: 7386), scale: 1.0, price: 15, text: "Bought off a boy in the city who had too many kittens."),
+    // Parrots
+    (id: "cockatiel",         name: "Cockatiel",         icon: "Spell_Nature_ForceOfNature", look: Pet(npc: 7390), scale: 1.0, price: 15, text: "Learned to whistle in a pirate harbour; learned nothing polite."),
+    (id: "green_wing_macaw",  name: "Green Wing Macaw",  icon: "Spell_Nature_ForceOfNature", look: Pet(npc: 7387), scale: 1.0, price: 15, text: "Bright as a tropical dawn and twice as loud."),
+    (id: "hyacinth_macaw",    name: "Hyacinth Macaw",    icon: "Spell_Nature_ForceOfNature", look: Pet(npc: 7391), scale: 1.0, price: 15, text: "Won off a pirate who was busy losing a fight."),
+    (id: "senegal",           name: "Senegal",           icon: "Spell_Nature_ForceOfNature", look: Pet(npc: 7389), scale: 1.0, price: 15, text: "A small grey parrot from the jungle coast, sharp of beak and wit."),
+    (id: "cockatoo",          name: "Cockatoo",          icon: "Spell_Nature_ForceOfNature", look: Creature(display: 6189), scale: 1.0, price: 15, text: "Raises its white crest at every glint of treasure."), // the white parrot skin
+    // Owls
+    (id: "great_horned_owl",  name: "Great Horned Owl",  icon: "Ability_EyeOfTheOwl", look: Pet(npc: 7553), scale: 1.0, price: 15, text: "Raised in the treetop city, where owls count as family."),
+    (id: "hawk_owl",          name: "Hawk Owl",          icon: "Ability_EyeOfTheOwl", look: Pet(npc: 7555), scale: 1.0, price: 15, text: "Hunts like a hawk, judges you like an owl."),
+    (id: "eagle_owl",         name: "Eagle Owl",         icon: "Ability_EyeOfTheOwl", look: Creature(display: 6300), scale: 1.0, price: 15, text: "Has watched the sands of Tanaris for longer than anyone can count, and keeps quiet about what it saw."),
+    (id: "snowy_owl",         name: "Snowy Owl",         icon: "Ability_EyeOfTheOwl", look: Creature(display: 6298), scale: 1.0, price: 15, text: "Flew south from a winter that has not happened yet."),
+    // Small critters
+    (id: "snowshoe_rabbit",   name: "Snowshoe Rabbit",   icon: "INV_Crate_02", look: Pet(npc: 7560), scale: 1.0, price: 15, text: "From a ram ranch in the snowy hills, and quicker than any ram."),
+    (id: "tree_frog",         name: "Tree Frog",         icon: "INV_Crate_02", look: Pet(npc: 7549), scale: 1.0, price: 15, text: "Won at a travelling fair, and still a little dizzy."),
+    (id: "wood_frog",         name: "Wood Frog",         icon: "INV_Crate_02", look: Pet(npc: 7550), scale: 1.0, price: 15, text: "The quieter of the two fairground frogs. Only slightly."),
+    (id: "black_kingsnake",   name: "Black Kingsnake",   icon: "Spell_Nature_GuardianWard", look: Pet(npc: 7565), scale: 1.0, price: 15, text: "Out of a snake seller's basket in the red-walled city."),
+    (id: "brown_snake",       name: "Brown Snake",       icon: "Spell_Nature_GuardianWard", look: Pet(npc: 7562), scale: 1.0, price: 15, text: "Nothing fancy, nothing fussy, just a snake that sticks around."),
+    (id: "crimson_snake",     name: "Crimson Snake",     icon: "Spell_Nature_GuardianWard", look: Pet(npc: 7567), scale: 1.0, price: 15, text: "Bright red to scare you off. It only wants a warm rock."),
+    (id: "ancona_chicken",    name: "Ancona Chicken",    icon: "INV_Crate_02", look: Pet(npc: 7394), scale: 1.0, price: 15, text: "Bought off a farm wife; still scratches the dirt for seed."),
+    (id: "prairie_chicken",   name: "Prairie Chicken",   icon: "INV_Egg_02", look: Pet(npc: 7392), scale: 1.0, price: 15, text: "Hatched from an egg won with a very embarrassing dance."),
+    (id: "prairie_dog",       name: "Prairie Dog",       icon: "Ability_Hunter_BeastCall", look: Pet(npc: 2620), scale: 1.0, price: 15, text: "Dug its way out of the tall-grass plains and came up in the {Area(1941)}."),
+    (id: "cockroach",         name: "Cockroach",         icon: "Spell_Shadow_CarrionSwarm", look: Pet(npc: 7395), scale: 1.0, price: 15, text: "Found in a ruined city's sewers. Chromie has yet to find a timeline without cockroaches."),
+
+    // ================================================================ Shop: 50 points (draft)
+    // Whelplings
+    (id: "crimson_whelpling", name: "Crimson Whelpling", icon: "INV_Misc_Head_Dragon_01", look: Pet(npc: 7544), scale: 1.0, price: 30, text: "Hatched in the marshes where the red dragons nest, and still warm."),
+    (id: "dark_whelpling",    name: "Dark Whelpling",    icon: "INV_Misc_Head_Dragon_01", look: Pet(npc: 7543), scale: 1.0, price: 30, text: "Scraped out of a dry canyon nest, already counting your pile."),
+    (id: "emerald_whelpling", name: "Emerald Whelpling", icon: "INV_Misc_Head_Dragon_01", look: Pet(npc: 7545), scale: 1.0, price: 30, text: "Born in a sorrowful swamp, dreaming of greener things."),
+    (id: "azure_whelpling",   name: "Azure Whelpling",   icon: "INV_Misc_Head_Dragon_01", look: Creature(display: 6293), scale: 1.0, price: 30, text: "Blue scales from a frozen ridge, cold to touch, warm at heart."),
+    (id: "bronze_whelpling",  name: "Bronze Whelpling",  icon: "INV_Misc_Head_Dragon_01", look: Creature(display: 6292), scale: 1.0, price: 30, text: "Always arrives exactly when it meant to. Timing runs in the family."),
+    // Snapjaw turtles
+    (id: "albino_snapjaw",      name: "Albino Snapjaw",      icon: "INV_Egg_03", look: Pet(npc: 14633), scale: 1.0, price: 30, text: "Pale as sea foam and twice as hard to catch."),
+    (id: "hawksbill_snapjaw",   name: "Hawksbill Snapjaw",   icon: "INV_Egg_03", look: Pet(npc: 14632), scale: 1.0, price: 30, text: "A beak like a hawk and a pace like the tide."),
+    (id: "leatherback_snapjaw", name: "Leatherback Snapjaw", icon: "INV_Egg_03", look: Pet(npc: 14630), scale: 1.0, price: 30, text: "Carries its own armour and never complains about the weight."),
+    (id: "loggerhead_snapjaw",  name: "Loggerhead Snapjaw",  icon: "INV_Egg_02", look: Pet(npc: 14629), scale: 1.0, price: 30, text: "Old enough to remember the Caverns before the bronze dragons came, and in no hurry to leave."),
+    (id: "olive_snapjaw",       name: "Olive Snapjaw",       icon: "INV_Egg_02", look: Pet(npc: 14631), scale: 1.0, price: 30, text: "Green as the beach grass it hatched under."),
+    // Baby murlocs
+    (id: "blue_baby_murloc",   name: "Blue Baby Murloc",   icon: "INV_Egg_03", look: Pet(npc: 15186), scale: 1.0, price: 30, text: "Gurgles happily at every tide pool and every coin."),
+    (id: "orange_baby_murloc", name: "Orange Baby Murloc", icon: "INV_Egg_03", look: Pet(npc: 15361), scale: 1.0, price: 30, text: "A rare colour for a little fish-folk, and it knows it."),
+    (id: "pink_baby_murloc",   name: "Pink Baby Murloc",   icon: "INV_Egg_03", look: Pet(npc: 16069), scale: 1.0, price: 30, text: "Bright pink and proud of it, whatever the shoal says."),
+    (id: "white_baby_murloc",  name: "White Baby Murloc",  icon: "INV_Egg_03", look: Pet(npc: 16445), scale: 1.0, price: 30, text: "Pale as winter surf, and gurgling about it constantly."),
+    (id: "purple_baby_murloc", name: "Purple Baby Murloc", icon: "INV_Egg_03", look: Creature(display: 15397), scale: 1.0, price: 30, text: "No other timeline has one. It would like to keep it that way."),
+    // Mechanical pets
+    (id: "mechanical_squirrel", name: "Mechanical Squirrel", icon: "INV_Crate_01", look: Pet(npc: 2671), scale: 1.0, price: 30, text: "Built from a tinker's blueprint, with acorns swapped for coins."),
+    (id: "mechanical_chicken",  name: "Mechanical Chicken",  icon: "Spell_Magic_PolymorphChicken", look: Pet(npc: 8376), scale: 1.0, price: 30, text: "A homing robot that got lost in three different ages and found its way back each time."),
+    (id: "mechanical_toad",     name: "Lifelike Mechanical Toad", icon: "INV_Misc_MonsterHead_03", look: Pet(npc: 12419), scale: 1.0, price: 30, text: "Lifelike enough to fool a fly, and very nearly you."),
+    (id: "mechanical_yeti",     name: "Tranquil Mechanical Yeti", icon: "Ability_Hunter_Pet_Gorilla", look: Pet(npc: 15699), scale: 1.0, price: 30, text: "Wound up by a mountain-town tinker and told to relax."),
+    (id: "walking_bomb",        name: "Tiny Walking Bomb",   icon: "INV_Misc_Bomb_04", look: Pet(npc: 9656), scale: 1.0, price: 30, text: "A tinker's leftovers on two legs. Keep it from the fire."),
+])

@@ -1,4 +1,4 @@
-// Weapon loadouts (roadmap R3): three per class, the default first.
+// Weapon loadouts: three per class, the default first.
 //
 // Each loadout's `icon` (an Interface\Icons name of the 1.12 client) stands for it on the warband
 // screen's Weapon loadout row; its tooltip tells the rest.

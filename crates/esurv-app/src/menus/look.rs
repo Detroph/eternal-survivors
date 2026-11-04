@@ -18,32 +18,65 @@ use bevy::ui::FocusPolicy;
 use crate::stock::{StockButton, StockScale};
 use crate::ui::{UiFonts, TEXT_SHADOW};
 
-/// The menus' colours.
+/// The menus' colours, and the game's own frames' (the camp's talk window, the run's portrait):
+/// the splash screen's (the ui rework, `plans/ui-rework-concept.md`, "The palette"): blue is the
+/// room, bronze is the furniture, bordeaux is the cloth on what is chosen, gold is the light.
 pub mod palette {
     use bevy::prelude::Color;
 
-    /// A panel's fill: near-black, a touch warm.
-    pub const PANEL: Color = Color::srgba(0.035, 0.03, 0.027, 0.95);
-    /// A value box's and a button's fill, a step lighter.
-    pub const INSET: Color = Color::srgba(0.075, 0.065, 0.055, 0.95);
-    /// The thin warm-gold border and rules.
-    pub const GOLD: Color = Color::srgb(0.72, 0.56, 0.27);
-    /// The border of what is not picked, and the rules' faded ends.
-    pub const GOLD_DIM: Color = Color::srgba(0.72, 0.56, 0.27, 0.4);
-    pub const GOLD_CLEAR: Color = Color::srgba(0.72, 0.56, 0.27, 0.0);
-    /// A heading's gold, and a gold value's.
-    pub const HEADING: Color = Color::srgb(0.98, 0.80, 0.40);
-    /// A label's grey.
-    pub const LABEL: Color = Color::srgb(0.58, 0.56, 0.52);
-    /// A value's white.
-    pub const VALUE: Color = Color::srgb(0.94, 0.93, 0.90);
-    /// A hint's grey, quieter than a label.
-    pub const HINT: Color = Color::srgb(0.47, 0.45, 0.42);
-    /// The active button's dark red fill, and its border.
-    pub const ACTIVE: Color = Color::srgb(0.40, 0.06, 0.05);
-    pub const ACTIVE_EDGE: Color = Color::srgb(0.85, 0.35, 0.22);
+    /// The darkest night blue: the cards' bodies, tooltips.
+    pub const NIGHT_DEEP: Color = Color::srgb(0.043, 0.082, 0.153);
+    /// A level-up card's body and the choice screen's side columns: darker than a panel, so
+    /// the cards stand out of it.
+    pub const CARD: Color = Color::srgba(0.027, 0.055, 0.110, 0.97);
+    /// A panel's fill: the night sky, the world faint behind it.
+    pub const PANEL: Color = Color::srgba(0.051, 0.129, 0.212, 0.94);
+    /// A value box's and a button's fill, a step lighter (Night Glow).
+    pub const INSET: Color = Color::srgba(0.0, 0.169, 0.357, 0.9);
+    /// A hovered button's fill (Night Blue).
+    pub const NIGHT_BLUE: Color = Color::srgb(0.0, 0.275, 0.455);
+    /// What dims the world behind the cards and the windows over it: the night, not black.
+    pub const DIM: Color = Color::srgba(0.043, 0.082, 0.153, 0.65);
+    /// Every frame's and border's bronze, and its shadow line.
+    pub const BRONZE: Color = Color::srgb(0.573, 0.455, 0.380);
+    pub const BRONZE_DARK: Color = Color::srgb(0.353, 0.263, 0.212);
+    /// The picture's own thin wine edge, outside the bronze.
+    pub const FRAME_WINE: Color = Color::srgb(0.267, 0.102, 0.169);
+    /// The rules', the bars' and the call to act's gold (the vortex's ring).
+    pub const GOLD: Color = Color::srgb(0.910, 0.694, 0.431);
+    /// The border of what is not picked: bronze, never gold.
+    pub const GOLD_DIM: Color = BRONZE;
+    pub const GOLD_CLEAR: Color = Color::srgba(0.910, 0.694, 0.431, 0.0);
+    /// A frame's edge under the pointer (Gold Deep).
+    pub const GOLD_DEEP: Color = Color::srgb(0.698, 0.478, 0.247);
+    /// The deep shadow of gold: the call to act's edge (Ember).
+    pub const EMBER: Color = Color::srgb(0.388, 0.212, 0.078);
+    /// The text on the gold plate.
+    pub const ON_GOLD: Color = Color::srgb(0.102, 0.071, 0.024);
+    /// A heading's gold, and a gold value's (Gold Light).
+    pub const HEADING: Color = Color::srgb(0.953, 0.827, 0.604);
+    /// A label's sand.
+    pub const LABEL: Color = Color::srgb(0.788, 0.635, 0.478);
+    /// A value's parchment, in place of white.
+    pub const VALUE: Color = Color::srgb(0.937, 0.890, 0.800);
+    /// A hint's sand, quieter than a label.
+    pub const HINT: Color = Color::srgb(0.620, 0.431, 0.290);
+    /// The active button's bordeaux cloth, and its edge.
+    pub const ACTIVE: Color = Color::srgb(0.263, 0.071, 0.110);
+    pub const ACTIVE_EDGE: Color = Color::srgb(0.451, 0.169, 0.220);
+    /// A pressed button (Wine Black).
+    pub const WINE_BLACK: Color = Color::srgb(0.176, 0.051, 0.098);
+    /// The blue of a talk option's `<bracketed action>` (Timeways Blue): the one blue text.
+    pub const ACTION_BLUE: Color = Color::srgb(0.290, 0.639, 1.0);
+    /// The carved bronze of the title's letters (the logo on the splash): the lit face, its
+    /// highlight, and its dark cut edge; the title screen's box and buttons wear them.
+    pub const CARVED: Color = Color::srgb(0.651, 0.459, 0.318);
+    pub const CARVED_LIGHT: Color = Color::srgb(0.851, 0.659, 0.471);
+    pub const CARVED_DARK: Color = Color::srgb(0.231, 0.141, 0.086);
+    /// The carved letters' shadow side, the box's fill.
+    pub const CARVED_SHADE: Color = Color::srgb(0.380, 0.247, 0.157);
     /// The soft glow round what is picked.
-    pub const GLOW: Color = Color::srgba(1.0, 0.76, 0.30, 0.75);
+    pub const GLOW: Color = Color::srgba(0.910, 0.694, 0.431, 0.7);
     /// What is not found or not open yet is drawn this dark.
     pub const LOCKED: Color = Color::srgb(0.22, 0.22, 0.22);
     /// Points to spend.
@@ -55,13 +88,20 @@ pub mod palette {
 
 /// A panel's border width, its corner radius and its padding, in units.
 pub const BORDER: f32 = 1.0;
-pub const RADIUS: f32 = 6.0;
+pub const RADIUS: f32 = 0.0;
 pub const PAD: f32 = 12.0;
+/// A panel's bronze band, and the studs on its corners, in units.
+pub const FRAME: f32 = 2.0;
+pub const STUD: f32 = 6.0;
+
+/// Where every window that is not the whole screen puts its top (its title), units from the
+/// screen's top; it grows down from there.
+pub const WINDOW_TOP: f32 = 64.0;
 
 /// The faces the menus write in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Face {
-    /// Morpheus: headings and names.
+    /// Cinzel: headings and names.
     Display,
     /// Friz Quadrata: labels, values, buttons.
     Plain,
@@ -80,6 +120,8 @@ pub enum ButtonStyle {
     /// the gold border and the soft glow of what is picked, the glow
     /// pulsing ([`news_pulse`]).
     TextGlow,
+    /// A plate of the title's carved bronze (the title screen's Play and Quit).
+    Carved,
     /// The call to act on a screen (Create, Start run): gold-framed, a little larger.
     Primary,
     /// An icon in its square frame.
@@ -156,7 +198,7 @@ impl MenuLook<'_> {
 
     fn font(&self, face: Face) -> Handle<Font> {
         match face {
-            Face::Display => self.fonts.morpheus.clone(),
+            Face::Display => self.fonts.cinzel.clone(),
             Face::Plain => self.fonts.title.clone(),
             Face::Narrow => self.fonts.body.clone(),
         }
@@ -216,12 +258,18 @@ impl MenuLook<'_> {
         }
     }
 
-    /// A panel: near-black, the gold border, the corners; it keeps the pointer.
+    /// A panel: the night fill in a bronze band with the picture's thin wine edge outside it,
+    /// square, a bronze stud at each corner; it keeps the pointer.
     pub fn panel(&self, node: Node) -> impl Bundle {
+        let mut node = node;
+        node.border = UiRect::all(self.px(FRAME));
+        node.border_radius = BorderRadius::ZERO;
         (
             node,
             BackgroundColor(palette::PANEL),
-            BorderColor::all(palette::GOLD_DIM),
+            lit_from_above(false),
+            bevel(palette::BRONZE, false),
+            Outline::new(self.px(1.0), Val::ZERO, palette::FRAME_WINE),
             BoxShadow::new(
                 Color::srgba(0.0, 0.0, 0.0, 0.6),
                 Val::ZERO,
@@ -230,6 +278,35 @@ impl MenuLook<'_> {
                 self.px(8.0),
             ),
             solid(),
+            children![
+                crate::splash_art::cut(crate::splash_art::Cut::Night, NIGHT_TEXTURE),
+                self.stud(true, true),
+                self.stud(true, false),
+                self.stud(false, true),
+                self.stud(false, false),
+            ],
+        )
+    }
+
+    /// A round bronze stud on a panel's corner (`top`, `left`), centred on its band.
+    fn stud(&self, top: bool, left: bool) -> impl Bundle {
+        let at = self.px(-(FRAME + STUD) / 2.0);
+        (
+            Node {
+                position_type: PositionType::Absolute,
+                width: self.px(STUD),
+                height: self.px(STUD),
+                top: if top { at } else { Val::Auto },
+                bottom: if top { Val::Auto } else { at },
+                left: if left { at } else { Val::Auto },
+                right: if left { Val::Auto } else { at },
+                border: UiRect::all(self.px(1.0)),
+                border_radius: BorderRadius::MAX,
+                ..default()
+            },
+            BackgroundColor(palette::BRONZE),
+            BorderColor::all(palette::BRONZE_DARK),
+            Pickable::IGNORE,
         )
     }
 
@@ -367,7 +444,7 @@ impl MenuLook<'_> {
                     padding: UiRect::axes(self.px(6.0), self.px(5.0)),
                     row_gap: self.px(2.0),
                     border: UiRect::all(self.px(BORDER)),
-                    border_radius: BorderRadius::all(self.px(4.0)),
+                    border_radius: BorderRadius::ZERO,
                     ..default()
                 },
                 BackgroundColor(palette::INSET),
@@ -384,6 +461,7 @@ impl MenuLook<'_> {
     fn button_node(&self, style: ButtonStyle, width: Option<f32>) -> Node {
         let (pad_x, pad_y) = match style {
             ButtonStyle::Primary => (16.0, 7.0),
+            ButtonStyle::Carved => (16.0, 9.0),
             ButtonStyle::Icon | ButtonStyle::IconPicked | ButtonStyle::Arrow => (0.0, 0.0),
             ButtonStyle::Row | ButtonStyle::RowPicked => (8.0, 5.0),
             _ => (10.0, 4.0),
@@ -392,10 +470,7 @@ impl MenuLook<'_> {
             width: width.map_or(Val::Auto, |w| self.px(w)),
             padding: UiRect::axes(self.px(pad_x), self.px(pad_y)),
             border: UiRect::all(self.px(BORDER)),
-            border_radius: BorderRadius::all(self.px(match style {
-                ButtonStyle::Icon | ButtonStyle::IconPicked => 3.0,
-                _ => 4.0,
-            })),
+            border_radius: BorderRadius::ZERO,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -412,7 +487,7 @@ impl MenuLook<'_> {
         enabled: bool,
         width: Option<f32>,
     ) -> EntityCommands<'a> {
-        let size = if style == ButtonStyle::Primary {
+        let size = if matches!(style, ButtonStyle::Primary | ButtonStyle::Carved) {
             13.0
         } else {
             11.0
@@ -424,10 +499,14 @@ impl MenuLook<'_> {
             StockButton { enabled },
         ));
         e.with_children(|b| {
-            b.spawn((
-                self.text(Face::Plain, size, colour, label),
+            let mut text = b.spawn((
+                self.text(if matches!(style, ButtonStyle::Primary | ButtonStyle::Carved) { Face::Display } else { Face::Plain }, size, colour, label),
                 Pickable::IGNORE,
             ));
+            // dark letters on the gold: a dark shadow under them only smears them
+            if matches!(style, ButtonStyle::Primary) {
+                text.remove::<TextShadow>();
+            }
         });
         e
     }
@@ -491,7 +570,7 @@ impl MenuLook<'_> {
                 Node {
                     width: Val::Percent(100.0),
                     height: Val::Percent(100.0),
-                    border_radius: BorderRadius::all(self.px(2.0)),
+                    border_radius: BorderRadius::ZERO,
                     ..default()
                 },
                 Pickable::IGNORE,
@@ -616,14 +695,53 @@ impl MenuLook<'_> {
     }
 }
 
-/// A framed text button's label colour: grey while disabled, gold on the active and the primary
-/// one, white on the others.
+/// A framed text button's label colour: sand while disabled, dark on the gold plate, gold light
+/// on the active one, parchment on the others.
 pub fn label_colour(style: ButtonStyle, enabled: bool) -> Color {
     match (enabled, style) {
         (false, _) => palette::HINT,
-        (true, ButtonStyle::Active | ButtonStyle::Primary | ButtonStyle::TextGlow) => palette::HEADING,
+        (true, ButtonStyle::Primary) => palette::ON_GOLD,
+        (true, ButtonStyle::Carved) => palette::CARVED_DARK,
+        (true, ButtonStyle::Active | ButtonStyle::TextGlow) => palette::HEADING,
         (true, _) => palette::VALUE,
     }
+}
+
+/// How strongly a panel shows the night sky cut from the key art under its content
+/// ([`crate::splash_art`]).
+pub const NIGHT_TEXTURE: f32 = 0.3;
+
+/// Volume: a face lit from above, a
+/// sheen at its top fading to a shade at its foot, over its fill; `pressed`, the other way up.
+pub fn lit_from_above(pressed: bool) -> BackgroundGradient {
+    let light = Color::srgba(1.0, 0.95, 0.85, 0.16);
+    let shade = Color::srgba(0.0, 0.0, 0.0, 0.32);
+    let (top, foot) = if pressed { (shade, light.with_alpha(0.05)) } else { (light, shade) };
+    BackgroundGradient::from(LinearGradient::to_bottom(vec![
+        ColorStop::new(top, Val::Percent(0.0)),
+        ColorStop::new(Color::NONE, Val::Percent(45.0)),
+        ColorStop::new(foot, Val::Percent(100.0)),
+    ]))
+}
+
+/// A cut edge of `edge`: lit on its top and left, shaded on its bottom and right; `pressed`, the
+/// other way round.
+pub fn bevel(edge: Color, pressed: bool) -> BorderColor {
+    let light = edge.mix(&palette::GOLD_CLEAR, 0.45);
+    let dark = edge.mix(&Color::BLACK, 0.55);
+    let (lit, shaded) = if pressed { (dark, light) } else { (light, dark) };
+    BorderColor {
+        top: lit,
+        left: lit,
+        bottom: shaded,
+        right: shaded,
+    }
+}
+
+/// Whether a button of `style` stands out of its panel ([`bevel`], [`lit_from_above`]): all but
+/// an icon's frame and a bare arrow.
+fn raised(style: ButtonStyle) -> bool {
+    !matches!(style, ButtonStyle::Icon | ButtonStyle::IconPicked | ButtonStyle::Arrow)
 }
 
 /// Each menu button's fill, border and glow, as the pointer finds it (and again when it is
@@ -649,7 +767,13 @@ pub(super) fn light_buttons(
         let pressed = b.enabled && *interaction == Interaction::Pressed;
         let (f, e, glow) = button_colours(b.style, hovered, pressed, b.enabled);
         fill.0 = f;
-        *edge = BorderColor::all(e);
+        // a lit face in a cut edge, pressed in when pressed; not round an icon or an arrow
+        if raised(b.style) {
+            *edge = bevel(e, pressed);
+            commands.entity(entity).insert(lit_from_above(pressed));
+        } else {
+            *edge = BorderColor::all(e);
+        }
         let want = glow.map(|g| {
             BoxShadow::new(
                 g,
@@ -722,77 +846,209 @@ fn button_colours(
 ) -> (Color, Color, Option<Color>) {
     let bright = |c: Color, by: f32| c.mix(&Color::WHITE, by);
     match style {
+        // the bordeaux cloth of what is chosen
         ButtonStyle::Active => (
             if pressed {
-                bright(palette::ACTIVE, 0.05)
+                palette::WINE_BLACK
+            } else if hovered {
+                bright(palette::ACTIVE, 0.06)
             } else {
                 palette::ACTIVE
             },
             palette::ACTIVE_EDGE,
-            hovered.then_some(Color::srgba(0.9, 0.3, 0.2, 0.45)),
+            None,
         ),
-        ButtonStyle::Primary => (
+        // the title's carved bronze: its lit face, lighter under the pointer, its dark cut edge
+        ButtonStyle::Carved => (
             if pressed {
-                palette::ACTIVE
+                palette::CARVED_SHADE
             } else if hovered {
-                bright(palette::INSET, 0.06)
+                palette::CARVED_LIGHT
             } else {
-                palette::INSET
+                palette::CARVED
             },
-            if enabled {
+            palette::CARVED_DARK,
+            hovered.then_some(palette::GLOW.with_alpha(0.4)),
+        ),
+        // the gold plate, the one call to act
+        ButtonStyle::Primary => (
+            if !enabled {
+                palette::GOLD_DEEP.with_alpha(0.4)
+            } else if pressed {
+                palette::GOLD_DEEP
+            } else if hovered {
+                bright(palette::GOLD, 0.15)
+            } else {
                 palette::GOLD
-            } else {
-                palette::GOLD_DIM
             },
-            (enabled && hovered).then_some(palette::GLOW.with_alpha(0.45)),
+            palette::EMBER,
+            (enabled && hovered).then_some(palette::GLOW.with_alpha(0.5)),
         ),
         ButtonStyle::Text | ButtonStyle::Row => (
             if pressed {
-                palette::ACTIVE
+                palette::WINE_BLACK
             } else if hovered {
-                bright(palette::INSET, 0.05)
+                palette::NIGHT_BLUE
             } else {
                 palette::INSET
             },
             if hovered {
-                palette::GOLD
+                palette::GOLD_DEEP
             } else {
-                palette::GOLD_DIM
+                palette::BRONZE
             },
             None,
         ),
         ButtonStyle::TextGlow => (
             if pressed {
-                palette::ACTIVE
+                palette::WINE_BLACK
             } else if hovered {
-                bright(palette::INSET, 0.07)
+                palette::NIGHT_BLUE
             } else {
-                bright(palette::INSET, 0.04)
+                palette::INSET
             },
             palette::HEADING,
             Some(palette::GLOW.with_alpha(if hovered { 0.85 } else { 0.6 })),
         ),
         ButtonStyle::RowPicked => (
-            bright(palette::INSET, 0.04),
+            palette::NIGHT_BLUE,
             palette::GOLD,
             Some(palette::GLOW.with_alpha(0.35)),
         ),
         ButtonStyle::Icon => (
-            Color::BLACK,
+            palette::NIGHT_DEEP,
             if hovered {
-                palette::GOLD
+                palette::GOLD_DEEP
             } else {
-                palette::GOLD_DIM
+                palette::BRONZE
             },
             hovered.then_some(palette::GLOW.with_alpha(0.35)),
         ),
-        ButtonStyle::IconPicked => (Color::BLACK, palette::HEADING, Some(palette::GLOW)),
+        ButtonStyle::IconPicked => (palette::NIGHT_DEEP, palette::HEADING, Some(palette::GLOW)),
         ButtonStyle::Arrow => (
             Color::NONE,
             Color::NONE,
             hovered.then_some(palette::GLOW.with_alpha(0.3)),
         ),
     }
+}
+
+/// An icon in a thin gold frame that only shows (no button): the achievements' rows and banner.
+pub fn plain_icon(parent: &mut ChildSpawnerCommands, look: &MenuLook, image: Handle<Image>, size: f32) {
+    parent
+        .spawn((
+            Node {
+                width: look.px(size),
+                height: look.px(size),
+                flex_shrink: 0.0,
+                padding: UiRect::all(look.px(2.0)),
+                border: UiRect::all(look.px(BORDER)),
+                border_radius: BorderRadius::ZERO,
+                ..default()
+            },
+            BackgroundColor(palette::INSET),
+            BorderColor::all(palette::GOLD_DIM),
+            Pickable::IGNORE,
+        ))
+        .with_children(|f| {
+            f.spawn((
+                ImageNode::new(image),
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    border_radius: BorderRadius::ZERO,
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ));
+        });
+}
+
+/// An achievement's points on a small shield: a box rounded deeper at its foot, gold when
+/// `bright` (earned), grey otherwise.
+pub fn points_shield(parent: &mut ChildSpawnerCommands, look: &MenuLook, points: u32, bright: bool) {
+    let (edge, ink) = if bright {
+        (palette::HEADING, palette::HEADING)
+    } else {
+        (palette::LOCKED, palette::LABEL)
+    };
+    parent
+        .spawn((
+            Node {
+                width: look.px(30.0),
+                height: look.px(34.0),
+                flex_shrink: 0.0,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                border: UiRect::all(look.px(1.5)),
+                border_radius: BorderRadius {
+                    top_left: look.px(3.0),
+                    top_right: look.px(3.0),
+                    bottom_left: look.px(15.0),
+                    bottom_right: look.px(15.0),
+                },
+                ..default()
+            },
+            BackgroundColor(palette::INSET),
+            BorderColor::all(edge),
+            Pickable::IGNORE,
+        ))
+        .with_children(|s| {
+            s.spawn((look.text(Face::Display, 13.0, ink, points.to_string()), Pickable::IGNORE));
+        });
+}
+
+/// A progress bar filled `share` (0 to 1) gold, `words` ("312 / 1,000") over it, `height` units.
+pub fn progress_bar(parent: &mut ChildSpawnerCommands, look: &MenuLook, share: f32, words: &str, height: f32) {
+    parent
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: look.px(height),
+                border: UiRect::all(look.px(BORDER)),
+                border_radius: BorderRadius::ZERO,
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                overflow: Overflow::clip(),
+                ..default()
+            },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+            BorderColor::all(palette::GOLD_DIM),
+            Pickable::IGNORE,
+        ))
+        .with_children(|bar| {
+            bar.spawn((
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::ZERO,
+                    top: Val::ZERO,
+                    bottom: Val::ZERO,
+                    width: Val::Percent(share.clamp(0.0, 1.0) * 100.0),
+                    ..default()
+                },
+                BackgroundColor(palette::GOLD.with_alpha(0.75)),
+                Pickable::IGNORE,
+            ));
+            bar.spawn((look.text(Face::Plain, (height * 0.7).min(10.0), palette::VALUE, words), Pickable::IGNORE));
+        });
+}
+
+/// A small square mark: filled gold when `on`, an empty frame otherwise (a checklist's items, the
+/// tracking box).
+pub fn mark(parent: &mut ChildSpawnerCommands, look: &MenuLook, on: bool, size: f32) {
+    parent.spawn((
+        Node {
+            width: look.px(size),
+            height: look.px(size),
+            flex_shrink: 0.0,
+            border: UiRect::all(look.px(BORDER)),
+            border_radius: BorderRadius::ZERO,
+            ..default()
+        },
+        BackgroundColor(if on { palette::HEADING } else { Color::NONE }),
+        BorderColor::all(if on { palette::HEADING } else { palette::LABEL }),
+        Pickable::IGNORE,
+    ));
 }
 
 #[cfg(test)]
@@ -809,6 +1065,13 @@ mod tests {
             let p = news_pulse(i as f32 * 0.037);
             assert!((1.0 - NEWS_PULSE_DEPTH - 1e-5..=1.0 + 1e-5).contains(&p), "{p}");
         }
+    }
+
+    /// The talk options' blue here is the one the server writes into them.
+    #[test]
+    fn the_action_blue_is_the_servers() {
+        let hex = palette::ACTION_BLUE.to_srgba().to_hex();
+        assert_eq!(hex.trim_start_matches('#').to_lowercase(), esurv_protocol::ACTION_BLUE_HEX);
     }
 
     /// A news button and a news box wear the gold border and a glow at rest.

@@ -45,7 +45,8 @@ struct ModelParams {
     // affine, w = the UI tile's cell clip.
     anim_slots: vec4<f32>,
     // A crate's recoloured look (not the reference's): w = 1 on, xyz = the hue (brightest channel
-    // 1). The batch colour becomes its brightest channel times the hue. Zero off.
+    // 1). The batch colour becomes its brightest channel times the hue. w = 2 recolours the
+    // texture instead, so the light still colours it. Zero off.
     recolor: vec4<f32>,
 };
 @group(#{MATERIAL_BIND_GROUP}) @binding(100) var<uniform> m: ModelParams;
@@ -680,7 +681,13 @@ fn fragment(in: WowVsOut, @builtin(front_facing) is_front: bool) -> WowFragOut {
     // Gamma-space albedo: lighting runs on the authored byte values. `m.tint` plus its mat-anim
     // delta is the animated M2Color tint.
     let anim_tint = m.tint.rgb + wow_light.matanim[u32(m.anim_slots.y)].xyz;
-    let albedo = base.rgb * anim_tint;
+    var albedo = base.rgb * anim_tint;
+    // A texture recolour (`recolor.w` 2): the texel keeps its brightness and takes the hue, before
+    // the light.
+    let recolor_texture = m.recolor.w > 1.5;
+    if (recolor_texture) {
+        albedo = max(base.r, max(base.g, base.b)) * m.recolor.rgb * anim_tint;
+    }
     // An unlit batch replaces the lit path: fullbright, with only the highlight added (below).
     let is_emissive = m.model_flags.w > 0.5;
     // SIDN night glow: the emissive × the night fraction (ramping 20:30→21:30, 06:00→07:00), a
@@ -714,7 +721,10 @@ fn fragment(in: WowVsOut, @builtin(front_facing) is_front: bool) -> WowFragOut {
             vec3<f32>(0.0),
             vec3<f32>(1.0),
         );
-        let tex_rgb = base.rgb / max(vc, vec3<f32>(1.0 / 255.0));
+        var tex_rgb = base.rgb / max(vc, vec3<f32>(1.0 / 255.0));
+        if (recolor_texture) {
+            tex_rgb = max(tex_rgb.r, max(tex_rgb.g, tex_rgb.b)) * m.recolor.rgb;
+        }
         lit_rgb = tex_rgb * m.tint.rgb * primary;
         if (is_interior && m.tint.w > 0.5 && m.tint.w < 1.5) {
             // INT: the reference's interior pixel shader, `tex·MOCV.rgb·(1 + 4·MOCV.a)` with only
@@ -752,11 +762,15 @@ fn fragment(in: WowVsOut, @builtin(front_facing) is_front: bool) -> WowFragOut {
 #ifdef VERTEX_COLORS
         // The constant M2Color rides the vertex colour, which Bevy folded into `base`.
         let unlit_c = in.color.rgb * anim_tint;
-        let unlit_tex = base.rgb / max(in.color.rgb, vec3<f32>(1.0 / 255.0));
+        var unlit_tex = base.rgb / max(in.color.rgb, vec3<f32>(1.0 / 255.0));
 #else
         let unlit_c = anim_tint;
-        let unlit_tex = base.rgb;
+        var unlit_tex = base.rgb;
 #endif
+        // A texture recolour holds here too: the texel keeps its brightness and takes the hue.
+        if (recolor_texture) {
+            unlit_tex = max(unlit_tex.r, max(unlit_tex.g, unlit_tex.b)) * m.recolor.rgb;
+        }
         let unlit_sum = unlit_c * inst_tint + highlight;
         unlit_rgb = unlit_tex * clamp(unlit_sum, vec3<f32>(0.0), vec3<f32>(1.0));
     }
@@ -771,7 +785,7 @@ fn fragment(in: WowVsOut, @builtin(front_facing) is_front: bool) -> WowFragOut {
     }
     // A crate's recoloured look: the batch keeps its brightness (brightest channel) and takes the
     // style's hue, before the fog, as the effect lane's `EFFECT_RECOLOR` does before its fog.
-    if (m.recolor.w > 0.5) {
+    if (m.recolor.w > 0.5 && !recolor_texture) {
         rgb = max(rgb.r, max(rgb.g, rgb.b)) * m.recolor.rgb;
     }
 

@@ -13,7 +13,7 @@ const LINE: f32 = 30.0;
 
 /// Which list a scrolling node is, so its place is kept across redraws.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub(super) enum ScrollingList {
+pub(crate) enum ScrollingList {
     Zones,
     CollectionLog,
     /// The talent trees with the prestige section under them.
@@ -22,18 +22,24 @@ pub(super) enum ScrollingList {
     OptionsInterface,
     /// The guide's sections, each tab its own place.
     Guide(super::guide::GuideTab),
+    /// The Achievements window's pages, each its own place (by its place in the left column).
+    Achievements(u8),
+    /// Decorate camp's spots and their pieces.
+    Decorate,
+    /// The walkable camp.s Decorate list (`crate::camp::deco_spots`).
+    CampDecorate,
 }
 
 /// A node whose children scroll up and down with the wheel when they are more than it shows.
 #[derive(Component, Clone, Copy)]
-pub(super) struct ScrollsWithWheel(pub ScrollingList);
+pub(crate) struct ScrollsWithWheel(pub ScrollingList);
 
 /// Where each list was scrolled to, in logical pixels.
 #[derive(Resource, Default)]
 pub(super) struct ListScrolls(HashMap<ScrollingList, f32>);
 
 /// The parts a scrolling list's node carries: what it is, the wheel's target, and where it was.
-pub(super) fn scrolling(list: ScrollingList) -> impl Bundle {
+pub(crate) fn scrolling(list: ScrollingList) -> impl Bundle {
     (
         ScrollsWithWheel(list),
         RelativeCursorPosition::default(),

@@ -11,7 +11,7 @@ use std::sync::{Arc, Mutex};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use esurv_content::Content;
+use esurv_content::{Content, TimePeriod};
 use esurv_sim::game::challenge::{slider_on_its_steps, Challenge};
 use esurv_sim::game::enemy::RunOptions;
 use esurv_sim::game::gear::{decode_item_entry, slot_id, slot_of_id, zone_look};
@@ -19,7 +19,12 @@ use esurv_sim::game::rewards::{gear_item_entry, open_zone_count, talent_points};
 use esurv_sim::game::{prestige, talents};
 
 use crate::packets::code;
+pub use achievements::{loadout_key, AchievementFacts, SavedAchievements};
 
+/// The warband's achievements: earned, counted, and granted from an older save.
+pub mod achievements;
+mod cosmetics;
+pub use cosmetics::{camp_faction, Wears};
 /// The save's export and import, through a fixed folder beside it.
 pub mod files;
 pub mod lock;
@@ -56,6 +61,27 @@ pub struct SavedHero {
     /// longer has: its class's first.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub start: Option<String>,
+    /// The companion (its id in the content) it brings into runs and has beside it at the camp
+    /// fire, picked on its hero sheet; one the warband owns. `None`: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub companion: Option<String>,
+    /// The title, tabard and weapon glow it wears, picked on its hero sheet.
+    #[serde(default, skip_serializing_if = "Wears::is_empty")]
+    pub wears: Wears,
+    /// What stands on its tent's three spots in the walkable camp (`ESURV_HUB`), by spot (`1`
+    /// to `3`); `None` until first decorated, its class's free piece then standing beside the
+    /// tent (plans/hub-decoration-spots.md).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plot: Option<BTreeMap<String, String>>,
+    /// Its temperaments in the camp (`camp_chatter.ron`), the leading one first; none of them:
+    /// Quiet. `None` until given: a random pair, the first time the camp is made
+    /// (plans/hub-hero-life.md).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub temperament: Option<Vec<String>>,
+    /// The time period it was pulled into the camp from, picked on its hero sheet: which of the
+    /// camp's lines it says, and nothing else (flavour only). An older save: Present.
+    #[serde(default)]
+    pub time_period: TimePeriod,
 }
 
 /// The run options the next run starts with, in whole percentages, and its mode: one set for the
@@ -183,7 +209,7 @@ pub struct ClassProgress {
     #[serde(rename = "appearance", skip_serializing)]
     pub(crate) old_looks: BTreeMap<String, u32>,
     /// The weapon loadout chosen (its id in `loadouts.ron`); none, or one the class no longer has:
-    /// the class's first (roadmap R3).
+    /// the class's first.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub loadout: Option<String>,
     /// What the player had seen of the class when it last opened its Collection and its Talents
@@ -383,6 +409,10 @@ struct SaveFile {
     /// save, the first time any class has cleared Ahn'Qiraj.
     #[serde(default)]
     challenge_news_seen: bool,
+    /// The warband's achievements (`achievements`); `None` in a save from before them, which is given
+    /// the section from what it can prove the first time it is read with the content.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    achievements: Option<SavedAchievements>,
 }
 
 impl SaveFile {
@@ -425,6 +455,7 @@ impl Default for SaveFile {
             tips_seen: every_tip_seen(),
             zones_discovered: BTreeSet::new(),
             challenge_news_seen: false,
+            achievements: None,
         }
     }
 }
@@ -672,6 +703,7 @@ mod older {
                 tips_seen: every_tip_seen(),
                 zones_discovered: BTreeSet::new(),
                 challenge_news_seen: false,
+                achievements: None,
             }
         }
     }
@@ -684,6 +716,22 @@ pub fn backup_path(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
+/// How many of the last runs the camp's mood is judged by.
+pub const RECENT_RUNS: usize = 5;
+
+/// What has just happened to a hero, for its camp to react to once (plans/hub-hero-life.md,
+/// section 6).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CampNews {
+    /// Back from a won run in zone `zone` (its index in `zones`); `first_zone_win`: won for the
+    /// first time.
+    Won { first_zone_win: bool, zone: usize },
+    /// Back from a run in zone `zone` it was overrun in.
+    Lost { zone: usize },
+    /// Just made.
+    Newcomer,
+}
+
 /// The save, shared by every connection; written to disk after each change.
 pub struct Saves {
     path: Option<PathBuf>,
@@ -691,6 +739,19 @@ pub struct Saves {
     /// How many heroes are in the world now (each entered run holds a [`InWorldMark`]): the save
     /// is never replaced under a run.
     in_world: std::sync::atomic::AtomicUsize,
+    /// The temperaments the next hero made is given (the sheet's Create tells them first).
+    next_temperament: Mutex<Option<Vec<String>>>,
+    /// The time period the next hero made is from (the sheet's Create tells it first).
+    next_time_period: Mutex<Option<TimePeriod>>,
+    /// What has just happened to each hero, by guid, for its camp to react to once (a run ended,
+    /// the hero just made): taken when it next enters the camp. Kept in memory only.
+    news: Mutex<std::collections::HashMap<u32, CampNews>>,
+    /// How many runs heroes have come back from since the game started: the camp's hour moves on
+    /// one step with each (plans/hub-hero-life.md). Kept in memory only.
+    runs_back: std::sync::atomic::AtomicUsize,
+    /// Whether each of the last few runs come back from was won, the latest last: the camp's mood
+    /// (plans/hub-hero-life.md). Kept in memory only.
+    recent: Mutex<std::collections::VecDeque<bool>>,
 }
 
 /// A hero's place in the world, held for as long as it is in a run: the save counts it while the
@@ -765,6 +826,11 @@ impl Saves {
             path: Some(path.to_path_buf()),
             file: Mutex::new(file),
             in_world: Default::default(),
+            next_temperament: Mutex::default(),
+            next_time_period: Mutex::default(),
+            news: Mutex::default(),
+            runs_back: Default::default(),
+            recent: Mutex::default(),
         })
     }
 
@@ -788,6 +854,11 @@ impl Saves {
             path: None,
             file: Mutex::default(),
             in_world: Default::default(),
+            next_temperament: Mutex::default(),
+            next_time_period: Mutex::default(),
+            news: Mutex::default(),
+            runs_back: Default::default(),
+            recent: Mutex::default(),
         }
     }
 
@@ -850,11 +921,89 @@ impl Saves {
             records: HeroRecords::default(),
             zone: None,
             start: None,
+            companion: None,
+            wears: Default::default(),
+            plot: None,
+            temperament: self.next_temperament.lock().unwrap().take(),
+            time_period: self.next_time_period.lock().unwrap().take().unwrap_or_default(),
         };
         file.next_guid += 1;
         file.heroes.push(hero.clone());
+        self.news.lock().unwrap().insert(hero.guid, CampNews::Newcomer);
         self.write(&file).map_err(|_| code::CHAR_CREATE_ERROR)?;
         Ok(hero)
+    }
+
+    /// Whether each of the last few runs come back from was won, the latest last.
+    pub fn recent_runs(&self) -> Vec<bool> {
+        self.recent.lock().unwrap().iter().copied().collect()
+    }
+
+    /// How many runs heroes have come back from since the game started.
+    pub fn runs_back(&self) -> usize {
+        self.runs_back.load(std::sync::atomic::Ordering::SeqCst)
+    }
+
+    /// What has just happened to hero `guid`, once: taken as it enters its camp.
+    pub fn take_news(&self, guid: u32) -> Option<CampNews> {
+        self.news.lock().unwrap().remove(&guid)
+    }
+
+    /// Gives every hero not yet given its temperaments a random pair of `temperaments` (ids of
+    /// `camp_chatter.ron`), writing the save when any was (plans/hub-hero-life.md): heroes made before them get a random pair at once.
+    pub fn give_temperaments(&self, temperaments: &[String]) {
+        use rand::seq::SliceRandom;
+        let mut file = self.file.lock().unwrap();
+        let mut given = false;
+        for h in file.heroes.iter_mut().filter(|h| h.temperament.is_none()) {
+            h.temperament = Some(temperaments.choose_multiple(&mut rand::thread_rng(), 2).cloned().collect());
+            given = true;
+        }
+        if given {
+            let _ = self.write(&file);
+        }
+    }
+
+    /// Hero `guid` takes temperaments `temperament` (ids of `camp_chatter.ron`, the leading one
+    /// first; none: Quiet), or guid 0 the next hero made; written when it changed. False for no
+    /// such hero, more than two, one twice or one unknown.
+    pub fn temper(&self, content: &Content, guid: u32, temperament: &[String]) -> bool {
+        let known = |t: &String| content.camp_chatter.temperament(t).is_some();
+        let twice = temperament.len() == 2 && temperament[0] == temperament[1];
+        if temperament.len() > 2 || twice || !temperament.iter().all(known) {
+            return false;
+        }
+        if guid == 0 {
+            *self.next_temperament.lock().unwrap() = Some(temperament.to_vec());
+            return true;
+        }
+        let mut file = self.file.lock().unwrap();
+        let Some(hero) = file.heroes.iter_mut().find(|h| h.guid == guid) else {
+            return false;
+        };
+        if hero.temperament.as_deref() != Some(temperament) {
+            hero.temperament = Some(temperament.to_vec());
+            let _ = self.write(&file);
+        }
+        true
+    }
+
+    /// Hero `guid` was pulled into the camp from time period `time_period`, or guid 0 the next
+    /// hero made; written when it changed. False for no such hero.
+    pub fn set_time_period(&self, guid: u32, time_period: TimePeriod) -> bool {
+        if guid == 0 {
+            *self.next_time_period.lock().unwrap() = Some(time_period);
+            return true;
+        }
+        let mut file = self.file.lock().unwrap();
+        let Some(hero) = file.heroes.iter_mut().find(|h| h.guid == guid) else {
+            return false;
+        };
+        if hero.time_period != time_period {
+            hero.time_period = time_period;
+            let _ = self.write(&file);
+        }
+        true
     }
 
     /// Renames hero `guid`, or says why not (a character-screen result code, as for a new hero):
@@ -1056,10 +1205,11 @@ impl Saves {
         progress.run_seconds = progress.run_seconds.saturating_add(run.played.max(0.0).ceil() as u64);
         let total_after = progress.talent_experience;
         let mut zone_opened = None;
+        let mut first_zone_win = false;
         let won = content.zones.get(run.zone_index).filter(|_| run.won && run.opens_zone && !run.challenge);
         if let Some(zone) = won {
             let before = progress.open_zones(content);
-            progress.zones_won.insert(zone.id.clone());
+            first_zone_win = progress.zones_won.insert(zone.id.clone());
             let after = progress.open_zones(content);
             if after > before {
                 zone_opened = Some(after - 1);
@@ -1069,6 +1219,17 @@ impl Saves {
         }
         for (class, piece) in run.loot.iter().filter_map(|&e| SavedPiece::of_entry(content, e)) {
             file.classes.entry(class).or_insert_with(ClassProgress::new_to_the_save).collection.insert(piece);
+        }
+        if run.first {
+            let zone = run.zone_index;
+            let news = if run.won { CampNews::Won { first_zone_win, zone } } else { CampNews::Lost { zone } };
+            self.news.lock().unwrap().insert(guid, news);
+            self.runs_back.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            let mut recent = self.recent.lock().unwrap();
+            recent.push_back(run.won);
+            if recent.len() > RECENT_RUNS {
+                recent.pop_front();
+            }
         }
         let _ = self.write(&file);
         Some(Payout {
@@ -1775,6 +1936,30 @@ mod tests {
         assert_eq!(file.gear_numbering, GEAR_BY_NAME);
     }
 
+    /// A hero of a save from before the time period was pulled in from the Present; one picked
+    /// on the sheet is kept across a restart, and the next hero made takes the one Create told.
+    #[test]
+    fn a_hero_keeps_its_time_period_and_an_older_save_is_from_the_present() {
+        let old = "(heroes: [(guid: 1, name: \"Ana\", class: \"mage\", race: \"human\", gender: 1, look: (1, 2, 3, 4, 0))], next_guid: 2)";
+        assert_eq!(SaveFile::parse(old).unwrap().heroes[0].time_period, TimePeriod::Present);
+        let dir = std::env::temp_dir().join(format!("esurv-time-period-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("heroes.ron");
+        let saves = Saves::open(&path).unwrap();
+        assert!(saves.set_time_period(0, TimePeriod::Past));
+        let ana = saves.create("Ana", "mage", "human", 1, [0; 5]).unwrap();
+        assert_eq!(ana.time_period, TimePeriod::Past, "Create told it first");
+        let bo = saves.create("Bo", "mage", "human", 0, [0; 5]).unwrap();
+        assert_eq!(bo.time_period, TimePeriod::Present, "only the hero it was told for");
+        assert!(saves.set_time_period(bo.guid, TimePeriod::Future));
+        assert!(!saves.set_time_period(99, TimePeriod::Future), "no such hero");
+        let again = Saves::open(&path).unwrap();
+        let periods: Vec<TimePeriod> = again.heroes().iter().map(|h| h.time_period).collect();
+        assert_eq!(periods, [TimePeriod::Past, TimePeriod::Future]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     /// Gear won and points earned are news for the class until the
     /// player opens its Collection or its Talents; each view clears its own, per class, and what
     /// was seen is kept across a restart.
@@ -1826,7 +2011,7 @@ mod tests {
         assert_eq!(saves.class_progress(&content, "mage").unseen(), (false, false));
     }
 
-    /// Roadmap R3: a class keeps the weapon loadout chosen for it; a
+    /// A class keeps the weapon loadout chosen for it; a
     /// save from before loadouts, or one naming a loadout the class lacks, fights with its first.
     #[test]
     fn a_class_keeps_its_weapon_loadout_and_an_older_save_takes_the_first() {

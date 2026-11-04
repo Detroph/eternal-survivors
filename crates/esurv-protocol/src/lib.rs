@@ -24,8 +24,9 @@ mod prerun;
 mod to_client;
 mod to_server;
 
-pub use prerun::{PreRunAsk, SeenView, PRE_RUN_PREFIX};
+pub use prerun::{PreRunAsk, SeenView, TimePeriod, WearKind, MAX_TRACKED, PRE_RUN_PREFIX};
 pub use to_client::{
+    AchievementProgress, Achievements, BountyTold, CampLayout,
     Banner, BossBar, BossCast, BossPhase, BossTimer, BossWarning, BuffKind, BuffTip, Choices, Ending, Experience, GearDrop, GroundIndicator, HeroFacts, Hud, IndicatorShape, Kit, LookStyle, SheathHold,
     KnownSpell, Meter, MeterEntry, Offer, OfferKind, OfferValue, Phase, PrestigeProgress, Progress, Ready, RunEnd,
     ProcOrigin, SaveFileFacts, ScreenKind, Source, SpellTip, TipKind, ToClient, Worn,
@@ -34,6 +35,10 @@ pub use to_server::{RunOptions, Screens, ToServer};
 
 /// The protocol's version, sent with `hello`.
 pub const VERSION: u32 = 1;
+/// The blue of the `<bracketed action>` at the end of a talk option (the ui rework's Timeways
+/// Blue), as the `|cff` colour code the server writes; the app's palette
+/// reads it too (`menus::look::palette::ACTION_BLUE`), so the two never differ.
+pub const ACTION_BLUE_HEX: &str = "4aa3ff";
 /// The run's numbers for the character pane: `key=value;` pairs (esurv-server's
 /// `present::stats_line`).
 pub const NUMBERS_PREFIX: &str = "ESURV";

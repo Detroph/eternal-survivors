@@ -1,0 +1,51 @@
+// Bounties: what the warband earns again each time its goal is met again (plans/hub-bounties.md,
+// the creative advisor's). Each gives its points to spend every time, never the
+// achievement score. A kills or gold bounty is earned at every step of the warband's own count;
+// the rest at most once a run. An id is kept in the save once shipped: never change one.
+//
+// The numbers: the advisor's, checked against the whole economy (the): 935 points from the one-off achievements against 5,000 in the Shop; a won run
+// brings about 2,500 kills and 2,000 gold. Zone Victor at 10 (the advisor's faster option, Endless
+// Hour raised to 15 to stay the highest), so a won run brings about 16 points and the Shop is
+// bought out some 200 runs after the one-offs, never outpacing them early.
+([
+    (
+        id: "slayers_tally",
+        name: "Slayer's Tally",
+        text: "Every 2,500 enemies the warband slays.",
+        points: 1,
+        icon: "Ability_Warrior_Cleave",
+        goal: EveryKills(2500),
+    ),
+    (
+        id: "coin_counter",
+        name: "Coin Counter",
+        text: "Every 2,500 gold the warband collects.",
+        points: 2,
+        icon: "INV_Misc_Coin_02",
+        goal: EveryGold(2500),
+    ),
+    (
+        id: "boss_hunter",
+        name: "Boss Hunter",
+        text: "A run in which a boss falls, won or not (once a run).",
+        points: 3,
+        icon: "Ability_Hunter_SniperShot",
+        goal: BossFalls,
+    ),
+    (
+        id: "zone_victor",
+        name: "Zone Victor",
+        text: "Win a run in any zone (once a run).",
+        points: 10,
+        icon: "INV_Misc_Head_Dragon_01",
+        goal: ZoneWon,
+    ),
+    (
+        id: "endless_hour",
+        name: "Endless Hour",
+        text: "Last 10 minutes of Endless (once a run).",
+        points: 15,
+        icon: "INV_Misc_PocketWatch_01",
+        goal: EndlessMinutes(10),
+    ),
+])

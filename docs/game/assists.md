@@ -172,7 +172,7 @@ The simulation's side (`crates/esurv-sim/src/game/assists.rs`):
   a pulse, the nearest its middle, so each cast's Corruption, Curse of Agony, Shadow Bolt or Death
   Coil shows on at most 5. With 60 enemies about, a stay sends about ten times fewer hits and
   impact looks (Wayze 660 hits before, now 55; Snutz 3519, now 320). Moffel's Thunderfury
-  lightning and its debuff show on her first swing only (our rule, owner), her eight swings
+  lightning and its debuff show on her first swing only, her eight swings
   still striking the 5 nearest her: 5 lightning looks a stay instead of 40.
 - **A two-hander** in a character's main hand leaves its off hand empty (no class shield under
   it): Noami holds Sulfuras, Hand of Ragnaros (item 17182, display 29698) in both hands.

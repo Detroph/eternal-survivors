@@ -257,9 +257,10 @@ mod tests {
         assert!(r.spawn_rare(roster, None));
         let g = rares(&r)[0].clone();
         assert_eq!(g.base_speed, r.content.zones[r.zone].enemies[roster].move_speed * r.content.balance.enemy_speed);
-        // Elwynn (D 1) at minute 1/3: 240 × 10 × health clock, 8 × 3 × damage clock
+        // Elwynn (D 1) at minute 1/3: 240 × the rare kind × health clock, 8 × the rare kind × damage clock
         let m = 20.0 / 60.0;
-        let (h, dmg) = (240.0 * 10.0 * (1.0 + m * 1.5 / 4.0), 24.0 * (1.0 + m * 0.5 / 4.0));
+        let k = r.content.balance.rare;
+        let (h, dmg) = (240.0 * k.health * (1.0 + m * 1.5 / 4.0), 8.0 * k.damage * (1.0 + m * 0.5 / 4.0));
         assert!((g.max_health - h).abs() / h < 1e-5 && (g.damage - dmg).abs() / dmg < 1e-5);
     }
 

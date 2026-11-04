@@ -253,7 +253,11 @@ pub(super) fn track_unit_interiors(
             .map(|b| transform.transform_point(Vec3::from(b.center)).y - pos.y)
             .unwrap_or(0.0)
             .max(ROOM_UNDER_FLOOR_TOLERANCE);
-        let room = room_at(&wmos, &instances, &streamer, &adt_tiles, pos, reach);
+        let room = if body.stands_outdoors {
+            None // a game's word, not the reference's (`WorldUnit::stands_outdoors`)
+        } else {
+            room_at(&wmos, &instances, &streamer, &adt_tiles, pos, reach)
+        };
         let next = UnitWmoRoom {
             room,
             at: pos,

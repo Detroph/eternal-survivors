@@ -23,7 +23,12 @@ pub struct UiFonts {
     pub title: Handle<Font>,
     pub body: Handle<Font>,
     pub morpheus: Handle<Font>,
+    /// Cinzel Bold (SIL OFL, `assets/fonts`): the menus' headings, carried inside the exe as the splash is.
+    pub cinzel: Handle<Font>,
 }
+
+/// Cinzel Bold, the headings' face.
+const CINZEL: &[u8] = include_bytes!("../assets/fonts/Cinzel-Bold.ttf");
 
 /// The stock art the screens are made of (paths in the player's data, loaded in the stock kit's
 /// form by [`crate::stock::load_stock_art`]).
@@ -141,10 +146,15 @@ pub fn in_world(objects: &Objects) -> bool {
 /// Loads the fonts and keeps the content.
 pub(crate) fn register(app: &mut App, content: Option<Arc<Content>>) {
     let assets = app.world().resource::<AssetServer>().clone();
+    let cinzel = app
+        .world_mut()
+        .resource_mut::<Assets<Font>>()
+        .add(Font::try_from_bytes(CINZEL.to_vec()).expect("Cinzel is a font"));
     app.insert_resource(UiFonts {
         title: assets.load(TITLE_FONT),
         body: assets.load(BODY_FONT),
         morpheus: assets.load(MORPHEUS_FONT),
+        cinzel,
     });
     if let Some(content) = content {
         app.insert_resource(GameContent(content));

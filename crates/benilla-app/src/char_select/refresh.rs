@@ -191,6 +191,57 @@ pub(super) fn refresh_banner_and_buttons(
     }
 }
 
+/// The glue booth showing an embedder's [`crate::select_scene::SelectModel`]: no race backdrop,
+/// the character in its outfit, its own facing.
+fn feed_embedder_model(
+    preview: &mut GluePreview,
+    view: &crate::select_scene::SelectModelView,
+    catalog: Option<&crate::entities::CharCreate>,
+) {
+    let c = &view.hero.character;
+    let outfit: Vec<(u32, u8)> = catalog
+        .map(|cc| {
+            cc.0.start_outfit(c.race, c.class, c.gender.min(1))
+                .iter()
+                .map(|i| (i.display_id, i.inv_type))
+                .collect()
+        })
+        .unwrap_or_default();
+    let shown = crate::select_scene::model_character(&view.hero, &outfit);
+    let look = Some(GlueLook::Select(SelectLook {
+        enchants: view.hero.enchants,
+        ..SelectLook::from(&shown)
+    }));
+    if preview.scene.is_some() {
+        preview.scene = None;
+    }
+    if preview.look != look {
+        preview.look = look;
+    }
+    if preview.yaw != view.yaw {
+        preview.yaw = view.yaw;
+    }
+}
+
+/// In the world, the glue booth shows an embedder's model while it asks for one (a window of its
+/// own over the world, a hero sheet), and nothing once it stops asking: the stock select rule
+/// has no selection out here.
+pub(super) fn feed_glue_preview_in_world(
+    mut preview: ResMut<GluePreview>,
+    model: Option<Res<crate::select_scene::SelectModel>>,
+    catalog: Option<Res<crate::entities::CharCreate>>,
+) {
+    match model.as_deref().and_then(|m| m.0.as_ref()) {
+        Some(view) => feed_embedder_model(&mut preview, view, catalog.as_deref()),
+        None => {
+            if preview.look.is_some() || preview.scene.is_some() {
+                preview.look = None;
+                preview.scene = None;
+            }
+        }
+    }
+}
+
 /// Feed the glue booth: the scene is the selected character's race (`SetBackgroundModel`; Orc
 /// with no character, the reference's OnLoad default), the look its geared enum record.
 pub(super) fn feed_glue_preview(
@@ -203,27 +254,7 @@ pub(super) fn feed_glue_preview(
 ) {
     // An embedder's model takes the booth: no race backdrop, its own facing.
     if let Some(view) = model.as_deref().and_then(|m| m.0.as_ref()) {
-        let c = &view.hero.character;
-        let outfit: Vec<(u32, u8)> = catalog
-            .as_deref()
-            .map(|cc| {
-                cc.0.start_outfit(c.race, c.class, c.gender.min(1))
-                    .iter()
-                    .map(|i| (i.display_id, i.inv_type))
-                    .collect()
-            })
-            .unwrap_or_default();
-        let shown = crate::select_scene::model_character(&view.hero, &outfit);
-        let look = Some(GlueLook::Select(SelectLook::from(&shown)));
-        if preview.scene.is_some() {
-            preview.scene = None;
-        }
-        if preview.look != look {
-            preview.look = look;
-        }
-        if preview.yaw != view.yaw {
-            preview.yaw = view.yaw;
-        }
+        feed_embedder_model(&mut preview, view, catalog.as_deref());
         // the stock rule starts over from the selection when the model goes
         *showing = None;
         return;

@@ -80,7 +80,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Fodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.0,
         ),
         (
@@ -89,7 +89,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.5,
         ),
         (
@@ -103,7 +103,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 1.0,
         ),
         (
@@ -117,7 +117,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 2.0,
             look_spell: Some(15232),
         ),
@@ -127,7 +127,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Mid,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 3.0,
         ),
         (
@@ -136,7 +136,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: ToughMid,
-            toughness: 2.0,
+            role: Tough,
             appears_at_minute: 4.5,
         ),
         (
@@ -145,7 +145,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Mid,
-            toughness: 1.0,
+            role: Sturdy,
             appears_at_minute: 6.0,
         ),
         (
@@ -154,7 +154,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 7.5,
             look_spell: Some(16868),
         ),
@@ -164,7 +164,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: ToughMid,
-            toughness: 2.5,
+            role: Brute,
             appears_at_minute: 9.0,
         ),
         (
@@ -203,7 +203,7 @@
             scale: 1.0,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -213,7 +213,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -229,7 +229,7 @@
             scale: 1.86,
             creature_type: Undead,
             kind: ToughMid,
-            toughness: 2.0,
+            role: Tough,
             appears_at_minute: 0.0,
             only_summoned: true,
             focus_as_elite: true,
@@ -240,7 +240,7 @@
             scale: 1.0,
             creature_type: Undead,
             kind: Fodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -294,6 +294,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.91), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Baroness Anastari",
@@ -318,7 +319,7 @@
                 ),
             ],
             is_final: false,
-            health_share: Some(1.25), // lived 41 s against a 49 s goal
+            health_share: Some(0.83), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Nerub'enkan",
@@ -360,6 +361,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.68), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Maleki the Pallid",
@@ -413,6 +415,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.5), // About 60 s, halfway between plain play and the damage build
         ),
         // The end event, as in Stratholme. At 19:57 the Slaughterhouse
         // door opens; at 20:00 Ramstein the Gorger comes out of it and the zone's spawns stop; as
@@ -470,7 +473,7 @@
             is_final: true,
             // just inside the Slaughterhouse door, where Stratholme brings him
             at: Some((x: 4032.35, y: -3380.57, z: 119.74, facing: 4.7614)),
-            health_share: Some(0.3),
+            health_share: Some(1.72), // About 120 s, halfway between plain play and the damage build
         ),
         (
             name: "Baron Rivendare",
@@ -563,7 +566,7 @@
             is_final: true,
             // the Slaughterhouse doorway, where Ramstein and the Black Guard came out
             at: Some((x: 4032.84, y: -3380.57, z: 119.74, facing: 4.7614)),
-            health_share: Some(0.7),
+            health_share: Some(0.95), // About 120 s, halfway between plain play and the damage build
         ),
     ],
 )

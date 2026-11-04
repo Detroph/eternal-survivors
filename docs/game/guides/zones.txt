@@ -166,7 +166,7 @@ Each enemy in the list looks like this (a Kobold Geomancer, a small spell caster
         What kind of creature it is: Beast, Dragonkin, Demon, Elemental, Giant, Undead,
         Humanoid, Critter, Mechanical or NotSpecified.
 
-    toughness: 0.5,
+    role: Light,
         How sturdy it is compared with the zone's average normal enemy: 0.5 = half the health,
         2.0 = twice the health. It changes health only, never damage. Use steps of 0.25 (0.25,
         0.5, 0.75, 1.0, 1.25, ...). Leave the line out for 1.0. Elites ignore it.
@@ -183,7 +183,7 @@ Each enemy in the list looks like this (a Kobold Geomancer, a small spell caster
           Fodder       weak early enemies: walks 6, attacks every 1.5 s, costs 1
           FastFodder   the same, but fast (walks 8), for wolves, bats and the like
           Mid          sturdier melee: walks 5, attacks every 2 s, costs 2
-          ToughMid     the same for big ones (toughness 2 and up): costs 3
+          ToughMid     the same for big ones (role Tough or Brute): costs 3
           FastMid      a fast sturdier enemy: walks 8, attacks every 2 s, costs 2
           Ranged       a caster: walks 5, casts every 3 s from 18 yards, stands 1.5 s
                        casting, costs 2. It needs a look_spell (below).
@@ -373,37 +373,48 @@ worked out once, at the moment it appears. The numbers of the recipe are in
 
          kind              health     damage
          normal enemy       x 1        x 1
-         elite              x 10       x 3
-         rare           x 16       x 3
-         boss               x 24       x 2
-         final boss         x 28       x 1
+         elite              x 18.5     x 2.25
+         rare               x 16.5     x 2.25
+         boss               x 33.5     x 1.3
+         final boss         x 45       x 0.65
 
-     A normal enemy's health is then multiplied by its toughness (section 4).
+     These health numbers are set so that, with a damage-focused hero, an
+     elite takes about 15 seconds of your damage, a rare about 25, a boss lives about one
+     minute and a final boss about two (bosses: halfway between plain play and a
+     damage-focused hero, the mean of the two). On top, each boss has its own "health_share" in its
+     zone file, set the same way (bosses whose fight follows a mechanic keep their old health).
+
+     These are plain multiples: an elite, rare or boss is that many normal enemies of the same
+     zone at the same minute. A normal enemy's health is then multiplied by its role (section 4):
+     Swarm x0.25, Light x0.5, Standard x0.75, Sturdy x1, Tough x2, Brute x3.
 
   3. MULTIPLY BY THE ZONE'S DIFFICULTY
 
      The difficulty is the zone's place in the list: Elwynn 1, Duskwood 2 ... Ahn'Qiraj 10.
-     Each step up multiplies a normal enemy's health by 1.35 and its damage by about 1.2;
-     elites and rares grow by 1.3 a step, bosses by 1.22, so their fights keep their length
-     (content\balance.ron, zone_scaling). These numbers are set for the hero a player is expected
-     to bring to each zone: the talent points and gear of one win in every zone before it.
+     Health is multiplied by the difficulty itself (difficulty to the power 1), damage by the
+     difficulty to the power 0.53, for every kind of enemy alike (content\balance.ron,
+     zone_scaling). These numbers are set for the hero a player is expected to bring to each
+     zone: the talent points and gear of one win in every zone before it.
 
         zone                 difficulty    a normal enemy at the start (health / damage)
         Elwynn Forest           1            240 / 8.0
-        Duskwood                2            324 / 9.6
-        Warsong Gulch           3            437 / 11.5
-        Arathi Basin            4            590 / 13.7
-        Dire Maul               5            797 / 16.4
-        Gurubashi Arena         7           1453 / 23.6
-        Stratholme              8           1961 / 28.2
-        Blackrock Mountain      9           2648 / 33.8
-        Gates of Ahn'Qiraj     10           3574 / 40.4
+        Duskwood                2            480 / 11.6
+        Warsong Gulch           3            720 / 14.3
+        Scarlet Monastery       4            960 / 16.7
+        Sunken Temple           5           1200 / 18.8
+        Dire Maul               6           1440 / 20.7
+        Gurubashi Arena         7           1680 / 22.4
+        Stratholme              8           1920 / 24.1
+        Blackrock Mountain      9           2160 / 25.6
+        Gates of Ahn'Qiraj     10           2400 / 27.1
 
   4. MULTIPLY BY THE CLOCK
 
      The later in the run an enemy appears, the stronger it is (straight lines between these
      minutes; after minute 16 it keeps climbing at the same pace as 12 to 16). Bosses follow
-     the clock too, at the minute they arrive.
+     a gentler clock, at the minute they arrive: the clock's health number to the
+     power 0.45 (boss_clock_power), so a late boss is not much harder to kill than an early
+     one.
 
          minute     health      damage
             0       x 1         x 1
@@ -415,8 +426,9 @@ worked out once, at the moment it appears. The numbers of the recipe are in
 
      Health grows much faster than damage, especially late in the run.
 
-     Example: Hogger arrives in Elwynn at minute 3. 240 x 24 x 1 x 2.125 = 12,240 health, and
-     8 x 2 x 1 x 1.375 = 22 damage.
+     Example: Hogger arrives in Elwynn at minute 3. The health clock there is 2.125, and on the
+     boss clock 2.125 to the power 0.45 = 1.40. His health_share is 1.63:
+     240 x 40.2 x 1 x 1.40 x 1.63 = about 22,000 health, and 8 x 1.3 x 1 x 1.375 = 14 damage.
 
 Later zones are also harder because their runs are LONGER: the final boss comes at minute 18
 or 20 instead of 16. The spawn money grows faster every minute and the clock keeps climbing,
@@ -456,7 +468,7 @@ and copy the boss minutes of the zones around it.
   2. Open the copy. Set its id to the file's name ("stranglethorn") and give it a name.
   3. That file is the whole zone: you do not add it to any list, and no code changes.
   4. Choose the place: map_id, area_id, spawn, hour, weather.
-  5. Change the 12 enemies: names, models (display_id), kind, toughness,
+  5. Change the 12 enemies: names, models (display_id), kind, role,
      appears_at_minute, and look_spell for casters.
   6. Change the 5 bosses. Keep exactly one is_final: true, on the last boss.
   7. Pick a difficulty number (section 6). It also decides where the zone sits among the

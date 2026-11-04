@@ -8,7 +8,8 @@ use std::collections::HashMap;
 use anyhow::{bail, Context, Result};
 use benilla_formats::{
     accumulate_wmo_group_camera_collision, accumulate_wmo_group_collision,
-    load_m2_collision_hull, parse_wmo_root, triangle_z_at, Chain, CollisionMesh, GlobalWmo,
+    load_m2_collision_hull, parse_wmo_root, triangle_z_at, wmo_carve, wmo_group_submeshes,
+    CarvedPieces, Chain, CollisionMesh, GlobalWmo,
 };
 
 /// How far above the height asked about a floor still counts as "below" it: a stair step.
@@ -151,7 +152,7 @@ impl WmoFloors {
     }
 
     /// One building's walking and sight triangles, where it is placed.
-    fn placed(chain: &mut Chain, wmo: &GlobalWmo) -> Result<(Vec<Tri>, Vec<Tri>)> {
+    pub(crate) fn placed(chain: &mut Chain, wmo: &GlobalWmo) -> Result<(Vec<Tri>, Vec<Tri>)> {
         let [rx, ry, rz] = wmo.rotation;
         if rx != 0.0 || rz != 0.0 {
             bail!("{} is tilted ({rx}, {rz}); no shipped map is", wmo.model);
@@ -166,7 +167,29 @@ impl WmoFloors {
                 p[2] + wmo.position[2],
             ]
         };
-        let root_path = wmo.model.to_ascii_lowercase();
+        Self::placed_by(chain, &wmo.model, wmo.doodad_set, place)
+    }
+
+    /// A model shown as a game object (a camp's stairs, platforms and tents): its walking and
+    /// sight triangles at `position`, turned by `rotation` (a quaternion, `x, y, z, w`) and sized
+    /// `scale`, as the client places a game object's model; a doodad's are its collision hull's.
+    pub fn object(chain: &mut Chain, model: &str, position: [f32; 3], rotation: [f32; 4], scale: f32) -> Result<(Vec<Tri>, Vec<Tri>)> {
+        let place = |p: [f32; 3]| {
+            let r = rotate(rotation, p);
+            [r[0] * scale + position[0], r[1] * scale + position[1], r[2] * scale + position[2]]
+        };
+        if !model.to_ascii_lowercase().ends_with(".wmo") {
+            let hull = load_m2_collision_hull(chain, model)?;
+            let placed = triangles(&hull, place);
+            return Ok((placed.clone(), placed));
+        }
+        Self::placed_by(chain, model, 0, place)
+    }
+
+    /// A building's walking and sight triangles, each point through `place`, its doodad set
+    /// `doodad_set` shown beside set 0.
+    fn placed_by(chain: &mut Chain, model: &str, doodad_set: u16, place: impl Fn([f32; 3]) -> [f32; 3]) -> Result<(Vec<Tri>, Vec<Tri>)> {
+        let root_path = model.to_ascii_lowercase();
         let bytes = chain
             .read_file(&root_path)
             .with_context(|| format!("reading WMO {root_path}"))?;
@@ -180,12 +203,24 @@ impl WmoFloors {
             accumulate_wmo_group_collision(&group, &mut walk.positions, &mut walk.indices);
             accumulate_wmo_group_camera_collision(&group, &mut sight.positions, &mut sight.indices);
         }
-        let mut walk = triangles(&walk, place);
-        let mut sight = triangles(&sight, place);
+        // a building a game on benilla carved (`set_wmo_carve`) is walked as the client draws it
+        if let Some(carve) = wmo_carve(&root_path) {
+            let mut batches = Vec::new();
+            for gi in 0..root.group_count() {
+                if let Ok(group) = chain.read_file(&format!("{stem}_{gi:03}.wmo")) {
+                    batches.extend(wmo_group_submeshes(&group, &root)?);
+                }
+            }
+            let pieces = CarvedPieces::new(carve, &batches);
+            pieces.carve_triangles(&mut walk.positions, &mut walk.indices);
+            pieces.carve_triangles(&mut sight.positions, &mut sight.indices);
+        }
+        let mut walk = triangles(&walk, &place);
+        let mut sight = triangles(&sight, &place);
 
         // Set 0 always shows, and the placement's own set beside it.
         let sets = root.doodad_sets();
-        let shown = [0, usize::from(wmo.doodad_set)];
+        let shown = [0, usize::from(doodad_set)];
         let mut hulls: HashMap<String, Option<CollisionMesh>> = HashMap::new();
         for (k, &s) in shown.iter().enumerate() {
             let Some(set) = sets.get(s).filter(|_| k == 0 || s != 0) else {
@@ -261,6 +296,28 @@ fn triangles(mesh: &CollisionMesh, place: impl Fn([f32; 3]) -> [f32; 3]) -> Vec<
         .collect()
 }
 
+/// A map tile's doodad turn (MDDF, degrees) as a quaternion `(x, y, z, w)`: the client's
+/// `Rx(90°)·Ry(ry−180°)·Rz(−rx)·Rx(rz−90°)` in the WoW frame (`benilla-assets`'
+/// `placement_rotation`, before its turn into the renderer's axes).
+pub fn placement_turn(rotation_deg: [f32; 3]) -> [f32; 4] {
+    let about = |axis: usize, degrees: f32| {
+        let (s, c) = (degrees.to_radians() / 2.0).sin_cos();
+        let mut q = [0.0, 0.0, 0.0, c];
+        q[axis] = s;
+        q
+    };
+    let times = |a: [f32; 4], b: [f32; 4]| {
+        [
+            a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+            a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+            a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+            a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+        ]
+    };
+    let [rx, ry, rz] = rotation_deg;
+    times(times(times(about(0, 90.0), about(1, ry - 180.0)), about(2, -rx)), about(0, rz - 90.0))
+}
+
 /// `p` turned by quaternion `q` `(x, y, z, w)`, normalized first as the client does.
 fn rotate(q: [f32; 4], p: [f32; 3]) -> [f32; 3] {
     let n = (q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]).sqrt();
@@ -288,6 +345,18 @@ mod tests {
             [[0.0, 0.0, z], [10.0, 0.0, z], [10.0, 10.0, z]],
             [[0.0, 0.0, z], [10.0, 10.0, z], [0.0, 10.0, z]],
         ]
+    }
+
+    #[test]
+    fn an_upright_doodad_turns_about_the_up_axis_by_its_turn_less_a_half() {
+        for ry in [0.0f32, 37.0, 180.0, 291.5] {
+            let turned = rotate(placement_turn([0.0, ry, 0.0]), [3.0, 1.0, 2.0]);
+            let (s, c) = (ry - 180.0).to_radians().sin_cos();
+            let want = [3.0 * c - s, 3.0 * s + c, 2.0];
+            for k in 0..3 {
+                assert!((turned[k] - want[k]).abs() < 1e-4, "turn {ry}: {turned:?} not {want:?}");
+            }
+        }
     }
 
     #[test]

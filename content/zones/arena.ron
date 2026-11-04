@@ -30,7 +30,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
         ),
         (
@@ -39,7 +39,7 @@
             scale: 1.2,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.5,
         ),
         (
@@ -48,7 +48,7 @@
             scale: 0.6,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 1.0,
         ),
         (
@@ -57,7 +57,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 2.0,
             look_spell: Some(686),
         ),
@@ -67,7 +67,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Mid,
-            toughness: 1.25,
+            role: Sturdy,
             appears_at_minute: 3.0,
         ),
         (
@@ -76,7 +76,7 @@
             scale: 1.1,
             creature_type: Beast,
             kind: FastMid,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 4.5,
         ),
         (
@@ -85,7 +85,7 @@
             scale: 1.3,
             creature_type: Beast,
             kind: ToughMid,
-            toughness: 2.25,
+            role: Tough,
             appears_at_minute: 6.0,
         ),
         (
@@ -94,7 +94,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 7.5,
             look_spell: Some(403),
         ),
@@ -104,7 +104,7 @@
             scale: 1.0,
             creature_type: Dragonkin,
             kind: ToughMid,
-            toughness: 3.25,
+            role: Brute,
             appears_at_minute: 9.0,
         ),
         (
@@ -139,7 +139,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Mid,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -149,7 +149,7 @@
             scale: 1.0,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -159,7 +159,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: FastMid,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -237,6 +237,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.91), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "High Priest Venoxis",
@@ -300,6 +301,7 @@
                 ),
             ],
             is_final: false,
+            health_share: Some(0.86), // About 60 s, halfway between plain play and the damage build
         ),
         // Mandokir comes with his raptor Ohgan, who only he brings;
         // what a hero cannot avoid from both is Mandokir's of before, their health shares (0.7 and
@@ -313,7 +315,7 @@
             yell: "I'll feed your souls to Hakkar himself!",
             aggro_sound: Some(8413),
             swing_mult: Some(1.25),
-            health_share: Some(0.85), // 0.7 before, his pair with Ohgan; lived 39 s against a 46 s goal
+            health_share: Some(0.56), // About 60 s, halfway between plain play and the damage build
             abilities: [
                 // Whirlwind: a marked circle round him
                 Marked(
@@ -353,7 +355,7 @@
             called: true,
             yell: "",
             swing_mult: Some(0.75),
-            health_share: Some(0.3),
+            health_share: Some(0.62), // About 60 s, halfway between plain play and the damage build
             abilities: [],
             script: [
                 // killed before Mandokir, he enrages him
@@ -432,7 +434,7 @@
                 ),
             ],
             is_final: false,
-            health_share: Some(1.5), // lived 39 s against a 46 s goal (at 1.25)
+            health_share: Some(1.11), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Hakkar the Soulflayer",
@@ -491,6 +493,7 @@
                 ),
             ],
             is_final: true,
+            health_share: Some(0.65), // About 120 s, halfway between plain play and the damage build
         ),
     ],
 )

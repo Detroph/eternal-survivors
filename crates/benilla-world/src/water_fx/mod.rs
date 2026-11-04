@@ -591,6 +591,7 @@ mod tests {
             scale: 1.0,
             height: 2.0,
             bound: None,
+            stands_outdoors: false,
         };
         // Feet 1.5 yd under, past the 0.4·h step-in line: the one-shot fires on the first frame.
         app.world_mut().spawn((

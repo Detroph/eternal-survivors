@@ -474,8 +474,7 @@ that zone in the collection unlocks it (every row of the zone).
 | Warlock | cloth | weapon |
 | Druid | leather | weapon |
 
-**Weapons shown come from the weapon loadout** (roadmap R3,
-classes.md "Weapon loadouts"). A class gear weapon is a zone's **armaments** ("<zone>
+**Weapons shown come from the weapon loadout** (classes.md "Weapon loadouts"). A class gear weapon is a zone's **armaments** ("<zone>
 Armaments", a rogue's or shaman's second "<zone> Off-hand Armaments"): worn, it gives its stats,
 and **one weapon of a zone unlocks that zone's weapon looks for all three loadouts**. The hero
 (in a run, on the character list and on the hero sheet) shows its class's chosen loadout's
@@ -721,7 +720,7 @@ class's set. Code: `esurv-sim` `game::gear` (`piece_modifiers`, `zone_gear_facto
   weapons' lines), optionally named with `row_name: Some("...")` (the Collection Log's row head
   and the look's tooltip; left out, "Second look"). Until then the zone's pieces show the zone's
   before it.
-* **New weapon line** (e.g. the roadmap's loadouts): add to the set's `weapons`; it becomes the
+* **New weapon line** (e.g. the weapon loadouts): add to the set's `weapons`; it becomes the
   next slot number. A set holds at most six (three weapon sets of two, slots 8 to 13), as the
   loader checks.
 * **A class's set:** every class needs exactly one ([templates/gear_set.ron](templates/gear_set.ron)).

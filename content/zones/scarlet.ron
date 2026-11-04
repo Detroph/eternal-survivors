@@ -62,7 +62,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
         ),
         (
@@ -71,7 +71,7 @@
             scale: 1.0,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 0.5,
         ),
         (
@@ -80,7 +80,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: FastFodder,
-            toughness: 0.25,
+            role: Swarm,
             appears_at_minute: 1.0,
         ),
         (
@@ -93,7 +93,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 2.0,
             look_spell: Some(585),
         ),
@@ -108,7 +108,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Mid,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 3.0,
         ),
         (
@@ -122,7 +122,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: ToughMid,
-            toughness: 2.0,
+            role: Tough,
             appears_at_minute: 4.5,
         ),
         (
@@ -135,7 +135,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Mid,
-            toughness: 1.0,
+            role: Sturdy,
             appears_at_minute: 6.0,
         ),
         (
@@ -148,7 +148,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.75,
+            role: Standard,
             appears_at_minute: 7.5,
             look_spell: Some(133),
         ),
@@ -162,7 +162,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: ToughMid,
-            toughness: 3.0,
+            role: Brute,
             appears_at_minute: 9.0,
         ),
         (
@@ -210,7 +210,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Fodder,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 0.0,
             only_summoned: true,
         ),
@@ -271,7 +271,7 @@
                 ),
             ],
             is_final: false,
-            health_share: Some(0.75), // lived 51 s against a 38 s goal
+            health_share: Some(0.97), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Arcanist Doan",
@@ -318,7 +318,7 @@
                 ),
             ],
             is_final: false,
-            health_share: Some(0.8), // lived 49 s against a 38 s goal
+            health_share: Some(0.94), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "Herod",
@@ -376,7 +376,7 @@
                 ),
             ],
             is_final: false,
-            health_share: Some(0.75), // lived 52 s against a 38 s goal
+            health_share: Some(0.75), // About 60 s, halfway between plain play and the damage build
         ),
         (
             name: "High Inquisitor Fairbanks",
@@ -417,7 +417,7 @@
                 ),
             ],
             is_final: false,
-            health_share: Some(0.6), // lived 64 s against a 38 s goal
+            health_share: Some(0.55), // About 60 s, halfway between plain play and the damage build
         ),
         // Mograine fights alone and falls; Whitemane arrives, puts all
         // to sleep (the scripted pause) and raises him ("Arise, my champion!"); then both fight
@@ -454,7 +454,7 @@
             ],
             is_final: true,
             at: Some((x: 1154.015381, y: 1398.447144, z: 32.527908, facing: 3.230044)),
-            health_share: Some(0.75), // 0.5 before; lived 79 s against a 100 s goal
+            health_share: Some(1.24), // About 120 s, halfway between plain play and the damage build
         ),
         (
             name: "High Inquisitor Whitemane",
@@ -511,7 +511,7 @@
             ],
             is_final: true,
             at: Some((x: 1201.884277, y: 1398.897217, z: 29.010046, facing: 3.139704)),
-            health_share: Some(0.6), // 0.75 before; lived 118 s against a 100 s goal
+            health_share: Some(1.17), // About 120 s, halfway between plain play and the damage build
         ),
     ],
 )

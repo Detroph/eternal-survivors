@@ -359,6 +359,16 @@ fn armor_entry(slot: ArmorSlot, display: u32, robe: bool) -> u32 {
     LOOK_ITEMS_FROM + inventory * INVENTORY_SPAN + display % INVENTORY_SPAN
 }
 
+/// 1.12's tabard inventory type and equipment slot.
+pub const TABARD_INVENTORY_TYPE: u32 = 19;
+pub const TABARD_SLOT: usize = 18;
+
+/// The entry of a tabard of look `display` (a hero's, `tabards.ron`): an armour look the item
+/// query answers as a tabard.
+pub fn tabard_entry(display: u32) -> u32 {
+    LOOK_ITEMS_FROM + TABARD_INVENTORY_TYPE * INVENTORY_SPAN + display % INVENTORY_SPAN
+}
+
 /// The entry of weapon `w` (a player enemy's, a weapon loadout's).
 pub fn weapon_entry(w: WeaponLook) -> u32 {
     let kind = WEAPON_KINDS.iter().position(|k| *k == w.kind).unwrap_or(0) as u32 + 1;

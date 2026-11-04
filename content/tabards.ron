@@ -1,0 +1,131 @@
+// Tabards: the 1.12 tabard looks, sold in the shop (Shop, Tabards tab) for points to spend. A
+// tabard bought is the whole warband's; each hero wears one (or none), picked on its hero sheet
+// (Equipment), over any armour look, at the camp fire and in runs. docs/game/achievements.md has
+// the rules, docs/game/AUTHORING.md "A tabard" how to add one. An id is kept in the save once
+// shipped: never change one.
+//
+// look: Neutral(display)                 one look, any hero may wear it
+//       Faction(horde: d, alliance: d)   a pair sold as one: each hero shows its own faction's
+//       Only(faction: F, display: d)     only that faction's heroes may wear it
+// Every display is an ItemDisplayInfo.dbc id of the 1.12.1 client (its chest textures checked),
+// the item named after it in the comment. The Officer's Tabards are
+// left out (their looks are the Knight's Colors' and the Stone Guard's Herald's); Lordaeron and
+// Darkmoon added; the pairs swap by faction; a faction's own tabard only for its heroes.
+// Prices: drafts (2026-10-27): the simple ones 15, the rest 30 (2026-10-30:
+// steps of 15, 30 and 50, from 25 and 50).
+([
+    // ---------------------------------------------------------------- 25 points
+    (
+        id: "stormwind",
+        name: "Tabard of Stormwind",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Only(faction: Alliance, display: 21338), // item 11364
+        price: 15, // draft
+        text: "The lion of Stormwind, worn by those who keep its gate.",
+    ),
+    (
+        id: "argent_dawn",
+        name: "Tabard of the Argent Dawn",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 35396), // item 22999
+        price: 15, // draft
+        text: "Silver and the dawn, for anyone who stands against the Scourge.",
+    ),
+    (
+        id: "scarlet_crusade",
+        name: "Tabard of the Scarlet Crusade",
+        icon: "INV_Misc_Cape_18",
+        look: Neutral(display: 15817), // item 7725
+        price: 15, // draft
+        text: "Crimson cloth from the Monastery. Nobody asks how you came by it.",
+    ),
+    (
+        id: "guild",
+        name: "Guild Tabard",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 20621), // item 5976
+        price: 15, // draft
+        text: "Plain cloth, waiting for a guild worth stitching on it.",
+    ),
+    (
+        id: "enlisted",
+        name: "Private's Tabard / Scout's Tabard",
+        icon: "INV_Misc_TabardPVP_01",
+        look: Faction(horde: 31255, alliance: 31254), // items 15197, 15196
+        price: 15, // draft
+        text: "The colours of the faction's newest soldiers. Everyone starts somewhere.",
+    ),
+    // ---------------------------------------------------------------- 50 points
+    (
+        id: "warsong_silverwing",
+        name: "Warsong / Silverwing Battle Tabard",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Faction(horde: 32031, alliance: 32026), // items 19505, 19506
+        price: 30, // draft
+        text: "Won in the gulch, worn far from it.",
+    ),
+    (
+        id: "frostwolf_stormpike",
+        name: "Frostwolf / Stormpike Battle Tabard",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Faction(horde: 31527, alliance: 31528), // items 19031, 19032
+        price: 30, // draft
+        text: "The valley's colours, still smelling faintly of snow.",
+    ),
+    (
+        id: "defilers_arathor",
+        name: "Defilers / Arathor Battle Tabard",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Faction(horde: 32694, alliance: 32695), // items 20131, 20132
+        price: 30, // draft
+        text: "For those who held the basin's mines and farms.",
+    ),
+    (
+        id: "officers",
+        name: "Stone Guard's Herald / Knight's Colors",
+        icon: "INV_Misc_TabardPVP_04",
+        look: Faction(horde: 31252, alliance: 31253), // items 15199, 15198
+        price: 30, // draft
+        text: "An officer's colours, for a hero who has led from the front.",
+    ),
+    (
+        id: "flame",
+        name: "Tabard of Flame",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 37060), // item 23705
+        price: 30, // draft
+        text: "A burning skull. Subtle it is not.",
+    ),
+    (
+        id: "frost",
+        name: "Tabard of Frost",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 37061), // item 23709
+        price: 30, // draft
+        text: "A frozen skull, cold to the touch even by the fire.",
+    ),
+    (
+        id: "contest_winner",
+        name: "Contest Winner's Tabard",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 31676), // item 19160
+        price: 30, // draft
+        text: "Nobody remembers the contest. Everybody remembers the tabard.",
+    ),
+    (
+        id: "lordaeron",
+        name: "Tabard of Lordaeron",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 3864), // item 3557 (never sold in 1.12)
+        price: 30, // draft
+        text: "The blue and silver of a kingdom that fell before you were born.",
+    ),
+    (
+        id: "darkmoon",
+        name: "Darkmoon Tabard",
+        icon: "INV_Shirt_GuildTabard_01",
+        look: Neutral(display: 36469), // item 23710 (never sold in 1.12)
+        price: 30, // draft
+        text: "From a faire that never stays long enough to ask for it back.",
+    ),
+])

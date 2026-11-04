@@ -1,12 +1,14 @@
-// The one enemy stat formula. Every enemy, rare and boss reads it
+// The one enemy stat formula. Every enemy, elite, rare, boss and final boss reads it
 // when it appears at run minute m in a zone of difficulty D (its zone file's `difficulty`, the
 // zone's place in the unlock order: 1, 2, 3 ...):
-//   health = base_health × kind health × zone health(D) × health_clock(m) × toughness × health option × 1.22^endless minutes
-//   damage = base_damage × kind damage × zone health(D)^share × damage_clock(m) × damage option × 1.12^endless minutes
-// zone health(D) is zone_scaling's normal_health at D for normal enemies, to elite_health_power for
-// elites and rares, to boss_health_power for bosses; share is damage_share for normal enemies,
-// elite_boss_damage_share for the rest. `toughness` is per normal enemy (in its zone file), on health only.
-// In Challenge Mode D is Ahn'Qiraj's in every zone, and both lines end × challenge_factor × slider (at the end).
+//   health = base_health × kind health × D^health_power × health_clock(m) × role × dial
+//   damage = base_damage × kind damage × (D^health_power)^damage_share × damage_clock(m) × dial
+// One zone curve and one clock for every kind: an elite, rare, boss or final boss is a plain
+// multiple of a normal enemy of the same zone at the same minute (its kind's numbers below).
+// `role` is a normal enemy's own (its zone file's `role`, the multipliers in `roles`), on health only.
+// The dial comes last, the same on every kind: the health and damage options (run_options.ron),
+// 1.22 (health) and 1.12 (damage) a minute of Endless, and in Challenge Mode challenge_factor ×
+// the slider (D is then Ahn'Qiraj's in every zone).
 (
     // Every enemy's movement speed times this (normal enemies, bosses, rares): the one knob
     // for how fast the game's enemies run: 5 % slower.
@@ -17,30 +19,14 @@
     // hero we expect a player to bring to each zone (docs/game/AUTHORING.md, "Power budgets"),
     // never on a hero's actual power.
     zone_scaling: (
-        // Normal enemy health by D (Elwynn = 1), points joined by straight lines, past the last at the
-        // last step's pace. Fitted so the baseline hero (rare and epic amulets as offered, bought
-        // caches, kiting, every level-1 spell × weapon loadout) kills normal enemies in the original
-        // game's kill seconds over minutes 5-18 (AUTHORING.md, "Power budgets"); a row that wanted
-        // less than the one before is kept just above it (Gurubashi Arena, D 7, still slower; Blackrock).
-        normal_health: [(1.0, 1), (2.0, 1.4), (3.0, 2.25), (4.0, 4.0), (5.0, 5.75), (6.0, 6.75),
-                        (7.0, 7.25), (8.0, 8.75), (9.0, 9.0), (10.0, 11.0), (11.0, 12.0), (12.0, 17.25)],
-        // Elites and rares take that multiplier to this power, bosses to the second: gentler,
-        // so their fights keep their length. The bosses' power is fitted with boss_clock_power below.
-        elite_health_power: 0.87,
-        boss_health_power: 0.7,
-        // Damage multiplier = the enemy's own health multiplier to this power: normal enemies, then
-        // elites, rares and bosses (gentler blows).
-        damage_share: 0.6,
-        elite_boss_damage_share: 0.45,
-        // Normal enemy damage by D, read as normal_health is: the blows the old health table
-        // gave (its multiplier^0.6), kept when the health table was refitted, so enemies hit as hard
-        // as before; elites and rares take it to elite_damage_power, bosses to boss_damage_power (the
-        // old 0.87 × 0.45 and 0.66 × 0.45 over 0.6). damage_share and elite_boss_damage_share are not
-        // read while this table is set.
-        normal_damage: [(1.0, 1), (2.0, 1.15), (3.0, 1.4), (4.0, 2.05), (5.0, 2.45), (6.0, 2.7),
-                        (7.0, 2.7), (8.0, 3.25), (9.0, 3.25), (10.0, 3.75), (11.0, 4.25), (12.0, 5.0)],
-        elite_damage_power: 0.65,
-        boss_damage_power: 0.5,
+        // The zone curve: every enemy's health × D^health_power. Fitted (2026-10-30) to the
+        // hand table it replaced (1, 1.4, 2.25, 4, 5.75, 6.75, 7.25, 8.75, 9, 11 for D 1-10;
+        // least squares on the logs gives 1.01): a zone of difficulty D has D times the first
+        // zone's health (plans/enemy-formula.md).
+        health_power: 1.0,
+        // Every enemy's damage multiplier = that health multiplier to this power. Fitted to the
+        // hand damage table it replaced (1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75).
+        damage_share: 0.53,
         // Gear stats: first-zone value × D^gear_exponent, rounded up; past D gear_steeper_from, × gear_growth_after more per step of D.
         gear_exponent: 0.55,
         gear_steeper_from: 9.0,
@@ -56,22 +42,37 @@
         // The D at which gear tiers 1, 2, 3 and 4 begin (a piece's name and look).
         gear_tier_starts: [2.0, 4.0, 7.0, 9.0],
     ),
-    // What each kind multiplies the base health and damage by.
+    // What each kind multiplies the base health and damage by: plain multiples of a normal
+    // enemy (role 1) of the same zone and minute. Fitted (2026-10-30) to reproduce the
+    // health and damage each kind had under the old rules (elites and rares ×10 health on the
+    // zone table to 0.87, bosses ×37.5 and finals ×94 to 0.7 on the health clock to 0.3) as
+    // closely as one number can; plans/enemy-formula.md has the fit and what it changes.
+    // The health is then refitted to the boss-time targets with the
+    // damage build: the hero's full damage takes about 15 s on an elite and 25 s on a rare; and
+    // halfway between plain play and the damage build (the mean of the two) a boss lives about
+    // 60 s and a final boss about 120 s (with boss_clock_power below and each boss's own
+    // health_share). The damage stays the reproduce-today fit (8, 8, 5, 3.75 health
+    // before). Then ×1.2 on all four (18.5, 16.5, 33.5, 45 before),
+    // so every elite, rare and boss fight lasts about 20 % longer.
     normal: (health: 1.0, damage: 1.0),
-    elite: (health: 10.0, damage: 3.0),
-    rare: (health: 10.0, damage: 3.0),
-    // Bosses and final bosses: a quarter above the health that met the boss-time goals, so a hero
-    // built around one big spell and a hero who is not both get a fight (AUTHORING.md "Power budgets").
-    boss: (health: 37.5, damage: 2.0),
-    final_boss: (health: 94.0, damage: 1.0),
-    // The run clocks, read at the minute the enemy appears: (minute, multiplier) points joined by
-    // straight lines; past the last point the last step's pace goes on.
+    elite: (health: 22.2, damage: 2.25),
+    rare: (health: 19.8, damage: 2.25),
+    boss: (health: 40.2, damage: 1.3),
+    final_boss: (health: 54.0, damage: 0.65),
+    // The run clocks, read at the minute the enemy appears, the same for every kind (bosses
+    // read the health clock to boss_clock_power): (minute, multiplier) points joined by straight
+    // lines; past the last point the last step's pace goes on.
     health_clock: [(0.0, 1.0), (4.0, 2.5), (8.0, 7.0), (12.0, 18.0), (16.0, 36.0), (20.0, 65.0)],
-    // Bosses and final bosses read the health clock to this power: a boss that comes late grows
-    // less than the swarm, so a zone's bosses last about as long as each other (fitted with the
-    // boss and final_boss health above to the boss-time goals, AUTHORING.md "Power budgets").
-    boss_clock_power: 0.3,
     damage_clock: [(0.0, 1.0), (4.0, 1.5), (8.0, 2.5), (12.0, 4.5), (16.0, 7.0)],
+    // Bosses and final bosses read the health clock to this
+    // power, so a boss that comes late grows less than the swarm and a zone's bosses live about
+    // as long as each other. 0.45 leaves the smallest spread halfway between plain play and the
+    // damage build (about x1.17 between a zone's bosses, x1.64 on the full clock; the damage build
+    // alone would ask 0.55, plain play 0.36); health_share evens out the rest.
+    boss_clock_power: 0.45,
+    // A normal enemy's health × its role's multiplier (its zone file's `role`): six steps that
+    // group the old per-enemy toughness (0.25 to 4) by their geometric means.
+    roles: (swarm: 0.25, light: 0.5, standard: 0.75, sturdy: 1.0, tough: 2.0, brute: 3.0),
     // Spawn budget per second at 100 % density (an enemy costs its spawn_cost from it), by minute.
     spawn_budget: [(0.0, 0.5), (4.0, 1.5), (8.0, 3.0), (12.0, 5.0), (16.0, 7.5), (20.0, 10.5)],
     // Most normal enemies alive at once: at 100 % density, and at the highest density (500 %).

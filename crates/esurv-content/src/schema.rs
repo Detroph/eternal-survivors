@@ -124,11 +124,12 @@ pub fn party_faction(factions: &[Faction]) -> Faction {
 
 /// The one enemy stat formula's numbers (`balance.ron`). An enemy that
 /// appears at run minute m in a zone of difficulty D has
-/// `health = base_health × kind health × zone health(D) × health clock(m) × toughness × options × endless` and
-/// `damage = base_damage × kind damage × zone health(D)^share × damage clock(m) × options × endless`,
-/// the zone health from `zone_scaling`: `normal_health` at D, to `elite_health_power` for elites and
-/// rares or `boss_health_power` for bosses; the share `damage_share` (normal enemies) or
-/// `elite_boss_damage_share`.
+/// `health = base_health × kind health × zone health(D) × health clock(m) × role × dial` and
+/// `damage = base_damage × kind damage × zone health(D)^damage_share × damage clock(m) × dial`,
+/// the zone health `D^health_power` (`zone_scaling`), the same for every kind: an elite, rare,
+/// boss or final boss is a plain multiple of a normal enemy of the same zone and minute. The role
+/// (`roles`) is a normal enemy's own; the dial is the run's difficulty at the end (the run options,
+/// Endless, Challenge Mode).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Balance {
     /// Every enemy's movement speed (normal enemies, bosses, rares) times this: one knob for
@@ -150,11 +151,14 @@ pub struct Balance {
     /// last point the last step's pace goes on.
     pub health_clock: Vec<(f32, f32)>,
     pub damage_clock: Vec<(f32, f32)>,
-    /// Bosses and final bosses read the health clock to this power (1 when the file leaves it
-    /// out): below 1 a boss that comes late in the run grows less than the swarm, so a zone's
-    /// bosses last about as long as each other.
+    /// Bosses and final bosses read the health clock to this power
+    /// (1 when the file leaves it out). Below 1 a boss that comes late in the run grows less than
+    /// the swarm, so a zone's bosses last about as long as each other.
     #[serde(default = "one")]
     pub boss_clock_power: f32,
+    /// A normal enemy's health multiplier by its role (its zone file's `role`).
+    #[serde(default)]
+    pub roles: Roles,
     /// Spawn budget per second at 100 % density, by run minute: (minute, budget) points read the
     /// same way as the clocks. Density multiplies it; bosses alive and Endless change it as before.
     pub spawn_budget: Vec<(f32, f32)>,
@@ -304,17 +308,13 @@ impl Default for ExperienceRules {
 /// is built on the hero we expect a player to bring to that zone, never on a hero's actual power.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ZoneScaling {
-    /// A normal enemy's health multiplier by zone difficulty: (D, multiplier) points joined by
-    /// straight lines; past the last point the last step's pace goes on (as the run clocks).
-    pub normal_health: Vec<(f32, f32)>,
-    /// Elites and rares take the normal health multiplier to this power: a gentler growth.
-    pub elite_health_power: f32,
-    /// Bosses and final bosses take it to this power, gentler still, so a boss fight keeps its length.
-    pub boss_health_power: f32,
-    /// A normal enemy's damage multiplier is its health multiplier to this power.
+    /// The zone curve: every enemy's health multiplier in a zone of difficulty D is
+    /// `D^health_power` (1 in the first zone), the same for every kind, so an elite, rare or boss
+    /// is a plain multiple of a normal enemy of its zone.
+    pub health_power: f32,
+    /// Every enemy's damage multiplier is that health multiplier to this power: blows grow on the
+    /// same curve, more gently.
     pub damage_share: f32,
-    /// The same for elites, rares and bosses, of their own health multiplier: their blows grow gentler.
-    pub elite_boss_damage_share: f32,
     /// A gear piece's stats are its first-zone values × D^`gear_exponent`, rounded, up to
     /// `gear_steeper_from`; past it × `gear_growth_after` more for every step of D.
     pub gear_exponent: f32,
@@ -328,69 +328,17 @@ pub struct ZoneScaling {
     pub talent_exponent: f32,
     /// The D at which each gear tier after the first begins (a piece's name and look).
     pub gear_tier_starts: Vec<f32>,
-    /// A normal enemy's damage multiplier by D, read as `normal_health` is: when set, damage follows
-    /// it instead of the health multiplier (so a health table can change and blows stay as they
-    /// were); elites and rares take it to `elite_damage_power`, bosses to `boss_damage_power`.
-    /// Empty: damage is the health multiplier to `damage_share` / `elite_boss_damage_share`.
-    #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub normal_damage: Vec<(f32, f32)>,
-    #[serde(default = "one")]
-    pub elite_damage_power: f32,
-    #[serde(default = "one")]
-    pub boss_damage_power: f32,
-}
-
-/// A (D, multiplier) table read at `d`: straight lines between the points, past the last point the
-/// last step's pace.
-fn table_at(p: &[(f32, f32)], d: f32) -> f32 {
-    let i = p.iter().position(|q| d <= q.0).unwrap_or(p.len() - 1).max(1);
-    let (a, b) = (p[i - 1], p[i]);
-    a.1 + (d - a.0) * (b.1 - a.1) / (b.0 - a.0)
 }
 
 impl ZoneScaling {
-    /// The normal enemy health multiplier at difficulty `d`: straight lines between the points, and
-    /// past the last point the last step's pace goes on.
-    pub fn normal_health_at(&self, d: f32) -> f32 {
-        let p = &self.normal_health;
-        let i = p.iter().position(|q| d <= q.0).unwrap_or(p.len() - 1).max(1);
-        let (a, b) = (p[i - 1], p[i]);
-        a.1 + (d - a.0) * (b.1 - a.1) / (b.0 - a.0)
+    /// The zone curve: every enemy's health multiplier at difficulty `d`, `d^health_power`.
+    pub fn health_factor(&self, d: f32) -> f32 {
+        d.max(0.0).powf(self.health_power)
     }
 
-    /// The power of the normal health multiplier an enemy of kind `kind` takes for its health.
-    pub fn health_power(&self, kind: EnemyType) -> f32 {
-        match kind {
-            EnemyType::Normal => 1.0,
-            EnemyType::Elite | EnemyType::Rare => self.elite_health_power,
-            EnemyType::Boss | EnemyType::FinalBoss => self.boss_health_power,
-        }
-    }
-
-    /// The power of its own health multiplier an enemy of kind `kind` takes for its damage.
-    pub fn damage_share_of(&self, kind: EnemyType) -> f32 {
-        match kind {
-            EnemyType::Normal => self.damage_share,
-            _ => self.elite_boss_damage_share,
-        }
-    }
-
-    /// What an enemy of kind `kind` has its health multiplied by in a zone of difficulty `d`.
-    pub fn health_factor(&self, kind: EnemyType, d: f32) -> f32 {
-        self.normal_health_at(d).max(0.0).powf(self.health_power(kind))
-    }
-
-    /// What an enemy of kind `kind` has its damage multiplied by in a zone of difficulty `d`.
-    pub fn damage_factor(&self, kind: EnemyType, d: f32) -> f32 {
-        if self.normal_damage.len() >= 2 {
-            let power = match kind {
-                EnemyType::Normal => 1.0,
-                EnemyType::Elite | EnemyType::Rare => self.elite_damage_power,
-                EnemyType::Boss | EnemyType::FinalBoss => self.boss_damage_power,
-            };
-            return table_at(&self.normal_damage, d).max(0.0).powf(power);
-        }
-        self.health_factor(kind, d).powf(self.damage_share_of(kind))
+    /// Every enemy's damage multiplier at difficulty `d`: the zone curve to `damage_share`.
+    pub fn damage_factor(&self, d: f32) -> f32 {
+        self.health_factor(d).powf(self.damage_share)
     }
 
     /// How much stronger than the first zone's a gear piece from a zone of difficulty `d` is.
@@ -419,21 +367,71 @@ impl Default for ZoneScaling {
     /// Neutral numbers for content built in code: no growth with D.
     fn default() -> Self {
         Self {
-            normal_health: vec![(1.0, 1.0), (2.0, 1.0)],
-            elite_health_power: 1.0,
-            boss_health_power: 1.0,
+            health_power: 0.0,
             damage_share: 0.6,
-            elite_boss_damage_share: 0.6,
             gear_exponent: 0.0,
             gear_steeper_from: 10.0,
             gear_growth_after: 1.0,
             gear_drop_chance: vec![(1.0, 1.0)],
             talent_exponent: 0.0,
             gear_tier_starts: vec![2.0, 4.0, 7.0, 9.0],
-            normal_damage: Vec::new(),
-            elite_damage_power: 1.0,
-            boss_damage_power: 1.0,
         }
+    }
+}
+
+/// How sturdy a normal enemy is next to its zone's curve: its zone file's `role`, a multiplier on
+/// its health only (`balance.ron` `roles`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub enum Role {
+    /// Pack animals and hatchlings that fall to a touch.
+    Swarm,
+    /// Foot soldiers and casters.
+    Light,
+    /// The zone's regular fighters.
+    Standard,
+    /// Its sturdier fighters (and an enemy whose file names no role).
+    #[default]
+    Sturdy,
+    /// The big ones the swarm hides.
+    Tough,
+    /// The biggest walls of health.
+    Brute,
+}
+
+/// Each role's health multiplier (`balance.ron` `roles`).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct Roles {
+    pub swarm: f32,
+    pub light: f32,
+    pub standard: f32,
+    pub sturdy: f32,
+    pub tough: f32,
+    pub brute: f32,
+}
+
+impl Roles {
+    /// The health multiplier of role `role`.
+    pub fn of(&self, role: Role) -> f32 {
+        match role {
+            Role::Swarm => self.swarm,
+            Role::Light => self.light,
+            Role::Standard => self.standard,
+            Role::Sturdy => self.sturdy,
+            Role::Tough => self.tough,
+            Role::Brute => self.brute,
+        }
+    }
+
+    /// Every role with its multiplier, weakest first.
+    pub fn all(&self) -> [(Role, f32); 6] {
+        [Role::Swarm, Role::Light, Role::Standard, Role::Sturdy, Role::Tough, Role::Brute].map(|r| (r, self.of(r)))
+    }
+}
+
+impl Default for Roles {
+    /// Every role at 1: content built in code has no roles.
+    fn default() -> Self {
+        Roles { swarm: 1.0, light: 1.0, standard: 1.0, sturdy: 1.0, tough: 1.0, brute: 1.0 }
     }
 }
 
@@ -483,6 +481,7 @@ impl Default for Balance {
             final_boss: one,
             health_clock: vec![(0.0, 1.0), (1.0, 1.0)],
             boss_clock_power: 1.0,
+            roles: Roles::default(),
             damage_clock: vec![(0.0, 1.0), (1.0, 1.0)],
             spawn_budget: vec![(0.0, 1.0), (1.0, 1.0)],
             live_cap: (60.0, 120.0),
@@ -614,8 +613,11 @@ pub struct Enemy {
     pub display_id: u32,
     pub scale: f32,
     pub creature_type: CreatureType,
-    /// How much sturdier than its zone's average normal enemy this one is: a multiplier on its
-    /// health only. Read for normal enemies only; defaults to 1.
+    /// How sturdy it is next to its zone's curve (its zone file's `role`; `Sturdy` when left out).
+    #[serde(default)]
+    pub role: Role,
+    /// Its role's health multiplier (`balance.ron` `roles`), set as the content loads: a multiplier
+    /// on its health only, read for normal enemies only.
     #[serde(default = "one")]
     pub toughness: f32,
     /// Seconds between melee swings.
@@ -3266,7 +3268,7 @@ impl WeaponKind {
     }
 }
 
-/// The weapon slots a class gear set has room for (roadmap R3): three weapon
+/// The weapon slots a class gear set has room for: three weapon
 /// sets of a main hand and an off hand.
 pub const WEAPON_SLOTS: u32 = 6;
 

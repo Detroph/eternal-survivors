@@ -66,10 +66,21 @@ pub fn time_curve(points: &[(f32, f32)], minute: f32) -> f32 {
     a.1 + (m - a.0) * (b.1 - a.1) / (b.0 - a.0)
 }
 
+/// The difficulty dial: what a run multiplies every enemy's health and damage by at the very end
+/// of the formula, the same on every kind: its health and damage options, Endless's growth and, in
+/// Challenge Mode, the challenge's flat `enemy_factor` (`challenge_factor` × the slider).
+pub fn difficulty_dial(endless_minutes: f32, options: &RunOptions) -> (f32, f32) {
+    let challenge = options.challenge.map_or(1.0, |c| c.enemy_factor);
+    (
+        (options.health_pct as f32 / 100.0) * ENDLESS_HEALTH_GROWTH.powf(endless_minutes) * challenge,
+        (options.damage_pct as f32 / 100.0) * ENDLESS_DAMAGE_GROWTH.powf(endless_minutes) * challenge,
+    )
+}
+
 /// Health and damage of an enemy of kind `kind` that appears at `minute` of a run in `zone`,
-/// before any toughness: the one stat formula (`balance.ron`). In Challenge Mode the zone's D is
-/// Ahn'Qiraj's, and the final health and damage are × the challenge's flat `enemy_factor`, the same
-/// on every kind (never through the kind and zone powers).
+/// before its role: the one stat formula (`balance.ron`). Every kind rides the same zone curve
+/// (`zone_scaling`) and the same run clocks; the kind is a plain multiplier, and the difficulty
+/// dial (`difficulty_dial`) comes last. In Challenge Mode the zone's D is Ahn'Qiraj's.
 ///
 /// `run_factor` R is a run-wide multiplier on zone difficulty: health × R and damage × √R. Every
 /// run starts it at `RUN_FACTOR` and nothing changes it, but it stays a knob a mode can use.
@@ -84,32 +95,17 @@ pub fn health_and_damage(
 ) -> (f32, f32) {
     let scaling = &balance.zone_scaling;
     let d = options.challenge.map_or(zone.difficulty, |c| c.difficulty);
-    let challenge = options.challenge.map_or(1.0, |c| c.enemy_factor);
-    let (health_growth, damage_growth) = (scaling.health_factor(kind, d), scaling.damage_factor(kind, d));
-    // bosses read the health clock to `boss_clock_power`
+    let (health_dial, damage_dial) = difficulty_dial(endless_minutes, options);
+    // Bosses and final bosses read the health clock to `boss_clock_power`
     let clock_power = if matches!(kind, EnemyType::Boss | EnemyType::FinalBoss) { balance.boss_clock_power } else { 1.0 };
     let kind = balance.multipliers(kind);
-    let health = balance.base_health
-        * kind.health
-        * health_growth
-        * time_curve(&balance.health_clock, minute).powf(clock_power)
-        * run_factor
-        * (options.health_pct as f32 / 100.0)
-        * ENDLESS_HEALTH_GROWTH.powf(endless_minutes)
-        * challenge;
-    let damage = balance.base_damage
-        * kind.damage
-        * damage_growth
-        * time_curve(&balance.damage_clock, minute)
-        * run_factor.sqrt()
-        * (options.damage_pct as f32 / 100.0)
-        * ENDLESS_DAMAGE_GROWTH.powf(endless_minutes)
-        * challenge;
+    let health = balance.base_health * kind.health * scaling.health_factor(d) * time_curve(&balance.health_clock, minute).powf(clock_power) * run_factor * health_dial;
+    let damage = balance.base_damage * kind.damage * scaling.damage_factor(d) * time_curve(&balance.damage_clock, minute) * run_factor.sqrt() * damage_dial;
     (health, damage)
 }
 
-/// Stats of roster `enemy` spawned at `minute` of a run in `zone`: the normal kind times its
-/// toughness, or the elite kind (elites have no toughness).
+/// Stats of roster `enemy` spawned at `minute` of a run in `zone`: the normal kind times its role's
+/// multiplier (`toughness`), or the elite kind (elites have no role).
 pub fn spawn_stats(
     enemy: &Enemy,
     zone: &Zone,
@@ -200,6 +196,7 @@ mod tests {
             scale: 0.9,
             creature_type: CreatureType::Humanoid,
             toughness,
+            role: Default::default(),
             attack_interval: 1.6,
             move_speed: 5.0,
             spawn_cost: 1.0,
@@ -223,46 +220,54 @@ mod tests {
         let b = content().balance;
         let s = &b.zone_scaling;
         let o = RunOptions::default();
-        // (kind, kind health, kind damage, D, minute, health clock, damage clock)
+        // (kind, D, minute, health clock, damage clock)
         let cases = [
-            (EnemyType::Normal, 1.0, 1.0, 1.0, 0.0, 1.0, 1.0),
-            (EnemyType::Normal, 1.0, 1.0, 4.0, 8.0, 7.0, 2.5),
-            (EnemyType::Elite, 10.0, 3.0, 2.0, 10.0, 12.5, 3.5),
-            (EnemyType::Rare, 10.0, 3.0, 3.0, 4.0, 2.5, 1.5),
-            (EnemyType::Rare, 10.0, 3.0, 8.0, 12.0, 18.0, 4.5),
-            (EnemyType::Boss, 37.5, 2.0, 1.0, 3.0, 2.125, 1.375),
-            (EnemyType::Boss, 37.5, 2.0, 9.0, 16.0, 36.0, 7.0),
-            (EnemyType::FinalBoss, 94.0, 1.0, 10.0, 16.0, 36.0, 7.0),
+            (EnemyType::Normal, 1.0f32, 0.0, 1.0, 1.0),
+            (EnemyType::Normal, 4.0, 8.0, 7.0, 2.5),
+            (EnemyType::Elite, 2.0, 10.0, 12.5, 3.5),
+            (EnemyType::Rare, 3.0, 4.0, 2.5, 1.5),
+            (EnemyType::Rare, 8.0, 12.0, 18.0, 4.5),
+            (EnemyType::Boss, 1.0, 3.0, 2.125, 1.375),
+            (EnemyType::Boss, 9.0, 16.0, 36.0, 7.0),
+            (EnemyType::FinalBoss, 10.0, 16.0, 36.0, 7.0),
         ];
-        for (kind, kh, kd, d, m, hc, dc) in cases {
-            // 240 × kind × zone health × health clock (a boss's to boss_clock_power), 8 × kind × zone
-            // damage by D (its own table, normal_damage) × damage clock
-            let zone_health = s.normal_health_at(d).powf(s.health_power(kind));
-            let clock = if matches!(kind, EnemyType::Boss | EnemyType::FinalBoss) { f32::powf(hc, b.boss_clock_power) } else { hc };
-            let h = 240.0 * kh * zone_health * clock;
-            let dmg = 8.0 * kd * s.damage_factor(kind, d) * dc;
+        for (kind, d, m, hc, dc) in cases {
+            // 240 × kind × D^health_power × health clock, 8 × kind × (D^health_power)^damage_share ×
+            // damage clock: the same curve and clocks for every kind
+            let k = b.multipliers(kind);
+            let hc = if matches!(kind, EnemyType::Boss | EnemyType::FinalBoss) { f32::powf(hc, b.boss_clock_power) } else { hc };
+            let h = 240.0 * k.health * d.powf(s.health_power) * hc;
+            let dmg = 8.0 * k.damage * d.powf(s.health_power * s.damage_share) * dc;
             let (gh, gd) = health_and_damage(&b, kind, &zone(d), m, 0.0, &o, RUN_FACTOR);
             assert!(close(gh, h) && close(gd, dmg), "{kind:?} D {d} minute {m}: got ({gh}, {gd}), want ({h}, {dmg})");
         }
     }
 
     #[test]
-    fn health_follows_the_zone_table_and_damage_a_power_of_it() {
+    fn every_kind_is_a_plain_multiple_of_a_normal_enemy() {
+        let b = content().balance;
+        let o = RunOptions::default();
+        for (d, m) in [(1.0, 3.0), (4.0, 9.5), (10.0, 19.0)] {
+            let (nh, nd) = health_and_damage(&b, EnemyType::Normal, &zone(d), m, 0.0, &o, RUN_FACTOR);
+            for kind in [EnemyType::Elite, EnemyType::Rare, EnemyType::Boss, EnemyType::FinalBoss] {
+                let (h, dmg) = health_and_damage(&b, kind, &zone(d), m, 0.0, &o, RUN_FACTOR);
+                let k = b.multipliers(kind);
+                // Bosses read the health clock to boss_clock_power
+                let clock = if matches!(kind, EnemyType::Boss | EnemyType::FinalBoss) { time_curve(&b.health_clock, m).powf(b.boss_clock_power - 1.0) } else { 1.0 };
+                assert!(close(h, nh * k.health * clock) && close(dmg, nd * k.damage), "{kind:?} at D {d}, minute {m}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_zone_curve_is_a_power_of_d_and_damage_a_power_of_it() {
         let mut b = content().balance;
-        let s = &mut b.zone_scaling;
-        s.normal_health = vec![(1.0, 1.0), (3.0, 4.0), (5.0, 6.0)];
-        // without its own damage table, damage is a power of the health multiplier
-        s.normal_damage.clear();
-        (s.elite_health_power, s.boss_health_power, s.damage_share, s.elite_boss_damage_share) = (0.5, 0.25, 0.5, 0.5);
+        (b.zone_scaling.health_power, b.zone_scaling.damage_share) = (2.0, 0.5);
         let o = RunOptions::default();
         let at = |kind, d: f32| health_and_damage(&b, kind, &zone(d), 0.0, 0.0, &o, RUN_FACTOR);
-        // straight lines between the points (×2.5 halfway to D 3), the last step's pace past the last (×7 at D 6)
-        assert!(close(at(EnemyType::Normal, 2.0).0, 240.0 * 2.5) && close(at(EnemyType::Normal, 6.0).0, 240.0 * 7.0));
-        // at D 3 (×4): elites and rares ×4^0.5, bosses ×4^0.25; damage the square root of each kind's own
-        assert!(close(at(EnemyType::Normal, 3.0).1, 8.0 * 2.0));
-        assert!(close(at(EnemyType::Elite, 3.0).0, 2400.0 * 2.0) && close(at(EnemyType::Elite, 3.0).1, 24.0 * 2f32.sqrt()));
-        assert!(close(at(EnemyType::Rare, 3.0).0, 240.0 * b.rare.health * 2.0));
-        assert!(close(at(EnemyType::Boss, 3.0).0, 240.0 * b.boss.health * 2f32.sqrt()) && close(at(EnemyType::FinalBoss, 3.0).1, 8.0 * 2f32.powf(0.25)));
+        // D 3: health × 3² = 9, damage × 9^0.5 = 3, every kind alike
+        assert!(close(at(EnemyType::Normal, 3.0).0, 240.0 * 9.0) && close(at(EnemyType::Normal, 3.0).1, 8.0 * 3.0));
+        assert!(close(at(EnemyType::Boss, 3.0).0, 240.0 * b.boss.health * 9.0) && close(at(EnemyType::FinalBoss, 3.0).1, 8.0 * b.final_boss.damage * 3.0));
     }
 
     #[test]
@@ -270,8 +275,11 @@ mod tests {
         let b = content().balance;
         let o = RunOptions { health_pct: 200, damage_pct: 150, ..RunOptions::default() };
         let (h, d) = health_and_damage(&b, EnemyType::Elite, &zone(1.0), 0.0, 2.0, &o, 4.0);
-        assert!(close(h, 2400.0 * 2.0 * 1.22 * 1.22 * 4.0));
-        assert!(close(d, 24.0 * 1.5 * 1.12 * 1.12 * 2.0));
+        assert!(close(h, 240.0 * b.elite.health * 2.0 * 1.22 * 1.22 * 4.0));
+        assert!(close(d, 8.0 * b.elite.damage * 1.5 * 1.12 * 1.12 * 2.0));
+        // the dial is the options and Endless, last
+        let (hd, dd) = difficulty_dial(2.0, &o);
+        assert!(close(hd, 2.0 * 1.22 * 1.22) && close(dd, 1.5 * 1.12 * 1.12));
     }
 
     #[test]
@@ -282,9 +290,9 @@ mod tests {
         assert!(close(s.health, 120.0) && close(s.damage, 8.0));
         let t = spawn_stats(&vermin(false, 3.0), &zone(1.0), &b, 0.0, 0.0, &o, RUN_FACTOR);
         assert!(close(t.health, 720.0) && close(t.damage, 8.0));
-        // elites have no toughness
+        // elites have no role
         let e = spawn_stats(&vermin(true, 3.0), &zone(1.0), &b, 0.0, 0.0, &o, RUN_FACTOR);
-        assert!(close(e.health, 2400.0) && close(e.damage, 24.0));
+        assert!(close(e.health, 240.0 * b.elite.health) && close(e.damage, 8.0 * b.elite.damage));
         // the vermin's 5 yd/s times the game's enemy speed
         assert!((s.move_speed - 5.0 * b.enemy_speed).abs() < 1e-4);
         assert!((s.collision_radius - (1.2 * 0.9 + 2.2)).abs() < 1e-5);
@@ -298,18 +306,15 @@ mod tests {
         let o = RunOptions::default();
         let hogger = &z.bosses[0];
         let s = boss_stats(hogger, z, &c.balance, hogger.spawn_minute, 0.0, &o, RUN_FACTOR);
-        // Elwynn's zone health (D 1) to the bosses' power; the health clock to boss_clock_power
-        let sc = &c.balance.zone_scaling;
-        let zh = sc.health_factor(EnemyType::Boss, 1.0);
-        let p = c.balance.boss_clock_power;
-        assert!(close(s.health, 240.0 * c.balance.boss.health * zh * 2.125f32.powf(p)) && close(s.damage, 16.0 * zh.powf(sc.elite_boss_damage_share) * 1.375), "{s:?}");
+        // Elwynn (D 1): the boss kind on the health clock to boss_clock_power
+        assert!(close(s.health, 240.0 * c.balance.boss.health * hogger.health_share * 2.125f32.powf(c.balance.boss_clock_power)) && close(s.damage, 8.0 * c.balance.boss.damage * 1.375), "{s:?}");
         assert!((s.collision_radius - (1.5 * hogger.scale + 3.5)).abs() < 1e-5);
-        // the same boss later in the run is stronger, by the clocks (its health gentler than the swarm's)
+        // the same boss later in the run is stronger, by the gentler boss clock
         let late = boss_stats(hogger, z, &c.balance, 8.0, 0.0, &o, RUN_FACTOR);
-        assert!(close(late.health / s.health, (7.0f32 / 2.125).powf(p)) && close(late.damage / s.damage, 2.5 / 1.375));
+        assert!(close(late.health / s.health, (7.0f32 / 2.125).powf(c.balance.boss_clock_power)) && close(late.damage / s.damage, 2.5 / 1.375));
         let last = z.bosses.last().unwrap();
         let f = boss_stats(last, z, &c.balance, 16.0, 0.0, &o, RUN_FACTOR);
-        assert!(close(f.health, 240.0 * c.balance.final_boss.health * zh * 36f32.powf(p)) && close(f.damage, 8.0 * zh.powf(sc.elite_boss_damage_share) * 7.0));
+        assert!(close(f.health, 240.0 * c.balance.final_boss.health * last.health_share * 36f32.powf(c.balance.boss_clock_power)) && close(f.damage, 8.0 * c.balance.final_boss.damage * 7.0));
     }
 
     #[test]

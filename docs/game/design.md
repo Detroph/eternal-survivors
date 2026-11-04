@@ -24,9 +24,9 @@ Success means:
 | **Separation** | Self-contained repo with its own benilla copy. Crates use the `esurv-` prefix. Nothing is shared with a separate benilla checkout. |
 | **benilla stays benilla** | Changes to `crates\benilla-*` are kept minimal and isolated: embedder hooks only, each one documented, so upstream benilla can be merged in later. |
 
-### Built for the roadmap
+### Built for growth
 
-The game's insides are built for the changes planned in `roadmap.md`: one stat-modifier pipeline shared by every source of power, an event system
+The game's insides are built for later changes: one stat-modifier pipeline shared by every source of power, an event system
 for procs and mechanics, and reusable choice screens. These shape how steps 2, 5 and 6 are
 built.
 
@@ -177,7 +177,7 @@ Each step has a **goal**, **deliverables** and a **done when** test.
 * **Deliverables:** hero picker (class, race, name, race perks), armory (gear and talents),
   level-up card screen with reroll, reward pop-ups, HUD (clock, kills, gold, next boss, boss
   bar, pause and end panels), damage meter, codex, options (save export and import), run
-  options (gamepad and touch input moved to the roadmap, R7). Lua changes to the stock interface hide the talent
+  options. Lua changes to the stock interface hide the talent
   frame, spellbook and quest log, and add the run's level cap; the run stats on the character pane.
 * **Done when:** a full session needs no stock WoW menu beyond the ones the game keeps.
 
@@ -283,7 +283,7 @@ Each step has a **goal**, **deliverables** and a **done when** test.
      `9f0549729371920e`. A change meant to alter how runs play records its new hash here.)
   3. **Rename:** named kinds in the RON instead of numbers (`delivery: Nova`,
      not `delivery: 2`), clear property names, an item-entry numbering (with room for
-     three weapon sets of two slots per class, roadmap R3), a one-time
+     three weapon sets of two slots per class), a one-time
      migration of existing saves (collection, worn gear), and the templates, docs and guides in
      the same pass.
   4. **Check nothing broke:** every test passes, the content loads, the golden run's hash is

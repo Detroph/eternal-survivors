@@ -124,13 +124,18 @@ pub(crate) fn reroll_label(free: u32, cost: u32) -> String {
     }
 }
 
-/// The line under the cards: the keys that work.
-pub(crate) fn keys_hint(cards: usize) -> String {
-    match cards {
-        0 => "R: reroll".to_owned(),
-        1 => "1: choose    R: reroll".to_owned(),
-        n => format!("1 to {n}: choose    R: reroll"),
+/// The line under the cards: the keys that work (while a banish is picked, its own).
+pub(crate) fn keys_hint(cards: usize, banishing: bool) -> String {
+    let pick = match cards {
+        0 => String::new(),
+        1 => "1: ".to_owned(),
+        n => format!("1 to {n}: "),
+    };
+    if banishing {
+        return format!("{pick}banish that card    B: cancel");
     }
+    let rest = "R: reroll    B: banish    X: skip";
+    if pick.is_empty() { rest.to_owned() } else { format!("{pick}choose    {rest}") }
 }
 
 // A jewelry text with its `{v}` (shared with the server's item answers).
@@ -976,7 +981,8 @@ mod tests {
         );
         assert_eq!(reroll_label(3, 0), "Reroll (3 free)");
         assert_eq!(reroll_label(0, 300), "Reroll (300 gold)");
-        assert_eq!(keys_hint(3), "1 to 3: choose    R: reroll");
+        assert_eq!(keys_hint(3, false), "1 to 3: choose    R: reroll    B: banish    X: skip");
+        assert_eq!(keys_hint(3, true), "1 to 3: banish that card    B: cancel");
         assert_eq!(header(ScreenKind::LevelUp, 7).0, "Level 7");
         assert_eq!(header(ScreenKind::RareCache, 7).0, "Rare Cache");
     }

@@ -64,6 +64,8 @@ pub struct AreaSoundCatalog {
     zone_music: HashMap<u32, ZoneMusicEntry>,
     intros: HashMap<u32, ZoneIntroEntry>,
     ambience: HashMap<u32, SoundAmbienceEntry>,
+    /// `ZoneMusic` ids an embedder puts on areas ([`Self::force_music`]), by `AreaTable` id.
+    forced_music: HashMap<u32, u32>,
 }
 
 /// An area's audio after the parent walk.
@@ -95,11 +97,35 @@ impl AreaSoundCatalog {
         self.ambience.get(&id)
     }
 
+    /// Puts `ZoneMusic` row `zone_music` on area `area_id` and every subzone under it, over their
+    /// own rows: an embedder's choice of music, which the client's data does not make.
+    pub fn force_music(&mut self, area_id: u32, zone_music: u32) {
+        self.forced_music.insert(area_id, zone_music);
+    }
+
+    /// The music forced on an area or the nearest of its ancestors ([`Self::force_music`]).
+    fn forced_music_of(&self, area_id: u32) -> Option<&ZoneMusicEntry> {
+        let mut cur = self.areas.get(&area_id);
+        for _ in 0..8 {
+            let a = cur?;
+            if let Some(id) = self.forced_music.get(&a.id) {
+                return self.zone_music.get(id);
+            }
+            if a.parent == 0 {
+                return None;
+            }
+            cur = self.areas.get(&a.parent);
+        }
+        None
+    }
+
     /// An `areaId`'s audio rows, each id left `0` taken from the nearest ancestor up
-    /// `ParentAreaID`: a subzone without its own music plays its zone's.
+    /// `ParentAreaID`: a subzone without its own music plays its zone's. Music forced on the area
+    /// or an ancestor ([`Self::force_music`]) comes before any.
     pub fn resolve(&self, area_id: u32) -> Option<AreaAudio<'_>> {
         let first = self.areas.get(&area_id)?;
-        let (mut music, mut intro, mut ambience) = (None, None, None);
+        let (mut intro, mut ambience) = (None, None);
+        let mut music = self.forced_music_of(area_id);
         let mut provider = [0u32; 2];
         let mut cur = Some(first);
         for _ in 0..8 {
@@ -302,6 +328,7 @@ pub fn load_area_sound_catalog(chain: &mut Chain) -> Result<AreaSoundCatalog> {
         zone_music,
         intros,
         ambience,
+        forced_music: HashMap::new(),
     })
 }
 
@@ -349,5 +376,21 @@ mod tests {
             sub.id,
             sub.name
         );
+    }
+
+    /// Music forced on Tanaris (440, `Zone-Desert`) to `Zone-Mountain` (8) reaches its subzones,
+    /// a subzone's own row (Zul'Farrak 978) included; Elwynn keeps its own.
+    #[test]
+    fn forced_music_covers_the_subzones() {
+        let data = crate::wow_data_or_skip!();
+        let mut chain = crate::open_chain(&data).expect("open chain");
+        let mut cat = load_area_sound_catalog(&mut chain).expect("load area-sound catalog");
+        let music = |cat: &AreaSoundCatalog, area| cat.resolve(area).unwrap().music.unwrap().id;
+        assert_eq!(music(&cat, 440), 176);
+        cat.force_music(440, 8);
+        for area in [440, 976, 978, 2300] {
+            assert_eq!(music(&cat, area), 8, "area {area}");
+        }
+        assert_eq!(cat.resolve(12).unwrap().music.unwrap().set_name, "Zone-Forest");
     }
 }

@@ -1,11 +1,11 @@
 //! What the menus know of the save before a run, asked through the app's
 //! [`crate::prerun::PreRunLink`] and kept until a change: each class's progress, the run options,
-//! the codex and each hero's records and zone.
+//! the codex, the warband's achievements and each hero's records and zone.
 
 use std::collections::{BTreeSet, HashMap};
 
 use bevy::prelude::*;
-use esurv_protocol::{HeroFacts, PreRunAsk, Progress, RunOptions, ToClient};
+use esurv_protocol::{Achievements, HeroFacts, PreRunAsk, Progress, RunOptions, ToClient};
 
 use crate::prerun::PreRunLink;
 
@@ -15,6 +15,7 @@ pub struct PreRunFacts {
     progress: HashMap<String, Progress>,
     options: Option<(RunOptions, f32)>,
     codex: Option<BTreeSet<String>>,
+    achievements: Option<Achievements>,
     heroes: HashMap<u64, HeroFacts>,
     /// Changes whenever what is known changes.
     version: u32,
@@ -48,6 +49,16 @@ impl PreRunFacts {
         self.codex.as_ref()
     }
 
+    /// The warband's achievements, as the save last told them.
+    pub fn achievements(&self) -> Option<&Achievements> {
+        self.achievements.as_ref()
+    }
+
+    /// Whether anything was earned since the Achievements window was last opened.
+    pub fn achievements_news(&self) -> bool {
+        self.achievements.as_ref().is_some_and(|a| a.news)
+    }
+
     pub fn hero(&self, guid: u64) -> Option<&HeroFacts> {
         self.heroes.get(&guid)
     }
@@ -66,6 +77,7 @@ impl PreRunFacts {
                 }
                 ToClient::RunOptions { options, bonus } => self.options = Some((options, bonus)),
                 ToClient::Codex { found } => self.codex = Some(found.into_iter().collect()),
+                ToClient::Achievements(a) => self.achievements = Some(a),
                 ToClient::Hero(h) => {
                     self.heroes.insert(h.hero, h);
                 }

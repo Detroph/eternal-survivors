@@ -1,6 +1,6 @@
 //! A run: the clock, the heroes, the enemies and the order things happen in each tick.
 //!
-//! Heroes are a list from the start (roadmap R6): enemies chase the nearest living hero, and
+//! Heroes are a list from the start: enemies chase the nearest living hero, and
 //! every event names the hero it concerns.
 
 use std::sync::Arc;
@@ -155,6 +155,11 @@ pub struct HeroSetup {
     pub milestones: Vec<Milestone>,
     /// What gave the hero each of `milestones` (by index; one missing is `ProcOrigin::Other`).
     pub milestone_origins: Vec<ProcOrigin>,
+    /// The companion it brings (companions.ron) at the warband's upgrade rank; `None`: none.
+    pub companion: Option<super::companions::CompanionSetup>,
+    /// The banishes and skips a run gives (the warband's shop upgrades).
+    pub banishes: u32,
+    pub skips: u32,
 }
 
 impl HeroSetup {
@@ -339,6 +344,11 @@ pub struct Hero {
     pub pending_teleport: Option<(Vec2, u8)>,
     /// Stacking effects bosses left on it (`game::ground_zones`; damage only).
     pub afflictions: Vec<super::ground_zones::HeroAffliction>,
+    /// The banishes and skips it has left this run, one count of each for
+    /// level-ups and caches alike, and what it banished (`choices::banish_key`).
+    pub banishes_left: u32,
+    pub skips_left: u32,
+    pub banished: Vec<String>,
 }
 
 /// A class gear piece a boss dropped this run (it joins the hero's collection).
@@ -496,6 +506,10 @@ pub enum Event {
     HeroHealed { hero: u32, amount: f32, spell: u32 },
     PickupDropped { id: u32, kind: super::loot::Pickup, value: u32, at: Vec2 },
     PickupTaken { id: u32, hero: u32 },
+    /// A companion handed the gold piles it carried to its hero: `gold` counted (the gold bonus in).
+    CompanionDeposit { companion: u32, hero: u32, gold: u32 },
+    /// The hero closed its screen taking nothing (a skip).
+    ScreenSkipped { hero: u32 },
     LevelUp { hero: u32, level: u32 },
     CacheOpened { hero: u32, price: u32 },
     PetSummoned { id: u32, hero: u32, pet: String, at: Vec2 },
@@ -668,6 +682,8 @@ pub struct Run {
     /// When the rares still to come are due (run seconds; `game::rares`).
     pub rares_due: Vec<f32>,
     pub pets: Vec<super::pets::PetUnit>,
+    /// The heroes' companions, fetching gold (`game::companions`).
+    pub companions: Vec<super::companions::CompanionUnit>,
     /// How deep milestone procs are nested right now.
     pub proc_depth: u32,
     /// What gave the hero the milestone going off right now (the origin its proc hits carry).
@@ -743,6 +759,8 @@ pub struct Run {
     pub assists: super::assists::Assists,
     pub(crate) fallen_attack: f32,
     pub(crate) fallen_boss: Option<u32>,
+    /// While a banished card's slot is filled: the keys of the cards still on its screen.
+    pub(crate) offer_exclude: Vec<String>,
     next_id: u32,
     pub(crate) events: Vec<Event>,
 }
@@ -782,6 +800,7 @@ impl Run {
             ground_hits: Vec::new(),
             rares_due: Vec::new(),
             pets: Vec::new(),
+            companions: Vec::new(),
             proc_depth: 0,
             proc_origin: ProcOrigin::Other,
             casting_proc: 0,
@@ -819,6 +838,7 @@ impl Run {
             assists: Default::default(),
             fallen_attack: 0.0,
             fallen_boss: None,
+            offer_exclude: Vec::new(),
             next_id: 10,
             events: Vec::new(),
         };
@@ -913,7 +933,14 @@ impl Run {
                 pending_choices: 0,
                 pending_teleport: None,
                 afflictions: Vec::new(),
+                banishes_left: setup.banishes,
+                skips_left: setup.skips,
+                banished: Vec::new(),
             });
+            if let Some(companion) = &setup.companion {
+                let hero = run.heroes.len() - 1;
+                run.add_companion(hero, companion);
+            }
         }
         (!run.heroes.is_empty()).then_some(run)
     }
@@ -1333,6 +1360,8 @@ impl Run {
         // the final boss fell: the run is won at the first tick that finds it running, so a choice
         // the kill brought is made first
         if self.won_at.is_some() && self.endless_since.is_none() {
+            // what the companions still carry is handed over as the run ends
+            self.deposit_all_companions();
             self.phase = Phase::Victory;
             self.events.push(Event::Victory);
             // the run is over: novas still to come of a cast go off no more
@@ -1363,11 +1392,13 @@ impl Run {
         self.beams_tick(dt);
         self.cameos_tick();
         self.pickups_tick();
+        self.companions_tick();
         self.field_timers_tick();
         self.doors_tick();
         self.spawning_tick(dt);
         self.open_pending_screen();
         if self.heroes.iter().all(|h| !h.alive) && self.phase == Phase::Running {
+            self.deposit_all_companions();
             self.phase = Phase::Defeat;
             self.events.push(Event::Defeat);
             self.novas.clear();
@@ -1969,11 +2000,11 @@ mod tests {
         assert_eq!(minutes, [3.0, 6.0, 9.0, 12.0, 16.0]);
         let zone = &run.content.zones[run.zone];
         let last = run.enemies.iter().find(|e| e.kind == EnemyKind::Boss(4)).unwrap();
-        // the final boss kind on the health clock (to boss_clock_power) at its arrival: 240 × final kind × growth × clock(16 + a tick)^p
+        // the final boss kind on the health clock at its arrival: 240 × final kind × growth × clock(16 + a tick)
         let arrival = arrivals[4].1 / 60.0;
-        let growth = run.content.balance.zone_scaling.health_factor(esurv_content::EnemyType::FinalBoss, zone.difficulty);
+        let growth = run.content.balance.zone_scaling.health_factor(zone.difficulty);
         let b = &run.content.balance;
-        let want = 240.0 * b.final_boss.health * growth * crate::game::enemy::time_curve(&b.health_clock, arrival).powf(b.boss_clock_power);
+        let want = 240.0 * b.final_boss.health * growth * crate::game::enemy::time_curve(&b.health_clock, arrival).powf(b.boss_clock_power) * zone.bosses[4].health_share;
         assert!((last.max_health - want).abs() / want < 1e-3, "{} vs {want}", last.max_health);
     }
 

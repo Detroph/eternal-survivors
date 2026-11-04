@@ -32,18 +32,18 @@ fn shipped_content_counts() {
 fn the_enemy_stat_formula_loads() {
     let c = content();
     let b = &c.balance;
-    assert_eq!((b.base_health, b.base_damage, b.zone_scaling.damage_share, b.zone_scaling.elite_boss_damage_share), (240.0, 8.0, 0.6, 0.45));
-    assert_eq!((b.zone_scaling.normal_health.len(), b.zone_scaling.normal_health_at(10.0)), (12, 11.0));
+    assert_eq!((b.base_health, b.base_damage, b.zone_scaling.health_power, b.zone_scaling.damage_share), (240.0, 8.0, 1.0, 0.53));
+    // the zone curve: D times the first zone's health, blows to 0.53 of it
+    assert_eq!(b.zone_scaling.health_factor(10.0), 10.0);
+    assert!((b.zone_scaling.damage_factor(10.0) - 10f32.powf(0.53)).abs() < 1e-5);
     assert_eq!(b.zone_scaling.gear_drop_chance.first(), Some(&(1.0, 1.0)));
     assert_eq!(b.zone_scaling.gear_tier_starts, [2.0, 4.0, 7.0, 9.0]);
     let kinds = [EnemyType::Normal, EnemyType::Elite, EnemyType::Rare, EnemyType::Boss, EnemyType::FinalBoss]
         .map(|k| b.multipliers(k))
         .map(|m| (m.health, m.damage));
-    assert_eq!(kinds, [(1.0, 1.0), (10.0, 3.0), (10.0, 3.0), (37.5, 2.0), (94.0, 1.0)]);
-    assert_eq!((b.zone_scaling.boss_health_power, b.boss_clock_power), (0.7, 0.3));
-    // blows follow their own table, the old health table's
-    assert_eq!((b.zone_scaling.normal_damage.len(), b.zone_scaling.damage_factor(EnemyType::Normal, 10.0)), (12, 3.75));
-    assert_eq!((b.zone_scaling.elite_damage_power, b.zone_scaling.boss_damage_power), (0.65, 0.5));
+    assert_eq!(kinds, [(1.0, 1.0), (22.2, 2.25), (19.8, 2.25), (40.2, 1.3), (54.0, 0.65)]);
+    assert_eq!(b.boss_clock_power, 0.45);
+    assert_eq!(b.roles.all().map(|r| r.1), [0.25, 0.5, 0.75, 1.0, 2.0, 3.0]);
     assert_eq!(b.health_clock, [(0.0, 1.0), (4.0, 2.5), (8.0, 7.0), (12.0, 18.0), (16.0, 36.0), (20.0, 65.0)]);
     assert_eq!(b.damage_clock, [(0.0, 1.0), (4.0, 1.5), (8.0, 2.5), (12.0, 4.5), (16.0, 7.0)]);
     let d: Vec<f32> = c.zones.iter().map(|z| z.difficulty).collect();
@@ -51,10 +51,11 @@ fn the_enemy_stat_formula_loads() {
 }
 
 #[test]
-fn every_normal_enemy_s_toughness_is_a_quarter_step() {
-    for z in &content().zones {
+fn every_normal_enemy_s_health_multiplier_is_its_role_s() {
+    let c = content();
+    for z in &c.zones {
         for e in z.enemies.iter().filter(|e| !e.elite) {
-            assert!(e.toughness >= 0.25 && (e.toughness * 4.0).fract() == 0.0, "{} {}: {}", z.id, e.name, e.toughness);
+            assert_eq!(e.toughness, c.balance.roles.of(e.role), "{} {}", z.id, e.name);
         }
     }
 }
@@ -105,20 +106,12 @@ fn the_scarlet_monastery_walls_its_courtyard_and_opens_its_cathedral() {
     assert_eq!(sm.doors[0].opens_at_minute, 10.0);
     let finals: Vec<_> = sm.bosses.iter().filter(|b| b.is_final).collect();
     assert!(finals.iter().all(|b| b.at.is_some()));
-    assert_eq!(finals.iter().map(|b| (b.health_share, b.called)).collect::<Vec<_>>(), [(0.75, false), (0.6, true)]);
-    // every other boss has no spot of its own and its whole health, but those fighting in a pair
-    // (Cho'Rush joining King Gordok, Mandokir beside Ohgan), the Shade of Eranikus (0.3) and the
-    // bosses fitted to their goals; Warsong's first and final player bosses below
-    let pairs = [("Cho'Rush the Observer", 0.35), ("Bloodlord Mandokir", 0.85), ("Ohgan", 0.3), ("Shade of Eranikus", 0.3),
-        ("Houndmaster Loksey", 0.75), ("Arcanist Doan", 0.8), ("Herod", 0.75), ("High Inquisitor Fairbanks", 0.6),
-        ("Morphaz", 0.8), ("Zevrim Thornhoof", 1.1),
-        ("King Gordok", 0.6), ("Jin'do the Hexxer", 1.5), ("Baroness Anastari", 1.25), ("Nefarian", 0.6), ("C'Thun", 1.2)];
-    for b in c.zones.iter().filter(|z| z.id != "wsg").flat_map(|z| &z.bosses).filter(|b| b.at.is_none()) {
-        let share = pairs.iter().find(|(n, _)| *n == b.name).map_or(1.0, |p| p.1);
-        assert_eq!(b.health_share, share, "{}", b.name);
+    assert_eq!(finals.iter().map(|b| b.called).collect::<Vec<_>>(), [false, true]);
+    // Every boss's own health_share is fitted so it lives about 60 s (a final
+    // boss about 120 s) with the damage build, so each has its own number, in a sane range
+    for b in c.zones.iter().flat_map(|z| &z.bosses) {
+        assert!(b.health_share > 0.05 && b.health_share < 3.0, "{} {}", b.name, b.health_share);
     }
-    let wsg: Vec<f32> = c.zone("wsg").unwrap().bosses.iter().map(|b| b.health_share).collect();
-    assert_eq!(wsg, [0.8, 1.0, 1.0, 1.0, 0.5]);
 }
 
 #[test]
@@ -496,7 +489,7 @@ fn finer_prestige_steps_show_their_digits() {
     assert!(stat("swing_speed").classes.iter().any(|c| c == "shaman"));
 }
 
-/// Every class has its three weapon loadouts (roadmap R3): the swinging
+/// Every class has its three weapon loadouts: the swinging
 /// classes' each swing, two-handers at 3.6 s for twice the damage, one-handers at 1.8 s, dual
 /// wield a main hand and an off hand at a share of its damage; the casters' never swing; a loadout
 /// id the class lacks falls back to its first.

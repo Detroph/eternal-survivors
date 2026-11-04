@@ -50,7 +50,7 @@ is up, and Hand of Justice a chance for a swing to hit twice (`gear.md`).
 ### Weapon loadouts
 
 Each class
-has three weapon loadouts (roadmap R3; `content\loadouts.ron`, AUTHORING.md section 8b), chosen on the
+has three weapon loadouts (`content\loadouts.ron`, AUTHORING.md section 8b), chosen on the
 warband screen under the starting spell (screens.md) and kept per class in the save; the first
 is the default (an older save, or a loadout the class no longer has). A loadout's effects join
 the hero as the run begins, in the talents' vocabulary.
@@ -583,6 +583,6 @@ rank. A rank can be taken back for free when every rank left still meets those r
   create button and tooltip come with the class.
 * **New delivery kind or milestone:** needs code: a new `Delivery` (with `Delivery::ALL`) or
   `Milestone` variant in `esurv-content`'s schema and its case in `esurv-sim`, then data
-  can use it. (Planned roadmap mechanics such as rage and procs plug in here.)
+  can use it. (Later mechanics such as rage and procs would plug in here.)
 * Check with `cargo test -p esurv-content -p esurv-sim`. Worked examples of each:
   [AUTHORING.md](AUTHORING.md).

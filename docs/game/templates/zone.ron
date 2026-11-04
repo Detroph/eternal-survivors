@@ -32,7 +32,7 @@
             scale: 0.7,
             creature_type: Beast,
             kind: FastFodder,
-            toughness: 0.25,           // normal enemies: a quarter step, 0.25 and up
+            role: Swarm,               // normal enemies: Swarm, Light, Standard, Sturdy, Tough or Brute (balance.ron roles)
             appears_at_minute: 0.0,
         ),
         (
@@ -41,7 +41,7 @@
             scale: 1.0,
             creature_type: Humanoid,
             kind: Ranged,
-            toughness: 0.5,
+            role: Light,
             appears_at_minute: 1.0,
             look_spell: Some(133),     // casters only: the look of the spell they cast
         ),

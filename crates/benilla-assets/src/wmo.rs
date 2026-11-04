@@ -8,10 +8,11 @@ use std::sync::Arc;
 
 use benilla_formats::{
     accumulate_wmo_group_camera_collision, accumulate_wmo_group_camera_only_collision,
-    accumulate_wmo_group_collision, parse_wmo_lights, parse_wmo_root, wmo_group_doodad_refs,
-    wmo_group_footprint_tris, wmo_group_header, wmo_group_light_refs, wmo_group_liquid_mesh,
-    wmo_group_submeshes, CollisionMesh, FootprintTris, LiquidMesh, WmoDoodad, WmoDoodadSet, WmoFog,
-    WmoGroupInfo, WmoLight, WmoPortalInfo, WmoPortalRef,
+    accumulate_wmo_group_collision, parse_wmo_lights, parse_wmo_root, wmo_carve,
+    wmo_group_doodad_refs, wmo_group_footprint_tris, wmo_group_header, wmo_group_light_refs,
+    wmo_group_liquid_mesh, wmo_group_submeshes, CarvedPieces, CollisionMesh, FootprintTris,
+    LiquidMesh, WmoDoodad, WmoDoodadSet, WmoFog, WmoGroupInfo, WmoLight, WmoPortalInfo,
+    WmoPortalRef,
 };
 use bevy::asset::io::Reader;
 use bevy::asset::{Asset, AssetLoader, LoadContext};
@@ -377,6 +378,25 @@ impl AssetLoader for WmoModelLoader {
             .unwrap_or(&root_path)
             .to_string();
 
+        // A crate on top of benilla may carve this building (`set_wmo_carve`): its islands are
+        // found once over every group's drawn batches, then each list below is carved alike.
+        let carved = match wmo_carve(&root_path) {
+            Some(carve) => {
+                let mut batches = Vec::new();
+                for gi in 0..root.group_count() {
+                    if let Ok(gbytes) = ctx
+                        .read_asset_bytes(format!("mpq://{stem}_{gi:03}.wmo"))
+                        .await
+                    {
+                        batches.extend(wmo_group_submeshes(&gbytes, &root).map_err(to_io)?);
+                    }
+                }
+                Some(CarvedPieces::new(carve, &batches))
+            }
+            None => None,
+        };
+        let mut group_bounds = root.group_infos().to_vec();
+
         let mut submeshes = Vec::new();
         let mut submesh_group: Vec<u16> = Vec::new();
         // Pre-sized to the group count so MOPR group indices line up when a group file is skipped;
@@ -434,6 +454,9 @@ impl AssetLoader for WmoModelLoader {
             let mut gpos: Vec<[f32; 3]> = Vec::new();
             let mut gidx: Vec<u32> = Vec::new();
             accumulate_wmo_group_collision(&gbytes, &mut gpos, &mut gidx);
+            if let Some(c) = &carved {
+                c.carve_triangles(&mut gpos, &mut gidx);
+            }
             if let Some(tris) = group_collision_tris.get_mut(gi as usize) {
                 for t in gidx.as_chunks::<3>().0 {
                     if let (Some(&a), Some(&b), Some(&c)) = (
@@ -448,9 +471,19 @@ impl AssetLoader for WmoModelLoader {
             let base = col_pos.len() as u32;
             col_pos.extend_from_slice(&gpos);
             col_idx.extend(gidx.iter().map(|i| i + base));
-            accumulate_wmo_group_camera_collision(&gbytes, &mut cam_pos, &mut cam_idx);
+            let (mut gcam_pos, mut gcam_idx): (Vec<[f32; 3]>, Vec<u32>) = (Vec::new(), Vec::new());
+            accumulate_wmo_group_camera_collision(&gbytes, &mut gcam_pos, &mut gcam_idx);
+            if let Some(c) = &carved {
+                c.carve_triangles(&mut gcam_pos, &mut gcam_idx);
+            }
+            let cam_base = cam_pos.len() as u32;
+            cam_pos.extend_from_slice(&gcam_pos);
+            cam_idx.extend(gcam_idx.iter().map(|i| i + cam_base));
             let (mut dpos, mut didx): (Vec<[f32; 3]>, Vec<u32>) = (Vec::new(), Vec::new());
             accumulate_wmo_group_camera_only_collision(&gbytes, &mut dpos, &mut didx);
+            if let Some(c) = &carved {
+                c.carve_triangles(&mut dpos, &mut didx);
+            }
             if let Some(tris) = group_camera_only_tris.get_mut(gi as usize) {
                 for t in didx.as_chunks::<3>().0 {
                     if let (Some(&a), Some(&b), Some(&c)) = (
@@ -462,7 +495,25 @@ impl AssetLoader for WmoModelLoader {
                     }
                 }
             }
-            let subs = wmo_group_submeshes(&gbytes, &root).map_err(to_io)?;
+            let mut subs = wmo_group_submeshes(&gbytes, &root).map_err(to_io)?;
+            if let Some(c) = &carved {
+                // a moved piece may leave the group's authored box: grow it (and MOGI's) to hold it
+                for sub in &mut subs {
+                    c.carve_batch(sub);
+                }
+                let corners = subs
+                    .iter()
+                    .flat_map(|s| s.positions.iter())
+                    .chain(gpos.iter());
+                for p in corners {
+                    if let Some(nav) = group_nav.get_mut(gi as usize) {
+                        grow(&mut nav.bbox_min, &mut nav.bbox_max, *p);
+                    }
+                    if let Some(g) = group_bounds.get_mut(gi as usize) {
+                        grow(&mut g.bbox_min, &mut g.bbox_max, *p);
+                    }
+                }
+            }
             // The reference walks MODR at `0x695aa0` and MOLR at `0x695c00`.
             if let Some(slot) = group_doodad_refs.get_mut(gi as usize) {
                 *slot = wmo_group_doodad_refs(&gbytes);
@@ -562,7 +613,7 @@ impl AssetLoader for WmoModelLoader {
             doodads: root.doodads().to_vec(),
             doodad_sets: root.doodad_sets().to_vec(),
             lights: parse_wmo_lights(&bytes),
-            group_bounds: root.group_infos().to_vec(),
+            group_bounds,
             doodad_base,
             doodad_owner,
             doodad_groups,
@@ -627,6 +678,14 @@ fn resolve_shared_liquid_cells(group_liquids: &mut [Option<LiquidMesh>]) {
         if m.indices.is_empty() {
             *slot = None; // every cell this group held belonged to a neighbour
         }
+    }
+}
+
+/// Widen the box `min..max` to hold `p`.
+fn grow(min: &mut [f32; 3], max: &mut [f32; 3], p: [f32; 3]) {
+    for k in 0..3 {
+        min[k] = min[k].min(p[k]);
+        max[k] = max[k].max(p[k]);
     }
 }
 

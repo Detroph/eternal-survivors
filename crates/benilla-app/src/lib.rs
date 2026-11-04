@@ -200,6 +200,7 @@ pub use benilla_world::worldview::run as run_worldview;
 pub use bevy::app::AppExit;
 // A crate on top of benilla reads objects and interacts through these, with no protocol dependency.
 pub use benilla_protocol::{messages::ObjectType, ObjectFields};
+pub use ui_chat::idle::NoIdleTimeouts;
 pub use creature_anim::{MutedLoopSounds, SheathHolds, SpellLookSizes, SpellLookStyle, SpellLookStyles};
 pub use net::NetHandlerApp;
 pub use net::Objects;
@@ -213,6 +214,8 @@ pub use ui_script::OverlayWindow;
 pub use ui_script::{OverlayKeyPressed, OverlayKeys};
 // A crate's own screen may take the stock game menu's place (a run's pause panel).
 pub use ui_script::{GameMenuAsked, GameMenuStandIn};
+// And mark the way into a load with a sound that plays on through it (a run setting off).
+pub use sound::{AmbientSprinkle, CarriedSound, LoadingSound, SoundThroughLoading, ZoneMusicOverrides};
 // And hear the damage numbers as they float, and hide the small ones.
 pub use combat_text::{DamageNumberFloor, DamageNumberSpawned};
 // And keep chat bubbles off its own readouts over the world.
@@ -221,14 +224,18 @@ pub use net::LevelFlight;
 // A game on top may offer race and class pairs 1.12 does not, and give a display a composed look.
 pub use benilla_formats::AddedPair;
 pub use char_create::AddedRaceClassPairs;
-pub use entities::{ComposedDisplay, ComposedDisplays, PartModel, PartPlacement};
+pub use entities::{ComposedDisplay, ComposedDisplays, DressedDisplay, DressedDisplays, HueShift, PartModel, PartPlacement};
 // And may draw a model of its own for a spell's look on the ground.
-pub use entities::{GroundLookModel, GroundLookModels};
+pub use entities::{
+    AddedGameObjectDisplays, GroundLookModel, GroundLookModels, OutdoorGameObjectDisplays, RecoloredGameObjectDisplays,
+};
 // And may draw the character select over the world, with the characters standing in it.
 pub use select_scene::{
     FigureEmote, FigureHero, FigureOverhead, OutfitWeaponSheaths, SceneFigure, SceneView, SelectCharacter,
     SelectCreateAllowed, SelectListFilter, SelectScene, SelectScreen,
 };
+// And may show a creature model of its own in a pane (the stable window's booth, lent).
+pub use portrait::{CreatureModel, CreatureModelImage, CreatureModelView};
 // And may replace the stock select screen with its own, a character shown in the glue booth.
 pub use select_scene::{
     CreateChoices, FigureMaskImage, SceneFigureMask, FIGURE_MASKS, SelectActionDone, SelectCreate, SelectDelete,
@@ -420,6 +427,9 @@ fn launch(build: BuildId, extend: Option<Extension<'_>>) -> AppExit {
         // first frame cannot flash it on top. `BgWinPlugin` promotes it to Normal once the launch
         // settles, so it can still be raised.
         focused: !background,
+        // `$WOW_WIN_AT=x,y` (physical px, the desktop's own) opens it there: another monitor, out
+        // of the way of whoever is at the main one.
+        position: video::requested_window_position(),
         window_level: if background {
             bevy::window::WindowLevel::AlwaysOnBottom
         } else {

@@ -1,4 +1,4 @@
-//! Weapon loadouts (roadmap R3): before a run a class picks one of its three loadouts, each a set
+//! Weapon loadouts: before a run a class picks one of its three loadouts, each a set
 //! of weapons with strengths and drawbacks (`content/loadouts.ron`);
 //! docs/game/AUTHORING.md "Weapon loadouts".
 //!

@@ -1,0 +1,19 @@
+// Achievement template. Copy the block below into the list in content/achievements.ron. Every
+// field and criteria kind is in docs/game/achievements.md; docs/game/AUTHORING.md "An achievement"
+// walks through one.
+(
+    id: "my_new_achievement",      // unique, lowercase; the save keeps it, so never change it once shipped
+    name: "My New Achievement",    // our own words
+    text: "Win {Area(10)} with {Spell(585)}, never dropping below half health.", // what to do, our own words
+    points: 10,                    // 0 (Feats of Strength), 5, 10, 25 or 50
+    icon: "Spell_Holy_HolySmite",  // a texture name from Interface\Icons in the WoW client
+    category: Class("priest"),     // General, Class("<class id>") or Feats
+    rewards: [Title("{name} the Unshaken")], // optional: Title("text", {name} where the hero's name goes), Companion("id"), Trophy("id": a trophy of decorations.ron), Unlock("id")
+    // series: Some("my_series"),  // optional: steps of one series, in the file's order
+    // hidden: true,               // optional: "???" until earned
+    // What earns it. A won run where every condition held; the other kinds are
+    // Fight((boss: (zone: "elwynn", boss: 0), within_seconds: Some(20.0))),
+    // Counter(counter: Kills, goal: Count(1000)), Checklist(EveryLoadout("priest")),
+    // AllOf(["id", "id"]) and Never.
+    criteria: Win([Zone("duskwood"), Start("smite"), HealthNeverBelow(0.5)]),
+)

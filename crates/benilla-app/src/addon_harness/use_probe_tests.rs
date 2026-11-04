@@ -202,6 +202,7 @@ fn the_use_column_can_fail() {
 /// so it is `untouched`. Bagnon's item slots must be reachable (`driven >= 1` on a `BagnonItem*`
 /// frame); whether they raise is not asserted here.
 #[test]
+#[cfg(unix)] // symlinks the corpus in
 fn bagnon_is_reachable_and_omnicc_is_not_broken() {
     benilla_formats::wow_data_or_skip!();
     // A skip the gate can refuse (`benilla_formats::install`).

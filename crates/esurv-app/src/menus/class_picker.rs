@@ -89,7 +89,8 @@ pub(super) fn draw(
     };
     let colour = class_colour(&class.id).unwrap_or(palette::VALUE);
     commands.entity(root).with_children(|r| {
-        // the camp's world dims behind the picker
+        // a solid backdrop behind the picker, the panels' night-blue art, nothing of the camp's
+        // world through it
         r.spawn((
             Node {
                 width: Val::Percent(100.0),
@@ -99,10 +100,11 @@ pub(super) fn draw(
                 padding: UiRect::all(look.px(20.0)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.55)),
+            BackgroundColor(palette::NIGHT_DEEP),
             Pickable::IGNORE,
         ))
         .with_children(|veil| {
+            veil.spawn(crate::splash_art::cut(crate::splash_art::Cut::Night, super::look::NIGHT_TEXTURE));
             let mut node = look.panel_node();
             node.width = look.px(PANEL_WIDTH);
             node.max_height = Val::Percent(100.0);

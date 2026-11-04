@@ -10,9 +10,13 @@ use std::path::Path;
 use anyhow::{bail, Context, Result};
 use serde::{Deserialize, Serialize};
 
+mod achievements;
 mod assists;
 mod boss_mechanics;
+mod camp_chatter;
 mod categories;
+mod companions;
+mod cosmetics;
 #[cfg(feature = "client")]
 mod client_tables;
 pub mod entries;
@@ -23,6 +27,7 @@ pub mod live;
 mod loadouts;
 pub mod looks;
 pub mod option_looks;
+pub mod camp_looks;
 mod names;
 mod schema;
 mod starts;
@@ -32,9 +37,13 @@ pub mod testing;
 pub mod text;
 #[cfg(feature = "watch")]
 pub mod watch;
+pub use achievements::*;
 pub use assists::*;
 pub use boss_mechanics::*;
+pub use camp_chatter::*;
 pub use categories::apply_category_tuning;
+pub use companions::*;
+pub use cosmetics::*;
 #[cfg(feature = "client")]
 pub use client_tables::{read_spell_times, ClientTables, SpellNameRow, SpellTimes};
 pub use kinds::*;
@@ -80,6 +89,21 @@ pub struct Content {
     pub assist_spells: Vec<AssistSpell>,
     /// What prestige points buy, a rank at a time (`prestige.ron`).
     pub prestige: Vec<PrestigeStat>,
+    /// What the warband can earn (`achievements.ron`).
+    pub achievements: Vec<Achievement>,
+    /// What the warband can earn again and again (`bounties.ron`).
+    pub bounties: Vec<Bounty>,
+    /// The companions (`companions.ron`).
+    pub companions: Vec<Companion>,
+    /// What the shop sells besides them (`shop.ron`).
+    pub shop: Shop,
+    /// The tabards (`tabards.ron`), weapon glows (`weapon_glows.ron`) and camp decorations
+    /// (`decorations.ron`) the shop sells or achievements give.
+    pub tabards: Vec<Tabard>,
+    pub weapon_glows: Vec<WeaponGlow>,
+    pub decorations: Decorations,
+    /// The camp's temperaments and lines (`camp_chatter.ron`).
+    pub camp_chatter: CampChatter,
     /// The words cards put around their numbers (`words.ron`).
     pub words: Words,
     /// The enemy stat formula's numbers (`balance.ron`).
@@ -87,6 +111,9 @@ pub struct Content {
     /// The roster kinds' and boss abilities' shared numbers (`enemy_kinds.ron`), already resolved
     /// into `zones`; `None` for content built in code.
     pub enemy_kinds: Option<EnemyKinds>,
+    /// The client's names the content was read with, for the texts written in code that hold
+    /// pointers (`{Area(1941)}`): [`Content::shown`].
+    client_names: std::sync::Arc<ClientNames>,
     ability_index: HashMap<String, usize>,
     class_index: HashMap<String, usize>,
     zone_index: HashMap<String, usize>,
@@ -128,7 +155,11 @@ impl Content {
         apply_category_tuning(&mut abilities, &spell_categories)?;
         apply_spell_tags(&mut abilities, &mut pets, &balance.spell_tags)?;
         let enemy_kinds: EnemyKinds = read_one(dir, "enemy_kinds.ron")?;
-        let zones = resolve_zones(read_zone_entries(dir)?, &enemy_kinds, names)?;
+        let mut zones = resolve_zones(read_zone_entries(dir)?, &enemy_kinds, names)?;
+        // each normal enemy's health multiplier is its role's (`balance.ron` `roles`)
+        for e in zones.iter_mut().flat_map(|z| z.enemies.iter_mut()) {
+            e.toughness = balance.roles.of(e.role);
+        }
         let mut classes = read(dir, "classes.ron")?;
         let mut talent_trees = read(dir, "talents.ron")?;
         let mut races = read(dir, "races.ron")?;
@@ -166,6 +197,16 @@ impl Content {
         content.class_assists = class_assists;
         content.assist_spells = read(dir, "assist_spells.ron")?;
         content.prestige = read(dir, "prestige.ron")?;
+        content.achievements = read(dir, "achievements.ron")?;
+        content.bounties = read(dir, "bounties.ron")?;
+        content.companions = read(dir, "companions.ron")?;
+        content.shop = read_one(dir, "shop.ron")?;
+        content.tabards = read(dir, "tabards.ron")?;
+        content.weapon_glows = read(dir, "weapon_glows.ron")?;
+        content.decorations = read_one(dir, "decorations.ron")?;
+        content.camp_chatter = read_one(dir, "camp_chatter.ron")?;
+        show_camp_prose(names, &mut content)?;
+        content.client_names = std::sync::Arc::new(names.clone());
         content.words = words;
         content.balance = balance;
         content.enemy_kinds = Some(enemy_kinds);
@@ -240,7 +281,22 @@ impl Content {
             class_assists: Vec::new(),
             assist_spells: Vec::new(),
             prestige: Vec::new(),
+            achievements: Vec::new(),
+            bounties: Vec::new(),
+            companions: Vec::new(),
+            shop: Shop::default(),
+            tabards: Vec::new(),
+            weapon_glows: Vec::new(),
+            decorations: Decorations::default(),
+            camp_chatter: CampChatter::default(),
+            client_names: Default::default(),
         }
+    }
+
+    /// `text`, written in code, as the game shows it: each pointer in it (`{Area(1941)}`) as the
+    /// client's name the content was read with, or its placeholder without one.
+    pub fn shown(&self, text: &str) -> String {
+        self.client_names.show_text(text, &mut Vec::new())
     }
 
     /// The starting-outfit weapon or shield with item entry `item`.
@@ -360,20 +416,15 @@ impl Content {
             }
         }
         let s = &self.balance.zone_scaling;
-        let exponents = [s.elite_health_power, s.boss_health_power, s.damage_share, s.elite_boss_damage_share, s.gear_exponent, s.talent_exponent];
+        let exponents = [s.health_power, s.damage_share, s.gear_exponent, s.talent_exponent];
         if !(s.gear_growth_after.is_finite() && s.gear_growth_after > 0.0) || exponents.iter().any(|v| !(v.is_finite() && *v >= 0.0)) {
             problems.push("balance zone_scaling needs gear_growth_after above 0 and powers and exponents of 0 or more".into());
         }
-        let health = &s.normal_health;
-        if health.len() < 2 || health.windows(2).any(|w| w[1].0 <= w[0].0) || health.iter().any(|p| !(p.1.is_finite() && p.1 > 0.0)) {
-            problems.push("balance zone_scaling normal_health needs two or more points in rising D with multipliers above 0".into());
+        if !(self.balance.boss_clock_power.is_finite() && self.balance.boss_clock_power >= 0.0) {
+            problems.push("balance boss_clock_power needs to be 0 or more".into());
         }
-        let damage = &s.normal_damage;
-        if !damage.is_empty() && (damage.len() < 2 || damage.windows(2).any(|w| w[1].0 <= w[0].0) || damage.iter().any(|p| !(p.1.is_finite() && p.1 > 0.0))) {
-            problems.push("balance zone_scaling normal_damage needs none, or two or more points in rising D with multipliers above 0".into());
-        }
-        if [s.elite_damage_power, s.boss_damage_power].iter().any(|v| !(v.is_finite() && *v >= 0.0)) {
-            problems.push("balance zone_scaling elite_damage_power and boss_damage_power need to be 0 or more".into());
+        if self.balance.roles.all().iter().any(|(_, m)| !(m.is_finite() && *m > 0.0)) {
+            problems.push("balance roles need multipliers above 0".into());
         }
         if s.gear_tier_starts.windows(2).any(|w| w[1] <= w[0]) {
             problems.push("balance zone_scaling gear_tier_starts need rising difficulties".into());
@@ -605,6 +656,11 @@ impl Content {
         }
         self.check_assists(&mut problems);
         self.check_battle_standard(&mut problems);
+        self.check_achievements(&mut problems);
+        self.check_bounties(&mut problems);
+        self.check_camp_chatter(&mut problems);
+        self.check_companions(&mut problems);
+        self.check_cosmetics(&mut problems);
         self.check_class_boss_abilities(&mut problems);
         self.check_boss_mechanics(&mut problems);
         for b in self.zones.iter().flat_map(|z| z.every_boss()) {
@@ -989,6 +1045,38 @@ fn show_prose(
                 show.text(&what, text);
             }
         }
+    }
+    if !show.problems.is_empty() {
+        bail!("content names {} pointer(s) the client lacks:\n  {}", show.problems.len(), show.problems.join("\n  "));
+    }
+    Ok(())
+}
+
+/// Shows the pointers written in the camp's texts (`{Area(2017)}`): the heroes' lines and
+/// exchanges, the achievements', companions', decorations', weapon glows' and hub buffs' texts, as
+/// [`show_prose`] does for the others. Their own names stay our text (titles and items).
+fn show_camp_prose(names: &ClientNames, content: &mut Content) -> Result<()> {
+    let mut show = NameShower { names, problems: Vec::new() };
+    for l in content.camp_chatter.lines.iter_mut() {
+        show.text(&format!("camp line of {}", l.temperament), &mut l.text);
+    }
+    for l in content.camp_chatter.exchanges.iter_mut().flat_map(|e| e.lines.iter_mut()) {
+        show.text("camp exchange", l);
+    }
+    for a in content.achievements.iter_mut() {
+        show.text(&format!("achievement {}", a.id), &mut a.text);
+    }
+    for c in content.companions.iter_mut() {
+        show.text(&format!("companion {}", c.id), &mut c.text);
+    }
+    for d in content.decorations.pieces.iter_mut() {
+        show.text(&format!("decoration {}", d.id), &mut d.text);
+    }
+    for g in content.weapon_glows.iter_mut() {
+        show.text(&format!("weapon glow {}", g.id), &mut g.text);
+    }
+    for b in content.shop.hub_buffs.iter_mut() {
+        show.text(&format!("hub buff {}", b.id), &mut b.text);
     }
     if !show.problems.is_empty() {
         bail!("content names {} pointer(s) the client lacks:\n  {}", show.problems.len(), show.problems.join("\n  "));

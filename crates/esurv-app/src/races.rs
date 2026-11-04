@@ -222,12 +222,14 @@ fn composed_displays(content: &Content) -> ComposedDisplays {
         placement: PartPlacement {
             scale: look.scale,
             pitch_degrees: look.pitch_degrees,
+            roll_degrees: 0.0,
             turn_degrees: look.turn_degrees,
             sink: look.sink,
             raise_effects: look.raise_effects,
             raise_attachments: 0.0,
             hide_base_body: look.hide_totem_body,
         },
+        recolor: None,
     });
     let planted = content.planted_items().into_iter().map(|(id, item)| ComposedDisplay {
         id,
@@ -236,6 +238,7 @@ fn composed_displays(content: &Content) -> ComposedDisplays {
         placement: PartPlacement {
             scale: 1.0,
             pitch_degrees: -90.0, // head up
+            roll_degrees: 0.0,
             turn_degrees: 0.0,
             sink: item.sink,
             raise_effects: 0.0,
@@ -243,6 +246,7 @@ fn composed_displays(content: &Content) -> ComposedDisplays {
             raise_attachments: item.aura_lift,
             hide_base_body: true,
         },
+        recolor: None,
     });
     ComposedDisplays(totems.chain(planted).collect())
 }

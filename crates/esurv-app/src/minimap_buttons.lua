@@ -1,13 +1,15 @@
--- The run's two minimap buttons (docs/game/screens.md, "The minimap
+-- The run's three minimap buttons (docs/game/screens.md, "The minimap
 -- buttons"). esurv-app's `minimap_buttons` runs this once in each interface VM, once the stock
--- Minimap is loaded. Two round buttons on the minimap's rim, built the way an addon's minimap
+-- Minimap is loaded. Three round buttons on the minimap's rim, built the way an addon's minimap
 -- icon is (an icon under the stock tracking border, the zoom buttons' highlight):
 --
 --   * the boss timer bars: flips `esurvBossBarHandles` (the same setting as Options -> Timers ->
 --     "Show bar handles"), so the bars' drag handles show, the bars can be dragged, and the
 --     handles hide again;
 --   * the damage meter: shows or hides the meter window; the game keeps that in meter.ron and
---     tells this file back (`set_meter`).
+--     tells this file back (`set_meter`);
+--   * the player and target frames' layout: classic (top left) or modern (beside the hero),
+--     kept in `esurvFramesLayout`, which `run_frames/unit_frames.lua` reads.
 --
 -- A click is also queued for the game (`take`), which reads it at once.
 --
@@ -32,7 +34,7 @@ end
 -- right, counting up anticlockwise): the lower left, clear of the stock tracking, mail, clock and
 -- zoom buttons.
 local RADIUS = 80
-M.angles = { bars = 200, meter = 225 }
+M.angles = { bars = 200, meter = 225, layout = 250 }
 
 local function handles_on()
     local v = GetCVar(HANDLES_CVAR)
@@ -41,9 +43,14 @@ end
 
 local function place(button, degrees)
     local a = math.rad(degrees)
+    -- further out on the run's larger map (`run_frames/minimap.lua`)
+    local radius = RADIUS
+    if ESURV_MINIMAP and ESURV_MINIMAP.on() then
+        radius = ESURV_MINIMAP.BUTTON_RADIUS
+    end
     button:ClearAllPoints()
     -- the button's middle is its icon's (the ring is drawn from its top-left, as the stock one)
-    button:SetPoint("CENTER", Minimap, "CENTER", RADIUS * math.cos(a), RADIUS * math.sin(a))
+    button:SetPoint("CENTER", Minimap, "CENTER", radius * math.cos(a), radius * math.sin(a))
 end
 
 local function tip(button)
@@ -113,6 +120,46 @@ M.meter = make("meter", "EsurvMinimapMeterButton", "Interface\\Icons\\INV_Sword_
         -- the game flips it and tells back; shown at once so the tooltip agrees
         M.meter_shown = not M.meter_shown
     end)
+
+-- The player and target frames' layout: flips `esurvFramesLayout`, which the run's frames
+-- (`run_frames/unit_frames.lua`) take at once.
+local LAYOUT_CVAR = "esurvFramesLayout"
+if RegisterCVar then
+    RegisterCVar(LAYOUT_CVAR, "classic")
+end
+
+local function modern()
+    return GetCVar(LAYOUT_CVAR) == "modern"
+end
+
+M.layout = make("layout", "EsurvMinimapLayoutButton", "Interface\\Icons\\INV_Misc_Map_01",
+    "Player and target frames: classic/modern",
+    function()
+        if modern() then
+            return "Modern: beside the hero"
+        end
+        return "Classic: at the top left"
+    end,
+    function()
+        local layout = modern() and "classic" or "modern"
+        if ESURV_UNIT_FRAMES and ESURV_UNIT_FRAMES.set_layout then
+            ESURV_UNIT_FRAMES.set_layout(layout)
+        else
+            SetCVar(LAYOUT_CVAR, layout)
+        end
+    end)
+
+-- The buttons on the rim again, the run's minimap having turned on or off.
+function M.place_all()
+    place(M.bars, M.angles.bars)
+    place(M.meter, M.angles.meter)
+    place(M.layout, M.angles.layout)
+end
+
+-- on the run's minimap already: our ring round them too (`run_frames/minimap.lua`)
+if ESURV_MINIMAP and ESURV_MINIMAP.refresh then
+    ESURV_MINIMAP.refresh()
+end
 
 -- The meter's state, from the game (meter.ron).
 function M.set_meter(shown)

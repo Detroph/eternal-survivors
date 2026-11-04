@@ -52,6 +52,10 @@ pub mod field {
     pub const UNIT_DYNAMIC_FLAGS: u16 = 143;
     pub const UNIT_CHANNEL_SPELL: u16 = 144;
     pub const UNIT_MOD_CAST_SPEED: u16 = 145;
+    /// What a unit offers when talked to (`UNIT_NPC_FLAG_GOSSIP` 1 ...).
+    pub const UNIT_NPC_FLAGS: u16 = 147;
+    /// The looping state emote played as the idle (`Emotes.dbc`: dance 10, work 28 ...).
+    pub const UNIT_NPC_EMOTESTATE: u16 = 148;
     pub const UNIT_BASE_HEALTH: u16 = 163;
     /// sheath state (0 put away, 1 melee drawn, 2 ranged drawn) | ...
     pub const UNIT_BYTES_2: u16 = 164;

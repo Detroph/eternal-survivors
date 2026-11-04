@@ -92,6 +92,13 @@ impl AlphaAnim {
         &self.per_seq
     }
 
+    /// The same factors keyed on another model's sequence slots ([`super::key_anim::reslot`]).
+    pub fn reslot(&self, from: &[usize]) -> Self {
+        Self {
+            per_seq: super::key_anim::reslot(&self.per_seq, from),
+        }
+    }
+
     /// Whether any sequence can drive the alpha to zero, culling the batch.
     pub fn ever_hides(&self) -> bool {
         self.per_seq.iter().any(|s| {

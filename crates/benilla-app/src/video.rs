@@ -39,6 +39,16 @@ pub(crate) fn requested_window_size() -> Option<UVec2> {
     Some(UVec2::new(w.parse().ok()?, h.parse().ok()?))
 }
 
+/// `$WOW_WIN_AT=x,y` in physical px of the desktop (negative on a monitor left of the main one):
+/// where the window opens; else where the system puts it.
+pub(crate) fn requested_window_position() -> bevy::window::WindowPosition {
+    let at = std::env::var("WOW_WIN_AT").ok().and_then(|v| {
+        let (x, y) = v.split_once(',')?;
+        Some(IVec2::new(x.trim().parse().ok()?, y.trim().parse().ok()?))
+    });
+    at.map_or(bevy::window::WindowPosition::Automatic, bevy::window::WindowPosition::At)
+}
+
 /// `$WOW_DPI=<f32>`: render at another display's pixel grid, since text rasterizing and snapping
 /// quantize in device pixels. It overrides the window's scale factor, so `WOW_WIN` then means
 /// physical pixels and a capture is the framebuffer that display would show.

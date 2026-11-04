@@ -35,8 +35,7 @@ pub(super) const TURN_STEP: f32 = 0.5;
 
 //// The 19 equipment slots the class wears in `progress`, each piece in its look: the look chosen
 /// for its slot, else its own (as the character list dresses a hero); the weapons its weapon
-/// loadout's, in the armaments of the class gear weapon worn (roadmap
-/// R3, as the server arms a hero).
+/// loadout's, in the armaments of the class gear weapon worn (as the server arms a hero).
 pub(super) fn worn_equipment(
     content: &Content,
     class: &str,
@@ -133,15 +132,45 @@ pub(super) fn show_the_hero(
     let want = match (&menus.screen, &content) {
         (Screen::Sheet(s), Some(content)) => {
             let progress = facts.progress(&s.draft.class);
-            let c = draft_character(&content.0, &s.draft, progress, 0);
+            let mut c = draft_character(&content.0, &s.draft, progress, 0);
             let held = [15, 16, 17]
                 .map(|slot| crate::picker::weapon_sheath(&content.0, c.equipment[slot].display_id));
+            // its tabard and weapon glow: what it wears, or what its pick open in the details
+            // would put on (step 3 of the achievements)
+            let hero = match s.mode {
+                super::SheetMode::Modify(g) => facts.hero(g),
+                super::SheetMode::Create => None,
+            };
+            let worn = |kind| -> String {
+                let picking = s.wear == Some(kind);
+                match (picking, &s.wear_pick, hero) {
+                    (true, Some(id), _) => id.clone(),
+                    (_, _, Some(h)) => match kind {
+                        esurv_protocol::WearKind::Tabard => h.tabard.clone(),
+                        _ => h.glow.clone(),
+                    },
+                    _ => String::new(),
+                }
+            };
+            let faction = content.0.race_by_wow_id(s.draft.race).map(|r| r.faction);
+            // the glue booth draws a weapon glow's models flat white (its particles have no
+            // additive pass there), so the sheet's hero shows the tabard only; the camp and runs
+            // show the glow
+            let _ = crate::achievements::cosmetics::dress_figure(
+                &content.0,
+                faction,
+                &worn(esurv_protocol::WearKind::Tabard),
+                &worn(esurv_protocol::WearKind::Glow),
+                &mut c.equipment,
+            );
+            let enchants = [0; 3];
             Some(SelectModelView {
                 hero: FigureHero {
                     character: c,
                     stand_state: 0,
                     held_sheath: held,
                     start_outfit_under: true,
+                    enchants,
                 },
                 yaw: yaw.0,
             })
@@ -153,12 +182,13 @@ pub(super) fn show_the_hero(
         let c = &v.hero.character;
         (
             format!(
-                "{} {} {} {:?} {:?}",
+                "{} {} {} {:?} {:?} {:?}",
                 c.race,
                 c.gender,
                 c.class,
                 [c.skin, c.face, c.hair_style, c.hair_color, c.facial_hair],
-                c.equipment.map(|e| e.display_id)
+                c.equipment.map(|e| e.display_id),
+                v.hero.enchants
             ),
             facts.version(),
             v.yaw.to_bits(),

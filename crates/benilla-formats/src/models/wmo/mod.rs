@@ -1,9 +1,11 @@
 //! WMO (building) parsing: [`root`] parses the root file's shared tables, [`group`] a group file
 //! against a parsed root.
 
+mod carve;
 mod group;
 mod root;
 
+pub use carve::*;
 pub use group::*;
 pub use root::*;
 

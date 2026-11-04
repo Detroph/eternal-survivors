@@ -162,6 +162,7 @@ fn spawn_dummy(commands: &mut Commands, view: &WaterFxView, cx: f32, cy: f32, su
             height: crate::entities::CollisionHeight::default().0,
             // No model box; outdoors the exterior cull stands down anyway.
             bound: None,
+            stands_outdoors: false,
         },
         crate::entities::VisualAttached,
         Transform::from_translation(wow_to_bevy([start_x, start_y, surf - view.depth])),

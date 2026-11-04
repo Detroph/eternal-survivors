@@ -59,6 +59,9 @@ pub(crate) struct SelectLook {
     /// `CHARACTER_FLAG_*` bits; the builder honours hide-helm and hide-cloak.
     pub(crate) flags: u32,
     pub(crate) equipment: [benilla_protocol::CharEnumItem; 19],
+    /// The enchant on each held slot (main hand, off hand, ranged) whose glow it shows; the
+    /// roster row carries none (an embedder's model: [`crate::FigureHero::enchants`]).
+    pub(crate) enchants: [u32; 3],
     /// The roster row's pet triple; the level and family set its size through `CreatureFamily`'s
     /// ramp, so a freshly tamed wolf stands smaller than a level-60 one.
     pub(crate) pet_display_id: u32,
@@ -87,6 +90,7 @@ impl From<&benilla_protocol::Character> for SelectLook {
             facial_hair: c.facial_hair,
             flags: c.flags,
             equipment: c.equipment,
+            enchants: [0; 3],
             pet_display_id: c.pet_display_id,
             pet_level: c.pet_level,
             pet_family: c.pet_family,

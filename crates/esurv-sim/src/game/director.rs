@@ -278,6 +278,7 @@ mod tests {
             scale: 1.0,
             creature_type: esurv_content::CreatureType::Beast,
             toughness: 1.0,
+            role: Default::default(),
             attack_interval: 1.0,
             move_speed: 1.0,
             spawn_cost,

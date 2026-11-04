@@ -236,15 +236,28 @@ impl ZoneAudio {
     }
 }
 
+/// Music a crate on top of benilla puts on areas, as `(AreaTable id, ZoneMusic id)`: each area and
+/// its subzones play that row's tracks over their own ([`AreaSoundCatalog::force_music`]). Read
+/// once, when the zone-audio catalog loads.
+#[derive(Resource, Default, Clone)]
+pub struct ZoneMusicOverrides(pub Vec<(u32, u32)>);
+
 /// Startup: load the zone-audio and exploration-sound catalogs.
-fn load_area_sounds(mut commands: Commands, assets: Option<Res<WorldAssets>>) {
+fn load_area_sounds(
+    mut commands: Commands,
+    assets: Option<Res<WorldAssets>>,
+    overrides: Option<Res<ZoneMusicOverrides>>,
+) {
     let Some(assets) = assets else { return };
     let loaded = {
         let mut chain = assets.chain.lock_recover();
         benilla_formats::load_area_sound_catalog(&mut chain)
     };
     match loaded {
-        Ok(cat) => {
+        Ok(mut cat) => {
+            for &(area, music) in overrides.iter().flat_map(|o| o.0.iter()) {
+                cat.force_music(area, music);
+            }
             info!("sound: {} areas in the zone-audio catalog", cat.len());
             commands.insert_resource(AreaSounds(cat));
         }

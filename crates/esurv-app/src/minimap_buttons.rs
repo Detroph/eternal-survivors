@@ -240,7 +240,7 @@ mod shots {
                 Some((x, y)) => {
                     info!("minimap buttons: the {key} button is clicked");
                     let _ = script.run(
-                        "for _, b in ipairs({ ESURV_MINIMAP_BUTTONS.bars, ESURV_MINIMAP_BUTTONS.meter }) do \
+                        "for _, b in ipairs({ ESURV_MINIMAP_BUTTONS.bars, ESURV_MINIMAP_BUTTONS.meter, ESURV_MINIMAP_BUTTONS.layout }) do \
                          if b.UnlockHighlight then b:UnlockHighlight() end end",
                     );
                     script.mouse_move(x, y);
@@ -339,5 +339,25 @@ mod tests {
         assert_eq!(tip, "Shown");
         let at: (f32, f32) = lua.load("return ESURV_MINIMAP_BUTTONS.where('meter')").eval().unwrap();
         assert_eq!(at, (100.0, 600.0));
+        // the frames' layout flips between classic and modern, the run's frames told
+        let layout = |lua: &mlua::Lua| {
+            lua.load("return GetCVar('esurvFramesLayout')").eval::<String>().unwrap()
+        };
+        assert_eq!(layout(&lua), "classic", "registered classic");
+        let tip: (String, String) =
+            lua.load("hover(EsurvMinimapLayoutButton); return TIP[1], TIP[2]").eval().unwrap();
+        assert_eq!(tip.0, "Player and target frames: classic/modern");
+        assert!(tip.1.starts_with("Classic"));
+        lua.load(
+            "ESURV_UNIT_FRAMES = { set_layout = function(l) TOLD = l; SetCVar('esurvFramesLayout', l) end }",
+        )
+        .exec()
+        .unwrap();
+        let tip: String = lua.load("click(EsurvMinimapLayoutButton); return TIP[2]").eval().unwrap();
+        assert!(tip.starts_with("Modern"));
+        assert_eq!(lua.load("return TOLD").eval::<String>().unwrap(), "modern");
+        lua.load("click(EsurvMinimapLayoutButton)").exec().unwrap();
+        assert_eq!(layout(&lua), "classic", "and back");
+        assert_eq!(clicks(&lua.load("return ESURV_MINIMAP_BUTTONS.take()").eval::<String>().unwrap()), vec![]);
     }
 }

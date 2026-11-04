@@ -7,6 +7,18 @@ style of their own (below); the HUD and the meter keep theirs. The
 run's Escape menu, its choice screens and its end panel wear this look too (below,
 "In a run").
 
+**The hub.** The warband screen gives way to a camp to walk around in: the neutral camp at the
+Caverns of Time, the Alliance's half and the Horde's, a fresh warband's first hero welcomed by
+Chromie and walked round by the guide (Wren, or Rezza for the Horde) (the server's `game::camp`,
+the client's `esurv_app::camp`). Chromie's first words to the hero are its own, one line for each
+race in each time period it can come from (Past, Present, Future: the hero sheet's), naming
+when and where she fetched it from; the rest of her welcome is the same for all. At the walk's
+end, handed back to her, her last words before the first run ask for a hero of every class for
+each side, the camp livelier with a crowd. Her lines and the guides' are in the server's
+`game/camp/tour/walks.rs` (`CHROMIE_FIRST`, `CHROMIE_WELCOME`, `CHROMIE_MORE_HEROES`). It is the only camp; the faction camps that stood in Dun Morogh
+and on the Merchant Coast are gone, their hubs carried over to the Caverns. `ESURV_HUB=0` turns it
+off: the warband screen below is shown as before, and the Caverns are as in the runs.
+
 ## The look
 
 * Near-black panels with a thin warm-gold border and rounded corners, in full-height columns.
@@ -27,8 +39,9 @@ changes stay while a hero is made; Escape goes back a screen (and does nothing o
 screen); the warband panel also shows the runs played; the camera's aim moves so the camp sits in
 the lower left.
 
-0. **Launch:** if the save holds any hero, the game opens straight on character select (the
-   warband screen, step 4); only a save with no hero opens the class picker.
+0. **Launch:** first the title screen (the key art, Play and Quit; [screens.md](screens.md));
+   past it, if the save holds any hero, the game goes into the camp (with `ESURV_HUB=0`,
+   character select, the warband screen, step 4); only a save with no hero opens the class picker.
 1. **First launch, with no hero yet: the class picker.** One panel, which may fill the whole
    window:
    * a "Class" heading over a 3 × 3 grid of the nine classes (icon, name under it); the selected
@@ -51,7 +64,9 @@ the lower left.
      hint at the foot;
    * right column, "Features": skin colour, face, hair style, hair colour and the race's fifth
      feature (piercings, tusks, ...), each a box with gold arrows, "n / m" and a row of dots, and
-     a Randomize button; a hint at the foot;
+     a Randomize button; under them the Temperament block (the hero's voice at the camp) and the
+     Time period block (Past, Present or Future: when the hero was pulled in from, which picks
+     the camp lines it says of home; flavour only); a hint at the foot;
    * confirming creates the hero (name and look saved) and lands on character select.
 3. **Character, Collection and Talents.** The hero sheet has no tabs;
    Modify character opens it on Character (Back and Save changes), and the warband screen's
@@ -64,7 +79,9 @@ the lower left.
      (piece, boss, zone, chance); a footer with how to read it (worn and look marks) and the
      total found "n / 81"; the right column "Details" shows a picked piece: the zone it came
      from ("From Duskwood"), what it adds and which bosses drop it, or the look choices (a
-     tier each) for a slot picked on the left. A double click on a piece of the log
+     tier each) for a slot picked on the left. Under the Equipment the **Companion** box opens the
+     hero's Companions in the details: its companion turning, Choose or None, and every companion
+     of the warband ([screens.md](screens.md), "The Collection tab: Companion"). A double click on a piece of the log
      wears it, as picking it and pressing its Wear does (on a second row of looks, its Show This
      Look, the piece worn first when the slot wears nothing); a single click picks it as before.
    * **Talents**: the class's three trees side by side, each with its name, icon and points
@@ -83,32 +100,45 @@ the lower left.
      gold heading style, on no other hero. The plate follows that figure on screen: its foot sits
      half a yard over the figure's head (the model's Head attachment in its pose, so it comes down
      with a seated or kneeling hero), clear of the heads round the fire; it never goes over a
-     panel: under one above the head (the hero panel, Equipped armour, the Codex), beside one at
+     panel: under one above the head (the hero panel, the row of buttons at the top), beside one at
      its side (the Zone column), and always inside the screen. Under the fire are the buttons, in this order: **New
      character** (opens the class picker), **Modify character** (opens the hero sheet on that
      hero; race changes are always possible there) and **Delete character**, which asks first: "Are you sure you want to delete this
      character?" with **No** and **Yes** (No is the default; only Yes deletes, and the camp then
      selects its next hero);
    * a round button just under the top-left panel switches between the Alliance and Horde camps,
+     (a **Decorate camp** button beside it is parked with the camp decorations, for a later hub;
+     achievements.md section 15),
      with a small badge giving how many heroes the other camp holds (it follows the panel's
      height, so it never covers the panel);
    * the top-left panel: the selected hero's name, class and total wins; under it the
      **starting spell selection**: the class's starting options as
      icons, three for each class and four for the Druid, each with a tooltip of what it does and
      its passive; a click picks one for the hero's next runs, kept in the save (the first until
-     one is picked); and directly under it the **weapon loadout selection** (roadmap
-     R3): built as the starting spell's: the class's three loadouts as
+     one is picked); and directly under it the **weapon loadout selection**: built as the starting spell's: the class's three loadouts as
      a row of icons of the same size and frame (each its `icon` in `loadouts.ron`, a 1.12 weapon or
      shield icon), the chosen one framed gold and named under the row; each icon's tooltip, styled
      as the starting options', gives its name, weapons, strength (green) and drawback (red); a
      click picks one for the class's next runs, kept in the save (the first until one is picked),
      and the camp's figure takes up its weapons at once;
-   * the top middle, centred over the camp on the axis of its buttons:
-     a row of four buttons, **Collection**, **Talents**, a dimmed placeholder reading "TBD"
-     (a feature to come) and **Guide**, over the selected hero's equipped armour. The Guide opens
+   * the top middle, centred over the camp (the screen left of the zone column;
+     so are the buttons under the fire): a row of six buttons, **Equipment** (the hero sheet's Collection view, as
+     the Collection button was), **Talents**, **Codex** (the codex, as the old Codex panel's "Open
+     the codex" did; that panel and the Equipped armour under the row are gone), **Achievements**,
+     **Shop** (the shop alone: the Achievements window on its Shop, titled Shop; the
+     Achievements window lists no Shop page, so the Shop button is the one way in) and **Guide**.
+     The Shop never glows. Achievements opens the warband's Achievements window
+     ([screens.md](screens.md), "The Achievements window"; [achievements.md](achievements.md)) in
+     this look: the pages at the left (Summary, General, a page per class under "Classes", Feats),
+     the page at the right (the Summary's score, points to spend, last five earned and a bar per
+     category; elsewhere a row per achievement with its icon, name, text, a points shield, a
+     progress bar or a checklist, the day earned, its rewards, a series' earlier steps), earned rows
+     bright and the others grey, the hidden one "???", scrolling with the wheel; a Track box on
+     each row not earned tracks it in runs, three at most, kept in the save. It glows and pulses
+     as Equipment does while anything was earned since it was last opened. The Guide opens
      a panel over the screen that explains the game's mechanics in four tabs, **Stats**,
      **Enemies**, **Upgrades** and **Loot**, its numbers read from the content
-     ([screens.md](screens.md), "The guide"). Collection glows and pulses (the gold
+     ([screens.md](screens.md), "The guide"). Equipment glows and pulses (the gold
      border and soft glow of what is picked) while gear was unlocked for the hero's class since
      its Collection was last opened, Talents while talent or prestige points were earned since its
      Talents were; opening the view and coming back clears its glow. What was seen is kept in the
@@ -197,6 +227,11 @@ Options, End run and Quit game; over the end panel with only Options, Return to 
 to the warband screen, as the panel's own) and Quit game, the panel hiding under it; a second Escape
 closes it. Only a choice screen keeps Escape for itself.
 
+In the camp (the hub) Escape opens the same menu, never the stock game menu, with only Options
+and Quit game: there is no run to end or reset. A window open over the camp
+(the F1 menu, a thing's window), the Decorate list and the game's own windows (a talk window)
+take Escape first and close; with the Options panel open, Escape closes the panel first.
+
 The armory and the codex leave this menu, and are not reachable during a run at all: no key
 opens them in a run, and the end panel has no button for them. The hero sheet holds them
 before a run (the warband screen's Collection and Talents buttons).
@@ -209,6 +244,14 @@ look kept apart from its rules, in `escape_menu_look`) and hides under the Optio
 run with other heroes, a reset waits until no other hero is still in the run (it would start
 their run over too); ending or quitting takes only the asker out; and should another hero resume
 the run while the Options panel is open, the panel closes as Cancel closes it.
+
+## In a run: achievements
+
+An achievement earned in a run brings a gold **"Achievement earned"** banner up at the top
+centre, under the readouts (its icon, its name, a shield with its points), with a stock sound, for
+a few seconds; several wait their turn. The achievements tracked in the window show in a small
+panel of this look at the right under the minimap, each with its progress. **Built**
+([screens.md](screens.md), "Achievements in a run").
 
 ## In a run: the end panel
 

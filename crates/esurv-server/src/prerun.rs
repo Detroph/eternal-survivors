@@ -102,8 +102,14 @@ pub fn codex(saves: &Saves) -> ToClient {
     }
 }
 
+/// The warband's achievements as the save keeps them.
+pub fn achievements(content: &Content, saves: &Saves) -> ToClient {
+    ToClient::Achievements(saves.achievements_told(content))
+}
+
 /// A hero's records and the zone its next run is in.
-pub fn hero_facts(content: &Content, h: &SavedHero) -> ToClient {
+pub fn hero_facts(content: &Content, saves: &Saves, h: &SavedHero) -> ToClient {
+    let [title, tabard, glow] = saves.wears_told(content, h);
     let zone = h
         .zone
         .as_deref()
@@ -122,6 +128,16 @@ pub fn hero_facts(content: &Content, h: &SavedHero) -> ToClient {
             .and_then(|c| c.starting_option(h.start.as_deref()))
             .map(|o| o.id.clone())
             .unwrap_or_default(),
+        companion: h
+            .companion
+            .clone()
+            .filter(|id| content.companion(id).is_some())
+            .unwrap_or_default(),
+        title,
+        tabard,
+        glow,
+        temperament: h.temperament.clone().unwrap_or_default(),
+        time_period: h.time_period,
     })
 }
 
@@ -230,12 +246,18 @@ pub fn answer(
                 progress(content, saves, class),
                 run_options(content, saves.run_options()),
                 codex(saves),
+                achievements(content, saves),
             ]
         }
-        PreRunAsk::Hero(guid) => match hero(*guid) {
-            Some(h) => vec![hero_facts(content, &h)],
-            None => refused(),
-        },
+        PreRunAsk::Hero(guid) => {
+            // a hero not yet given its temperaments is given them now, so the sheet shows them
+            let ids: Vec<String> = content.camp_chatter.temperaments.iter().map(|t| t.id.clone()).collect();
+            saves.give_temperaments(&ids);
+            match hero(*guid) {
+                Some(h) => vec![hero_facts(content, saves, &h)],
+                None => refused(),
+            }
+        }
         PreRunAsk::Armory { class, change } => {
             if content.class(class).is_none() {
                 return refused();
@@ -252,7 +274,7 @@ pub fn answer(
         PreRunAsk::Rename { hero: guid, name } => match hero(*guid) {
             Some(h) if saves.rename(h.guid, name).is_ok() => saves
                 .hero(h.guid)
-                .map(|h| vec![hero_facts(content, &h)])
+                .map(|h| vec![hero_facts(content, saves, &h)])
                 .unwrap_or_else(refused),
             _ => refused(),
         },
@@ -285,7 +307,7 @@ pub fn answer(
             }
             saves
                 .hero(h.guid)
-                .map(|h| vec![hero_facts(content, &h)])
+                .map(|h| vec![hero_facts(content, saves, &h)])
                 .unwrap_or_else(refused)
         }
         PreRunAsk::Zone { hero: guid, zone } => {
@@ -300,7 +322,7 @@ pub fn answer(
             }
             saves
                 .hero(h.guid)
-                .map(|h| vec![hero_facts(content, &h)])
+                .map(|h| vec![hero_facts(content, saves, &h)])
                 .unwrap_or_else(refused)
         }
         PreRunAsk::Start { hero: guid, option } => {
@@ -316,7 +338,7 @@ pub fn answer(
             }
             saves
                 .hero(h.guid)
-                .map(|h| vec![hero_facts(content, &h)])
+                .map(|h| vec![hero_facts(content, saves, &h)])
                 .unwrap_or_else(refused)
         }
         PreRunAsk::Seen { class, view } => {
@@ -325,6 +347,84 @@ pub fn answer(
             }
             saves.see(class, *view);
             vec![progress(content, saves, class)]
+        }
+        PreRunAsk::AchievementsSeen => {
+            saves.see_achievements(content);
+            vec![achievements(content, saves)]
+        }
+        PreRunAsk::Track { id, on } => {
+            if !saves.track_achievement(content, id, *on) {
+                return refused();
+            }
+            vec![achievements(content, saves)]
+        }
+        PreRunAsk::Buy { item } => {
+            if !saves.buy(content, item) {
+                return refused();
+            }
+            vec![achievements(content, saves)]
+        }
+        PreRunAsk::Companion {
+            hero: guid,
+            companion,
+        } => {
+            let Some(h) = hero(*guid) else {
+                return refused();
+            };
+            let pick = Some(companion.as_str()).filter(|c| !c.is_empty());
+            if !saves.choose_companion(content, h.guid, pick) {
+                return refused();
+            }
+            saves
+                .hero(h.guid)
+                .map(|h| vec![hero_facts(content, saves, &h)])
+                .unwrap_or_else(refused)
+        }
+        PreRunAsk::Temperament { hero: guid, temperament } => {
+            let Ok(g) = u32::try_from(*guid) else {
+                return refused();
+            };
+            if !saves.temper(content, g, temperament) {
+                return refused();
+            }
+            // the next hero made: told with the rest once it is
+            saves
+                .hero(g)
+                .map(|h| vec![hero_facts(content, saves, &h)])
+                .unwrap_or_default()
+        }
+        PreRunAsk::TimePeriod { hero: guid, time_period } => {
+            let Ok(g) = u32::try_from(*guid) else {
+                return refused();
+            };
+            if !saves.set_time_period(g, *time_period) {
+                return refused();
+            }
+            // the next hero made: told with the rest once it is
+            saves
+                .hero(g)
+                .map(|h| vec![hero_facts(content, saves, &h)])
+                .unwrap_or_default()
+        }
+        PreRunAsk::Dress { hero: guid, kind, id } => {
+            let Some(h) = hero(*guid) else {
+                return refused();
+            };
+            let pick = Some(id.as_str()).filter(|c| !c.is_empty());
+            if !saves.dress(content, h.guid, *kind, pick) {
+                return refused();
+            }
+            saves
+                .hero(h.guid)
+                .map(|h| vec![hero_facts(content, saves, &h)])
+                .unwrap_or_else(refused)
+        }
+        PreRunAsk::Decorate { camp, spot, piece } => {
+            let piece = Some(piece.as_str()).filter(|p| !p.is_empty());
+            if !saves.decorate(content, camp, spot, piece) {
+                return refused();
+            }
+            vec![achievements(content, saves)]
         }
         PreRunAsk::SaveFiles | PreRunAsk::ExportSave | PreRunAsk::ImportSave { .. } => refused(),
     }
@@ -368,6 +468,7 @@ mod tests {
         assert!(matches!(&told[0], ToClient::Progress(p) if p.class == "warrior" && p.points == 0));
         assert!(matches!(told[1], ToClient::RunOptions { .. }));
         assert!(matches!(told[2], ToClient::Codex { .. }));
+        assert!(matches!(&told[3], ToClient::Achievements(a) if a.score == 0 && a.earned.is_empty()));
         let first = content
             .talent_trees
             .iter()
@@ -475,7 +576,7 @@ mod tests {
         );
     }
 
-    /// Roadmap R3: a class's progress names the weapon loadout it fights
+    /// A class's progress names the weapon loadout it fights
     /// with (its first until one is chosen); `loadout <id>` chooses one of its own, nothing else.
     #[test]
     fn a_class_chooses_its_weapon_loadout() {
@@ -514,6 +615,52 @@ mod tests {
         let wrong = PreRunAsk::Start { hero: guid, option: warriors };
         assert_eq!(refused(&answer(&content, &saves, None, &wrong)), Some("start"));
         assert_eq!(saves.hero(ana.guid).unwrap().start.as_deref(), Some(last.as_str()), "kept");
+    }
+
+    #[test]
+    fn a_hero_takes_its_temperaments_on_the_sheet() {
+        let content = content();
+        let saves = Saves::in_memory();
+        let temper = |hero: u64, t: &[&str]| PreRunAsk::Temperament {
+            hero,
+            temperament: t.iter().map(|s| s.to_string()).collect(),
+        };
+        // the sheet's Create tells the next hero's first
+        assert!(answer(&content, &saves, None, &temper(0, &["grim", "weary"])).is_empty());
+        let ana = saves.create("Ana", "mage", "human", 1, [0; 5]).unwrap();
+        assert_eq!(ana.temperament, Some(vec!["grim".into(), "weary".into()]));
+        let bo = saves.create("Bo", "mage", "human", 0, [0; 5]).unwrap();
+        assert_eq!(bo.temperament, None, "only the hero it was told for");
+        // a hero not yet given any is given two when its facts are asked
+        let told = answer(&content, &saves, None, &PreRunAsk::Hero(u64::from(bo.guid)));
+        assert_eq!(told_hero(&told).map(|h| h.temperament.len()), Some(2));
+        let guid = u64::from(ana.guid);
+        let told = answer(&content, &saves, None, &temper(guid, &["curious"]));
+        assert_eq!(told_hero(&told).map(|h| h.temperament.clone()), Some(vec!["curious".to_string()]));
+        let told = answer(&content, &saves, None, &temper(guid, &[]));
+        assert_eq!(told_hero(&told).map(|h| h.temperament.is_empty()), Some(true), "Quiet");
+        for wrong in [&["grim", "grim"][..], &["grim", "weary", "curious"], &["sulky"]] {
+            assert_eq!(refused(&answer(&content, &saves, None, &temper(guid, wrong))), Some("temper"));
+        }
+        assert_eq!(saves.hero(ana.guid).unwrap().temperament, Some(vec![]), "kept");
+    }
+
+    #[test]
+    fn a_hero_takes_its_time_period_on_the_sheet() {
+        use esurv_content::TimePeriod;
+        let content = content();
+        let saves = Saves::in_memory();
+        let period = |hero: u64, time_period| PreRunAsk::TimePeriod { hero, time_period };
+        // the sheet's Create tells the next hero's first
+        assert!(answer(&content, &saves, None, &period(0, TimePeriod::Future)).is_empty());
+        let ana = saves.create("Ana", "mage", "human", 1, [0; 5]).unwrap();
+        assert_eq!(ana.time_period, TimePeriod::Future);
+        let told = answer(&content, &saves, None, &PreRunAsk::Hero(u64::from(ana.guid)));
+        assert_eq!(told_hero(&told).map(|h| h.time_period), Some(TimePeriod::Future));
+        let told = answer(&content, &saves, None, &period(u64::from(ana.guid), TimePeriod::Past));
+        assert_eq!(told_hero(&told).map(|h| h.time_period), Some(TimePeriod::Past));
+        assert_eq!(saves.hero(ana.guid).unwrap().time_period, TimePeriod::Past, "kept");
+        assert_eq!(refused(&answer(&content, &saves, None, &period(99, TimePeriod::Past))), Some("period"));
     }
 
     /// A zone added with data alone is a zone like the others: told open in its place by

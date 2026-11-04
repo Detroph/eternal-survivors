@@ -80,7 +80,6 @@ The references explain every field and how to add your own:
 - [Classes, spells and talents](docs/game/classes.md)
 - [Making a boss](docs/game/bosses.md) (copy [the template](docs/game/templates/boss.ron))
 - [Making a spell](docs/game/spells.md) (copy [the template](docs/game/templates/spell.ron))
-- [Roadmap](docs/game/roadmap.md)
 
 ## License
 

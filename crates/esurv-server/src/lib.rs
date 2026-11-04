@@ -59,6 +59,9 @@ pub struct ServerConfig {
     /// Each hero's moves are logged to this file, a line per move: run seconds, hero, x, y, the
     /// run speed the server holds (a dev switch, `ESURV_MOVE_LOG`).
     pub move_log: Option<std::path::PathBuf>,
+    /// A hero of a faction with a camp enters its camp, not a run (the hub, on unless
+    /// `ESURV_HUB=0`; `game::camp`).
+    pub hub: bool,
 }
 
 /// A running server.
@@ -81,6 +84,8 @@ pub fn start(config: ServerConfig) -> Result<ServerHandle> {
         zone: config.zone,
         granted: config.granted,
         move_log: config.move_log,
+        hub: config.hub,
+        runs_asked: Default::default(),
     });
     let listener =
         TcpListener::bind((config.bind_host.as_str(), 0)).context("opening the world listener")?;

@@ -864,6 +864,14 @@ function M.apply()
     if ESURV_ACTION_BAR then
         ESURV_ACTION_BAR.apply()
     end
+    -- the minimap, ours in a run (`minimap.lua`, installed right after the bar)
+    if ESURV_MINIMAP then
+        ESURV_MINIMAP.apply()
+    end
+    -- the player and target frames, ours in a run (`unit_frames.lua`, installed after the map)
+    if ESURV_UNIT_FRAMES then
+        ESURV_UNIT_FRAMES.apply()
+    end
     if SpellBookFrame and SpellBookFrame:IsVisible() and SpellBookFrame_Update then
         SpellBookFrame_Update()
     end

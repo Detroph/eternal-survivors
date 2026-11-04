@@ -59,7 +59,97 @@ pub enum PreRunAsk {
     /// button to it glows until then), or closed the box telling that Challenge Mode is open (once
     /// per save); answered with `Progress`.
     Seen { class: String, view: SeenView },
+    /// `achseen`: the player opened the Achievements window, so what was earned is seen (the
+    /// warband screen's Achievements button glows until then); answered with `Achievements`.
+    AchievementsSeen,
+    /// `track <id> <on>`: an achievement not yet earned tracked in runs, or no longer (at most
+    /// [`MAX_TRACKED`] at once); answered with `Achievements`.
+    Track { id: String, on: bool },
+    /// `buy <item>`: the shop sells the warband item `item` (`companion:<id>`,
+    /// `companion_rank:<n>`) for points to spend, never the score; answered with
+    /// `Achievements`, or refused (unknown, not for sale, owned, too dear, a rank out of turn).
+    Buy { item: String },
+    /// `companion <guid> <id>`: the companion the hero brings, one the warband owns; `~` for
+    /// none. Answered with `Hero`.
+    Companion { hero: u64, companion: String },
+    /// `temper <guid> <ids>`: the hero's temperaments (ids of `camp_chatter.ron`), its leading
+    /// one first, at most two; none for Quiet. Guid 0 is the next hero made (the sheet's Create
+    /// sends it first). Answered with `Hero`, or nothing for the next hero.
+    Temperament { hero: u64, temperament: Vec<String> },
+    /// `period <guid> <past|present|future>`: the time period the hero was pulled into the camp
+    /// from (flavour only: which of the camp's lines it says). Guid 0 is the next hero made (the
+    /// sheet's Create sends it first). Answered with `Hero`, or nothing for the next hero.
+    TimePeriod { hero: u64, time_period: TimePeriod },
+    /// `dress <guid> <kind> <id>`: the title (an achievement's id), tabard or weapon glow the
+    /// hero wears, one the warband owns (a tabard its faction may wear); empty for none.
+    /// Answered with `Hero`.
+    Dress { hero: u64, kind: WearKind, id: String },
+    /// `decorate <camp> <spot> <piece>`: camp `horde` or `alliance` shows decoration `piece` (one
+    /// the warband owns, fitting the spot) on spot `spot` (an open one), moving it from another
+    /// spot of that camp; empty for none. Answered with `Achievements`.
+    Decorate { camp: String, spot: String, piece: String },
 }
+
+/// What a hero wears besides its gear and companion (step 3 of the achievements).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum WearKind {
+    Title,
+    Tabard,
+    Glow,
+}
+
+impl WearKind {
+    pub const ALL: [WearKind; 3] = [WearKind::Title, WearKind::Tabard, WearKind::Glow];
+
+    /// Its word on the line.
+    pub fn word(self) -> &'static str {
+        match self {
+            WearKind::Title => "title",
+            WearKind::Tabard => "tabard",
+            WearKind::Glow => "glow",
+        }
+    }
+
+    pub fn from_word(word: &str) -> Option<Self> {
+        WearKind::ALL.into_iter().find(|k| k.word() == word)
+    }
+}
+
+/// The time a hero was pulled into the camp at the Caverns of Time from: before the classic era,
+/// classic's own time, or after it. Flavour only: it picks which of the camp's lines the hero says
+/// (`camp_chatter.ron`) and changes nothing in a run. A hero of an older save: Present.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum TimePeriod {
+    /// Before the classic era: the Second War, Stratholme before the plague, Draenor before the
+    /// Portal.
+    Past,
+    /// Classic's own time.
+    #[default]
+    Present,
+    /// After the classic era: the Lich King's fall, the Cataclysm and on.
+    Future,
+}
+
+impl TimePeriod {
+    pub const ALL: [TimePeriod; 3] = [TimePeriod::Past, TimePeriod::Present, TimePeriod::Future];
+
+    /// Its word on the line.
+    pub fn word(self) -> &'static str {
+        match self {
+            TimePeriod::Past => "past",
+            TimePeriod::Present => "present",
+            TimePeriod::Future => "future",
+        }
+    }
+
+    pub fn from_word(word: &str) -> Option<Self> {
+        TimePeriod::ALL.into_iter().find(|p| p.word() == word)
+    }
+}
+
+/// How many achievements may be tracked in runs at once.
+pub const MAX_TRACKED: usize = 3;
 
 /// A view of the hero sheet whose news the warband screen's buttons show:
 /// gear unlocked since the Collection was last opened, talent points earned since the
@@ -128,6 +218,14 @@ impl PreRunAsk {
             PreRunAsk::ExportSave => "export",
             PreRunAsk::ImportSave { .. } => "import",
             PreRunAsk::Seen { .. } => "seen",
+            PreRunAsk::AchievementsSeen => "achseen",
+            PreRunAsk::Track { .. } => "track",
+            PreRunAsk::Buy { .. } => "buy",
+            PreRunAsk::Companion { .. } => "companion",
+            PreRunAsk::Temperament { .. } => "temper",
+            PreRunAsk::TimePeriod { .. } => "period",
+            PreRunAsk::Dress { .. } => "dress",
+            PreRunAsk::Decorate { .. } => "decorate",
         }
     }
 
@@ -200,6 +298,30 @@ impl Wire for PreRunAsk {
             PreRunAsk::Seen { class, view } => {
                 o.text(class).word(view.word());
             }
+            PreRunAsk::AchievementsSeen => {}
+            PreRunAsk::Track { id, on } => {
+                o.text(id).flag(*on);
+            }
+            PreRunAsk::Buy { item } => {
+                o.text(item);
+            }
+            PreRunAsk::Companion { hero, companion } => {
+                o.guid(*hero).text(companion);
+            }
+            PreRunAsk::Temperament { hero, temperament } => {
+                o.guid(*hero).list(temperament, |o, t| {
+                    o.text(t);
+                });
+            }
+            PreRunAsk::TimePeriod { hero, time_period } => {
+                o.guid(*hero).word(time_period.word());
+            }
+            PreRunAsk::Dress { hero, kind, id } => {
+                o.guid(*hero).text(kind.word()).text(id);
+            }
+            PreRunAsk::Decorate { camp, spot, piece } => {
+                o.text(camp).text(spot).text(piece);
+            }
         }
         o.finish()
     }
@@ -248,6 +370,34 @@ impl Wire for PreRunAsk {
             "seen" => PreRunAsk::Seen {
                 class: r.text()?,
                 view: SeenView::from_word(r.word()?)?,
+            },
+            "achseen" => PreRunAsk::AchievementsSeen,
+            "track" => PreRunAsk::Track {
+                id: r.text()?,
+                on: r.flag()?,
+            },
+            "buy" => PreRunAsk::Buy { item: r.text()? },
+            "companion" => PreRunAsk::Companion {
+                hero: r.guid()?,
+                companion: r.text()?,
+            },
+            "temper" => PreRunAsk::Temperament {
+                hero: r.guid()?,
+                temperament: r.list(|r| r.text())?,
+            },
+            "period" => PreRunAsk::TimePeriod {
+                hero: r.guid()?,
+                time_period: TimePeriod::from_word(r.word()?)?,
+            },
+            "dress" => PreRunAsk::Dress {
+                hero: r.guid()?,
+                kind: WearKind::from_word(&r.text()?)?,
+                id: r.text()?,
+            },
+            "decorate" => PreRunAsk::Decorate {
+                camp: r.text()?,
+                spot: r.text()?,
+                piece: r.text()?,
             },
             _ => return None,
         })
@@ -330,6 +480,36 @@ mod tests {
                 class: "shaman".into(),
                 view,
             });
+        }
+        round_trip(PreRunAsk::AchievementsSeen);
+        for kind in WearKind::ALL {
+            for id in ["the_eternal_road", ""] {
+                round_trip(PreRunAsk::Dress { hero: 4, kind, id: id.into() });
+            }
+        }
+        for piece in ["throne", ""] {
+            round_trip(PreRunAsk::Decorate { camp: "horde".into(), spot: "trophy_1".into(), piece: piece.into() });
+        }
+        for on in [true, false] {
+            round_trip(PreRunAsk::Track {
+                id: "spin_to_win".into(),
+                on,
+            });
+        }
+        round_trip(PreRunAsk::Buy {
+            item: "companion:bombay_cat".into(),
+        });
+        for companion in ["tiny_hogger", ""] {
+            round_trip(PreRunAsk::Companion {
+                hero: 3,
+                companion: companion.into(),
+            });
+        }
+        for temperament in [vec!["grim".into(), "weary".into()], vec![]] {
+            round_trip(PreRunAsk::Temperament { hero: 0, temperament });
+        }
+        for time_period in TimePeriod::ALL {
+            round_trip(PreRunAsk::TimePeriod { hero: 5, time_period });
         }
         assert!(PreRunAsk::ExportSave.touches_the_save_file());
         assert!(!PreRunAsk::Hero(3).touches_the_save_file());

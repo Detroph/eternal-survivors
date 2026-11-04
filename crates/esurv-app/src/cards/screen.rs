@@ -34,8 +34,7 @@ const CARD_ICON: f32 = 42.0;
 const SIDE_WIDTH: f32 = 140.0;
 const SIDE_ICON: f32 = 22.0;
 const REROLL_WIDTH: f32 = 150.0;
-/// How dark the world goes behind the screen.
-const DIM: f32 = 0.35;
+const CHARGE_WIDTH: f32 = 100.0;
 
 /// A click on it takes card `n`: the card, and the amulet it would replace named at its foot.
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,6 +50,14 @@ pub(super) struct CardFrame {
 #[derive(Component)]
 pub(super) struct RerollButton;
 
+/// Banish: pressed, the next card picked is banished.
+#[derive(Component)]
+pub(super) struct BanishButton;
+
+/// Skip: closes the screen taking nothing.
+#[derive(Component)]
+pub(super) struct SkipButton;
+
 #[derive(Component)]
 pub(super) struct GoldLabel;
 
@@ -59,9 +66,9 @@ pub(super) struct GoldLabel;
 pub(super) struct LitByScript(pub Option<usize>);
 
 /// What is on screen: the layer, the cards it shows (by when they came), the scale it was built
-/// at, and whether a reroll could be paid then.
+/// at, whether a reroll could be paid then, and whether a banish was being picked.
 #[derive(Default)]
-pub(super) struct Shown(Option<(Entity, f32, StockScale, bool)>);
+pub(super) struct Shown(Option<(Entity, f32, StockScale, (bool, bool))>);
 
 /// Builds the screen when cards come or change, when the scale changes and when a reroll
 /// becomes payable or not; takes it down when they close; keeps the gold up to date.
@@ -80,7 +87,7 @@ pub(super) fn show_cards(
             open.choices.reroll_cost,
             screen.gold,
         );
-        (open.since, stock.scale(), usable)
+        (open.since, stock.scale(), (usable, open.banishing))
     });
     if let Some((layer, since, scale, usable)) = shown.0 {
         if want != Some((since, scale, usable)) {
@@ -186,6 +193,8 @@ pub(super) fn answer_clicks(
     mut clicks: MessageReader<StockClick>,
     picks: Query<&CardPick>,
     rerolls: Query<(), With<RerollButton>>,
+    banishes: Query<(), With<BanishButton>>,
+    skips: Query<(), With<SkipButton>>,
     mut screen: ResMut<CardScreen>,
     mut requests: MessageWriter<Request>,
 ) {
@@ -194,6 +203,10 @@ pub(super) fn answer_clicks(
             CardAction::Take(*n)
         } else if rerolls.contains(*entity) {
             CardAction::Reroll
+        } else if banishes.contains(*entity) {
+            CardAction::Banish
+        } else if skips.contains(*entity) {
+            CardAction::Skip
         } else {
             continue;
         };
@@ -239,7 +252,7 @@ fn spawn_screen(
     choices: &Choices,
     content: Option<&esurv_content::Content>,
     gold: Option<u32>,
-    usable: bool,
+    (usable, banishing): (bool, bool),
 ) -> Entity {
     let (title, under) = header(choices.kind, choices.level);
     let shown = choices.offers.len().min(MAX_CARDS);
@@ -249,7 +262,7 @@ fn spawn_screen(
         .spawn((
             Name::new("card screen"),
             stock.centred(layer::CARDS),
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, DIM)),
+            BackgroundColor(palette::DIM),
         ))
         .with_children(|layer| {
             let mut node = look.panel_node();
@@ -276,19 +289,19 @@ fn spawn_screen(
                             }
                             jewelry_column(row, look, &kit);
                         });
-                    look_footer(panel, look, choices, gold, usable, shown);
+                    look_footer(panel, look, choices, gold, (usable, banishing), shown);
                 });
         })
         .id()
 }
 
-/// Under the cards: the reroll button, the gold, the keys.
+/// Under the cards: the reroll, banish and skip buttons, the gold, the keys.
 fn look_footer(
     panel: &mut ChildSpawnerCommands,
     look: &MenuLook,
     choices: &Choices,
     gold: Option<u32>,
-    usable: bool,
+    (usable, banishing): (bool, bool),
     shown: usize,
 ) {
     panel
@@ -306,6 +319,28 @@ fn look_footer(
                 Some(REROLL_WIDTH),
             )
             .insert(RerollButton);
+            // banish and skip: dimmed when none are left or none were bought
+            let style = if banishing {
+                ButtonStyle::Active
+            } else {
+                ButtonStyle::Text
+            };
+            look.button(
+                row,
+                &format!("Banish ({})", choices.banishes),
+                style,
+                choices.banishes > 0,
+                Some(CHARGE_WIDTH),
+            )
+            .insert(BanishButton);
+            look.button(
+                row,
+                &format!("Skip ({})", choices.skips),
+                ButtonStyle::Text,
+                choices.skips > 0 && !banishing,
+                Some(CHARGE_WIDTH),
+            )
+            .insert(SkipButton);
             if let Some(g) = gold {
                 row.spawn((
                     Node {
@@ -327,7 +362,7 @@ fn look_footer(
                     ));
                 });
             }
-            row.spawn(look.hint(keys_hint(shown)));
+            row.spawn(look.hint(keys_hint(shown, banishing)));
         });
 }
 
@@ -344,7 +379,7 @@ fn side_column<'a>(row: &'a mut ChildSpawnerCommands, look: &MenuLook) -> Entity
             border_radius: BorderRadius::all(look.px(4.0)),
             ..default()
         },
-        BackgroundColor(palette::INSET),
+        BackgroundColor(palette::CARD),
         BorderColor::all(palette::GOLD_DIM),
     ))
 }
@@ -524,7 +559,7 @@ fn spawn_card(row: &mut ChildSpawnerCommands, look: &MenuLook, n: usize, card: &
             border_radius: BorderRadius::all(px(RADIUS)),
             ..default()
         },
-        BackgroundColor(palette::PANEL),
+        BackgroundColor(palette::CARD),
         BorderColor::all(edge),
         glow_shadow(glow, px(blur)),
     ))

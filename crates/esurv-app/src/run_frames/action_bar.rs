@@ -1,10 +1,12 @@
-//! The run's action bar (screens.md, "The action bar"): the stock main bar laid out compact and
-//! centred while the hero is in a run, from its own art. Eight buttons (seven spells, the race
-//! spell on the eighth: the server's `present::RACE_SPELL_SLOT`), the page arrows and number, the
-//! character, spellbook, talent and main menu micro buttons (the last, its tooltip "Options",
-//! opens the run's Escape menu, `crate::hud::escape_menu`, as Escape does), a gryphon at each
-//! end, and the experience bar over it in ten segments. All of it is Lua ([`LUA`],
-//! `action_bar.lua`), installed by the run frames right after their own and switched with them.
+//! The run's action bar (screens.md, "The action bar"): the stock main bar recreated in our own
+//! art while the hero is in a run. Eight buttons (seven spells, the race spell on the eighth: the
+//! server's `present::RACE_SPELL_SLOT`) in one bronze frame, each in a dark well and a bronze rim,
+//! a dragon at each end; the experience bar seated on the frame's top edge, in a frame ticked in
+//! ten segments; and apart, at the screen's bottom right, the character, spellbook, talent and
+//! main menu micro buttons in a frame of their own (the last, its tooltip "Options", opens the
+//! run's Escape menu, `crate::hud::escape_menu`, as Escape does). Both frames sit at one distance
+//! from the screen's foot. All of it is Lua ([`LUA`], `action_bar.lua`), installed by the run
+//! frames right after their own and switched with them.
 
 /// The Lua half. Returns true once installed, false while the stock bar is not loaded yet.
 pub const LUA: &str = include_str!("action_bar.lua");
@@ -12,7 +14,9 @@ pub const LUA: &str = include_str!("action_bar.lua");
 /// The buttons the run's bar shows: the server's seven spell buttons and the race spell's.
 pub const BUTTONS: u32 = 8;
 /// The run's bar's width, in the stock bar's units (the stock bar is 1024).
-pub const WIDTH: f64 = 494.0;
+pub const WIDTH: f64 = 346.0;
+/// The bar's frame's foot and the micro buttons' frame's, above the screen's foot.
+pub const BOTTOM_GAP: f64 = 6.0;
 /// The experience bar's segments: a tenth each.
 pub const XP_SEGMENTS: u32 = 10;
 
@@ -154,9 +158,11 @@ mod tests {
             .unwrap()
     }
 
-    /// In a run: the bar is 494 wide and centred, eight buttons in a row, the arrows and the
-    /// four micro buttons after them, a gryphon over each end, the ninth to twelfth buttons,
-    /// the bag slots' art and the latency bar gone; out of a run the stock bar again.
+    /// In a run: the bar is 346 wide and centred, eight buttons in a row in our frame, each in
+    /// its well and rim, the arrows and page number gone, the four micro buttons in their own
+    /// frame at the screen's bottom right, both frames' feet at one gap over the screen's foot, a
+    /// dragon past each end clear of the buttons; the ninth to twelfth buttons, the bag slots'
+    /// art and the latency bar gone. Out of a run the stock bar again, ours hidden.
     #[test]
     fn a_run_lays_the_bar_out_compact_and_puts_the_stock_one_back() {
         let Some(mut s) = stock_bar() else {
@@ -171,15 +177,15 @@ mod tests {
         let (left, right) = span(&s, "MainMenuBar");
         assert_eq!(right - left, WIDTH);
         assert_eq!((left + right) / 2.0, 512.0, "centred");
-        assert_eq!(
-            s.eval::<u32>("return ESURV_ACTION_BAR.BUTTONS").unwrap(),
-            BUTTONS
-        );
+        assert_eq!(s.eval::<u32>("return ESURV_ACTION_BAR.BUTTONS").unwrap(), BUTTONS);
         assert_eq!(s.eval::<f64>("return ESURV_ACTION_BAR.WIDTH").unwrap(), WIDTH);
+        assert_eq!(s.eval::<f64>("return ESURV_ACTION_BAR.BOTTOM_GAP").unwrap(), BOTTOM_GAP);
         for i in 1..=BUTTONS {
             let name = format!("ActionButton{i}");
             let (l, _) = span(&s, &name);
             assert_eq!(l - left, 8.0 + 42.0 * f64::from(i - 1), "{name} in its place");
+            assert!(shown(&s, &format!("EsurvActionBarWell{i}")), "{name}'s well");
+            assert!(shown(&s, &format!("EsurvActionBarRim{i}")), "{name}'s rim");
         }
         // an empty button hides itself; the ninth to twelfth stay hidden whatever shows them
         for i in BUTTONS + 1..=12 {
@@ -188,28 +194,43 @@ mod tests {
         }
         assert!(!shown(&s, "MainMenuBarPerformanceBarFrame"), "no latency bar");
         assert!(!shown(&s, "MainMenuBarTexture3"), "no bag slots' art");
-        // the arrows and the page number after the eighth button, then the micro buttons
-        let (_, eighth) = span(&s, "ActionButton8");
-        let (up_left, up_right) = span(&s, "ActionBarUpButton");
-        assert!(up_left > eighth - 10.0 && up_right < span(&s, "CharacterMicroButton").0 + 1.0);
-        assert!(shown(&s, "MainMenuBarPageNumber"));
+        for name in ["ActionBarUpButton", "ActionBarDownButton", "MainMenuBarPageNumber"] {
+            assert!(!shown(&s, name), "{name} is gone");
+        }
+        // the frame round the buttons, its foot at the gap
+        assert!(shown(&s, "EsurvActionBarTray"));
+        let (tray_l, tray_r) = span(&s, "EsurvActionBarTray");
+        let tray_bottom: f64 = s.eval("return EsurvActionBarTray:GetBottom()").unwrap();
+        assert_eq!(tray_bottom, BOTTOM_GAP, "the bar's frame's foot");
+        // the micro buttons in a row in their own frame at the bottom right, its foot at the gap
+        assert!(shown(&s, "EsurvMicroFrame"));
+        let (micro_l, micro_r) = span(&s, "EsurvMicroFrame");
+        let micro_bottom: f64 = s.eval("return EsurvMicroFrame:GetBottom()").unwrap();
+        assert_eq!(micro_bottom, BOTTOM_GAP, "the micro frame's foot, as the bar's");
+        assert!(micro_r <= 1024.0 && micro_r > 1000.0, "at the right: {micro_r}");
         let micro = ["CharacterMicroButton", "SpellbookMicroButton", "TalentMicroButton",
             "MainMenuMicroButton"];
-        let mut last = up_right;
+        let mut last = micro_l;
         for name in micro {
             assert!(shown(&s, name), "{name} shows");
             let (l, r) = span(&s, name);
-            assert!(l >= last - 3.0 && r <= right, "{name} in a row inside the bar");
+            assert!(l >= last && r <= micro_r, "{name} in a row inside its frame");
             last = r;
         }
         for name in ["QuestLogMicroButton", "SocialsMicroButton", "WorldMapMicroButton",
             "HelpMicroButton"] {
             assert!(!shown(&s, name), "{name} is hidden");
         }
-        // a gryphon over each end, overlapping it by 32 as the stock caps do
-        let (cap_l, _) = span(&s, "MainMenuBarLeftEndCap");
-        let (_, cap_r) = span(&s, "MainMenuBarRightEndCap");
-        assert_eq!((left - cap_l, cap_r - right), (96.0, 96.0));
+        // a dragon past each end, its middle outside the frame, clear of the first and last
+        // buttons' middles
+        let (cap_l, cap_lr) = span(&s, "MainMenuBarLeftEndCap");
+        let (cap_rl, cap_r) = span(&s, "MainMenuBarRightEndCap");
+        assert!((cap_l + cap_lr) / 2.0 < tray_l && (cap_rl + cap_r) / 2.0 > tray_r);
+        // the experience bar over the frame, in its own ticked frame
+        assert!(shown(&s, "EsurvXpFrame"));
+        let xp_bottom: f64 = s.eval("return MainMenuExpBar:GetBottom()").unwrap();
+        let tray_top: f64 = s.eval("return EsurvActionBarTray:GetTop()").unwrap();
+        assert!(xp_bottom < tray_top && xp_bottom > tray_top - 8.0, "seated on the frame's edge");
         // the last micro button reads "Options"
         let tooltip: String = s.eval("return MainMenuMicroButton.tooltipText or \"\"").unwrap();
         assert!(tooltip.starts_with("Options"), "{tooltip}");
@@ -221,14 +242,19 @@ mod tests {
         s.run("ActionButton12:Show()").unwrap();
         assert!(shown(&s, "ActionButton12"), "the twelfth button is free again");
         assert_eq!(span(&s, "ActionBarUpButton").0, 522.0 - 16.0);
+        assert!(shown(&s, "ActionBarUpButton") && shown(&s, "MainMenuBarPageNumber"));
         assert_eq!(span(&s, "CharacterMicroButton").0, 552.0);
-        assert!(!shown(&s, "EsurvActionBarPillar"));
+        for name in ["EsurvActionBarTray", "EsurvActionBarRims", "EsurvMicroFrame", "EsurvXpFrame"] {
+            assert!(!shown(&s, name), "{name} hidden");
+        }
+        let normal: String = s.eval("return CharacterMicroButton:GetNormalTexture():GetTexture() or \"\"").unwrap();
+        assert!(!normal.contains("ESurv"), "the stock art again: {normal}");
         assert_eq!(s.eval::<String>("return MainMenuMicroButton.tooltipText or \"\"").unwrap(), stock_tooltip, "its stock tooltip again");
         assert!(s.errors().is_empty(), "script errors: {:?}", s.errors());
     }
 
-    /// The experience bar spans the run's bar in ten segments: two of the stock art's four
-    /// strips of five, the first and the last (its two ends), half the width each.
+    /// The experience bar spans the frame less its ends, its frame's art drawn round it and the
+    /// stock strips gone.
     #[test]
     fn the_experience_bar_takes_the_width_in_ten_segments() {
         let Some(mut s) = stock_bar() else {
@@ -237,28 +263,20 @@ mod tests {
         };
         run_on(&mut s, true);
         let (left, right) = span(&s, "MainMenuExpBar");
-        assert_eq!(right - left, WIDTH);
+        let (tray_l, tray_r) = span(&s, "EsurvActionBarTray");
+        assert!(left > tray_l && right < tray_r && right - left > WIDTH - 40.0);
         assert_eq!(s.eval::<u32>("return ESURV_ACTION_BAR.XP_SEGMENTS").unwrap(), XP_SEGMENTS);
-        let strips: Vec<(f64, f64)> = (0..4)
-            .filter(|i| shown(&s, &format!("MainMenuXPBarTexture{i}")))
-            .map(|i| span(&s, &format!("MainMenuXPBarTexture{i}")))
-            .collect();
-        // each stock strip draws five segments
-        assert_eq!(strips.len() as u32 * 5, XP_SEGMENTS);
-        assert_eq!(strips, [(left, left + WIDTH / 2.0), (left + WIDTH / 2.0, right)]);
+        for i in 0..4 {
+            assert!(!shown(&s, &format!("MainMenuXPBarTexture{i}")), "stock strip {i} gone");
+        }
+        let (art_l, art_r) = span(&s, "EsurvXpFrameArt");
+        assert!(art_l < left && art_r > right, "the frame's art round the bar");
         let quads = s.extract();
-        let rows: Vec<_> = quads
-            .iter()
-            .filter_map(|q| match &q.content {
-                QuadContent::Texture { path: Some(p), tex_coords, .. }
-                    if p.ends_with("UI-MainMenuBar-Dwarf") && q.rect.is_some_and(|r| r.top - r.bottom < 11.0) =>
-                {
-                    *tex_coords
-                }
-                _ => None,
-            })
-            .collect();
-        assert_eq!(rows.len(), 2, "two strips drawn: {rows:?}");
+        assert!(
+            quads.iter().any(|q| matches!(&q.content,
+                QuadContent::Texture { path: Some(p), .. } if p.ends_with("XpFrame.tga"))),
+            "the frame drawn"
+        );
         assert!(s.errors().is_empty(), "script errors: {:?}", s.errors());
     }
 

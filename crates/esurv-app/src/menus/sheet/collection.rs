@@ -388,6 +388,17 @@ fn details(
     node.width = look.px(SIDE);
     node.row_gap = look.px(8.0);
     r.spawn(look.panel(node)).with_children(|p| {
+        if sheet.companions {
+            look.heading(p, "Companions", 18.0);
+            super::super::companions::sheet_details(p, look, ctx, sheet);
+            return;
+        }
+        if let Some(kind) = sheet.wear {
+            let (label, _) = crate::achievements::cosmetics::wear_label(kind);
+            look.heading(p, label, 18.0);
+            super::super::wears::sheet_details(p, look, ctx, sheet, kind);
+            return;
+        }
         look.heading(p, "Details", 18.0);
         let Some(progress) = progress else {
             return;

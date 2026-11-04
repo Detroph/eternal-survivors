@@ -10,7 +10,7 @@
 //!   one, a trinket upgrade) or `legendary` (three legendary amulets). Its numbers come from the
 //!   run's own rules; taking one of its cards asks nothing of the server;
 //! * `lit:<n>`: card `n` (from 1) shows as under the pointer; `unlit` ends it;
-//! * `key:<1-4|r>`: presses that key of the screen (the screen's own key message);
+//! * `key:<1-4|r|b|x>`: presses that key of the screen (the screen's own key message);
 //! * `click:<n>`: clicks card `n` (from 1), as the pointer let go over it would (the screen's own
 //!   click message); `take:upgrade` clicks the first card that upgrades a known spell (rerolling
 //!   while a free reroll is left and none does), else the first card;
@@ -100,6 +100,8 @@ fn parse(script: &str) -> Vec<Step> {
                     "3" => Some(Step::Key(KeyCode::Digit3)),
                     "4" => Some(Step::Key(KeyCode::Digit4)),
                     "r" | "R" => Some(Step::Key(KeyCode::KeyR)),
+                    "b" | "B" => Some(Step::Key(KeyCode::KeyB)),
+                    "x" | "X" => Some(Step::Key(KeyCode::KeyX)),
                     _ => None,
                 },
                 Some(("click", n)) => match n.trim().parse::<usize>() {
@@ -224,6 +226,7 @@ fn run_script(
                         answered: false,
                         taken: None,
                         made_up: true,
+                        banishing: false,
                     };
                     script.showing = Some(open.clone());
                     screen.open = Some(open);
@@ -579,6 +582,8 @@ fn made_up(kind: MadeUp, content: &Content, kit: Option<Kit>, level: u32) -> Opt
         level,
         reroll_cost: 0,
         free_rerolls: 3,
+        banishes: 2,
+        skips: 1,
         offers,
         kit,
     })

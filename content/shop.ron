@@ -1,0 +1,43 @@
+// The shop (the Achievements window's Shop tab): what it sells besides the companions, whose
+// prices are in companions.ron. It spends the points to spend, never the achievement score;
+// everything bought is the whole warband's. docs/game/achievements.md has the rules.
+// Tabards, weapon glows and camp pieces join here in step 3.
+(
+    // The companion upgrade: one for every companion of the warband, a rank at a time. The first
+    // rank is owned from the start. `reach`: yards past the hero's own pickup range it fetches
+    // gold from; `speed`: its run speed (yd/s; the hero runs 7); `carry`: gold piles it carries
+    // before it runs back to its hero. Prices and reaches are the plan's drafts (2026-10-26);
+    // speeds and carries are 2026-10-27).
+    companion_ranks: [
+        (price: 0, reach: 8.0, speed: 9.0, carry: 3),
+        (price: 50, reach: 12.0, speed: 15.0, carry: 6),
+        (price: 100, reach: 16.0, speed: 21.0, carry: 9),
+    ],
+    // Banish and skip: none owned from the start, a rank at a time,
+    // each only after the one before. `charges`: how many a run that rank gives (rank 3's 3 is
+    // the total, not added to the ranks before). One count of each for the whole run, shared by
+    // the level-up cards and the caches' offers. Prices: 25, 50, 75 a line (150 in all, as the
+    // companion upgrade's), set against the 935 points the achievements give.
+    banish_ranks: [
+        (price: 25, charges: 1),
+        (price: 50, charges: 2),
+        (price: 75, charges: 3),
+    ],
+    skip_ranks: [
+        (price: 25, charges: 1),
+        (price: 50, charges: 2),
+        (price: 75, charges: 3),
+    ],
+    // Buffs for the hub in Tanaris (the neutral camp), each bought once for the whole warband.
+    // `run_faster`: how much faster the hero runs there (0.6: 60%). Time Floes is // 2026-11-02): 60% faster in the hub, a bronze dragon its icon, 75 points.
+    hub_buffs: [
+        (
+            id: "time_floes",
+            name: "Time Floes",
+            icon: "INV_Misc_Head_Dragon_Bronze",
+            text: "Time flows quicker around you in the {Area(1941)}. Run 60% faster while in the hub in Tanaris.",
+            price: 75,
+            run_faster: 0.6,
+        ),
+    ],
+)

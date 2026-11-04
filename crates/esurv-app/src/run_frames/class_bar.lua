@@ -47,13 +47,19 @@ local label = tab:CreateFontString("EsurvClassBarNameText", "OVERLAY", "GameFont
 label:SetPoint("CENTER", tab, "CENTER", 0, 0)
 tab:Hide()
 
+-- How far the tab and the pips sit in from the bar's left and down from its foot: the run's
+-- player frame (`unit_frames.lua`) sets it clear of its ring and its plate's edge.
+M.offset = { x = 0, y = 0 }
+local pips_on = false
+
 -- Under the bar's middle; to its right while combo pips take its left.
 local function place_tab(pips)
+    pips_on = pips
     tab:ClearAllPoints()
     if pips then
-        tab:SetPoint("TOPRIGHT", PlayerFrameManaBar, "BOTTOMRIGHT", 0, -1)
+        tab:SetPoint("TOPRIGHT", PlayerFrameManaBar, "BOTTOMRIGHT", 0, M.offset.y - 1)
     else
-        tab:SetPoint("TOP", PlayerFrameManaBar, "BOTTOM", 0, -1)
+        tab:SetPoint("TOP", PlayerFrameManaBar, "BOTTOM", M.offset.x / 2, M.offset.y - 1)
     end
 end
 
@@ -96,7 +102,6 @@ for i = 1, PIPS do
     back:SetTexCoord(0, 0.375, 0, 1)
     back:SetWidth(12)
     back:SetHeight(16)
-    back:SetPoint("TOPLEFT", PlayerFrameManaBar, "BOTTOMLEFT", (i - 1) * 13, 0)
     back:Hide()
     local lit = PlayerFrame:CreateTexture("EsurvComboPip" .. i .. "Lit", "OVERLAY")
     lit:SetTexture("Interface\\ComboFrame\\ComboPoint")
@@ -106,6 +111,26 @@ for i = 1, PIPS do
     lit:SetPoint("CENTER", back, "CENTER", 0, 0)
     lit:Hide()
     M.pips[i] = { back = back, lit = lit }
+end
+
+local function place_pips()
+    for i = 1, PIPS do
+        local back = M.pips[i].back
+        back:ClearAllPoints()
+        back:SetPoint("TOPLEFT", PlayerFrameManaBar, "BOTTOMLEFT", M.offset.x + (i - 1) * 13, M.offset.y)
+    end
+end
+place_pips()
+
+-- The tab and the pips placed again by `M.offset`.
+function M.place(x, y)
+    M.offset = { x = x, y = y }
+    place_tab(pips_on)
+    place_pips()
+end
+-- the run's player frame installed first and already on: its offset now
+if ESURV_UNIT_FRAMES and ESURV_UNIT_FRAMES.on() then
+    M.place(ESURV_UNIT_FRAMES.CLASS_BAR_X, ESURV_UNIT_FRAMES.CLASS_BAR_Y)
 end
 
 function M.set_pips(count, max)

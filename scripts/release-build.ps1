@@ -45,7 +45,7 @@ $flags = @(
 # the encoded form keeps a path with spaces whole, and wins over the machine config's rustflags
 $env:CARGO_ENCODED_RUSTFLAGS = $flags -join [char]0x1f
 Remove-Item Env:RUSTFLAGS -ErrorAction SilentlyContinue
-if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '8' }
+if (-not $env:CARGO_BUILD_JOBS) { $env:CARGO_BUILD_JOBS = '14' }
 $targetDir = Join-Path $Junction 'target\player'
 
 # the save key (save/lock.rs): kept off the repository, in the builder's profile; a player build

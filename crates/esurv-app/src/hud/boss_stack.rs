@@ -20,8 +20,9 @@ use super::state::{health_fraction, health_text, RunHud};
 use super::view::HudParts;
 
 // The stack's layout, in stock units down from the top of the screen.
-/// Where the stack starts: the phase names' line, then the first boss's bar.
-pub const STACK_TOP: f32 = 62.0;
+/// Where the stack starts, under the top box's crest ([`super::top_box`]): the phase names' line,
+/// then the first boss's bar.
+pub const STACK_TOP: f32 = 66.0;
 const LABEL_HEIGHT: f32 = 11.0;
 const MAIN_WIDTH: f32 = 370.0;
 const MAIN_HEIGHT: f32 = 18.0;
@@ -377,5 +378,12 @@ mod tests {
         assert!(one > STACK_TOP + MAIN_HEIGHT + CAST_GAP, "room for the cast under the first");
         assert_eq!(stack_bottom(2), one + OTHERS_GAP + OTHER_HEIGHT);
         assert_eq!(stack_bottom(3), stack_bottom(2) + OTHER_ROW_GAP + OTHER_HEIGHT);
+    }
+
+    #[test]
+    fn the_first_boss_fits_between_the_top_box_and_the_stock_error_line() {
+        assert!(STACK_TOP >= super::super::top_box::SIZE.y, "under the top box's crest");
+        // `UIErrorsFrame` starts 122 units down
+        assert!(stack_bottom(1) <= 122.0, "{}", stack_bottom(1));
     }
 }

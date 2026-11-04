@@ -3,9 +3,13 @@
 //! ground, their health kept current, killed and removed), tells what happened ([`present`]),
 //! and talks with the game's own screens ([`screens`]).
 
+mod achievements;
 mod again;
 mod boss_looks;
 mod bunnies;
+mod camp;
+pub use camp::{camp_content, camp_hour, camp_creature_info, camp_object_info, camp_of, CampPlace};
+mod companions;
 mod channels;
 mod counter_buffs;
 mod doors;
@@ -19,7 +23,7 @@ mod line_runners;
 mod pickups;
 mod assists;
 mod player_enemies;
-pub use player_enemies::{look_item_info, weapon_entry};
+pub use player_enemies::{look_item_info, tabard_entry, weapon_entry, TABARD_INVENTORY_TYPE, TABARD_SLOT};
 pub use bunnies::BUNNY_DISPLAY;
 pub use pickups::{gameobject_look, orb_look, ORB_ENTRY, STANDARD_NAME};
 mod present;
@@ -150,6 +154,8 @@ fn own_item(guid: u64, entry: u32, owner: u64) -> ObjectUpdate {
 struct Dressed {
     shown: [u32; looks::EQUIPMENT_SLOTS],
     worn: Vec<looks::WornLook>,
+    /// The enchant whose glow its weapons show (its weapon glow, step 3 of the achievements).
+    enchant: Option<u32>,
 }
 
 /// The guid of creature `entry` with simulation id `id`.
@@ -208,6 +214,14 @@ pub enum Input {
     Left { hero: u32, done: Sender<()> },
     /// The hero's client asks something of the run or the save (esurv-protocol).
     Asked { hero: u32, request: ToServer },
+    /// In the camp: the hero talks to a unit or uses a game object (`speaker`).
+    Talked { hero: u32, speaker: u64 },
+    /// In the camp: the hero picked option `option` of `speaker`'s talk window.
+    Picked { hero: u32, speaker: u64, option: u32 },
+    /// In the camp: the client asks for the words of a talk window's text.
+    TextAsked { hero: u32, text: u32 },
+    /// The player typed `.gps`: where the hero stands (a dev aid, to plan the camp).
+    Gps { hero: u32 },
 }
 
 /// An enemy or pet as the clients were last told.
@@ -283,6 +297,8 @@ pub struct Game {
     clones: HashMap<u32, starting_looks::CloneShown>,
     /// Looks and sounds that go out a moment after what brought them, with their run time.
     later: Vec<(f32, Packet)>,
+    /// Granted piles of gold still to be laid (a dev aid, `gold:<yards>@<seconds>`): when, where.
+    gold_due: Vec<(f32, (f32, f32))>,
     /// The heroes out of their form for a moment (a powershift), with the run time they shift back.
     out_of_form: HashMap<u32, f32>,
     /// The enemies Starshards' stars fall on, by simulation id, and until when.
@@ -346,6 +362,8 @@ pub struct Game {
     /// The gear pieces won, by item entry: their names, and whether they were new to the
     /// collection.
     drops: HashMap<u32, (String, bool)>,
+    /// The run's achievements tracker, per hero.
+    achievements: achievements::RunTracker,
     /// Each hero's damage meter.
     meters: HashMap<u32, screens::MeterTally>,
     /// What each hero wears, read as it joins.
@@ -370,6 +388,8 @@ pub struct Game {
     move_log: Option<(std::fs::File, Instant)>,
     /// The run was started without waiting for a first move (a dev switch): a fresh run is too.
     starts_at_once: bool,
+    /// The warband's camp, when this game is one and not a run ([`camp`]).
+    camp: Option<camp::CampState>,
     inputs: Receiver<Input>,
 }
 
@@ -422,6 +442,18 @@ pub fn hero_setup(content: &Content, saved: &SavedHero, progress: &ClassProgress
     setup
 }
 
+/// [`hero_setup`] with the companion the hero picked on its hero sheet, at the warband's upgrade
+/// rank, while the warband owns it.
+pub fn run_setup(content: &Content, saved: &SavedHero, saves: &Saves) -> HeroSetup {
+    let mut setup = hero_setup(content, saved, &saves.class_progress(content, &saved.class));
+    setup.companion = saves
+        .run_companion(content, saved.guid)
+        .map(|(id, rank)| esurv_sim::game::companions::CompanionSetup { id, rank });
+    // the banishes and skips the warband's shop upgrades give a run
+    (setup.banishes, setup.skips) = saves.run_charges(content);
+    setup
+}
+
 impl Game {
     /// A run in zone `zone` for one player, waiting for the first move. `None` if the hero's
     /// class or race is not in the content.
@@ -443,11 +475,7 @@ impl Game {
             content.clone(),
             &z.id,
             saves.run_options_for(&content, &saved.class),
-            &[hero_setup(
-                &content,
-                saved,
-                &saves.class_progress(&content, &saved.class),
-            )],
+            &[run_setup(&content, saved, &saves)],
             ground,
             seed,
         )?;
@@ -463,6 +491,7 @@ impl Game {
             options_shown: HashMap::new(),
             clones: HashMap::new(),
             later: Vec::new(),
+            gold_due: Vec::new(),
             out_of_form: HashMap::new(),
             starshards_until: HashMap::new(),
             left_swing_next: HashSet::new(),
@@ -481,6 +510,7 @@ impl Game {
             ranks_told: HashSet::new(),
             drops: HashMap::new(),
             meters: HashMap::new(),
+            achievements: achievements::RunTracker::default(),
             dressed: HashMap::new(),
             jewelry_held: HashMap::new(),
             hover_until: HashMap::new(),
@@ -508,6 +538,7 @@ impl Game {
             next_speed_change: 0,
             move_log: None,
             starts_at_once: false,
+            camp: None,
             inputs,
         })
     }
@@ -538,6 +569,13 @@ impl Game {
             packets::initial_spells(&self.spellbook(hero)),
             self.action_bar(hero),
         ];
+        // every hero by its name and title (over its head when names are shown);
+        // the character list named them without, and the client keeps that
+        let my_name = self.titled_name_packet(&player.saved);
+        welcome.push(my_name.clone());
+        for other in &self.players {
+            welcome.push(self.titled_name_packet(&other.saved));
+        }
         self.speeds_shown.insert(hero.id, hero.stats.run_speed());
         let mut objects = vec![self.hero_object(hero, &player.saved, true)];
         objects.extend(self.worn_items(hero, &player.saved));
@@ -556,6 +594,7 @@ impl Game {
         objects.extend(self.ground_objects_now());
         objects.extend(self.clones_now());
         objects.extend(self.ground_looks_now());
+        objects.extend(self.camp_now());
         welcome.extend(self.player_enemy_names_now());
         welcome.extend(ally_names);
         welcome.push(update_object(&objects));
@@ -566,7 +605,7 @@ impl Game {
             return false;
         }
         for other in &self.players {
-            other.send(std::slice::from_ref(&me));
+            other.send(&[my_name.clone(), me.clone()]);
         }
         self.players.push(player);
         true
@@ -593,9 +632,21 @@ impl Game {
                 return;
             }
             let started = Instant::now();
+            // a camp is never a run: nothing to tick but its own life
+            if self.is_camp() {
+                let life = self.camp_tick();
+                if !life.is_empty() {
+                    for p in &self.players {
+                        p.send(&life);
+                    }
+                }
+                std::thread::sleep(TICK);
+                continue;
+            }
             self.run.orbs_stay = orbs_stay();
             self.run.tick((started - last).as_secs_f32());
             last = started;
+            self.lay_granted_gold();
             if unhurt() {
                 for h in &mut self.run.heroes {
                     h.health = h.stats.max_health;
@@ -617,8 +668,11 @@ impl Game {
                 facing,
                 relay,
             } => {
-                // a hero who left the run moves nothing in it
-                if !self.left.contains(&hero) {
+                // in the camp the hero walks, kept inside its fence
+                if self.is_camp() {
+                    let back = self.camp_moved(hero, position, facing);
+                    self.send_to(hero, &back);
+                } else if !self.left.contains(&hero) {
                     self.run
                         .hero_moved(hero, (position[0], position[1]), position[2], facing);
                     self.log_move(hero, position);
@@ -629,9 +683,15 @@ impl Game {
             }
             Input::Left { hero, done } => {
                 // logging out (or the connection closing) pays the run out too
-                let paid: Vec<Packet> = self.pay_out(hero).into_iter().map(|(_, p)| p).collect();
+                // each line to its own hero's client (an achievement earned is told to everyone)
+                let paid = self.pay_out(hero);
+                for p in &self.players {
+                    let mine: Vec<Packet> = paid.iter().filter(|(h, _)| *h == p.hero).map(|(_, pk)| pk.clone()).collect();
+                    if !mine.is_empty() {
+                        p.send(&mine);
+                    }
+                }
                 if let Some(i) = self.players.iter().position(|p| p.hero == hero) {
-                    self.players[i].send(&paid);
                     let gone = self.players.remove(i);
                     let bye = packets::destroy_object(gone.guid());
                     for p in &self.players {
@@ -656,6 +716,32 @@ impl Game {
                     }
                 }
             }
+            Input::Talked { hero, speaker } => {
+                let told = self.camp_talk(hero, speaker);
+                self.send_to(hero, &told);
+            }
+            Input::Picked { hero, speaker, option } => {
+                let told = self.camp_pick(hero, speaker, option);
+                self.send_to(hero, &told);
+            }
+            Input::TextAsked { hero, text } => {
+                let told = self.camp_text(text);
+                self.send_to(hero, &told);
+            }
+            Input::Gps { hero } => {
+                let told = self.gps(hero);
+                self.send_to(hero, &told);
+            }
+        }
+    }
+
+    /// `packets` to hero `hero`'s own client, if any.
+    fn send_to(&self, hero: u32, packets: &[Packet]) {
+        if packets.is_empty() {
+            return;
+        }
+        if let Some(p) = self.players.iter().find(|p| p.hero == hero) {
+            p.send(packets);
         }
     }
 
@@ -678,7 +764,7 @@ impl Game {
         let content = &self.run.content;
         let progress = self.saves.class_progress(content, &saved.class);
         // the class gear worn, its weapons those of the class's weapon loadout
-        // (roadmap R3)
+        //
         let worn = looks::armed(
             content,
             &saved.class,
@@ -694,12 +780,17 @@ impl Game {
             }
             _ => &[],
         };
-        let shown = if armed {
+        let mut shown = if armed {
             looks::shown_equipment(&worn, &looks::unarmed_outfit(outfit))
         } else {
             looks::shown_equipment(&worn, outfit)
         };
-        Dressed { shown, worn }
+        // its tabard over any armour, its weapon glow on its weapons (step 3 of the achievements)
+        let wears = self.saves.run_wears(content, saved);
+        if let Some(display) = wears.tabard {
+            shown[player_enemies::TABARD_SLOT] = player_enemies::tabard_entry(display);
+        }
+        Dressed { shown, worn, enchant: wears.enchant }
     }
 
     /// The items of the class gear `hero` wears, for its own client (the character pane shows
@@ -778,6 +869,16 @@ impl Game {
                             + slot as u16 * field::PLAYER_VISIBLE_ITEM_STRIDE,
                         entry,
                     );
+                    // its weapon glow, on a weapon only (never a shield or a held item)
+                    if let Some(enchant) = dressed.enchant.filter(|_| (15..=17).contains(&slot)) {
+                        let kind = looks::item_info(content, self.data.as_deref(), entry).map(|i| i.inventory_type);
+                        if kind.is_some_and(esurv_content::glows_on) {
+                            f.u32(
+                                field::PLAYER_VISIBLE_ITEM_1_0 + 1 + slot as u16 * field::PLAYER_VISIBLE_ITEM_STRIDE,
+                                enchant,
+                            );
+                        }
+                    }
                 }
             }
             // its own client is told which items it holds in which slot ([`Self::worn_items`])
@@ -1375,6 +1476,9 @@ impl Game {
                 }
             }
         }
+        // the companions, as the pets are
+        let mut appeared = Vec::new();
+        self.mirror_companions(&mut objects, &mut walks, &mut flights, &mut appeared);
         // heroes
         for h in &self.run.heroes {
             let now_shown = HeroShown::of(h, &self.run.content.balance.experience);
@@ -1406,11 +1510,13 @@ impl Game {
         out.extend(form_looks);
         // an ally's arrival look after its create, and its moves
         out.append(&mut ally_looks);
+        // a companion's spell looks after its create (as it appears, as it hands gold over)
+        out.extend(self.companion_spell_looks(&appeared, events));
         for (guid, segment) in walks {
             out.push(self.walk(guid, &segment));
         }
-        let pets = &self.run.pets;
-        self.hover_until.retain(|id, _| pets.iter().any(|p| p.id == *id));
+        let (pets, companions) = (&self.run.pets, &self.run.companions);
+        self.hover_until.retain(|id, _| pets.iter().any(|p| p.id == *id) || companions.iter().any(|k| k.id == *id));
         for (id, guid, segment, height) in flights {
             out.push(self.fly(id, guid, &segment, height));
         }
@@ -1444,6 +1550,7 @@ impl Game {
             .iter()
             .map(|e| e.id)
             .chain(self.run.pets.iter().map(|p| p.id))
+            .chain(self.run.companions.iter().map(|k| k.id))
             .collect();
         let gone: Vec<u32> = self
             .shown
@@ -1509,6 +1616,11 @@ impl Game {
                         let s = self.shown.get(&p.id)?;
                         Some((p.id, s.guid, Segment::standing(p.segment.position(now), now), self.pet_hover(i)?))
                     })
+                    .chain((0..self.run.companions.len()).filter_map(|i| {
+                        let k = &self.run.companions[i];
+                        let s = self.shown.get(&k.id)?;
+                        Some((k.id, s.guid, Segment::standing(k.segment.position(now), now), self.companion_hover(i)?))
+                    }))
                     .collect();
                 for (id, guid, segment, height) in flying {
                     out.push(self.hover_hold(id, guid, &segment, height));
@@ -1546,6 +1658,8 @@ impl Game {
         own.extend(self.mirror_speeds());
         own.extend(self.hand_out_loot(events));
         own.extend(self.settle(events));
+        // achievements earned in this tick, after the meter has counted it
+        own.extend(self.track_achievements(events));
         // each cast's bar sweep shows the run's cooldown, not its look's own
         own.extend(self.bar_sweeps_after_casts(&out));
         let mut lost = Vec::new();
@@ -1652,6 +1766,11 @@ mod tests {
                 records: Default::default(),
                 zone: None,
                 start: None,
+                companion: None,
+                wears: Default::default(),
+                plot: None,
+                temperament: None,
+                time_period: Default::default(),
             };
             let (_host, inputs) = std::sync::mpsc::channel();
             let mut game = Game::new(content.clone(), None, zone, &saved, Arc::new(Saves::in_memory()), inputs).unwrap();
@@ -1748,6 +1867,11 @@ mod tests {
             records: Default::default(),
             zone: None,
             start: None,
+            companion: None,
+            wears: Default::default(),
+            plot: None,
+            temperament: None,
+            time_period: Default::default(),
         };
         let (_host, inputs) = std::sync::mpsc::channel();
         let mut game = Game::new(content.clone(), None, zone, &saved, Arc::new(Saves::in_memory()), inputs).unwrap();
@@ -1961,7 +2085,7 @@ mod tests {
 
     /// A run with one hero of `class` and `race` in it, its client at the other end of a local
     /// socket (unread).
-    fn game_with_a_hero_of(class: &str, race: &str) -> (Game, TcpStream) {
+    pub(super) fn game_with_a_hero_of(class: &str, race: &str) -> (Game, TcpStream) {
         let content =
             Arc::new(Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap());
         let saved = SavedHero {
@@ -1974,6 +2098,11 @@ mod tests {
             records: Default::default(),
             zone: None,
             start: None,
+            companion: None,
+            wears: Default::default(),
+            plot: None,
+            temperament: None,
+            time_period: Default::default(),
         };
         let (_host, inputs) = std::sync::mpsc::channel();
         let saves = Arc::new(Saves::in_memory());
@@ -2970,7 +3099,7 @@ mod tests {
         assert!(game.bar_sweeps_after_casts(&[theirs]).is_empty());
     }
 
-    /// Roadmap R3: the hunter's weapon loadout puts its bow, crossbow or
+    /// The hunter's weapon loadout puts its bow, crossbow or
     /// gun in the ranged slot, and Auto Shot shoots as that weapon; the loadout chosen reaches
     /// the run's hero.
     #[test]
@@ -3011,14 +3140,14 @@ mod tests {
             .and_then(|s| s.look_spell)
             .expect("the hunter's swing is a shot");
         // nothing in the ranged slot: no shooting look
-        game.dressed.insert(hero, Dressed { shown: [0; looks::EQUIPMENT_SLOTS], worn: Vec::new() });
+        game.dressed.insert(hero, Dressed { shown: [0; looks::EQUIPMENT_SLOTS], worn: Vec::new(), enchant: None });
         assert_eq!(game.shot_look(hero, auto_shot), None);
         // its swing's hits log as Auto Shot, not as a melee swing
         assert_eq!(game.ranged_swing_look(hero), Some(auto_shot));
         // the hunter's class bow
         let mut shown = [0; looks::EQUIPMENT_SLOTS];
         shown[17] = gear_item_entry(content.class("hunter").unwrap().wow_class_id, ARMOR_SLOTS, 0);
-        game.dressed.insert(hero, Dressed { shown, worn: Vec::new() });
+        game.dressed.insert(hero, Dressed { shown, worn: Vec::new(), enchant: None });
         assert_eq!(game.shot_look(hero, auto_shot), Some(ranged_shots::BOW_SHOT_LOOK));
         // Explosive Shot, a ranged spell whose look is no shot, once known
         let shot = content.ability("explosive_shot").unwrap().clone();
@@ -3106,5 +3235,16 @@ mod tests {
         game.run.enemies[0].kind = EnemyKind::Roster(at("Scarlet Tracking Hound"));
         let f = fields(&game);
         assert_eq!((f.get(field::UNIT_VIRTUAL_ITEM_SLOT_DISPLAY), f.get(field::UNIT_BYTES_2)), (None, None));
+    }
+}
+
+impl Game {
+    /// `SMSG_NAME_QUERY_RESPONSE` naming hero `saved` with the title it wears.
+    fn titled_name_packet(&self, saved: &SavedHero) -> crate::wire::Packet {
+        let content = &self.run.content;
+        let race = content.races.iter().find(|r| r.id == saved.race).map_or(0, |r| r.wow_race_id);
+        let class = content.class(&saved.class).map_or(0, |c| c.wow_class_id as u8);
+        let name = self.saves.run_wears(content, saved).name;
+        packets::name_query_response(player_guid(saved), &name, race, saved.gender, class)
     }
 }

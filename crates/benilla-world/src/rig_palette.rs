@@ -90,7 +90,7 @@ pub struct RigPalettes {
     /// The exhaustion warning's once-a-session latch, never reset: [`Self::denied`] resets with
     /// each census, so gating on it would warn once a census window.
     denied_warned: bool,
-    /// `WOW_RIG_COST` meters, printed and reset by [`publish_rig_palettes`].
+    /// `WOW_RIG_COST` meters, printed (when asked) and reset by [`publish_rig_palettes`].
     cost_copies: u32,
     cost_copy_us: f32,
     cost_rows: u32,
@@ -686,8 +686,9 @@ fn publish_rig_palettes(mut palettes: ResMut<RigPalettes>, mut out: ResMut<RigPa
             p.cost_copies,
             p.cost_copy_us / 1000.0
         );
-        (p.cost_copies, p.cost_copy_us, p.cost_rows) = (0, 0.0, 0);
     }
+    // reset with the meter off too: left to grow, they overflow after hours of play
+    (p.cost_copies, p.cost_copy_us, p.cost_rows) = (0, 0.0, 0);
     out.rows = Arc::clone(&p.rows);
     out.table = Arc::clone(&p.table);
     out.origins = Arc::clone(&p.origins);

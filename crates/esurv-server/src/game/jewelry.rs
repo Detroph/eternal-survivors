@@ -58,9 +58,14 @@ fn granted_offer(content: &esurv_content::Content, granted: &str) -> Option<Offe
     })
 }
 
-/// A granted rune, battle standard or rare cache (`Game::grant`): its kind and how many yards
+/// A granted pile of gold's value (`gold:<yards>`): a normal kill's middle one.
+const GRANTED_GOLD: u32 = 3;
+
+/// A granted rune, battle standard, rare cache or pile of gold (`Game::grant`): its kind and how many yards
 /// ahead of the hero it lies.
 fn granted_rune(granted: &str) -> Option<(Pickup, f32)> {
+    // a delay (`@<seconds>`) is the caller's
+    let granted = granted.split_once('@').map_or(granted, |(g, _)| g);
     let (name, ahead) = match granted.split_once(':') {
         Some((n, yards)) => (n, yards.trim().parse::<f32>().ok()?),
         None => (granted, 0.0),
@@ -71,6 +76,8 @@ fn granted_rune(granted: &str) -> Option<(Pickup, f32)> {
         "restoration_rune" => Pickup::RestorationRune,
         // a rare's free cache, as a slain rare drops it
         "rare_cache" => Pickup::RareCache,
+        // a pile of gold of a normal kill's middle value, for a companion to fetch
+        "gold" => Pickup::Gold,
         // its faction is the party's, set as it is laid
         "battle_standard" => Pickup::BattleStandard(esurv_content::Faction::Alliance),
         _ => return None,
@@ -114,6 +121,16 @@ fn pack_field(slot: u16) -> u16 {
 }
 
 impl Game {
+    /// The granted piles of gold whose time has come are laid (`gold:<yards>@<seconds>`).
+    pub(super) fn lay_granted_gold(&mut self) {
+        let now = self.run.now;
+        let (due, later): (Vec<_>, Vec<_>) = std::mem::take(&mut self.gold_due).into_iter().partition(|(t, _)| now >= *t);
+        self.gold_due = later;
+        for (_, at) in due {
+            self.run.lay_gold(at, GRANTED_GOLD);
+        }
+    }
+
     /// Gives `hero` `granted` from the start of its run (a dev switch, `ESURV_GRANT`, for a
     /// live look): rings, trinkets and amulets put on as taking their cards does; runes, a battle
     /// standard or a rare's cache laid on the ground (`speed_rune`, `berserker_rune`,
@@ -136,7 +153,15 @@ impl Game {
                         Pickup::BattleStandard(_) => Pickup::BattleStandard(self.run.party_faction),
                         k => k,
                     };
-                    self.run.lay_pickup(kind, at);
+                    if kind == Pickup::Gold {
+                        // `gold:<yards>@<seconds>`: laid that many run seconds in
+                        match g.split_once('@').and_then(|(_, s)| s.trim().parse::<f32>().ok()) {
+                            Some(when) => self.gold_due.push((when, at)),
+                            None => self.run.lay_gold(at, GRANTED_GOLD),
+                        }
+                    } else {
+                        self.run.lay_pickup(kind, at);
+                    }
                 }
             } else if let Some(offer) = granted_offer(&content, g) {
                 self.run.grant(hero, offer);
@@ -317,6 +342,8 @@ mod tests {
         );
         assert_eq!(granted_rune("speed_rune:far"), None);
         assert_eq!(granted_rune("rare_cache:6"), Some((Pickup::RareCache, 6.0)));
+        assert_eq!(granted_rune("gold:16"), Some((Pickup::Gold, 16.0)));
+        assert_eq!(granted_rune("gold:16@20"), Some((Pickup::Gold, 16.0)));
         assert_eq!(granted_enemies("elites:30"), Some(GrantedEnemies::Elites(30)));
         assert_eq!(granted_enemies("elites"), Some(GrantedEnemies::Elites(1)));
         assert_eq!(granted_enemies("rare"), Some(GrantedEnemies::Rare(GRANTED_RARE_AHEAD)));

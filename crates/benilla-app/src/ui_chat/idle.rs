@@ -33,6 +33,11 @@ impl LastInput {
     }
 }
 
+/// Whether the idle handler runs at all. The reference has no off switch; a crate on top of
+/// benilla inserts `NoIdleTimeouts` to keep an idle player standing, present and in the world.
+#[derive(Resource, Debug, Clone, Copy, Default)]
+pub struct NoIdleTimeouts;
+
 /// 5 minutes: `0x482ecd lea ecx,[eax-0x493e0]`, `0x493e0` = 300 000 ms.
 const AUTO_AFK_AFTER: Duration = Duration::from_millis(300_000);
 
@@ -134,9 +139,10 @@ pub(crate) fn idle_handler(
     follow: Res<crate::player::FollowState>,
     approach: Res<crate::player::Approach>,
     logout: Res<crate::ui_logout::LogoutState>,
+    off: Option<Res<NoIdleTimeouts>>,
 ) {
     let idle = time.elapsed().saturating_sub(last.0);
-    if idle < AUTO_AFK_AFTER {
+    if idle < AUTO_AFK_AFTER || off.is_some() {
         return;
     }
     let Some(mut script) = script else {

@@ -380,6 +380,67 @@ impl Default for StableBooth {
     }
 }
 
+/// An embedder's creature pane (benilla's own screens draw none): a creature display shown
+/// whole, turned to `yaw` (radians), in the stable window's booth, which the embedder's screens
+/// borrow while it is shut (the select screens have no stable). `None` gives the booth back.
+#[derive(Resource, Clone, Copy, Debug, Default, PartialEq)]
+pub struct CreatureModel(pub Option<CreatureModelView>);
+
+/// What [`CreatureModel`] shows.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CreatureModelView {
+    /// Its `CreatureDisplayInfo.dbc` id.
+    pub display_id: u32,
+    pub yaw: f32,
+}
+
+/// The [`CreatureModel`] pane's picture, square, for an embedder to draw (an `ImageNode`).
+#[derive(Resource, Clone, Debug, Default, PartialEq)]
+pub struct CreatureModelImage(pub Option<Handle<Image>>);
+
+/// Lends the stable booth to [`CreatureModel`]: its display and yaw, and its pane counted as
+/// drawn (square) so its camera renders; the booth is emptied once when the embedder lets go.
+fn feed_creature_model(
+    model: Res<CreatureModel>,
+    mut stable: ResMut<StableBooth>,
+    mut panes: ResMut<BoothPanes>,
+    mut lent: Local<bool>,
+) {
+    match model.0 {
+        Some(view) => {
+            if stable.unit.is_some() || stable.display_id != Some(view.display_id) {
+                stable.unit = None;
+                stable.display_id = Some(view.display_id);
+            }
+            if stable.yaw != view.yaw {
+                stable.yaw = view.yaw;
+            }
+            panes.0.insert(STABLE_SLOT.to_string(), 1.0);
+            *lent = true;
+        }
+        None if *lent => {
+            stable.display_id = None;
+            *lent = false;
+        }
+        None => {}
+    }
+}
+
+/// Publishes the [`CreatureModel`] pane's picture while it is lent.
+fn publish_creature_model_image(
+    model: Res<CreatureModel>,
+    portraits: Res<PortraitImages>,
+    mut image: ResMut<CreatureModelImage>,
+) {
+    let now = CreatureModelImage(match (model.0, portraits.0.get(STABLE_SLOT)) {
+        (Some(_), Some(PortraitSource::Live(h))) => Some(h.clone()),
+        _ => None,
+    });
+    if *image != now {
+        *image = now;
+    }
+}
+
 /// What a booth has baked; any change to the unit's dressed look re-bakes.
 #[derive(PartialEq)]
 struct LookKey {
@@ -759,6 +820,8 @@ impl Plugin for PortraitPlugin {
             .init_resource::<PetDollBooth>()
             .init_resource::<StableBooth>()
             .init_resource::<StableStandIn>()
+            .init_resource::<CreatureModel>()
+            .init_resource::<CreatureModelImage>()
             .init_resource::<glue_booth::GluePreview>()
             .init_resource::<glue_booth::GluePreviewBake>()
             .init_resource::<glue_booth::GluePetBake>()
@@ -784,6 +847,8 @@ impl Plugin for PortraitPlugin {
                     sync_paperdoll,
                     sync_inspect_booth,
                     sync_petdoll_booth,
+                    // An embedder's creature pane borrows the stable booth.
+                    feed_creature_model,
                     // The stand-in must exist before the booth mirrors it.
                     sync_stable_standin,
                     sync_stable_booth,
@@ -800,8 +865,12 @@ impl Plugin for PortraitPlugin {
                     dressup::sync_dressup_booth,
                     // After the syncs, the only writers of the yaw it spends.
                     booth::drive_booth_turn,
+                    // The creature pane counts as drawn for the camera gate too, whatever the
+                    // UI extract cleared meanwhile.
+                    feed_creature_model,
                     // Last: it reads the wake/pending state every sync above may have armed.
                     gate_booth_cameras,
+                    publish_creature_model_image,
                 )
                     .chain()
                     // An embedder's copy of the glue booth's picture reads the frame's synced one,

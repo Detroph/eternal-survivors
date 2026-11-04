@@ -74,6 +74,13 @@
 //! * `--csv <file>`: one row per zone and minute:
 //!   `zone,D,minute,level,dps,enemy_health,enemy_damage,kill_seconds,elite_health,boss_health,boss_kill_seconds,cheat_deaths`
 //!   (elite and boss values empty in a minute none appeared);
+//! * `--summary <file>` (zone mode): one row per zone for its normal enemies (kill seconds over
+//!   minutes 5-18 as they come and of a normal enemy of toughness 1, the hero's damage taken and
+//!   cheat deaths a run), one for its elites and one for its rares (mean minute, health, lived
+//!   seconds, how many died of how many came) and one per boss (the same, with its goal and the
+//!   lived seconds' error): `zone,D,kind,name,minute,health_or_kill_s,lived_or_kill_s_t1,killed,count,goal,damage_taken,cheat_deaths,seeds,error`.
+//!   Each zone also prints these on its own lines (elites' and rares' lived seconds beside their
+//!   kill seconds);
 //! * `--starts`: every class's starting options instead, one by one, in each zone of `--zones`
 //!   (default elwynn,feralas,aq) with that zone's arrival hero (talent points measured as above,
 //!   with `--seeds` runs, and the previous zone's set). Each option is played `--seeds` times in
@@ -104,7 +111,7 @@
 //!   `--own-tree` spends the arrival points in the option's own spec tree first (then the others
 //!   in order), as a player who picked it would, instead of the first tree first.
 //!   `--csv <file>` writes one row per zone and option instead of the minutes;
-//! * `--loadouts`: every class's three weapon loadouts (roadmap R3),
+//! * `--loadouts`: every class's three weapon loadouts,
 //!   each played with every starting option of the class, `--seeds` whole runs a pair in each zone
 //!   of `--zones`, kiting and declining amulets (as `--starter-runs --kite --no-amulets`; arrival
 //!   talents unless `--no-talents`, the previous zone's set). Per zone and class, a row per
@@ -165,6 +172,9 @@
 //!   gold (a player walks to it), so offers come at a real run's timing; `--take-standards`: every
 //!   battle standard is brought under the hero as soon as it lies on the field (its ally comes);
 //! * `--boss-circle` (with `--kite`, zone mode): while a boss lives the hero loops around it, the
+//! * `--death-causes` (zone mode): each zone also prints what its cheat deaths came from (the
+//!   enemy and whether its melee or a spell, missile or ground effect), the health lost to each,
+//!   the cheat deaths by minute, and how often the kiting hero was held back by a wall or door;
 //!   boss at the centre (at its stand-off, at least 6 yd), as players do while dodging its attacks;
 //! * `--best-cards` (zone mode): on every screen, unless an amulet is taken, the card of the highest
 //!   rarity (a spell upgrade before a new spell before a ring or trinket) instead of the first;
@@ -195,7 +205,7 @@ use esurv_sim::game::casting::HitSource;
 use esurv_sim::game::choices::Offer;
 use esurv_sim::game::loot::Pickup;
 use esurv_sim::game::enemy_ai::Vec2;
-use esurv_sim::game::run::{EnemyKind, Event, Flat, HeroSetup, Phase, Run};
+use esurv_sim::game::run::{crosses, EnemyKind, Event, Flat, HeroSetup, Phase, Run};
 use esurv_sim::game::talents::{learn, Ranks, POINTS_PER_ROW};
 
 /// `--take-amulets <rarities>`: the rarities of amulet the hero takes when offered (a bit per
@@ -216,6 +226,8 @@ static PREFER_UPGRADES: std::sync::atomic::AtomicBool = std::sync::atomic::Atomi
 /// `--damage-focus`: with `--prefer`, a damage amulet of a higher rarity, then a Power upgrade of a
 /// preferred spell, then damage jewelry, then empowering a damage amulet, then any upgrade of it.
 static DAMAGE_FOCUS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+/// `--death-causes`: each zone prints what its cheat deaths came from, by minute, and how often the kiting hero was held back.
+static DEATH_CAUSES: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 static OVERTIME: std::sync::atomic::AtomicU16 = std::sync::atomic::AtomicU16::new(0);
 
 /// Seconds per tick, as the server's steady loop.
@@ -356,6 +368,8 @@ struct MinuteSample {
     /// Mean max health and damage per hit of the normal enemies alive, over the seconds that had any.
     health: f64,
     enemy_damage: f64,
+    /// That health ÷ each enemy's own toughness: what a normal enemy of toughness 1 would have.
+    health_t1: f64,
     cheat_deaths: u32,
 }
 
@@ -399,6 +413,24 @@ struct RunResult {
     caches: u32,
     seconds: f32,
     damage: f64,
+    /// Killing blows by source (the last hit an enemy took before it died, its `HitSource` as text).
+    kill_sources: HashMap<String, u32>,
+    /// Damage dealt by source (as `kill_sources` names them).
+    damage_sources: HashMap<String, f64>,
+    /// Health the hero lost over the run, the gold it picked up, and whether it won.
+    damage_taken: f64,
+    gold: u32,
+    won: bool,
+    /// `--death-causes`: what struck the blow each cheat death came from (`hurt_label`), the
+    /// health lost to each, the cheat deaths by run minute, and how the kiting hero moved: the
+    /// ticks it was held back (a wall or a shut door), the ticks it kited, the seconds it went
+    /// less than a yard.
+    death_causes: HashMap<String, u32>,
+    hurt_by: HashMap<String, f64>,
+    deaths_by_minute: Vec<u32>,
+    blocked_ticks: u32,
+    kite_ticks: u32,
+    stuck_seconds: u32,
 }
 
 impl RunResult {
@@ -448,9 +480,15 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
     let mut arrivals: Vec<Arrival> = Vec::new();
     let (mut damage_before, mut next_second, mut cheat_deaths) = (0.0, 1.0, 0u32);
     let mut heading = (1.0, 0.0);
-    let (mut health_sum, mut damage_sum, mut sampled) = (0.0, 0.0, 0u32);
+    let (mut health_sum, mut damage_sum, mut t1_sum, mut sampled) = (0.0, 0.0, 0.0, 0u32);
     let overtime = f32::from(OVERTIME.load(Ordering::Relaxed));
     let mut kills_at_end: Option<u32> = None;
+    let (mut death_causes, mut hurt_by) = (HashMap::<String, u32>::new(), HashMap::<String, f64>::new());
+    let mut deaths_by_minute = vec![0u32; MINUTES + 4];
+    let (mut blocked_ticks, mut kite_ticks, mut stuck_seconds) = (0u32, 0u32, 0u32);
+    let (mut last_label, mut second_pos) = (String::new(), run.heroes[0].pos);
+    let (mut last_hit, mut kill_sources, mut damage_taken): (HashMap<u32, String>, HashMap<String, u32>, f64) = (HashMap::new(), HashMap::new(), 0.0);
+    let mut damage_sources: HashMap<String, f64> = HashMap::new();
     while run.now < MINUTES as f32 * 60.0 + overtime && run.phase != Phase::Victory {
         // `--overtime`: the kills (talent experience) stop at the run's end, the run goes on for the bosses
         if kills_at_end.is_none() && run.now >= MINUTES as f32 * 60.0 {
@@ -532,7 +570,12 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
             }
         }
         if let Some(stand_off) = kite {
+            let was = run.heroes[0].pos;
             kite_step(&mut run, stand_off, &mut heading, DT);
+            kite_ticks += 1;
+            if run.heroes[0].pos == was {
+                blocked_ticks += 1;
+            }
         }
         run.tick(DT);
         let minute = ((run.now / 60.0) as usize).min(MINUTES - 1);
@@ -540,9 +583,22 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
             let (id, kind) = match e {
                 Event::CheatedDeath { .. } => {
                     cheat_deaths += 1;
+                    // the blow's source, or the boss whose mark or ground it was
+                    let label = if last_label.starts_with("no source") { run.extras.last_blow.map_or(last_label.clone(), |by| hurt_label(&run, Some(by), false)) } else { last_label.clone() };
+                    *death_causes.entry(label).or_default() += 1;
+                    deaths_by_minute[((run.now / 60.0) as usize).min(MINUTES + 3)] += 1;
+                    continue;
+                }
+                Event::HeroHit { lost, by, melee, .. } => {
+                    damage_taken += f64::from(lost);
+                    last_label = hurt_label(&run, by, melee);
+                    *hurt_by.entry(last_label.clone()).or_default() += f64::from(lost);
                     continue;
                 }
                 Event::EnemyHit { id, amount, source, .. } => {
+                    let name = format!("{source:?}");
+                    *damage_sources.entry(name.clone()).or_default() += f64::from(amount);
+                    last_hit.insert(id, name);
                     if let Some(a) = arrivals.iter_mut().find(|a| a.id == id && a.died.is_none()) {
                         a.took += f64::from(amount);
                         if f64::from(amount) > a.biggest.0 {
@@ -552,6 +608,9 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
                     continue;
                 }
                 Event::EnemyDied { id, .. } => {
+                    if let Some(s) = last_hit.remove(&id) {
+                        *kill_sources.entry(s).or_default() += 1;
+                    }
                     if let Some(a) = arrivals.iter_mut().find(|a| a.id == id && a.died.is_none()) {
                         a.died = Some(run.now);
                         a.hero_to = Some(run.heroes[0].damage_dealt);
@@ -571,12 +630,25 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
         }
         if run.now + 1e-3 >= next_second {
             next_second += 1.0;
-            let normal: Vec<(f32, f32)> =
-                run.enemies.iter().filter(|e| matches!(e.kind, EnemyKind::Roster(_)) && !e.elite).map(|e| (e.max_health, e.damage)).collect();
+            let p = run.heroes[0].pos;
+            if kite.is_some() && ((p.0 - second_pos.0).powi(2) + (p.1 - second_pos.1).powi(2)).sqrt() < 1.0 {
+                stuck_seconds += 1;
+            }
+            second_pos = p;
+            let roster = &content.zones[run.zone].enemies;
+            let normal: Vec<(f32, f32, f32)> = run
+                .enemies
+                .iter()
+                .filter_map(|e| match e.kind {
+                    EnemyKind::Roster(r) if !e.elite => Some((e.max_health, e.damage, roster[r].toughness.max(0.01))),
+                    _ => None,
+                })
+                .collect();
             if !normal.is_empty() {
                 let n = normal.len() as f64;
-                health_sum += normal.iter().map(|&(h, _)| f64::from(h)).sum::<f64>() / n;
-                damage_sum += normal.iter().map(|&(_, d)| f64::from(d)).sum::<f64>() / n;
+                health_sum += normal.iter().map(|&(h, _, _)| f64::from(h)).sum::<f64>() / n;
+                damage_sum += normal.iter().map(|&(_, d, _)| f64::from(d)).sum::<f64>() / n;
+                t1_sum += normal.iter().map(|&(h, _, t)| f64::from(h / t)).sum::<f64>() / n;
                 sampled += 1;
             }
             // a minute ends on its 60th second
@@ -590,16 +662,34 @@ fn play_picking_preferring(content: &Arc<Content>, zone: &str, setup: HeroSetup,
                     hero_max_health: f64::from(h.stats.max_health),
                     health: per(health_sum),
                     enemy_damage: per(damage_sum),
+                    health_t1: per(t1_sum),
                     cheat_deaths,
                 });
-                (damage_before, health_sum, damage_sum, sampled, cheat_deaths) = (h.damage_dealt, 0.0, 0.0, 0, 0);
+                (damage_before, health_sum, damage_sum, t1_sum, sampled, cheat_deaths) = (h.damage_dealt, 0.0, 0.0, 0.0, 0, 0);
             }
         }
     }
     let h = &run.heroes[0];
-    RunResult { minutes, arrivals, kills: kills_at_end.unwrap_or(h.kills), seconds: run.now, damage: h.damage_dealt, amulet: h.amulet.as_ref().map(|w| (w.amulet.rarity, w.rank)), caches: h.caches_opened }
+    RunResult { minutes, arrivals, kills: kills_at_end.unwrap_or(h.kills), seconds: run.now, damage: h.damage_dealt, amulet: h.amulet.as_ref().map(|w| (w.amulet.rarity, w.rank)), caches: h.caches_opened, kill_sources, damage_sources, damage_taken, gold: h.gold_earned, won: run.phase == Phase::Victory, death_causes, hurt_by, deaths_by_minute, blocked_ticks, kite_ticks, stuck_seconds }
 }
 
+
+/// `--death-causes`: what hurt the hero, as text: the enemy's name and kind (an elite, a rare, a
+/// boss), and whether its melee blow or a spell, missile or ground effect; "no source" for harm no
+/// enemy is named for (a boss's ground or mark names its boss through `last_blow` at a death).
+fn hurt_label(run: &Run, by: Option<u32>, melee: bool) -> String {
+    let how = if melee { "melee" } else { "spell, missile or ground" };
+    let Some(by) = by else { return format!("no source ({how})") };
+    let zone = &run.content.zones[run.zone];
+    let Some(u) = run.enemies.iter().find(|u| u.id == by) else { return format!("? gone enemy ({how})") };
+    let name = match u.kind {
+        EnemyKind::Roster(i) if u.elite => format!("{} (elite)", zone.enemies[i].name),
+        EnemyKind::Roster(i) => zone.enemies[i].name.clone(),
+        EnemyKind::Boss(i) => format!("{} (boss)", zone.bosses[i].name),
+        EnemyKind::Rare { roster } => format!("{} (rare)", zone.enemies[roster].name),
+    };
+    format!("{name} ({how})")
+}
 /// The talent experience of one won 20-minute run in zone `zone` (its index in difficulty order):
 /// every boss slain, default run options, `kills` kills.
 fn won_run_experience(content: &Content, zone: usize, kills: f64) -> u32 {
@@ -921,6 +1011,8 @@ struct MinuteMeans {
     health: f64,
     enemy_damage: f64,
     kill_seconds: f64,
+    /// The kill seconds of a normal enemy of toughness 1 (its health ÷ the DPS).
+    kill_seconds_t1: f64,
     cheat_deaths: f64,
     /// Runs that finished this minute, of all.
     runs: usize,
@@ -931,12 +1023,14 @@ fn minute_means(results: &[&RunResult], minute: usize) -> Option<MinuteMeans> {
     let level = mean(samples.iter().map(|s| s.level))?;
     let dps = mean(samples.iter().map(|s| s.damage / 60.0))?;
     let health = mean(samples.iter().map(|s| s.health))?;
+    let health_t1 = mean(samples.iter().map(|s| s.health_t1))?;
     Some(MinuteMeans {
         level,
         dps,
         health,
         enemy_damage: mean(samples.iter().map(|s| s.enemy_damage))?,
         kill_seconds: if dps > 0.0 { health / dps } else { f64::INFINITY },
+        kill_seconds_t1: if dps > 0.0 { health_t1 / dps } else { f64::INFINITY },
         cheat_deaths: mean(samples.iter().map(|s| f64::from(s.cheat_deaths)))?,
         runs: samples.len(),
     })
@@ -982,19 +1076,21 @@ fn strong_means(results: &[&RunResult], wanted: impl Fn(&Arrival) -> bool) -> Op
     })
 }
 
-/// The owner's boss-time goals (2026-10-24, AUTHORING.md section 16, "The rule for bosses"): the seconds a zone's
-/// normal bosses and its final bosses should live, by zone id. A zone not listed has none.
+/// The boss-time goals (AUTHORING.md section 16, "The rule for
+/// bosses"): the seconds a zone's normal bosses and its final bosses should live halfway between
+/// plain play and the damage build (`--damage-focus`), the mean of the two, by zone id: about a minute and two minutes everywhere. A zone not
+/// listed has none.
 const BOSS_TIME_GOALS: [(&str, f64, f64); 10] = [
-    ("elwynn", 35.0, 90.0),
-    ("duskwood", 35.0, 90.0),
-    ("wsg", 35.0, 90.0),
-    ("scarlet", 38.0, 100.0),
-    ("sunken_temple", 41.0, 110.0),
-    ("feralas", 44.0, 115.0),
-    ("arena", 46.0, 125.0),
-    ("strat", 49.0, 135.0),
-    ("brm", 52.0, 140.0),
-    ("aq", 55.0, 150.0),
+    ("elwynn", 60.0, 120.0),
+    ("duskwood", 60.0, 120.0),
+    ("wsg", 60.0, 120.0),
+    ("scarlet", 60.0, 120.0),
+    ("sunken_temple", 60.0, 120.0),
+    ("feralas", 60.0, 120.0),
+    ("arena", 60.0, 120.0),
+    ("strat", 60.0, 120.0),
+    ("brm", 60.0, 120.0),
+    ("aq", 60.0, 120.0),
 ];
 
 /// The seconds a boss of zone `zone` should live (`BOSS_TIME_GOALS`), if the zone has a goal.
@@ -1105,6 +1201,8 @@ struct Options {
     own_tree: bool,
     /// Whole runs of every starting option instead (`--starter-runs`).
     starter_runs: bool,
+    /// The numbers behind the achievement feats instead (`--feats`).
+    feats: bool,
     /// Every class's weapon loadouts with its starting options, kiting, amulets declined (`--loadouts`).
     loadouts: bool,
     /// The zone mode plays every starting option (`--start all`).
@@ -1144,6 +1242,8 @@ struct Options {
     check_seeds_given: Option<u64>,
     threads_given: Option<usize>,
     csv: Option<String>,
+    /// `--summary <file>` (zone mode): one row per zone for its normal enemies, its elites, its rares and each boss.
+    summary: Option<String>,
     /// Load the content from this folder instead of the repository's (`--content <dir>`).
     content_dir: Option<String>,
     /// Synthetic zones: (new id, template zone id, difficulty).
@@ -1180,6 +1280,7 @@ impl Default for Options {
             loadout: None,
             loadout_all: false,
             budgets: false,
+            feats: false,
             no_talents: false,
             no_amulets: false,
             fair_start: false,
@@ -1196,6 +1297,7 @@ impl Default for Options {
             check_seeds_given: None,
             threads_given: None,
             csv: None,
+            summary: None,
             content_dir: None,
             added_zones: Vec::new(),
             difficulties: Vec::new(),
@@ -1221,6 +1323,7 @@ fn options() -> Options {
             "--legendaries" => o.legendaries = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
             "--targets" => o.targets = Some(value()),
             "--csv" => o.csv = Some(value()),
+            "--summary" => o.summary = Some(value()),
             "--content" => o.content_dir = Some(value()),
             "--milestones" => o.milestones = true,
             "--talents" => o.talents = value().split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect(),
@@ -1246,6 +1349,7 @@ fn options() -> Options {
             "--second-targets" => o.second_targets = Some(value()),
             "--own-tree" => o.own_tree = true,
             "--starter-runs" => o.starter_runs = true,
+            "--feats" => o.feats = true,
             "--budgets" => o.budgets = true,
             "--no-talents" => o.no_talents = true,
             "--no-amulets" => o.no_amulets = true,
@@ -1278,6 +1382,7 @@ fn options() -> Options {
                 TAKE_AMULETS.store(bits, Ordering::Relaxed);
             }
             "--buy-caches" => BUY_CACHES.store(true, Ordering::Relaxed),
+            "--death-causes" => DEATH_CAUSES.store(true, Ordering::Relaxed),
             "--boss-circle" => BOSS_CIRCLE.store(true, Ordering::Relaxed),
             "--best-cards" => BEST_CARDS.store(true, Ordering::Relaxed),
             "--overtime" => OVERTIME.store(value().parse().expect("--overtime <seconds>"), Ordering::Relaxed),
@@ -1388,6 +1493,11 @@ fn main() {
         println!("\n(took {:.0} s)", started.elapsed().as_secs_f64());
         return;
     }
+    if o.feats {
+        feat_runs(&content, &o);
+        println!("\n(took {:.0} s)", started.elapsed().as_secs_f64());
+        return;
+    }
     if o.starter_runs {
         starter_runs(&content, &o);
         println!("\n(took {:.0} s)", started.elapsed().as_secs_f64());
@@ -1415,6 +1525,7 @@ fn main() {
     let mut arrival_points = Vec::new();
     // per zone, measured ÷ target by minute
     let mut summary: Vec<(String, Vec<Option<f64>>)> = Vec::new();
+    let mut summary_rows = String::new();
     let stop = EarlyStop::new(&o, o.seeds, 20, 10);
     println!(
         "Balance check: {} a zone and class, {} threads (a zone stops once each boss's lived seconds are clear against its goal ±{:.0} %, or within ±{:.1} % where it has none).\n",
@@ -1501,6 +1612,47 @@ fn main() {
             MINUTES,
             cheats / full.len().max(1) as f64
         );
+        if DEATH_CAUSES.load(Ordering::Relaxed) {
+            let runs_f = full.len().max(1) as f64;
+            let mut deaths: HashMap<&str, u32> = HashMap::new();
+            let mut hurt: HashMap<&str, f64> = HashMap::new();
+            let mut by_minute = vec![0u32; MINUTES + 4];
+            for r in &full {
+                for (k, v) in &r.death_causes {
+                    *deaths.entry(k.as_str()).or_default() += v;
+                }
+                for (k, v) in &r.hurt_by {
+                    *hurt.entry(k.as_str()).or_default() += v;
+                }
+                for (m, v) in r.deaths_by_minute.iter().enumerate() {
+                    by_minute[m] += v;
+                }
+            }
+            let all_deaths = f64::from(deaths.values().sum::<u32>().max(1));
+            let all_hurt = hurt.values().sum::<f64>().max(1.0);
+            let mut deaths: Vec<_> = deaths.into_iter().collect();
+            deaths.sort_by(|a, b| b.1.cmp(&a.1));
+            let mut hurt: Vec<_> = hurt.into_iter().collect();
+            hurt.sort_by(|a, b| b.1.total_cmp(&a.1));
+            let blocked: u32 = full.iter().map(|r| r.blocked_ticks).sum();
+            let kited: u32 = full.iter().map(|r| r.kite_ticks).sum();
+            let stuck: u32 = full.iter().map(|r| r.stuck_seconds).sum();
+            println!(
+                "death causes: hero held back by a wall or door {:.1} % of kiting ticks; {:.1} seconds a run moving less than a yard",
+                100.0 * f64::from(blocked) / f64::from(kited.max(1)),
+                f64::from(stuck) / runs_f
+            );
+            println!(
+                "  cheat deaths a run by minute: {}",
+                by_minute.iter().enumerate().map(|(m, v)| format!("{}:{:.1}", m + 1, f64::from(*v) / runs_f)).collect::<Vec<_>>().join(" ")
+            );
+            for (k, v) in deaths.iter().take(10) {
+                println!("  death: {:5.1} % {:6.2} a run  {k}", 100.0 * f64::from(*v) / all_deaths, f64::from(*v) / runs_f);
+            }
+            for (k, v) in hurt.iter().take(10) {
+                println!("  hurt:  {:5.1} % {:8.0} a run  {k}", 100.0 * v / all_hurt, v / runs_f);
+            }
+        }
         {
             let n = full.len().max(1) as f64;
             let caches = full.iter().map(|r| f64::from(r.caches)).sum::<f64>() / n;
@@ -1617,13 +1769,54 @@ fn main() {
                 println!();
             }
         }
+        let mut strong_lived = Vec::new();
         for (name, kind) in [("elites", StrongKind::Elite), ("rares", StrongKind::Rare)] {
             if let Some(s) = strong_means(&full, |a| a.kind == kind && (4..18).contains(&a.minute)) {
                 println!(
-                    "{name} at minutes 5-18: {} seen, kill {:.1} s, hit {:.1} % of the hero's health",
+                    "{name} at minutes 5-18: {} seen, kill {:.1} s, lived {} s ({} of {} died), hit {:.1} % of the hero's health",
                     s.count,
                     s.kill_seconds,
+                    s.lived.map_or("—".to_string(), |l| format!("{l:.1}")),
+                    s.killed,
+                    s.count,
                     s.hit_share * 100.0
+                );
+            }
+            strong_lived.push(strong_means(&full, |a| a.kind == kind));
+        }
+        // normal enemies over minutes 5-18: kill seconds as they come, and of toughness 1
+        let mid: Vec<MinuteMeans> = (4..18).filter_map(|m| minute_means(&full, m)).collect();
+        let kill_all = mean(mid.iter().map(|m| m.kill_seconds)).unwrap_or(f64::NAN);
+        let kill_t1 = mean(mid.iter().map(|m| m.kill_seconds_t1)).unwrap_or(f64::NAN);
+        let taken = mean(full.iter().map(|r| r.damage_taken)).unwrap_or(0.0);
+        let cheats_a_run = cheats / full.len().max(1) as f64;
+        println!(
+            "normal enemies at minutes 5-18: kill {kill_all:.2} s as they come, {kill_t1:.2} s at toughness 1; hero damage taken {taken:.0} a run, {cheats_a_run:.2} cheat deaths a run"
+        );
+        if o.summary.is_some() {
+            let d = zone.difficulty;
+            let opt = |v: Option<f64>| v.map_or(String::new(), |v| format!("{v:.2}"));
+            summary_rows += &format!("{},{d},normal,,,{kill_all:.3},{kill_t1:.3},,,,{taken:.0},{cheats_a_run:.3},{runs}\n", zone.id);
+            for (kind, s) in ["elite", "rare"].iter().zip(&strong_lived) {
+                if let Some(s) = s {
+                    summary_rows += &format!("{},{d},{kind},,{:.2},{:.0},{},{},{},,,,{runs}\n", zone.id, s.minute, s.health, opt(s.lived), s.killed, s.count);
+                }
+            }
+            for (bi, b) in zone.bosses.iter().enumerate() {
+                let Some(s) = strong_means(&full, |a| a.kind == StrongKind::Boss(bi)) else { continue };
+                let error = boss_lived(&full, bi).map(|(_, e)| e);
+                let kind = if b.is_final { "final" } else { "boss" };
+                let goal = boss_goal(&zone.id, b.is_final).map_or(String::new(), |g| format!("{g:.0}"));
+                summary_rows += &format!(
+                    "{},{d},{kind},\"{}\",{:.2},{:.0},{},{},{},{goal},,,{runs},{}\n",
+                    zone.id,
+                    b.name,
+                    s.minute,
+                    s.health,
+                    opt(s.lived),
+                    s.killed,
+                    s.count,
+                    opt(error)
                 );
             }
         }
@@ -1668,6 +1861,11 @@ fn main() {
     }
     if let Some(path) = &o.csv {
         fs::write(path, &csv).unwrap_or_else(|e| panic!("the csv file {path} is written: {e}"));
+        println!("Wrote {path}.");
+    }
+    if let Some(path) = &o.summary {
+        let header = "zone,D,kind,name,minute,health_or_kill_s,lived_or_kill_s_t1,killed,count,goal,damage_taken,cheat_deaths,seeds,error\n";
+        fs::write(path, format!("{header}{summary_rows}")).unwrap_or_else(|e| panic!("the summary file {path} is written: {e}"));
         println!("Wrote {path}.");
     }
     println!("Done in {:.0} s.", started.elapsed().as_secs_f64());
@@ -2158,8 +2356,125 @@ fn starter_runs(content: &Arc<Content>, o: &Options) {
     }
 }
 
-/// `--loadouts`: every class's three weapon loadouts compared (roadmap
-/// R3), each played with every starting option of the class, at most `--seeds` whole runs a pair (early stop) in each
+/// One case `--feats` measures: a class, its starting option and weapon loadout (the class's first
+/// when none), a zone, and the killing blows whose source names contain `source` (`"Pet("`: a pet's).
+struct FeatCase {
+    feat: &'static str,
+    class: &'static str,
+    start: &'static str,
+    weapons: Option<&'static str>,
+    zone: &'static str,
+    source: &'static str,
+    /// The zone's boss (its index) whose lived seconds are printed too.
+    boss: Option<usize>,
+}
+
+const FEAT_CASES: [FeatCase; 9] = [
+    FeatCase { feat: "Spin to Win", class: "warrior", start: "whirlwind", weapons: None, zone: "feralas", source: "whirlwind", boss: None },
+    FeatCase { feat: "Let the Pet Work", class: "hunter", start: "kill_command", weapons: None, zone: "feralas", source: "Pet(", boss: None },
+    FeatCase { feat: "Drip Feed", class: "rogue", start: "mutilate", weapons: Some("daggers"), zone: "feralas", source: "poison", boss: None },
+    FeatCase { feat: "Burn Notice", class: "priest", start: "holy_fire", weapons: None, zone: "duskwood", source: "holy_fire", boss: Some(2) },
+    FeatCase { feat: "Soaked and Standing", class: "shaman", start: "wellspring", weapons: None, zone: "feralas", source: "wellspring", boss: None },
+    FeatCase { feat: "Kindling the Keep", class: "mage", start: "fireball", weapons: Some("staff"), zone: "brm", source: "fireball", boss: None },
+    FeatCase { feat: "Soul Collector", class: "warlock", start: "drain_soul", weapons: None, zone: "strat", source: "drain_soul", boss: None },
+    FeatCase { feat: "Gnoll Means No", class: "warrior", start: "slam", weapons: None, zone: "elwynn", source: "slam", boss: Some(0) },
+    FeatCase { feat: "Penny Pincher (gold)", class: "mage", start: "frostbolt", weapons: None, zone: "elwynn", source: "frostbolt", boss: None },
+];
+
+/// `--feats`: the numbers behind the achievement feats (docs: the achievements plan's "(check)"
+/// marks). Each case is played as `--starter-runs --kite` plays (arrival talents, the previous
+/// zone's set, first offers), in batches of 10 seeds up to `--seeds` (at least 10), until its
+/// killing blows by `source` have a standard error of at most `--rel-error` × their mean. Per
+/// case: runs, runs won, kills, those killing blows (and their share of all), health lost, gold
+/// picked up, the boss's lived seconds, and the five sources with the most killing blows.
+fn feat_runs(content: &Arc<Content>, o: &Options) {
+    let points = if o.no_talents { vec![0; content.zones.len()] } else { arrival_points(content, o, o.threads) };
+    let most = o.seeds.max(10);
+    let mut results: Vec<Vec<RunResult>> = FEAT_CASES.iter().map(|_| Vec::new()).collect();
+    let picked = |r: &RunResult, c: &FeatCase| -> f64 { r.kill_sources.iter().filter(|(k, _)| k.contains(c.source)).map(|(_, &n)| f64::from(n)).sum() };
+    let mut open: Vec<usize> = (0..FEAT_CASES.len()).collect();
+    let mut next = 0u64;
+    while !open.is_empty() && next < most {
+        let seeds = next..(next + 10).min(most);
+        let jobs: Vec<(usize, u64)> = open.iter().flat_map(|&c| seeds.clone().map(move |s| (c, s))).collect();
+        let played = parallel_map(&jobs, o.threads, |&(ci, s)| {
+            let c = &FEAT_CASES[ci];
+            let zi = content.zones.iter().position(|z| z.id == c.zone).unwrap_or_else(|| panic!("--feats: no zone {}", c.zone));
+            let loadout = Loadout {
+                ranks: spend_talent_points(content, c.class, points[zi]),
+                set_from: zi.checked_sub(1),
+                without_milestone: None,
+                without_whole_talent: false,
+                weapons: c.weapons.map(str::to_string),
+                start: Some(c.start.to_string()),
+            };
+            let setup = hero_setup(content, c.class, &loadout);
+            let kite = Some(kite_stand_off(content, content.starting_option(c.start).expect("an option")));
+            let seed = zone_seed(c.zone) + ((ci as u64) << 32) + s;
+            // with `--prefer-upgrades`, the starting option's spells are the ones upgraded first
+            let prefer = content.starting_option(c.start).map_or_else(Vec::new, |s| s.spells.clone());
+            std::panic::catch_unwind(AssertUnwindSafe(|| play_picking_preferring(content, c.zone, setup, seed, kite, o.no_amulets, &prefer))).ok()
+        });
+        for (&(ci, _), r) in jobs.iter().zip(played) {
+            results[ci].extend(r);
+        }
+        next = seeds.end;
+        open.retain(|&ci| {
+            let rs = &results[ci];
+            rs.len() < 10 || mean_and_error(rs.iter().map(|r| picked(r, &FEAT_CASES[ci]))).is_none_or(|(m, e)| e > o.rel_error.max(0.05) * m.max(1.0))
+        });
+    }
+    println!("Achievement feats: the arrival hero kiting, first offers, the previous zone's set; batches of 10 seeds up to {most}.\n");
+    println!("| feat | class / start | zone | runs | won | kills | its killing blows | share | health lost | gold | boss lived s |");
+    println!("|---|---|---|---|---|---|---|---|---|---|---|");
+    for (ci, c) in FEAT_CASES.iter().enumerate() {
+        let rs = &results[ci];
+        let f = |x: Option<(f64, f64)>| x.map_or("—".into(), |(m, e)| format!("{m:.0} ± {e:.0}"));
+        let kills = mean_and_error(rs.iter().map(|r| f64::from(r.kill_sources.values().sum::<u32>())));
+        let mine = mean_and_error(rs.iter().map(|r| picked(r, c)));
+        let share = mean(rs.iter().map(|r| picked(r, c) / f64::from(r.kill_sources.values().sum::<u32>().max(1))));
+        let lived = c.boss.and_then(|b| mean_and_error(rs.iter().flat_map(|r| r.arrivals.iter().filter(move |a| a.kind == StrongKind::Boss(b)).filter_map(|a| a.died.map(|d| f64::from(d - a.spawned))))));
+        println!(
+            "| {} | {} / {} | {} | {} | {} | {} | {} | {} | {} | {} | {} |",
+            c.feat,
+            c.class,
+            c.start,
+            c.zone,
+            rs.len(),
+            rs.iter().filter(|r| r.won).count(),
+            f(kills),
+            f(mine),
+            share.map_or("—".into(), |s| format!("{:.0} %", s * 100.0)),
+            f(mean_and_error(rs.iter().map(|r| r.damage_taken))),
+            f(mean_and_error(rs.iter().map(|r| f64::from(r.gold)))),
+            lived.map_or("—".into(), |(m, e)| format!("{m:.1} ± {e:.1}")),
+        );
+    }
+    println!("\nThe sources with the most killing blows, per case (mean a run):\n");
+    for (ci, c) in FEAT_CASES.iter().enumerate() {
+        let rs = &results[ci];
+        let mut all: HashMap<&str, f64> = HashMap::new();
+        for r in rs {
+            for (k, &n) in &r.kill_sources {
+                *all.entry(k.as_str()).or_default() += f64::from(n) / rs.len().max(1) as f64;
+            }
+        }
+        let mut top: Vec<(&str, f64)> = all.into_iter().collect();
+        top.sort_by(|a, b| b.1.total_cmp(&a.1));
+        let line: Vec<String> = top.iter().take(5).map(|(k, n)| format!("{k} {n:.0}")).collect();
+        println!("* {} ({} / {}): {}", c.feat, c.class, c.start, line.join(", "));
+    }
+    println!("\nThe case's source on the damage meter: its share of all damage, and the runs it was the top line:\n");
+    for (ci, c) in FEAT_CASES.iter().enumerate() {
+        let rs = &results[ci];
+        let mine = |r: &RunResult| r.damage_sources.iter().filter(|(k, _)| k.contains(c.source)).map(|(_, d)| d).sum::<f64>();
+        let share = mean(rs.iter().map(|r| mine(r) / r.damage_sources.values().sum::<f64>().max(1.0)));
+        let top = rs.iter().filter(|r| r.damage_sources.iter().filter(|(k, _)| !k.contains(c.source)).all(|(_, &d)| d <= mine(r))).count();
+        println!("* {} ({}): {} of damage, top line in {} of {} runs", c.feat, c.source, share.map_or("—".into(), |s| format!("{:.0} %", s * 100.0)), top, rs.len());
+    }
+}
+
+/// `--loadouts`: every class's three weapon loadouts compared, each played with every starting option of the class, at most `--seeds` whole runs a pair (early stop) in each
 /// zone of `--zones`, kiting and declining amulets as `--starter-runs --kite --no-amulets` does
 /// (arrival talents unless `--no-talents`, the previous zone's set). Per zone and class, a row per
 /// loadout: its run DPS over the class's starters, against the mean of the class's loadouts, each
@@ -2352,6 +2667,11 @@ const BOSS_CIRCLE_RADIUS: f32 = 6.0;
 const KITE_PACK_RADIUS: f32 = 30.0;
 /// Within this many yards of the arena's edge the hero turns back in, harder the closer it gets.
 const KITE_EDGE_MARGIN: f32 = 20.0;
+/// The hero keeps this far from a wall or a shut door as from the edge, turning away harder the
+/// closer it gets, and never takes a heading that would cross one within `KITE_WALL_LOOKAHEAD`
+/// yards (a player walks along a wall, not into it).
+const KITE_WALL_MARGIN: f32 = 8.0;
+const KITE_WALL_LOOKAHEAD: f32 = 2.0;
 /// How strongly the hero corrects its distance to the nearest enemy against circling (1: as much
 /// as the circling itself, at two yards off).
 const KITE_DISTANCE_WEIGHT: f32 = 2.0;
@@ -2390,6 +2710,10 @@ fn kite_stand_off(content: &Content, o: &StartingOption) -> f32 {
 ///   kept between calls). A hero closed in so runs out through the thinnest side, as a player would,
 ///   instead of standing still between enemies on both sides.
 /// * **Facing:** the nearest enemy (the hero strafes), so cones point at the pack.
+/// * **Walls:** it keeps off a zone's walls and shut doors as off the edge and never heads through one
+///   (`KITE_WALL_MARGIN`, `KITE_WALL_LOOKAHEAD`). Before (2026-10-31) it ran into them and stood held
+///   there (Stratholme's gates a third of the run, Warsong Gulch's and the Scarlet Monastery's ends
+///   less), which made most of those zones' cheat deaths.
 fn kite_step(run: &mut Run, stand_off: f32, heading: &mut Vec2, dt: f32) {
     let dist = |a: Vec2, b: Vec2| ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt();
     let unit = |v: Vec2| {
@@ -2443,6 +2767,26 @@ fn kite_step(run: &mut Run, stand_off: f32, heading: &mut Vec2, dt: f32) {
         let inward = unit((centre.0 - pos.0, centre.1 - pos.1));
         wanted = unit((wanted.0 + inward.0 * pull, wanted.1 + inward.1 * pull));
     }
+    // the walls and shut doors (`Run::hero_moved` holds the hero back at them): keep off them as
+    // off the edge, and never head through one
+    let lines: Vec<(Vec2, Vec2)> = zone
+        .walls
+        .iter()
+        .map(|w| (w.from, w.to))
+        .chain(zone.doors.iter().zip(&run.doors_open).filter(|(_, open)| !**open).map(|(d, _)| (d.doorway.from, d.doorway.to)))
+        .collect();
+    for &(a, b) in &lines {
+        let ab = (b.0 - a.0, b.1 - a.1);
+        let t = (((pos.0 - a.0) * ab.0 + (pos.1 - a.1) * ab.1) / (ab.0 * ab.0 + ab.1 * ab.1).max(1e-6)).clamp(0.0, 1.0);
+        let closest = (a.0 + ab.0 * t, a.1 + ab.1 * t);
+        let d = dist(pos, closest);
+        if d < KITE_WALL_MARGIN {
+            let pull = (KITE_WALL_MARGIN - d) / KITE_WALL_MARGIN * 3.0;
+            let away = unit((pos.0 - closest.0, pos.1 - closest.1));
+            wanted = unit((wanted.0 + away.0 * pull, wanted.1 + away.1 * pull));
+        }
+    }
+    let open = |dir: Vec2| !lines.iter().any(|&l| crosses(pos, (pos.0 + dir.0 * KITE_WALL_LOOKAHEAD, pos.1 + dir.1 * KITE_WALL_LOOKAHEAD), l));
     let crowd: Vec<(Vec2, f32)> =
         foes.iter().map(|f| (unit((f.0 - pos.0, f.1 - pos.1)), dist(*f, pos))).filter(|(_, d)| *d <= KITE_CROWD_RADIUS).collect();
     let worth = |dir: Vec2| {
@@ -2455,6 +2799,7 @@ fn kite_step(run: &mut Run, stand_off: f32, heading: &mut Vec2, dt: f32) {
             let a = k as f32 / KITE_HEADINGS as f32 * std::f32::consts::TAU;
             (a.cos(), a.sin())
         })
+        .filter(|d| open(*d))
         .max_by(|a, b| worth(*a).total_cmp(&worth(*b)))
         .unwrap_or(wanted);
     *heading = dir;

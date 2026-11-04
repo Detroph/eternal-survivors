@@ -1,0 +1,278 @@
+// Camp decorations: what stands around the camp fire of the warband screen. docs/game/
+// achievements.md "Camp decorations" has the rules, docs/game/AUTHORING.md "A camp decoration"
+// how to add one. Ids are kept in the save once shipped: never change one.
+//
+// The Horde and the Alliance camp are decorated apart, each with its own layout (Decorate camp,
+// beside the camp switch); what the warband owns (bought, or earned) may stand in both. A look is
+// Same(display) or Faction(horde: d, alliance: d): each camp shows its own (the plan's "faction
+// looks swap by themselves"), each at its own size when the two models differ (`horde_scale`,
+// `alliance_scale`, times the piece's `scale`). Every display is a GameObjectDisplayInfo.dbc id
+// of the 1.12.1 client, checked (2026-10-27), its model in the comment.
+//
+// Places are yards from the camp fire as the camera sees it: (to its right, beyond it); a
+// negative right is to its left. The heroes wait 3 yards out on the far side and at the back
+// (4.6 to 5.2 beyond).
+//
+// The camp clean-up; plans/camp-clean-analysis.md): every family has
+// its own place. The fire is the only fire; the bought set (one per camp, its "theme") stands low
+// to the right of the fire, its pieces each in their own place; the trophies gather in one corner
+// at the back right with the throne beside them; the zone pennants hang along the back edge; the
+// skull spear stands alone at the back left; one camp sign. Left of the fire and the middle of
+// the back edge stay clear. Sizes: nothing bought or earned stands taller than a hero but the
+// battle banner (ground pieces knee to shoulder high, trophies shoulder high, the fire's flames
+// low, its footprint the camp fire's); every size below is a draft for the look, measured from
+// the model's bounds.
+//
+// Every price halved, an odd
+// one rounded up to a step of 5; the drafts' notes below name the price each was halved from.
+(
+    // ------------------------------------------------------------ the spots
+    // The camp fire, the banner post, the camp theme (which bought set stands) and two extra
+    // spots for any ground piece, 150 points each (the plan's draft), bought once for both camps.
+    spots: [
+        (id: "fire", kind: Campfire, at: (0.0, 0.0)),
+        (id: "banner", kind: BannerPost, at: (8.6, 6.4)),
+        (id: "theme", kind: Theme, at: (4.6, 2.8)),
+        (id: "extra_1", kind: Ground, at: (7.6, 4.6), price: 75), // draft
+        (id: "extra_2", kind: Ground, at: (5.2, 0.3), price: 75), // draft
+    ],
+    // ------------------------------------------------------------ the bought sets
+    // Owning a whole set earns its signpost (the camp sign stands once one is earned). A camp
+    // shows one set at a time, its theme: the set's pieces the warband owns, each in its place
+    // (`at`). The places: low by the fire (-2.5, -0.5, flat pieces only), to the right (4.0, 1.6)
+    // and (5.4, 3.4), back left (-3.2, 7.0), behind the right (4.0, 5.6).
+    sets: [
+        (id: "war_camp", name: "War Camp"),
+        (id: "tavern_night", name: "Tavern Night"),
+        (id: "forge_row", name: "Forge Row"),
+        (id: "wild_lights", name: "Wild Lights"),
+    ],
+    pieces: [
+        // ---------------------------------------------------------------- War Camp
+        (id: "weapon_rack", name: "Weapon Rack", icon: "INV_Sword_27", spot: Ground, set: "war_camp", price: 20, // draft
+            look: Same(130), scale: 0.55, at: (5.4, 3.4), // GeneralWeaponrack01
+            text: "Somewhere to hang the blades between runs."),
+        // turned so its clubs point away from the camera
+        (id: "training_dummy", name: "Training Dummy", icon: "Ability_Warrior_DecisiveStrike", spot: Ground, set: "war_camp", price: 25, // draft
+            look: Faction(horde: 5171, alliance: 518, alliance_scale: 1.15), scale: 0.5, turn: 90.0, at: (4.0, 1.6), // GeneralWoodenDummy02, StormWindWoodenDummy01
+            text: "It has never once hit back."),
+        // the camp's one landmark, the only thing taller than a hero
+        (id: "battle_banner", name: "Large Battle Banner", icon: "INV_BannerPVP_02", spot: BannerPost, set: "war_camp", price: 30, // draft
+            look: Faction(horde: 5773, alliance: 5771), scale: 0.5, // BattlefieldBannerHordeLarge, ...AllianceLarge
+            text: "The faction's great banner, planted where every scout can see it."),
+        (id: "powder_kegs", name: "Powder Kegs", icon: "INV_Misc_Ammo_Gunpowder_01", spot: Ground, set: "war_camp", price: 15, // draft
+            look: Same(33), at: (4.0, 5.6), // PowderKeg01
+            text: "Kept a sensible distance from the fire. Mostly."),
+        // ---------------------------------------------------------------- Tavern Night
+        (id: "beer_kegs", name: "Beer Kegs", icon: "INV_Drink_05", spot: Ground, set: "tavern_night", price: 15, // draft
+            look: Same(1727), scale: 0.75, at: (4.0, 1.6), // BeerKeg01
+            text: "For the long nights between runs."),
+        (id: "meat_rack", name: "Meat Rack", icon: "INV_Misc_Food_14", spot: Ground, set: "tavern_night", price: 20, // draft
+            look: Same(409), scale: 0.5, at: (4.0, 5.6), // SmokedMeatRack01
+            text: "Smoked over the camp fire, a little at a time."),
+        (id: "cauldron", name: "Cauldron", icon: "INV_Misc_Food_31", spot: Ground, set: "tavern_night", price: 20, // draft
+            look: Same(216), scale: 0.65, at: (5.4, 3.4), // Cauldron
+            text: "Stew tonight. Stew every night."),
+        (id: "rug", name: "Rug", icon: "INV_Misc_Bag_10", spot: Ground, set: "tavern_night", price: 25, // draft
+            look: Faction(horde: 5113, alliance: 159), scale: 0.5, at: (-2.5, -0.5), // TaurenRug04, StormwindRug01
+            text: "A rug from home, for sitting by the fire in comfort."),
+        (id: "firecrackers", name: "Firecracker Strings", icon: "INV_Misc_Bomb_02", spot: Ground, set: "tavern_night", price: 15, // draft
+            look: Same(6490), scale: 0.35, at: (-3.2, 7.0), // FirecrackerString_Red01
+            text: "Red strings of firecrackers, saved for a good night."),
+        // ---------------------------------------------------------------- Forge Row
+        (id: "anvil", name: "Anvil", icon: "Trade_BlackSmithing", spot: Ground, set: "forge_row", price: 20, // draft
+            look: Faction(horde: 208, alliance: 166, alliance_scale: 1.4), scale: 0.7, at: (4.0, 1.6), // OrcAnvilStoneBurningSteppes, Anvil
+            text: "For the dents a run leaves in everything."),
+        (id: "tool_rack", name: "Tool Rack", icon: "Trade_Engineering", spot: Ground, set: "forge_row", price: 15, // draft
+            look: Faction(horde: 1487, alliance: 317, alliance_scale: 2.2), scale: 0.45, at: (5.4, 3.4), // OrcToolRackBurningSteppes, Toolbox01
+            text: "Tongs, hammers and a file nobody admits to borrowing."),
+        (id: "brazier", name: "Brazier", icon: "Spell_Fire_Fire", spot: Ground, set: "forge_row", price: 20, // draft
+            look: Faction(horde: 655, alliance: 602, alliance_scale: 1.8), scale: 0.45, at: (-3.2, 7.0), // TallBrazier01, StormwindBrazier01
+            text: "Coals kept warm for the smiths."),
+        (id: "forge", name: "Forge", icon: "Spell_Fire_SelfDestruct", spot: Ground, set: "forge_row", price: 40, // draft
+            look: Same(355), scale: 0.18, at: (4.0, 5.6), // BlacksmithForge
+            text: "Hot enough to mend a sword, or start an argument."),
+        // The plan's "needs the other three": read as the rest of Forge Row (anvil, tool rack,
+        // brazier and forge).
+        (id: "great_anvil", name: "The Great Anvil", icon: "INV_Hammer_20", spot: Ground, set: "forge_row", price: 50, // draft
+            needs: ["anvil", "tool_rack", "brazier", "forge"],
+            look: Same(2092), scale: 0.3, at: (-2.5, -0.5), // TheGreatAnvil (Ironforge's, shrunk to a camp's size)
+            text: "{Area(1537)}'s own, or near enough. Carried here in pieces."),
+        // ---------------------------------------------------------------- Wild Lights
+        (id: "ne_lanterns", name: "Night Elf Lanterns", icon: "INV_Misc_Lantern_01", spot: Ground, set: "wild_lights", price: 15, // draft
+            look: Same(438), scale: 0.5, at: (4.0, 1.6), // NightelfLantern01
+            text: "Soft violet light from {Area(1657)}."),
+        (id: "lunar_lanterns", name: "Lunar New Year Lanterns", icon: "INV_Misc_Candle_01", spot: Ground, set: "wild_lights", price: 20, // draft
+            look: Faction(horde: 6540, alliance: 6538, alliance_scale: 1.25), scale: 0.16, at: (5.4, 3.4), // LunarNewYearLantern_Horde/Alliance_Standing
+            text: "Lanterns from the festival, lit for the elders."),
+        (id: "totem", name: "Totem", icon: "INV_Misc_Rune_01", spot: Ground, set: "wild_lights", price: 25, // draft
+            look: Faction(horde: 4716, alliance: 6704, alliance_scale: 5.3), scale: 0.055, at: (-3.2, 7.0), // TaurenTotem03, FurbolgTotemSnow01
+            text: "Carved by hands that knew the land."),
+        // the camp fire's look, at the camp fire's size
+        (id: "midsummer_bonfire", name: "Midsummer Bonfire", icon: "Spell_Fire_Fireball", spot: Campfire, set: "wild_lights", price: 40, // draft
+            look: Same(6754), scale: 0.15, // SummerFest_Bonfire_Large01
+            text: "Gives the camp fire the festival's look."),
+        // ---------------------------------------------------------------- a hero's tent
+        // The walkable camp's tent spots, three at each tent (`ESURV_HUB`; plans/hub-decoration-
+        // spots.md, the creative advisor's list): everyday things sold, priced
+        // as the nearest camp piece, and a piece free to each class.
+        (id: "camp_chair", name: "Camp Chair", icon: "INV_Misc_Bag_10", spot: Tent, price: 15, // draft, as the kegs
+            look: Same(39), // GeneralChairLoEnd01
+            text: "Somewhere to sit that is not a log."),
+        (id: "dwarven_chair", name: "Dwarven Chair", icon: "INV_Misc_Bag_10", spot: Tent, price: 15, // draft, as the kegs
+            look: Same(2087), scale: 0.8, // DwarvenChair03
+            text: "Heavy, square and built to outlast whoever sits in it."),
+        (id: "chest", name: "Chest", icon: "INV_Box_01", spot: Tent, price: 20, // draft, as the weapon rack
+            look: Same(10), // Chest01
+            text: "Everything a hero owns that does not fit in a pack."),
+        (id: "bedroll", name: "Bedroll", icon: "INV_Fabric_Linen_01", spot: Tent, price: 25, // draft, as the rug
+            look: Same(6739), scale: 0.6, // OrcSleepMat01
+            text: "A mat to sleep on, rolled out by the tent."),
+        (id: "cooking_pot", name: "Cooking Pot", icon: "INV_Misc_Food_31", spot: Tent, price: 20, // draft, as the cauldron
+            look: Same(216), scale: 0.4, // Cauldron, small
+            text: "One pot, one hero, one meal at a time."),
+        (id: "tent_lantern", name: "Lantern", icon: "INV_Misc_Lantern_01", spot: Tent, price: 15, // draft, as the Night Elf lanterns
+            look: Same(6038), scale: 0.8, // GeneralLantern01
+            text: "A light by the tent door."),
+        // each class's own, free to its heroes
+        (id: "warrior_crate", name: "Sword Crate", icon: "INV_Sword_27", spot: Tent, earned: Class("warrior"),
+            look: Same(6708), scale: 0.8, // WeaponCrateAllianceSword
+            text: "Spare blades, for when the first one breaks."),
+        (id: "paladin_candles", name: "Vigil Candles", icon: "INV_Misc_Candle_01", spot: Tent, earned: Class("paladin"),
+            look: Same(6363), // Candle02
+            text: "Lit each night for the fallen."),
+        (id: "priest_candles", name: "Prayer Candles", icon: "INV_Misc_Candle_01", spot: Tent, earned: Class("priest"),
+            look: Same(6363), // Candle02
+            text: "Three small lights for three short prayers."),
+        (id: "mage_reading_stand", name: "Reading Stand", icon: "INV_Misc_Book_09", spot: Tent, earned: Class("mage"),
+            look: Same(3371), scale: 0.6, // ReadingTable01
+            text: "The spellbook stays open, even in the snow."),
+        (id: "druid_drying_rack", name: "Drying Rack", icon: "INV_Misc_Herb_10", spot: Tent, earned: Class("druid"),
+            look: Same(409), scale: 0.35, // SmokedMeatRack01, standing in for a herb rack
+            text: "Herbs hung to dry by the tent."),
+        (id: "hunter_pelt", name: "Pelt Rug", icon: "INV_Misc_Pelt_Wolf_01", spot: Tent, earned: Class("hunter"),
+            look: Same(159), scale: 0.5, // StormwindRug01, standing in for a pelt
+            text: "From the first beast that did not get away."),
+        (id: "rogue_chest", name: "Locked Chest", icon: "INV_Box_02", spot: Tent, earned: Class("rogue"),
+            look: Same(41), // Chest03
+            text: "Locked twice. The rogue has the only key. Probably."),
+        (id: "warlock_candles", name: "Black Candles", icon: "Spell_Shadow_ShadowBolt", spot: Tent, earned: Class("warlock"),
+            look: Same(4152), // CandleBlack01
+            text: "They burn without warming anything."),
+        (id: "shaman_totem", name: "Totem", icon: "Spell_Nature_BloodLust", spot: Tent, earned: Class("shaman"),
+            look: Same(4716), scale: 0.3, // TaurenTotem03
+            text: "Carved to keep the spirits close."),
+        // ---------------------------------------------------------------- the sets' signposts
+        // One camp sign stands (at `camp_sign`) once any of them is earned.
+        (id: "sign_war_camp", name: "War Camp Signpost", icon: "INV_Misc_Note_01", spot: Sign, earned: Set("war_camp"),
+            look: Faction(horde: 309, alliance: 6135, alliance_scale: 0.25), // orcsignpostpointer03, WoodSignPostNice01
+            text: "War Camp. Owning the whole set put it up."),
+        (id: "sign_tavern_night", name: "Tavern Night Signpost", icon: "INV_Misc_Note_01", spot: Sign, earned: Set("tavern_night"),
+            look: Faction(horde: 309, alliance: 6135, alliance_scale: 0.25),
+            text: "Tavern Night. Owning the whole set put it up."),
+        (id: "sign_forge_row", name: "Forge Row Signpost", icon: "INV_Misc_Note_01", spot: Sign, earned: Set("forge_row"),
+            look: Faction(horde: 309, alliance: 6135, alliance_scale: 0.25),
+            text: "Forge Row. Owning the whole set put it up."),
+        (id: "sign_wild_lights", name: "Wild Lights Signpost", icon: "INV_Misc_Note_01", spot: Sign, earned: Set("wild_lights"),
+            look: Faction(horde: 309, alliance: 6135, alliance_scale: 0.25),
+            text: "Wild Lights. Owning the whole set put it up."),
+        // ---------------------------------------------------------------- trophies: never sold
+        // All earned stand at once in the trophy corner: the two dragon heads at the back, the
+        // small trophies along their foot, the tall thin ones between, the throne beside them.
+        (id: "nefarian_head", name: "Nefarian's Head", icon: "INV_Misc_Head_Dragon_Black", spot: Trophy, earned: ZoneClear("brm"),
+            look: Faction(horde: 5951, alliance: 5952, alliance_scale: 1.5), scale: 0.085, at: (6.8, 9.7), // HordeNefarianPost, AllianceHangingNefarianTrophy
+            text: "He had a plan for every outcome but this one."),
+        (id: "onyxia_head", name: "Onyxia's Head", icon: "INV_Misc_Head_Dragon_01", spot: Trophy, earned: Achievement("bossbane"),
+            look: Faction(horde: 5742, alliance: 5745, alliance_scale: 1.9), scale: 0.083, at: (8.3, 9.7), // HordeOnyxiaTrophyPost, AllianceHangingOnyxiaTrophy
+            text: "The last name on the list, nailed up so the list stays finished."),
+        (id: "eye_of_azora", name: "Eye of Azora", icon: "INV_Misc_Eye_01", spot: Trophy, earned: Achievement("eye_exam_passed"),
+            look: Same(621), at: (5.8, 8.3), // EyeOfAzora
+            text: "It looked at you and blinked first."),
+        // Only the highest throne earned shows (the plan's ladder).
+        (id: "throne", name: "Throne", icon: "INV_Crown_01", spot: Trophy,
+            earned: Ladder([
+                (achievement: "twice_as_hard", look: Same(2810), scale: 0.17), // DarkIronThrone
+                (achievement: "three_times_the_trouble", look: Same(5592), scale: 0.4), // BlackwingLair_Throne
+                (achievement: "lord_of_nothing", look: Same(6690), scale: 0.08), // KelThuzad_Throne
+            ]),
+            look: Same(2810), scale: 0.17, at: (4.6, 8.6),
+            text: "A seat for someone who has run out of things to fear."),
+        (id: "slime_jar", name: "Slime Jar", icon: "INV_Potion_13", spot: Trophy, earned: Achievement("stitched_up"),
+            look: Same(3571), at: (6.4, 8.3), // SlimeJar01
+            text: "Everything that came off him, and nothing that came off you."),
+        (id: "troll_skull_pile", name: "Troll Skull Pile", icon: "INV_Misc_Head_Troll_01", spot: Trophy, earned: ZoneClear("arena"),
+            look: Same(293), scale: 0.8, at: (7.0, 8.3), // TrollSkullPile
+            text: "The crowd wanted a show. You gave them a pile."),
+        (id: "ogre_head_pike", name: "Ogre Head on a Pike", icon: "INV_Misc_Head_Orc_01", spot: Trophy, earned: ZoneClear("feralas"),
+            look: Same(3081), scale: 0.6, at: (6.1, 9.9), // OgreHeadPike
+            text: "Half a library's worth of hard-headedness."),
+        (id: "hanging_skull_lights", name: "Hanging Skull Lights", icon: "INV_Misc_Bone_HumanSkull_01", spot: Trophy, earned: ZoneClear("strat"),
+            look: Same(6417), scale: 0.9, at: (9.0, 9.9), // HangingSkullLight01
+            text: "Light enough to read by, if you can keep your eyes on the page."),
+        (id: "sword_in_skull", name: "Sword in a Skull", icon: "INV_Misc_Bone_ElfSkull_01", spot: Trophy, earned: ZoneClear("wsg"),
+            look: Same(4174), at: (7.5, 10.0), // BattleGladeSwordSkull
+            text: "Planted where the flag used to be."),
+        (id: "ahnqiraj_chest", name: "Ahn'Qiraj Chest", icon: "INV_Box_01", spot: Trophy, earned: Achievement("penny_pincher"),
+            look: Same(6502), scale: 0.6, at: (7.7, 8.3), // G_ChestAhnQiraj
+            text: "Still locked. You never needed what was inside."),
+        (id: "prismatic_dragon_egg", name: "Prismatic Dragon Egg", icon: "INV_Egg_02", spot: Trophy, earned: Achievement("the_eternal_road"),
+            look: Same(5972), scale: 0.12, at: (8.4, 8.3), // G_DragonEggPrismatic01
+            text: "Ten roads walked; it warms a little with each one."),
+        (id: "khadgar_statue", name: "Khadgar Statue", icon: "INV_Misc_Book_11", spot: Trophy, earned: Achievement("spellbound"),
+            look: Same(139), scale: 0.06, at: (5.5, 9.6), // StatueKhadgar (a city's, shrunk to a camp's size)
+            text: "Carved in the pose of someone who has read it all twice."),
+    ],
+    // ------------------------------------------------------------ what grows with progress
+    // The camp fire grows with the best Challenge clear (normal, blue at 2x, Karazhan's at 3x, the
+    // great Midsummer bonfire at 5x); a bought fire on the fire spot replaces it. Every look keeps
+    // one footprint, about a yard and a half across (the Elwynn fire brought down to it): what
+    // grows is the look, not the size.
+    campfire: [
+        (look: Same(192), scale: 0.65), // ElwynnCampfire
+        (achievement: "twice_as_hard", look: Same(5611), scale: 0.65), // ElwynnCampfire_blue
+        (achievement: "three_times_the_trouble", look: Same(6411), scale: 0.15), // KarazahnBonFire01
+        (achievement: "lord_of_nothing", look: Same(6755), scale: 0.15), // SummerFest_Bonfire_Large02
+    ],
+    // The pennant line along the back edge: one small banner for each zone cleared, in the zones'
+    // order, along a rope that stands from the start (an empty place on it is a zone still to
+    // clear). Each banner is brought to a pennant's height; a zone with a faction's banner shows
+    // the camp's own (2026-10-27: no banner of the other faction in a camp).
+    // Ahn'Qiraj a crystal spike (no fitting 1.12 banner), Duskwood
+    // the Holy banner; Sunken Temple a troll tiki head (the troll brazier's flame was a second
+    // fire).
+    banner_line: (
+        from: (-3.2, 11.5),
+        step: 0.85,
+        rope: [
+            (look: Same(6769), at: (3.8, 0.25), scale: 0.8), // SummerFest_Streamersx3
+        ],
+        banners: [
+            (zone: "elwynn", look: Faction(horde: 4313, alliance: 624, horde_scale: 2.8), scale: 0.22), // BattleGladeBanner1, StormwindGriffonBanner01
+            (zone: "duskwood", look: Same(4171), scale: 0.22), // HolyBanner01
+            (zone: "wsg", look: Faction(horde: 6707, alliance: 6390), scale: 0.22), // ClanBanner07Warsong, NightElfTreeBanner02
+            (zone: "scarlet", look: Same(6389), scale: 0.3), // CrimsonBanner01
+            (zone: "sunken_temple", look: Same(653), scale: 0.22), // stranglethorntikihead
+            (zone: "feralas", look: Same(5211), scale: 0.4), // OgreBannerSnow
+            (zone: "arena", look: Same(6663), scale: 0.05), // ArenaFlag
+            (zone: "strat", look: Same(6709), scale: 0.32), // BannerArgentDawn
+            (zone: "brm", look: Faction(horde: 2552, alliance: 630), scale: 0.22), // ClanBanner, DwarvenBanner01
+            (zone: "aq", look: Same(3431), scale: 0.5), // silithus_crystal_spike_01
+        ],
+    ),
+    // The skull spear stands once Slayer I is earned; skulls pile up at its foot with each Slayer
+    // step (2026-10-27: a growing small pile). `at` is from the spear's foot.
+    skull_spear: (
+        at: (-4.0, 8.6),
+        spear: (achievement: "slayer_1", look: Same(2067), scale: 0.7), // skullspear01
+        skulls: [
+            (achievement: "slayer_1", look: Same(448), at: (0.3, 0.1)), // BattleGladeSkullHuman1
+            (achievement: "slayer_2", look: Same(4173), at: (-0.2, 0.25), turn: 140.0), // BlastedLandsSkull01
+            (achievement: "slayer_2", look: Same(226), at: (0.1, -0.25), turn: 250.0), // BlastedLandsSkull02
+            (achievement: "slayer_3", look: Same(448), at: (-0.35, -0.1), turn: 60.0),
+            (achievement: "slayer_3", look: Same(4173), at: (0.4, -0.2), turn: 300.0),
+            (achievement: "slayer_3", look: Same(226), at: (0.05, 0.05), lift: 0.15, turn: 20.0),
+        ],
+    ),
+    // The one camp sign, under the pennant line at the back left.
+    camp_sign: (-2.0, 10.3),
+)

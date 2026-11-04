@@ -204,6 +204,42 @@ impl<V: PartialEq> SeqLoops<V> {
     }
 }
 
+impl<V: Clone> SeqLoops<V> {
+    /// The same loops keyed on another model's sequence slots: slot `i` takes this one's slot
+    /// `from[i]` ([`reslot`]).
+    pub fn reslot(&self, from: &[usize]) -> Self {
+        Self {
+            per_seq: reslot(&self.per_seq, from),
+        }
+    }
+}
+
+/// Per-slot values keyed on another model's sequence slots, for a model drawn on another's clock
+/// (a part planted in a unit plays the unit's sequences): slot `i` takes `per_slot[from[i]]`, slot
+/// 0's when `from[i]` is past the end. Empty stays empty.
+pub fn reslot<T: Clone>(per_slot: &[T], from: &[usize]) -> Vec<T> {
+    if per_slot.is_empty() {
+        return Vec::new();
+    }
+    from.iter()
+        .map(|&i| per_slot.get(i).unwrap_or(&per_slot[0]).clone())
+        .collect()
+}
+
+#[cfg(test)]
+mod reslot_tests {
+    use super::reslot;
+
+    #[test]
+    fn each_slot_takes_the_one_it_maps_to_and_slot_0_past_the_end() {
+        assert_eq!(
+            reslot(&['a', 'b', 'c'], &[2, 0, 0, 9]),
+            vec!['c', 'a', 'a', 'a']
+        );
+        assert!(reslot::<char>(&[], &[0, 1]).is_empty());
+    }
+}
+
 /// Bake one track to a [`KeyAnim`] for one sequence, or `None` when it adds nothing the static
 /// path does not. `drop_constant` drops a whole-track constant (the identity, or one the static
 /// path folded); `is_identity` drops a band that holds the identity, so a held alpha 0 still bakes

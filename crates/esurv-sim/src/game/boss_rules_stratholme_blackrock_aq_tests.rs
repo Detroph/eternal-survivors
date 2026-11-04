@@ -209,7 +209,9 @@ fn ramstein_then_the_dead_then_the_black_guard_then_the_baron() {
     kill_boss(&mut r, "Ramstein the Gorger");
     assert!(r.won_at.is_none(), "not won: the Baron comes");
     let k = boss_named(&r, "Baron Rivendare").expect("the Baron comes");
-    assert!((r.enemies[k].max_health / full - 0.7 / 0.3).abs() < 0.05, "0.7 and 0.3 of the final slot");
+    let share = |name: &str| r.content.zones[r.zone].bosses.iter().find(|b| b.name == name).unwrap().health_share;
+    let want = share("Baron Rivendare") / share("Ramstein the Gorger");
+    assert!((r.enemies[k].max_health / full / want - 1.0).abs() < 0.05, "each by its own health_share");
     assert!(r.enemies[k].mech.phases.aloof() && r.enemies[k].mech.phases.immune);
     assert_eq!(named(&r, "Mindless Undead"), 34);
     let gate = (3974.0, -3395.0);

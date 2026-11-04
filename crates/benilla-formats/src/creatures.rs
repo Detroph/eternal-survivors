@@ -270,6 +270,29 @@ impl CreatureCatalog {
         true
     }
 
+    /// Answer display `id`, which `CreatureDisplayInfo` lacks, as character-model display `base`
+    /// wearing `equipment` (`ItemDisplayInfo` ids by body slot, as [`NpcAppearance::equipment`])
+    /// in place of its own, its body composited live: the hook a game on top of benilla dresses a
+    /// person of its own through. An `id` the table has, or a `base` it lacks or that is no
+    /// character model, is refused.
+    pub fn dress_display(&mut self, id: u32, base: u32, equipment: [u32; 10]) -> bool {
+        if self.display.contains_key(&id) || self.extra.contains_key(&id) {
+            return false;
+        }
+        let Some(mut row) = self.display.get(&base).cloned() else {
+            return false;
+        };
+        let Some(mut look) = (row.extended_id != 0).then(|| self.extra.get(&row.extended_id).cloned()).flatten() else {
+            return false;
+        };
+        look.equipment = equipment;
+        look.bake_name = None;
+        self.extra.insert(id, look);
+        row.extended_id = id;
+        self.display.insert(id, row);
+        true
+    }
+
     /// Number of display entries (for logging/diagnostics).
     pub fn len(&self) -> usize {
         self.display.len()
@@ -1036,5 +1059,22 @@ mod tests {
             !cat.alias_display(9_999_999, 9_999_998),
             "no base, no alias"
         );
+    }
+
+    /// A dressed display is its base's body in the given gear, composited live; a creature that is
+    /// no character model is refused.
+    #[test]
+    fn a_dressed_display_wears_its_own_gear() {
+        let data = crate::wow_data_or_skip!();
+        let mut chain = crate::open_chain(&data).expect("open chain");
+        let mut cat = load_creature_catalog(&mut chain).expect("load creature catalog");
+        let (id, base, gear) = (9_950_001, 3108, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+        assert!(cat.dress_display(id, base, gear));
+        let (dressed, own) = (cat.model(id).unwrap(), cat.model(base).unwrap());
+        assert_eq!(dressed.model_path, own.model_path);
+        let (look, own) = (dressed.npc_appearance.unwrap(), own.npc_appearance.unwrap());
+        assert_eq!((look.race, look.sex, look.face), (own.race, own.sex, own.face));
+        assert_eq!((look.equipment, look.bake_name), (gear, None));
+        assert!(!cat.dress_display(9_950_002, 4587, gear), "a totem has no body to dress");
     }
 }

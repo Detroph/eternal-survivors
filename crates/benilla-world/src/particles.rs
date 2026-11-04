@@ -111,6 +111,9 @@ pub struct ParticleEmitter {
     /// in by the over-life sampler (`0x7b9b10` @`0x7b9b42`). A doodad multiplies its distance fade.
     alpha_src: Option<Entity>,
     alpha: f32,
+    /// The embedding game's own dim ([`Self::set_dim`]), not the reference's: in [0, 1], it
+    /// multiplies births and the render alpha alike; 1 leaves the cloud as authored.
+    dim: f32,
     /// The model (never the bone joint) whose live translation is this pool's sort point, and
     /// only that: a world-mode store is frozen at birth. `None` sorts at the spawn placement.
     anchor: Option<Entity>,
@@ -256,6 +259,17 @@ impl ParticleEmitter {
     /// Whether the owner froze this cloud, so an owner can skip a same-value write.
     pub fn is_frozen(&self) -> bool {
         self.frozen
+    }
+
+    /// Dim this cloud from the owner's side ([`Self::dim`]), clamped to [0, 1]: fewer births and
+    /// a fainter draw, the model left as it is. An embedding game's knob; the reference has none.
+    pub fn set_dim(&mut self, dim: f32) {
+        self.dim = dim.clamp(0.0, 1.0);
+    }
+
+    /// The owner's dim, 1 when untouched.
+    pub fn dim(&self) -> f32 {
+        self.dim
     }
 
     /// The authored def, for the particle census probe ([`crate::capture`]).
@@ -511,6 +525,7 @@ pub fn spawn_emitter(
             draining: false,
             alpha_src: frames.alpha,
             alpha: 1.0,
+            dim: 1.0,
             anchor: frames.anchor,
             light_node: frames.light_node,
             anchor_pos: placement.translation,
@@ -766,6 +781,28 @@ pub(crate) mod tests {
     /// A Spawn/Stand/Despawn GameObject (the battlefield banners) keeps its idle in slot 1, slot 0
     /// being the Spawn flourish. Every clock takes the seed: `Host` because its player may arm
     /// nothing, `Effect(None)` because an unarmed rig rests on the idle.
+    /// The owner's dim starts at 1 and is held to [0, 1].
+    #[test]
+    fn the_owners_dim_is_held_between_none_and_full() {
+        use bevy::ecs::system::RunSystemOnce;
+        let mut app = App::new();
+        let e = app
+            .world_mut()
+            .run_system_once(|mut c: Commands| {
+                spawn_emitter(&mut c, &model_emitter(0), Transform::IDENTITY, default(), EmitClock::Pinned)
+            })
+            .unwrap()
+            .expect("the emitter spawns");
+        let mut em = app.world_mut().get_mut::<ParticleEmitter>(e).unwrap();
+        assert_eq!(em.dim(), 1.0);
+        em.set_dim(0.3);
+        assert_eq!(em.dim(), 0.3);
+        em.set_dim(2.0);
+        assert_eq!(em.dim(), 1.0);
+        em.set_dim(-1.0);
+        assert_eq!(em.dim(), 0.0);
+    }
+
     #[test]
     fn an_emitter_opens_on_its_models_idle_slot_not_slot_zero() {
         let host = Entity::from_raw_u32(1).unwrap();

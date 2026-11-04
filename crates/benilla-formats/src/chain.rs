@@ -2,8 +2,9 @@
 //! read resolves a name to the highest-priority archive holding it, so a patch wins; base archives
 //! carry no `(listfile)`, so resolution is by name hash.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
+use std::sync::Arc;
 
 use anyhow::{anyhow, bail, Context, Result};
 use benilla_mpq::Archive;
@@ -20,6 +21,14 @@ pub struct ChainEntry {
 pub struct Chain {
     /// Ascending priority: later archives win.
     archives: Vec<Archive>,
+    /// Files the game built on the client provides from memory ([`Chain::provide`]), by
+    /// [`provided_key`]: they win over every archive.
+    provided: HashMap<String, Arc<[u8]>>,
+}
+
+/// A name as the chain compares it: any case, `/` and `\` alike.
+fn provided_key(name: &str) -> String {
+    name.replace('/', "\\").to_ascii_lowercase()
 }
 
 /// `patch-?.MPQ` as the reference's `FindFirstFileW` glob matches it (template `0x82edbc`, wrapper
@@ -93,7 +102,10 @@ impl Chain {
                 Archive::open(path).with_context(|| format!("opening MPQ {}", path.display()))?,
             );
         }
-        Ok(Self { archives })
+        Ok(Self {
+            archives,
+            provided: HashMap::new(),
+        })
     }
 
     /// The highest-priority archive with an entry for `name`, a delete marker included, as a
@@ -104,6 +116,9 @@ impl Chain {
 
     /// Whether `name` (`/` or `\`, any case) is a readable file, not a delete marker.
     pub fn contains(&self, name: &str) -> bool {
+        if self.provided.contains_key(&provided_key(name)) {
+            return true;
+        }
         self.resolve(name)
             .is_some_and(|a| !a.is_delete_marker(name))
     }
@@ -115,6 +130,9 @@ impl Chain {
 
     /// Read a file by internal path (`/` or `\`) from its winning archive.
     pub fn read(&self, name: &str) -> Result<Vec<u8>> {
+        if let Some(bytes) = self.provided.get(&provided_key(name)) {
+            return Ok(bytes.to_vec());
+        }
         let archive = self.archive_for(name)?;
         archive
             .read_file(name)
@@ -135,6 +153,14 @@ impl Chain {
             );
         }
         Ok(archive.clone())
+    }
+
+    /// Deviation, an extension the reference has no counterpart for: a file the game provides
+    /// under `name`. [`Chain::contains`] and [`Chain::read`] answer it ahead of every archive, so
+    /// the game's own UI art (a TGA or BLP) loads by path as an archive's does; [`Chain::resolve`],
+    /// [`Chain::archive_for`] and [`Chain::list`] do not see it.
+    pub fn provide(&mut self, name: &str, bytes: Vec<u8>) {
+        self.provided.insert(provided_key(name), bytes.into());
     }
 
     /// `&mut` alias of [`Chain::read`] for call sites that thread a `&mut Chain`.
@@ -180,6 +206,25 @@ mod tests {
 
     fn owned(names: &[&str]) -> Vec<String> {
         names.iter().map(|n| n.to_string()).collect()
+    }
+
+    #[test]
+    fn a_provided_file_answers_by_any_spelling_of_its_name() {
+        let mut chain = Chain {
+            archives: Vec::new(),
+            provided: HashMap::new(),
+        };
+        chain.provide("Interface\\ESurv\\DragonCap.tga", vec![1, 2, 3]);
+        for name in [
+            "Interface\\ESurv\\DragonCap.tga",
+            "interface/esurv/dragoncap.tga",
+            "INTERFACE\\ESURV\\DRAGONCAP.TGA",
+        ] {
+            assert!(chain.contains(name), "{name}");
+            assert_eq!(chain.read(name).unwrap(), vec![1, 2, 3], "{name}");
+        }
+        assert!(!chain.contains("Interface\\ESurv\\DragonCap.blp"));
+        assert!(chain.read("Interface\\ESurv\\DragonCap").is_err());
     }
 
     #[test]

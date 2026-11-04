@@ -28,6 +28,11 @@ pub struct WorldUnit {
     /// is culled as a degenerate box at its origin, not admitted. `None` is not the world's to
     /// decide: the transport, whose root `Visibility` its own tick writes.
     pub bound: Option<bevy::camera::primitives::Aabb>,
+    /// A body a game says stands in no WMO room, whatever lies under it: its room claim and its
+    /// light (`crate::interior`) are outdoors, not rayed. Not the reference's: a game's prop sunk into the ground casts from under
+    /// the terrain, where the ray falls past it into a cave far below and the cull hides it there
+    /// (`crate::exterior_cull`). Always `false` in stock benilla.
+    pub stands_outdoors: bool,
 }
 
 /// The viewer's own body; a marker because every use is a query filter.

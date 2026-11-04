@@ -154,6 +154,8 @@ server.md in the folder above this one.
     ESURV_AUTOSTART=1       start the run straight away, without the first step
     ESURV_METER_DEMO=1      fill the damage meter with made-up numbers (see screens.txt)
     ESURV_ZONE=<zone>       send every hero to this zone (its id or name)
+    ESURV_HUB=0             no camp to walk around in: the old warband screen, and heroes
+                                 go straight into a run
     ESURV_HERO_SHOTS=<png>  take close pictures of your hero in the run, from three sides
     ESURV_GRANT=<names>     start every run wearing these rings, trinkets and amulets
                                  (ids from the content, comma-separated; id@3 for an epic one),

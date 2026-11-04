@@ -1,0 +1,29 @@
+// Companion template. Copy the block below into the list in content/companions.ron. A companion
+// follows its hero in runs, fetches the gold piles in reach and carries them back, and stands
+// beside its hero at the camp fire. docs/game/achievements.md has the rules; docs/game/AUTHORING.md
+// "A companion" walks through one.
+//
+// Two kinds of look:
+//   Pet(npc: n)          one of the 1.12 companion pets: the creature its item summons (the list
+//                        is PET_NPCS in crates/esurv-content/src/companions.rs, from the vmangos
+//                        world database). Its look and size are WoW's; keep scale 1.0.
+//   Creature(display: n) ANY creature model: its CreatureDisplayInfo.dbc number. Find it on a
+//                        database site (the NPC's "model" / display id) or in the vmangos table
+//                        creature_template.display_id1.
+//
+// Normal creature models (not made as pets) need two checks in game:
+//   - size: most are human-sized or bigger; set `scale` so it reads as a pet (0.1 to 0.6).
+//   - legs: it must have walk and run moves. A model that only stands (the Eye of C'Thun) can
+//     glide instead: give it `hover: 1.2` (yards above the ground; it bobs gently).
+(
+    id: "tiny_kobold",               // unique, lowercase; the save keeps it, so never change it once shipped
+    name: "Tiny Kobold",             // shown in the shop and on the hero sheet
+    icon: "INV_Misc_Head_Kobold_01", // a texture name from Interface\Icons in the WoW client
+    look: Creature(display: 365),    // a kobold's model; or Pet(npc: 7385) for the Bombay cat
+    scale: 0.45,                     // size compared with the model's own (1.0 = as in WoW)
+    price: 50,                       // points to spend in the shop
+    text: "You no take candle. It takes gold.", // its shop tooltip, our own words
+    // Instead of a price, a companion only an achievement gives:
+    //   unlock: Achievement("gnoll_means_no"), and that achievement's rewards: [Companion("tiny_kobold")]
+    // hover: 1.2,                   // optional: glides this high instead of walking
+)

@@ -90,6 +90,12 @@ pub enum ToServer {
     Choose(u32),
     /// `reroll`: new offers on the open screen.
     Reroll,
+    /// `banish <n>`: offer `n` of the open screen is never offered to the hero again this run,
+    /// and a fresh one takes its place; spends one of the run's banishes.
+    Banish(u32),
+    /// `skip`: the open screen closes, nothing taken; spends one of the run's
+    /// skips.
+    Skip,
     /// `pause` and `resume` the run.
     Pause,
     Resume,
@@ -100,6 +106,19 @@ pub enum ToServer {
     /// `reset`: end the run here (paid out as a run left) and start a fresh one for the same
     /// hero, zone and run options, at any time once it has begun.
     Reset,
+    /// `camprun`: in the camp, set off on a run in the zone chosen for the hero (the server leaves
+    /// the client to come back in as the hero, into its run).
+    CampRun,
+    /// `campdress`: in the camp, the hero's gear changed on the hero sheet: shown as it is now.
+    CampDress,
+    /// `campclosed`: in the camp, the window over it was closed (back to walking).
+    CampClosed,
+    /// `campdecorate <spot> [piece]`: in the camp, set `piece` out on decoration spot `spot`
+    /// (none: clear it), picked in the Decorate list the spot's F opened.
+    CampDecorate { spot: String, piece: Option<String> },
+    /// `campchatter <level>`: how the camp heroes' lines show, from the Camp chatter option: 0 not
+    /// at all (their gestures stay), 1 as bubbles only, 2 as bubbles and in the chat (the default).
+    CampChatter(u32),
     /// `leave`: end the run here.
     Leave,
     /// `options <density> <health> <damage> <speed> <challenge> <challenge %>`: the run options and
@@ -124,7 +143,7 @@ pub enum ToServer {
         look: Option<u32>,
     },
     /// `loadout <id>`: the weapon loadout the class fights with from its next run
-    /// (roadmap R3).
+    ///.
     ChooseLoadout(String),
 }
 
@@ -135,11 +154,18 @@ impl ToServer {
             ToServer::Hello { .. } => "hello",
             ToServer::Choose(_) => "choose",
             ToServer::Reroll => "reroll",
+            ToServer::Banish(_) => "banish",
+            ToServer::Skip => "skip",
             ToServer::Pause => "pause",
             ToServer::Resume => "resume",
             ToServer::Endless => "endless",
             ToServer::Again => "again",
             ToServer::Reset => "reset",
+            ToServer::CampRun => "camprun",
+            ToServer::CampDress => "campdress",
+            ToServer::CampClosed => "campclosed",
+            ToServer::CampDecorate { .. } => "campdecorate",
+            ToServer::CampChatter(_) => "campchatter",
             ToServer::Leave => "leave",
             ToServer::RunOptions(_) => "options",
             ToServer::LearnTalent(_) => "learn",
@@ -177,7 +203,7 @@ impl Wire for ToServer {
                     }
                 }
             }
-            ToServer::Choose(n) => {
+            ToServer::Choose(n) | ToServer::Banish(n) => {
                 o.num(n);
             }
             ToServer::RunOptions(options) => {
@@ -191,8 +217,16 @@ impl Wire for ToServer {
             | ToServer::ChooseLoadout(id) => {
                 o.text(id);
             }
+            ToServer::CampDecorate { spot, piece } => {
+                o.text(spot).list(piece.as_slice(), |o, p| {
+                    o.text(p);
+                });
+            }
             ToServer::Wear(entry) => {
                 o.num(entry);
+            }
+            ToServer::CampChatter(level) => {
+                o.num(level);
             }
             ToServer::TakeOff(slot) => {
                 o.num(slot);
@@ -201,11 +235,15 @@ impl Wire for ToServer {
                 o.num(slot).opt(*look);
             }
             ToServer::Reroll
+            | ToServer::Skip
             | ToServer::Pause
             | ToServer::Resume
             | ToServer::Endless
             | ToServer::Again
             | ToServer::Reset
+            | ToServer::CampRun
+            | ToServer::CampDress
+            | ToServer::CampClosed
             | ToServer::Leave
             | ToServer::ResetPrestige => {}
         }
@@ -234,11 +272,18 @@ impl Wire for ToServer {
             }
             "choose" => ToServer::Choose(r.num()?),
             "reroll" => ToServer::Reroll,
+            "banish" => ToServer::Banish(r.num()?),
+            "skip" => ToServer::Skip,
             "pause" => ToServer::Pause,
             "resume" => ToServer::Resume,
             "endless" => ToServer::Endless,
             "again" => ToServer::Again,
             "reset" => ToServer::Reset,
+            "camprun" => ToServer::CampRun,
+            "campdress" => ToServer::CampDress,
+            "campclosed" => ToServer::CampClosed,
+            "campdecorate" => ToServer::CampDecorate { spot: r.text()?, piece: r.list(|r| r.text())?.pop() },
+            "campchatter" => ToServer::CampChatter(r.num()?),
             "leave" => ToServer::Leave,
             "options" => {
                 let mut options = RunOptions::read(r)?;
@@ -293,11 +338,19 @@ mod tests {
         });
         round_trip(ToServer::Choose(2));
         round_trip(ToServer::Reroll);
+        round_trip(ToServer::Banish(1));
+        round_trip(ToServer::Skip);
         round_trip(ToServer::Pause);
         round_trip(ToServer::Resume);
         round_trip(ToServer::Endless);
         round_trip(ToServer::Again);
         round_trip(ToServer::Reset);
+        round_trip(ToServer::CampRun);
+        round_trip(ToServer::CampDress);
+        round_trip(ToServer::CampClosed);
+        round_trip(ToServer::CampDecorate { spot: "fire_1".into(), piece: Some("rug".into()) });
+        round_trip(ToServer::CampDecorate { spot: "fire_2".into(), piece: None });
+        round_trip(ToServer::CampChatter(1));
         round_trip(ToServer::Leave);
         round_trip(ToServer::RunOptions(RunOptions {
             density: 200,

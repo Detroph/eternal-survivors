@@ -81,6 +81,10 @@ pub(in crate::entities) struct PreviewSpec {
     /// `0x504b44`) and literal sheath 0 (`0x504adc`) put a tried-on ranged weapon in a hand
     /// whatever its SheatheType, as [`placement`]'s ranged arm does: a bow left, the rest right.
     pub(in crate::entities) ranged_in_hand: bool,
+    /// The enchant (a `SpellItemEnchantment.dbc` id, 0 for none) on each held slot (main hand,
+    /// off hand, ranged), whose glow its weapon shows as an enchanted item's does; the roster
+    /// row carries none, so only an embedder's look names one.
+    pub(in crate::entities) enchants: [u32; 3],
 }
 
 /// What [`assemble`] produced: a preview bake's content, in the booth's shape.
@@ -100,6 +104,8 @@ pub(in crate::entities) struct PreviewCtx<'a, 'w> {
     /// The glow chain, resolved here: the world's `resolve_equipment` never runs for a look
     /// nobody wears.
     pub(in crate::entities) glows: Option<&'a mut ItemGlows>,
+    /// `SpellItemEnchantment.dbc`, for a look's enchant glows ([`PreviewSpec::enchants`]).
+    pub(in crate::entities) enchants: Option<&'a benilla_formats::EnchantCatalog>,
     pub(in crate::entities) sections: Option<&'a SkinSections>,
     pub(in crate::entities) images: &'a mut Assets<Image>,
     pub(in crate::entities) skin_composites: &'a mut SkinComposites,
@@ -117,6 +123,7 @@ pub(in crate::entities) fn build_glue_preview(
     char_create: Option<Res<CharCreate>>,
     mut displays: Option<ResMut<ItemDisplays>>,
     mut glows: Option<ResMut<ItemGlows>>,
+    enchants: Option<Res<crate::items::Enchants>>,
     sections: Option<Res<SkinSections>>,
     mut images: ResMut<Assets<Image>>,
     mut skin_composites: ResMut<SkinComposites>,
@@ -196,6 +203,10 @@ pub(in crate::entities) fn build_glue_preview(
         flags,
         // The select build skips the ranged slot (`0x472bfe`).
         ranged_in_hand: false,
+        enchants: match look {
+            GlueLook::Select(l) => l.enchants,
+            GlueLook::Create(_) => [0; 3],
+        },
     };
     let Some(a) = assemble(
         &spec,
@@ -204,6 +215,7 @@ pub(in crate::entities) fn build_glue_preview(
             characters: characters.as_deref(),
             displays: displays.as_deref_mut(),
             glows: glows.as_deref_mut(),
+            enchants: enchants.as_deref().map(|e| &e.0),
             sections: sections.as_deref(),
             images: &mut images,
             skin_composites: &mut skin_composites,
@@ -281,6 +293,7 @@ pub(in crate::entities) fn build_dressup_preview(
     characters: Option<Res<Characters>>,
     mut displays: Option<ResMut<ItemDisplays>>,
     mut glows: Option<ResMut<ItemGlows>>,
+    enchants: Option<Res<crate::items::Enchants>>,
     sections: Option<Res<SkinSections>>,
     mut images: ResMut<Assets<Image>>,
     mut skin_composites: ResMut<SkinComposites>,
@@ -328,6 +341,7 @@ pub(in crate::entities) fn build_dressup_preview(
         // The ranged slot here only holds a try-on: `SetUnit` clones the live model, which shows
         // a ranged weapon only while ranged-drawn, so `crate::ui_dressup` leaves a worn one out.
         ranged_in_hand: true,
+        enchants: [0; 3],
     };
     let Some(a) = assemble(
         &spec,
@@ -336,6 +350,7 @@ pub(in crate::entities) fn build_dressup_preview(
             characters: characters.as_deref(),
             displays: displays.as_deref_mut(),
             glows: glows.as_deref_mut(),
+            enchants: enchants.as_deref().map(|e| &e.0),
             sections: sections.as_deref(),
             images: &mut images,
             skin_composites: &mut skin_composites,
@@ -538,7 +553,9 @@ fn assemble(spec: &PreviewSpec, ctx: &mut PreviewCtx<'_, '_>) -> Option<Assemble
                 .iter_mut()
                 .filter(|w| matches!(w.kind, ItemModelKind::Weapon | ItemModelKind::Shield))
             {
-                w.visual = d.catalog.get(w.display).map_or(0, |c| c.item_visual);
+                let base = d.catalog.get(w.display).map_or(0, |c| c.item_visual);
+                let enchant = w.held_slot.map(|s| spec.enchants[s]).filter(|&e| e != 0);
+                w.visual = item_glow::effective_visual(g, ctx.enchants, base, enchant);
                 item_glow::ensure_glow_models(g, w.visual, ctx.asset_server);
             }
         }
@@ -756,6 +773,8 @@ struct HeldWant {
     kind: ItemModelKind,
     attach: u16,
     visual: i32,
+    /// The held slot it stands in (main hand, off hand, ranged); `None` for a helm or shoulder.
+    held_slot: Option<usize>,
 }
 
 /// A preview's helm, shoulder pair and held weapons. The select build forces SheatheType 0
@@ -777,6 +796,7 @@ fn held_wants(
             kind: ItemModelKind::Helm { race, sex },
             attach: attach_id::HELM,
             visual: 0, // a helm never glows: its attach site passes a literal 0
+            held_slot: None,
         });
     }
     let shoulder = equipment[ENUM_SHOULDER].display_id;
@@ -790,6 +810,7 @@ fn held_wants(
                 kind,
                 attach,
                 visual: 0, // nor do shoulders
+                held_slot: None,
             });
         }
     }
@@ -817,6 +838,7 @@ fn held_wants(
             kind,
             attach,
             visual: 0, // filled by the caller, which holds the display catalog
+            held_slot: Some(held_slot),
         });
     }
     wants

@@ -305,7 +305,7 @@ Each zone has **12** roster entries (the number is not fixed by the code).
     scale: 1.0,
     creature_type: Humanoid, // Beast, Dragonkin, Demon, Elemental, Giant, Undead, Humanoid, ...
     kind: Ranged,            // its numbers come from content/enemy_kinds.ron (section 5)
-    toughness: 0.5,          // normal enemies only: health × this (default 1; section 4)
+    role: Light,             // normal enemies only: health × its role's multiplier (Sturdy when left out; section 4)
     appears_at_minute: 2.0,  // confirmed: cannot spawn before this run minute
     look_spell: Some(133), // ranged kinds only: the WoW spell it casts
 )
@@ -386,14 +386,14 @@ How a roster plays out (**confirmed**):
 
 The roster pattern per zone, useful as a template:
 
-| Slot | Role | Unlocks | Cost | Toughness |
+| Slot | Part | Unlocks | Cost | Role |
 |---|---|---|---|---|
-| 1–3 | swarm fodder (one fast beast) | 0–1.2 min | 1 | 0.25–0.5 |
-| 4 | first caster (ranged) | 2 min | 2 | 0.5–0.75 |
-| 5–6 | sturdier melee | 3–4.5 min | 1.5–3 | 0.5–2.25 |
-| 7 | fast flanker | 6 min | 1.5 | 0.75–2.25 |
-| 8 | second caster | 7.5 min | 2 | 0.75 |
-| 9 | heavy | 9 min | 3 | 2.5–3.25 |
+| 1–3 | swarm fodder (one fast beast) | 0–1.2 min | 1 | Swarm, Light |
+| 4 | first caster (ranged) | 2 min | 2 | Light, Standard |
+| 5–6 | sturdier melee | 3–4.5 min | 1.5–3 | Light to Tough |
+| 7 | fast flanker | 6 min | 1.5 | Standard to Tough |
+| 8 | second caster | 7.5 min | 2 | Standard |
+| 9 | heavy | 9 min | 3 | Brute |
 | 10–12 | elites | 4, 8.5, 13 min | 12–14 | none (elite kind) |
 
 ## 3. Bosses
@@ -481,7 +481,7 @@ per run, evenly, from the run's seed), on the elite timer:
 * **Silent**: a rare says nothing when it comes, when it calls its adds or
   when it dies, and no banner announces it.
 * **Health and damage**: the rare kind of the enemy formula
-  (section 4) at the minute it appears: 240 × 10 × `normal_health`(D)^`elite_health_power` × health clock and 8 × 3 × `normal_damage`(D)^`elite_damage_power` ×
+  (section 4) at the minute it appears: 240 × 8 × D^`health_power` × health clock and 8 × 2.25 × (D^`health_power`)^`damage_share` ×
   damage clock. Rares slain do not make the others stronger; the count only raises the gold.
 * **When slain:** gold `25 + 5 × rares slain`, an instant level for the killer (experience to
   the next level; its level-up card follows as usual), a 50 % chance to drop a magnet that is
@@ -496,17 +496,30 @@ Code: `esurv-sim` `game::rares` (numbers, schedule, spawning, the kill), `game::
 
 Every enemy kind, from fodder to the final boss, takes its health
 and damage from one formula, read once when it appears at run minute `m`. The numbers live in
-`content\balance.ron`; the zone gives only its difficulty D, and a normal enemy its toughness.
+`content\balance.ron`; the zone gives only its difficulty D, and a normal enemy its role.
 `balance.ron` also holds the experience numbers (classes.md) and the spell tag coefficients
 (`spell_tags`, spells.md 8a).
 
 ### The full enemy formula
 
 ```
-health = 240 × kind health × growth^(D − 1)    × health clock(m) × toughness × health% × 1.22^endless
-damage = 8   × kind damage × growth^(0.6 (D − 1)) × damage clock(m)            × damage% × 1.12^endless
+health = 240 × kind health × D^1.0              × health clock(m) × role × dial(health)
+damage = 8   × kind damage × (D^1.0)^0.53       × damage clock(m)        × dial(damage)
+dial   = health% (damage%) × 1.22^endless (1.12^endless) × [Challenge Mode: challenge_factor × slider]
 speed  = speed% × enemy_speed × base speed   (every enemy alike; `balance.ron` `enemy_speed`, 0.95)
 ```
+
+One zone curve and one pair of clocks for every kind: an elite, a
+rare, a boss and a final boss are each a plain multiple of a normal enemy of the same zone at the
+same minute, so a difficulty is one dial at the end. Before it, elites, rares and bosses grew more
+slowly with D than the swarm and bosses read the health clock to the power 0.3; the multipliers
+were first fitted to reproduce what they had, then refitted to the
+boss-time targets with the damage build: an elite takes about 15 s of the hero's full damage, a rare
+about 25 s; a boss lives about 60 s and a final boss about 120 s halfway between plain play and the
+damage build (the mean of the two;
+AUTHORING.md section 16). The one exception to "one pair of clocks": bosses and final bosses read
+the health clock to `boss_clock_power` (**0.45**), a gentler boss clock so a
+zone's late bosses do not outlast its early ones.
 
 * **Base values:** 240 health and 8 damage, the same for the whole game (`base_health`,
   `base_damage`).
@@ -515,26 +528,22 @@ speed  = speed% × enemy_speed × base speed   (every enemy alike; `balance.ron`
   | Kind | Health | Damage |
   |---|---|---|
   | normal enemy | ×1 | ×1 |
-  | elite | ×10 | ×3 |
-  | rare | ×10 | ×3 |
-  | boss | ×37.5 | ×2 |
-  | final boss (`is_final`) | ×94 | ×1 |
+  | elite | ×22.2 (×18.5 before the 20 % boost, ×8 earlier) | ×2.25 |
+  | rare | ×19.8 (×16.5, ×8) | ×2.25 |
+  | boss | ×40.2 (×33.5, ×5), on the boss clock | ×1.3 |
+  | final boss (`is_final`) | ×54 (×45, ×3.75), on the boss clock | ×0.65 |
+
+  A boss's own `health_share` (its zone file) multiplies its health on top; every boss has its
+  own, fitted to its time goal.
 * **D:** the zone's `difficulty`, its place in the unlock order: Elwynn 1, Duskwood 2 … Ahn'Qiraj
-  10 (section 5 leaves room for a zone at 6). Every number that
-  follows D lives in one block, `balance.ron` `zone_scaling`, and is built on the hero we expect a
-  player to bring to the zone (one won run in each zone before it: its talent points and the
-  previous zone's gear), never on a hero's actual power (AUTHORING.md, "Power budgets"):
-  * normal enemies: health × `normal_health` at D, a table (D 1–12: ×1, 1.4, 2.25, 4, 5.75,
-    6.75, 7.25, 8.75, 9, 11, 12, 17.25; straight lines between points, past the last at the last step's
-    pace), fitted so the baseline hero (rare and epic amulets, bought caches, kiting) meets the
-    original game's kill seconds; damage × `normal_damage` at D, its own table read the same way
-    (×1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75, 4.25, 5: the blows the health table gave
-    before its refit, kept), so `damage_share` (0.6) is not read while it is set;
-  * elites and rares: the health multiplier^`elite_health_power` (**0.87**), bosses
-    ^`boss_health_power` (**0.7**) and the health clock to `boss_clock_power` (**0.3**), so a
-    fight with them keeps about the same length next to the expected hero from zone to zone; their
-    damage is `normal_damage` to `elite_damage_power` (**0.65**) or `boss_damage_power` (**0.5**),
-    the blows they had before;
+  10. Every number that follows D lives in one block, `balance.ron` `zone_scaling`, and is built
+  on the hero we expect a player to bring to the zone (one won run in each zone before it: its
+  talent points and the previous zone's gear), never on a hero's actual power (AUTHORING.md,
+  "Power budgets"):
+  * every enemy: health × D^`health_power` (**1.0**: a zone has D times the first zone's
+    health), the zone curve, fitted to the hand table it replaced (D 1–10: ×1, 1.4, 2.25, 4, 5.75,
+    6.75, 7.25, 8.75, 9, 11); damage × that curve to `damage_share` (**0.53**), fitted to the
+    hand damage table it replaced (×1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75);
   * gear, drops, gear tiers and talent experience (below, gear.md and classes.md).
 * **Clocks** (`health_clock`, `damage_clock`): through these points, in straight lines between
   them, and past each clock's last point at its last step's pace (health past minute 20 at the
@@ -546,9 +555,11 @@ speed  = speed% × enemy_speed × base speed   (every enemy alike; `balance.ron`
   |---|---|---|---|---|---|---|
   | Health | ×1 | ×2.5 | ×7 | ×18 | ×36 | ×65 |
   | Damage | ×1 | ×1.5 | ×2.5 | ×4.5 | ×7 | ×9.5 |
-* **Toughness:** per normal enemy, on health only, in steps of 0.25 (at least 0.25); 1 when left
-  out. It says how much sturdier the enemy is than its zone's average normal enemy. Elites,
-  rares and bosses have none.
+* **Role** (`role` in the zone file, `balance.ron` `roles`): per normal enemy, on health only.
+  It says how sturdy the enemy is next to its zone's curve: **Swarm** ×0.25, **Light** ×0.5,
+  **Standard** ×0.75, **Sturdy** ×1 (also when left out), **Tough** ×2, **Brute** ×3. The six
+  steps group the old per-enemy `toughness` (0.25 to 4) by their geometric means; a zone file that
+  still names a toughness is refused. Elites, rares and bosses have none.
 * **R:** a run-wide factor every run starts at **1** and nothing changes; health × R and
   damage × √R. It is kept as a knob for future modes.
 * **Endless** (**confirmed**): after the final boss you may continue; then health ×1.22 and
@@ -567,15 +578,15 @@ Boss abilities work from the boss's damage after all of this (section 3).
 | Zone | D | Normal enemy at minute 0 (health / damage) | Boss gear drop chance | Talent experience | Final boss at |
 |---|---|---|---|---|---|
 | Elwynn Forest | 1 | 240 / 8.0 | 100 % | ×1.00 | 16 min |
-| Duskwood | 2 | 336 / 9.2 | 80 % | ×1.62 | 16 min |
-| Warsong Gulch | 3 | 540 / 11.2 | 80 % | ×2.16 | 16 min |
-| Scarlet Monastery | 4 | 960 / 16.4 | 70 % | ×2.64 | 18 min (two at once) |
-| Sunken Temple | 5 | 1380 / 19.6 | 70 % | ×3.09 | 18 min |
-| Dire Maul | 6 | 1620 / 21.6 | 60 % | ×3.51 | 18 min |
-| Gurubashi Arena | 7 | 1740 / 21.6 | 60 % | ×3.90 | 18 min |
-| Stratholme | 8 | 2100 / 26.0 | 40 % | ×4.29 | 20 min |
-| Blackrock Mountain | 9 | 2160 / 26.0 | 40 % | ×4.66 | 20 min |
-| Gates of Ahn'Qiraj | 10 | 2640 / 30.0 | 40 % | ×5.01 | 20 min |
+| Duskwood | 2 | 480 / 11.6 | 80 % | ×1.62 | 16 min |
+| Warsong Gulch | 3 | 720 / 14.3 | 80 % | ×2.16 | 16 min |
+| Scarlet Monastery | 4 | 960 / 16.7 | 70 % | ×2.64 | 18 min (two at once) |
+| Sunken Temple | 5 | 1200 / 18.8 | 70 % | ×3.09 | 18 min |
+| Dire Maul | 6 | 1440 / 20.7 | 60 % | ×3.51 | 18 min |
+| Gurubashi Arena | 7 | 1680 / 22.4 | 60 % | ×3.90 | 18 min |
+| Stratholme | 8 | 1920 / 24.1 | 40 % | ×4.29 | 20 min |
+| Blackrock Mountain | 9 | 2160 / 25.6 | 40 % | ×4.66 | 20 min |
+| Gates of Ahn'Qiraj | 10 | 2400 / 27.1 | 40 % | ×5.01 | 20 min |
 
 Besides D, a later zone is harder because its **run is longer**: bosses move from
 3/6/9/12/16 min to 4/7/11/14/18 and 4/8/12/16/20. The spawn budget grows with time
@@ -607,13 +618,13 @@ The mode for after the last zone.
   it, two tabs sit over the zone list, **Normal Mode** and **Challenge Mode**, and a challenge
   slider under the second (menus.md, screens.md).
 * **Normal Mode** is the game as it is: nothing changes.
-* **Challenge Mode.** Every zone is open. A zone keeps its own enemies, roster, toughness, bosses,
+* **Challenge Mode.** Every zone is open. A zone keeps its own enemies, roster, roles, bosses,
   mechanics and clocks, but its zone scaling is Ahn'Qiraj's: every enemy's health and damage come
   from the formula above with Ahn'Qiraj's D (read from its zone file, never a written 10). Then
   the final health and the final damage of every enemy, normal, elite, rare, boss and final boss
   alike, are × **`challenge_factor` × slider**, one flat factor that never goes through the kind
-  and zone powers (`elite_health_power`, `boss_health_power`, `damage_share`,
-  `elite_boss_damage_share`), on top of everything else, the run options included:
+  and zone curve, on top of everything else, the run options included: the last part of the
+  difficulty dial (section 4):
 
   ```
   challenge health = (the formula's health at Ahn'Qiraj's D) × challenge_factor × slider
@@ -646,10 +657,10 @@ defined once in `content\enemy_kinds.ron` (`enemies`); a roster entry names its 
 
 | Kind | `move_speed` | `attack_interval` | `spawn_cost` | Use for |
 |---|---|---|---|---|
-| `Fodder` | 6 | 1.5 | 1 | weak early melee, toughness 0.25–0.5 |
+| `Fodder` | 6 | 1.5 | 1 | weak early melee, role Swarm or Light |
 | `FastFodder` | 8 | 1.5 | 1 | fast beasts among the fodder |
 | `Mid` | 5 | 2 | 2 | mid melee |
-| `ToughMid` | 5 | 2 | 3 | mid melee at toughness 2 and up |
+| `ToughMid` | 5 | 2 | 3 | mid melee of role Tough or Brute |
 | `FastMid` | 8 | 2 | 2 | fast mid melee (flankers, beasts) |
 | `Ranged` | 5 | 3 | 2 | casters: range 18 yd, cast time 1.5 s; the entry names its `look_spell` |
 | `Elite` | 5.5 | 2 | 12 (not read: elites come on their timer) | elites |
@@ -664,7 +675,7 @@ does not exist, a caster without `look_spell`, or a `look_spell` on a kind that 
    no list or code names it.
 2. Set the place: `map_id`, `area_id`, `spawn`, `arena_radius`, `hour`, `weather`.
 3. Build a roster of enemies: pick `display_id`s from `CreatureDisplayInfo.dbc`, pick each one's
-   `kind` from the table above, and set `toughness` (normal enemies), `appears_at_minute` and,
+   `kind` from the table above, and set `role` (normal enemies), `appears_at_minute` and,
    for casters, `look_spell`, following the pattern in section 2. Give each elite the `scale`
    min(2.0, 6.0 / its model's size) and each boss the one that draws it at 9 (12 the final),
    section 1, "Sizes".

@@ -3,6 +3,7 @@
 
 use crate::fields::{In, Out};
 use crate::to_server::RunOptions;
+use crate::TimePeriod;
 use crate::Wire;
 
 /// Where the run stands (phases 0 to 5).
@@ -307,6 +308,10 @@ pub struct Choices {
     /// Gold the next reroll costs (0 while free ones are left).
     pub reroll_cost: u32,
     pub free_rerolls: u32,
+    /// The banishes and skips the hero has left this run: one count of each,
+    /// shared by level-ups and caches.
+    pub banishes: u32,
+    pub skips: u32,
     pub offers: Vec<Offer>,
     /// What the hero has as the screen opens (the slots a card fills, the screen's side panels).
     pub kit: Kit,
@@ -717,6 +722,74 @@ pub struct Meter {
     pub taken: Vec<MeterEntry>,
 }
 
+/// The warband's achievements, as the Achievements window shows them ([`ToClient::Achievements`]).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Achievements {
+    /// The achievement score: every earned achievement's points (it never drops).
+    pub score: u32,
+    /// The points to spend: the score less what the shop took.
+    pub balance: u32,
+    /// Every achievement earned, by id, with when (Unix seconds), in the order they were earned.
+    pub earned: Vec<(String, u64)>,
+    /// How far each achievement not yet earned that counts something has come.
+    pub progress: Vec<AchievementProgress>,
+    /// The achievements tracked in runs, by id, in the order ticked (none earned, at most
+    /// [`crate::MAX_TRACKED`]).
+    pub tracked: Vec<String>,
+    /// Whether anything was earned since the Achievements window was last opened.
+    pub news: bool,
+    /// What the shop sold the warband, as the shop's items (`companion:<id>`,
+    /// `companion_rank:<n>`), in the order bought.
+    pub bought: Vec<String>,
+    /// The companion upgrade's rank the warband has, 1 the first (owned from the start).
+    pub companion_rank: u32,
+    /// The banish and skip upgrades' ranks the warband has (0: none).
+    pub banish_rank: u32,
+    pub skip_rank: u32,
+    /// The zones the warband has cleared, by id (the camp's banner line and zone trophies).
+    pub zones_cleared: Vec<String>,
+    /// Each camp's decorations (camps never decorated not listed).
+    pub camps: Vec<CampLayout>,
+    /// Every bounty: how often earned, when last, and how far towards the next time.
+    pub bounties: Vec<BountyTold>,
+}
+
+/// A bounty as the screens are told it (plans/hub-bounties.md).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct BountyTold {
+    pub id: String,
+    pub times: u32,
+    /// When last earned (Unix seconds; 0: never).
+    pub last: u64,
+    /// How far towards the next step (a tally's count past its last step, of `goal`); 0 of 0 for
+    /// one earned by a run.
+    pub current: u64,
+    pub goal: u64,
+}
+
+impl Achievements {
+    /// What stands on spot `spot` of camp `camp`, if anything.
+    pub fn on_spot(&self, camp: &str, spot: &str) -> Option<&str> {
+        self.camps
+            .iter()
+            .find(|c| c.camp == camp)?
+            .pieces
+            .iter()
+            .find(|(s, _)| s == spot)
+            .map(|(_, p)| p.as_str())
+    }
+}
+
+/// How far an achievement has come: `current` of `goal` (a counter's number; a checklist's or a
+/// meta's items done), and for a checklist or a meta which items are done, by id.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct AchievementProgress {
+    pub id: String,
+    pub current: u64,
+    pub goal: u64,
+    pub done: Vec<String>,
+}
+
 /// What the character screen tells of a hero before a run ([`crate::PreRunAsk`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HeroFacts {
@@ -731,6 +804,25 @@ pub struct HeroFacts {
     /// The starting option its next run starts with (its id in the content): its pick on the
     /// warband screen, else its class's first.
     pub start: String,
+    /// The companion it brings (its id in the content); empty for none.
+    pub companion: String,
+    /// The title it wears (the id of the achievement giving it), its tabard and its weapon glow
+    /// (their ids in the content); each empty for none.
+    pub title: String,
+    pub tabard: String,
+    pub glow: String,
+    /// Its temperaments (ids of `camp_chatter.ron`), the leading one first; none for Quiet.
+    pub temperament: Vec<String>,
+    /// The time period it was pulled into the camp from (flavour only).
+    pub time_period: TimePeriod,
+}
+
+/// One camp's decorations: the camp (`horde`, `alliance`) and what stands on each spot (spot id,
+/// piece id), spots left empty not listed.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct CampLayout {
+    pub camp: String,
+    pub pieces: Vec<(String, String)>,
 }
 
 /// One save in the folder saves are exported to and imported from.
@@ -909,8 +1001,45 @@ pub enum ToClient {
     /// creature query's numbering (1 elite, 3 boss, 4 rare). Told as they appear, and every one
     /// alive after `hello`.
     EnemyRanks(Vec<(u64, u32)>),
+    /// `ESURVAL`: the warband's achievements ([`Achievements`]): before a run with a class's
+    /// facts, and in a run after `hello`, after an achievement is earned and after a pay-out.
+    Achievements(Achievements),
+    /// `ESURVAG`: in a run, to every client, the moment a hero earns achievement `id` for the
+    /// warband (its banner).
+    AchievementEarned { hero: u64, id: String },
+    /// `ESURVCA`: after `hello`, in place of `Ready`: the hero is in the warband's camp, a place to
+    /// walk around in, not a run (the hub, on unless `ESURV_HUB=0`).
+    Camp { hero: u64 },
+    /// `ESURVCO`: in the camp, a thing used opens this window over it (`equipment` ...).
+    CampOpen(String),
+    /// `ESURVCL`: in the camp, the client leaves the world and enters it again as the hero `enter`
+    /// (another hero taken over, or the same one off to its run).
+    CampLeave { enter: u64 },
+    /// `ESURVCG`: in the camp, Wren is walking the hero round it (true) or no longer (false): the
+    /// race may not change meanwhile, its reload would cut the walk short.
+    CampGuided(bool),
+    /// `ESURVCF`: in the camp, the fire `fire` (its guid) is burning low (its flames and sparks
+    /// dimmed, the model left as it is) or has been fed.
+    CampFireLow { fire: u64, low: bool },
+    /// `ESURVAE`: after `hello`, the edge of where the hero may go, drawn as a glowing band: its
+    /// middle (world point), its radius in yards, and whether it is a camp's (gold) or a run's
+    /// (red).
+    ArenaEdge { at: [f32; 3], radius: f32, camp: bool },
+    /// `ESURVDS`: in the camp, after `hello` and after each change, its decoration spots: each
+    /// one's id, world point, the piece standing on it and the pieces it may take (the shared
+    /// ones by the fire, then each tent's three; plans/hub-decoration-spots.md).
+    DecorationSpots(Vec<(String, [f32; 3], Option<String>, Vec<String>)>),
 }
 
+const CAMP: &str = "ESURVCA";
+const CAMP_OPEN: &str = "ESURVCO";
+const CAMP_LEAVE: &str = "ESURVCL";
+const CAMP_GUIDED: &str = "ESURVCG";
+const CAMP_FIRE_LOW: &str = "ESURVCF";
+const ARENA_EDGE: &str = "ESURVAE";
+const DECORATION_SPOTS: &str = "ESURVDS";
+const ACHIEVEMENTS: &str = "ESURVAL";
+const ACHIEVEMENT_EARNED: &str = "ESURVAG";
 const READY: &str = "ESURVW";
 const HERO: &str = "ESURVF";
 const HUD: &str = "ESURVH";
@@ -1061,6 +1190,13 @@ impl Wire for ToClient {
             ToClient::Toast(_) => TOAST,
             ToClient::Choices(_) => CHOICES,
             ToClient::ChoicesClosed { .. } => CHOICES_CLOSED,
+            ToClient::Camp { .. } => CAMP,
+            ToClient::CampOpen(_) => CAMP_OPEN,
+            ToClient::CampLeave { .. } => CAMP_LEAVE,
+            ToClient::CampGuided(_) => CAMP_GUIDED,
+            ToClient::CampFireLow { .. } => CAMP_FIRE_LOW,
+            ToClient::ArenaEdge { .. } => ARENA_EDGE,
+            ToClient::DecorationSpots(_) => DECORATION_SPOTS,
             ToClient::GearDropped(_) => GEAR_DROPPED,
             ToClient::RunEnd(_) => RUN_END,
             ToClient::Meter(_) => METER,
@@ -1083,6 +1219,8 @@ impl Wire for ToClient {
             ToClient::GroundIndicator(_) => GROUND_INDICATOR,
             ToClient::GroundIndicatorGone { .. } => GROUND_INDICATOR_GONE,
             ToClient::EnemyRanks(_) => ENEMY_RANKS,
+            ToClient::Achievements(_) => ACHIEVEMENTS,
+            ToClient::AchievementEarned { .. } => ACHIEVEMENT_EARNED,
         }
     }
 
@@ -1136,6 +1274,35 @@ impl Wire for ToClient {
                 write_kit(&mut o, &c.kit);
                 o.list(&c.offers, |o, offer| {
                     o.list(&offer.numbers, write_value);
+                });
+                o.num(c.banishes).num(c.skips);
+            }
+            ToClient::Camp { hero } => {
+                o.guid(*hero);
+            }
+            ToClient::CampOpen(window) => {
+                o.text(window);
+            }
+            ToClient::CampLeave { enter } => {
+                o.guid(*enter);
+            }
+            ToClient::CampGuided(on) => {
+                o.flag(*on);
+            }
+            ToClient::CampFireLow { fire, low } => {
+                o.guid(*fire).flag(*low);
+            }
+            ToClient::ArenaEdge { at: [x, y, z], radius, camp } => {
+                o.num(x).num(y).num(z).num(radius).flag(*camp);
+            }
+            ToClient::DecorationSpots(spots) => {
+                o.list(spots, |o, (id, [x, y, z], piece, choices)| {
+                    o.text(id).num(x).num(y).num(z).list(piece.as_slice(), |o, p| {
+                        o.text(p);
+                    });
+                    o.list(choices, |o, c| {
+                        o.text(c);
+                    });
                 });
             }
             ToClient::ChoicesClosed { hero } => {
@@ -1240,7 +1407,15 @@ impl Wire for ToClient {
                     .num(h.best_level)
                     .num(h.best_seconds)
                     .text(&h.zone)
-                    .text(&h.start);
+                    .text(&h.start)
+                    .text(&h.companion)
+                    .text(&h.title)
+                    .text(&h.tabard)
+                    .text(&h.glow)
+                    .list(&h.temperament, |o, t| {
+                        o.text(t);
+                    })
+                    .word(h.time_period.word());
             }
             ToClient::SaveFiles { folder, files } => {
                 o.text(folder).list(files, |o, f| {
@@ -1321,6 +1496,39 @@ impl Wire for ToClient {
                     o.guid(unit).num(rank);
                 });
             }
+            ToClient::Achievements(a) => {
+                o.num(a.score).num(a.balance);
+                o.list(&a.earned, |o, (id, at)| {
+                    o.text(id).num(at);
+                });
+                o.list(&a.progress, |o, p| {
+                    o.text(&p.id).num(p.current).num(p.goal).list(&p.done, |o, d| {
+                        o.text(d);
+                    });
+                });
+                o.list(&a.tracked, |o, id| {
+                    o.text(id);
+                });
+                o.flag(a.news);
+                o.list(&a.bought, |o, item| {
+                    o.text(item);
+                });
+                o.num(a.companion_rank).num(a.banish_rank).num(a.skip_rank);
+                o.list(&a.zones_cleared, |o, z| {
+                    o.text(z);
+                });
+                o.list(&a.camps, |o, c| {
+                    o.text(&c.camp).list(&c.pieces, |o, (spot, piece)| {
+                        o.text(spot).text(piece);
+                    });
+                });
+                o.list(&a.bounties, |o, b| {
+                    o.text(&b.id).num(b.times).num(b.last).num(b.current).num(b.goal);
+                });
+            }
+            ToClient::AchievementEarned { hero, id } => {
+                o.guid(*hero).text(id);
+            }
         }
         o.finish()
     }
@@ -1380,6 +1588,37 @@ impl Wire for ToClient {
             }),
             GROUND_INDICATOR_GONE => ToClient::GroundIndicatorGone { id: r.num()? },
             ENEMY_RANKS => ToClient::EnemyRanks(r.list(|r| Some((r.guid()?, r.num()?)))?),
+            ACHIEVEMENTS => ToClient::Achievements(Achievements {
+                score: r.num()?,
+                balance: r.num()?,
+                earned: r.list(|r| Some((r.text()?, r.num()?)))?,
+                progress: r.list(|r| {
+                    Some(AchievementProgress {
+                        id: r.text()?,
+                        current: r.num()?,
+                        goal: r.num()?,
+                        done: r.list(|r| r.text())?,
+                    })
+                })?,
+                tracked: r.list(|r| r.text())?,
+                news: r.flag()?,
+                bought: r.list(|r| r.text())?,
+                companion_rank: r.num()?,
+                banish_rank: r.num()?,
+                skip_rank: r.num()?,
+                zones_cleared: r.list(|r| r.text())?,
+                camps: r.list(|r| {
+                    Some(CampLayout {
+                        camp: r.text()?,
+                        pieces: r.list(|r| Some((r.text()?, r.text()?)))?,
+                    })
+                })?,
+                bounties: r.list(|r| Some(BountyTold { id: r.text()?, times: r.num()?, last: r.num()?, current: r.num()?, goal: r.num()? }))?,
+            }),
+            ACHIEVEMENT_EARNED => ToClient::AchievementEarned {
+                hero: r.guid()?,
+                id: r.text()?,
+            },
             CHOICES => {
                 let mut choices = Choices {
                     hero: r.guid()?,
@@ -1387,6 +1626,8 @@ impl Wire for ToClient {
                     level: r.num()?,
                     reroll_cost: r.num()?,
                     free_rerolls: r.num()?,
+                    banishes: 0,
+                    skips: 0,
                     offers: r.list(read_offer)?,
                     kit: read_kit(r).unwrap_or_default(),
                 };
@@ -1396,9 +1637,21 @@ impl Wire for ToClient {
                         offer.numbers = n;
                     }
                 }
+                // the banishes and skips left, after the numbers (none from an older server)
+                if let (Some(b), Some(s)) = (r.num(), r.num()) {
+                    choices.banishes = b;
+                    choices.skips = s;
+                }
                 ToClient::Choices(choices)
             }
             CHOICES_CLOSED => ToClient::ChoicesClosed { hero: r.guid()? },
+            CAMP => ToClient::Camp { hero: r.guid()? },
+            CAMP_OPEN => ToClient::CampOpen(r.text()?),
+            CAMP_LEAVE => ToClient::CampLeave { enter: r.guid()? },
+            CAMP_GUIDED => ToClient::CampGuided(r.flag()?),
+            CAMP_FIRE_LOW => ToClient::CampFireLow { fire: r.guid()?, low: r.flag()? },
+            ARENA_EDGE => ToClient::ArenaEdge { at: [r.num()?, r.num()?, r.num()?], radius: r.num()?, camp: r.flag()? },
+            DECORATION_SPOTS => ToClient::DecorationSpots(r.list(|r| Some((r.text()?, [r.num()?, r.num()?, r.num()?], r.list(|r| r.text())?.pop(), r.list(|r| r.text())?)))?),
             GEAR_DROPPED => ToClient::GearDropped(GearDrop {
                 hero: r.guid()?,
                 entry: r.num()?,
@@ -1515,6 +1768,14 @@ impl Wire for ToClient {
                 best_seconds: r.num()?,
                 zone: r.text()?,
                 start: r.text()?,
+                companion: r.text()?,
+                title: r.text()?,
+                tabard: r.text()?,
+                glow: r.text()?,
+                // an older server tells none
+                temperament: r.list(|r| r.text()).unwrap_or_default(),
+                // an older server tells none: Present
+                time_period: r.word().and_then(TimePeriod::from_word).unwrap_or_default(),
             }),
             SAVE_FILES => ToClient::SaveFiles {
                 folder: r.text()?,
@@ -1749,6 +2010,8 @@ mod tests {
             level: 7,
             reroll_cost: 0,
             free_rerolls: 3,
+            banishes: 2,
+            skips: 1,
             offers: vec![
                 Offer {
                     kind: OfferKind::NewSpell,
@@ -1796,6 +2059,8 @@ mod tests {
             level: 12,
             reroll_cost: 300,
             free_rerolls: 0,
+            banishes: 2,
+            skips: 1,
             offers: vec![
                 Offer {
                     kind: OfferKind::NewJewelry,
@@ -1855,10 +2120,20 @@ mod tests {
             level: 9,
             reroll_cost: 0,
             free_rerolls: 1,
+            banishes: 2,
+            skips: 1,
             offers: vec![],
             kit: Kit::default(),
         }));
         round_trip(ToClient::ChoicesClosed { hero: HERO });
+        round_trip(ToClient::Camp { hero: HERO });
+        round_trip(ToClient::CampOpen("equipment".into()));
+        round_trip(ToClient::CampLeave { enter: HERO });
+        round_trip(ToClient::CampGuided(true));
+        round_trip(ToClient::CampGuided(false));
+        round_trip(ToClient::CampFireLow { fire: 0xf110_0aae_6500_003a, low: true });
+        round_trip(ToClient::ArenaEdge { at: [1.5, -2.25, 3.0], radius: 60.0, camp: true });
+        round_trip(ToClient::DecorationSpots(vec![("fire_1".into(), [1.5, -2.25, 3.0], Some("rug".into()), vec!["rug".into(), "anvil".into()]), ("tent_2_3".into(), [4.0, 5.0, 6.0], None, vec![])]));
     }
 
     #[test]
@@ -2013,6 +2288,27 @@ mod tests {
             best_seconds: 1204,
             zone: "duskwood".into(),
             start: "slam".into(),
+            companion: "tiny_hogger".into(),
+            title: "the_eternal_road".into(),
+            tabard: "stormwind".into(),
+            glow: "crusader".into(),
+            temperament: vec!["boisterous".into(), "curious".into()],
+            time_period: TimePeriod::Past,
+        }));
+        round_trip(ToClient::Hero(HeroFacts {
+            hero: 0x12,
+            runs: 0,
+            wins: 0,
+            best_level: 0,
+            best_seconds: 0,
+            zone: "elwynn".into(),
+            start: "slam".into(),
+            companion: String::new(),
+            title: String::new(),
+            tabard: String::new(),
+            glow: String::new(),
+            temperament: Vec::new(),
+            time_period: TimePeriod::Future,
         }));
     }
 
@@ -2042,6 +2338,51 @@ mod tests {
             file: "heroes-2026-10-13-142530.ron".into(),
             backup: "heroes-before-import-2026-10-13-150000.ron".into(),
         });
+    }
+
+    #[test]
+    fn the_achievements_read_back_in_pieces_when_long() {
+        round_trip(ToClient::Achievements(Achievements::default()));
+        let earned: Vec<(String, u64)> = (0..30)
+            .map(|i| (format!("achievement_{i}"), 1_793_000_000 + i))
+            .collect();
+        let m = ToClient::Achievements(Achievements {
+            score: 640,
+            balance: 240,
+            earned,
+            progress: vec![
+                AchievementProgress {
+                    id: "slayer_2".into(),
+                    current: 312,
+                    goal: 25_000,
+                    done: vec![],
+                },
+                AchievementProgress {
+                    id: "warrior_every_start".into(),
+                    current: 2,
+                    goal: 3,
+                    done: vec!["slam".into(), "whirlwind".into()],
+                },
+            ],
+            tracked: vec!["slayer_2".into(), "warrior_every_start".into()],
+            news: true,
+            bought: vec!["companion:bombay_cat".into(), "companion_rank:2".into()],
+            companion_rank: 2,
+            banish_rank: 1,
+            skip_rank: 0,
+            zones_cleared: vec!["elwynn".into(), "brm".into()],
+            camps: vec![CampLayout { camp: "horde".into(), pieces: vec![("trophy_1".into(), "throne".into()), ("fire".into(), "midsummer_bonfire".into())] }],
+            bounties: vec![BountyTold { id: "slayers_tally".into(), times: 3, last: 7, current: 120, goal: 2500 }],
+        });
+        assert!(m.lines().len() > 1, "a long list goes in pieces");
+        assert!(m.lines().iter().all(|l| l.prefix.starts_with("ESURVAL")));
+        round_trip(m);
+        let earned = ToClient::AchievementEarned {
+            hero: HERO,
+            id: "spin_to_win".into(),
+        };
+        assert_eq!(earned.lines()[0].to_string(), "ESURVAG\t7 spin_to_win");
+        round_trip(earned);
     }
 
     #[test]

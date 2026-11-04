@@ -1,7 +1,7 @@
 //! Shared numbers, defined once (`content/enemy_kinds.ron`): what each
 //! kind of roster enemy moves, swings and costs, and what each kind of boss ability does. A
 //! zone's roster entries and boss abilities in its `zones/<id>.ron` name a kind and keep only what is their
-//! own (looks, toughness, unlock minute); [`resolve_zones`] turns them into the full [`Zone`]
+//! own (looks, role, unlock minute); [`resolve_zones`] turns them into the full [`Zone`]
 //! records the game plays, at load time.
 
 use std::collections::BTreeMap;
@@ -10,7 +10,7 @@ use std::fmt;
 use anyhow::{bail, Result};
 use serde::{Deserialize, Deserializer, Serialize};
 
-use crate::schema::{Boss, BossAbility, BossAbilityKind, CreatureType, Enemy, RangedAttack, Spawn, Weather, Zone};
+use crate::schema::{Role, Boss,BossAbility, BossAbilityKind, CreatureType, Enemy, RangedAttack, Spawn, Weather, Zone};
 use crate::names::{ClientName, ClientNames, NameRef};
 
 /// The name of an enemy kind, written bare in RON (`kind: Fodder`); which names exist is up to
@@ -221,8 +221,12 @@ pub struct EnemyEntry {
     pub scale: f32,
     pub creature_type: CreatureType,
     pub kind: KindName,
-    #[serde(default = "one")]
-    pub toughness: f32,
+    /// Its role: how sturdy it is next to its zone's curve (`balance.ron` `roles`).
+    #[serde(default)]
+    pub role: Role,
+    /// No longer read: the role replaced it (the loader refuses it).
+    #[serde(default)]
+    pub toughness: Option<f32>,
     pub appears_at_minute: f32,
     /// The WoW spell a caster casts; required for a ranged kind, refused for the others.
     #[serde(default)]
@@ -430,10 +434,6 @@ pub enum BossAbilityEntry {
         #[serde(default)]
         warn: Option<crate::Warning>,
     },
-}
-
-fn one() -> f32 {
-    1.0
 }
 
 // ---- resolving --------------------------------------------------------------------------------
@@ -717,6 +717,9 @@ fn resolve_enemy(zone: &str, e: EnemyEntry, kinds: &EnemyKinds, names: &ClientNa
     if kind.is_none() {
         problems.push(format!("zone {zone}: enemy {} names unknown kind {} (enemy_kinds.ron has {})", e.name, e.kind, known()));
     }
+    if e.toughness.is_some() {
+        problems.push(format!("zone {zone}: enemy {} has a toughness; name its role instead (Swarm, Light, Standard, Sturdy, Tough, Brute)", e.name));
+    }
     let ranged = match kind.and_then(|k| k.ranged) {
         Some(r) => match e.look_spell {
             Some(look_spell) => {
@@ -743,7 +746,8 @@ fn resolve_enemy(zone: &str, e: EnemyEntry, kinds: &EnemyKinds, names: &ClientNa
         display_id: e.display_id,
         scale: e.scale,
         creature_type: e.creature_type,
-        toughness: e.toughness,
+        role: e.role,
+        toughness: 1.0,
         attack_interval: e.attack_interval.unwrap_or(attack_interval),
         move_speed: e.move_speed.unwrap_or(move_speed),
         spawn_cost: e.spawn_cost.unwrap_or(spawn_cost),

@@ -111,7 +111,44 @@ pub struct GroundLookModel {
     /// With a tint: its particles, ribbons and ground decals are recoloured to the tint's hue
     /// (`crate::SpellLookStyle::recolor`) rather than multiplied.
     pub recolor: bool,
+    /// Drawn whenever any of it is in view: its parts are never culled by their own small boxes
+    /// (a large standing model, such as a tent, would vanish once its middle left the screen).
+    pub whole: bool,
+    /// A whole model laid on the ground leans this many degrees further back (its top toward its
+    /// back), about the middle of its foot, which stays on the ground.
+    pub lean_back_degrees: f32,
+    /// A whole model laid on the ground stays level from side to side, tilted only along its facing.
+    pub level_sideways: bool,
+    /// Points of a whole model (model yards: ahead, left, up) that stand on the ground: it is set
+    /// as high as none of them is above the ground. Empty: its lowest point is on the ground.
+    pub rest_on: Vec<[f32; 3]>,
 }
+
+/// A crate model drawn whole ([`GroundLookModel::whole`]): its parts never frustum-culled.
+#[derive(Component)]
+pub(super) struct WholeGroundFx {
+    level_sideways: bool,
+    rest_on: Vec<[f32; 3]>,
+    lean_back_degrees: f32,
+}
+
+/// A whole crate model's box (model space, ropes and stakes included) and its transform as
+/// spawned, upright: what [`lean_whole_ground_fx`] lays on the ground.
+#[derive(Component)]
+pub(super) struct Footprint {
+    model: bevy::camera::primitives::Aabb,
+    upright: Transform,
+    lean_back_degrees: f32,
+    level_sideways: bool,
+    rest_on: Vec<[f32; 3]>,
+}
+
+/// Laid on the ground: [`lean_whole_ground_fx`] is done with it.
+#[derive(Component)]
+pub(super) struct Leaned;
+
+/// How many points along each side of a footprint the ground is read at.
+const LEAN_SAMPLES: usize = 5;
 
 /// The models a crate draws for its spells' DynamicObjects, by `Spell.dbc` id, all at the
 /// object's point; empty in stock benilla, where every DynamicObject shows its spell's own area
@@ -196,6 +233,13 @@ pub(super) fn arm_ground_effects(
                         Visibility::default(),
                     ))
                     .id();
+                if model.whole {
+                    commands.entity(child).insert(WholeGroundFx {
+                        lean_back_degrees: model.lean_back_degrees,
+                        level_sideways: model.level_sideways,
+                        rest_on: model.rest_on.clone(),
+                    });
+                }
                 commands.entity(anchor).add_child(child);
             }
             continue;
@@ -332,7 +376,14 @@ pub(super) fn tick_shard_emitters(
 pub(super) fn attach_ground_fx_models(
     mut commands: Commands,
     time: Res<Time>,
-    mut instances: Query<(Entity, &mut GroundFx, Option<&mut AnimationPlayer>)>,
+    mut instances: Query<(
+        Entity,
+        &mut GroundFx,
+        Option<&mut AnimationPlayer>,
+        Option<&WholeGroundFx>,
+        &Transform,
+        Option<&ChildOf>,
+    )>,
     fx: Option<ResMut<SpellFx>>,
     asset_server: Res<AssetServer>,
     mut wow_materials: ResMut<Assets<benilla_assets::materials::WowModelMaterial>>,
@@ -344,7 +395,7 @@ pub(super) fn attach_ground_fx_models(
 ) {
     let Some(mut fx) = fx else { return };
     let now = time.elapsed_secs();
-    for (entity, mut inst, player) in &mut instances {
+    for (entity, mut inst, player, whole, local, parent) in &mut instances {
         if !inst.spawned {
             ensure_model(&mut fx, &asset_server, &inst.path);
             let Some(dm) = fx.models.get(&inst.path) else {
@@ -379,6 +430,23 @@ pub(super) fn attach_ground_fx_models(
                 continue; // model still building
             }
             inst.spawned = true;
+            // drawn whole: its object is elected by the model's own box, not the point at its
+            // middle, so it stays while any of it is on screen
+            if let (Some(whole), Some(parent)) = (whole, parent) {
+                let parts = dm.parts.iter().flatten().filter_map(|p| p.aabb);
+                if let Some(b) = super::attach::union_aabb(parts) {
+                    let (min, max) = (local.transform_point(b.min().into()), local.transform_point(b.max().into()));
+                    let bound = bevy::camera::primitives::Aabb::from_min_max(min.min(max), min.max(max));
+                    commands.entity(parent.parent()).insert(super::ModelBound(bound));
+                    commands.entity(entity).insert(Footprint {
+                        model: b,
+                        upright: *local,
+                        lean_back_degrees: whole.lean_back_degrees,
+                        level_sideways: whole.level_sideways,
+                        rest_on: whole.rest_on.clone(),
+                    });
+                }
+            }
             // seen through: its particles and ribbons read the root's model fade
             if inst.opacity < 1.0 {
                 commands.entity(entity).insert(benilla_world::model_fade::ModelFade(inst.opacity));
@@ -408,6 +476,123 @@ pub(super) fn attach_ground_fx_models(
     }
 }
 
+/// Keep a whole crate model's parts drawn whenever any of it is in view: each new mesh under it
+/// is taken out of the frustum cull, as a dressed unit's skinned parts are.
+pub(super) fn keep_whole_ground_fx_drawn(
+    mut commands: Commands,
+    whole: Query<Entity, With<WholeGroundFx>>,
+    children: Query<&Children>,
+    meshes: Query<(), (With<Mesh3d>, Without<bevy::camera::visibility::NoFrustumCulling>)>,
+) {
+    for root in &whole {
+        for part in children.iter_descendants(root) {
+            if meshes.contains(part) {
+                commands.entity(part).insert(bevy::camera::visibility::NoFrustumCulling);
+            }
+        }
+    }
+}
+
+/// Lay each whole crate model on the ground under it: tilted to the plane that best fits the
+/// ground across its footprint (a tent on a slope leans with it), then lowered until no point of
+/// its footprint is above the ground (no stake or floor edge hangs in the air). Waits until the
+/// ground under all of it has streamed in.
+pub(super) fn lean_whole_ground_fx(
+    mut commands: Commands,
+    mut models: Query<(Entity, &Footprint, &ChildOf, &mut Transform), Without<Leaned>>,
+    anchors: Query<&GlobalTransform>,
+    streamer: Res<benilla_world::terrain_stream::TerrainStreamer>,
+    tiles: Res<Assets<benilla_assets::AdtTile>>,
+) {
+    for (entity, foot, parent, mut local) in &mut models {
+        let Ok(anchor) = anchors.get(parent.parent()) else {
+            continue;
+        };
+        let world_from_model = anchor.affine() * foot.upright.compute_affine();
+        let (min, max) = (Vec3::from(foot.model.min()), Vec3::from(foot.model.max()));
+        // the footprint's points across the ground, at the model's foot
+        let mut points = Vec::with_capacity(LEAN_SAMPLES * LEAN_SAMPLES);
+        let mut cache = None;
+        for i in 0..LEAN_SAMPLES {
+            for j in 0..LEAN_SAMPLES {
+                let t = Vec2::new(i as f32, j as f32) / (LEAN_SAMPLES - 1) as f32;
+                let p = world_from_model.transform_point3(Vec3::new(
+                    min.x + (max.x - min.x) * t.x,
+                    min.y,
+                    min.z + (max.z - min.z) * t.y,
+                ));
+                let ground = benilla_world::terrain_stream::terrain_height_under_cached(&streamer, &tiles, p, &mut cache);
+                let Some(ground) = ground else { break };
+                points.push(Vec3::new(p.x, ground, p.z));
+            }
+        }
+        if points.len() < LEAN_SAMPLES * LEAN_SAMPLES {
+            continue; // the ground is still streaming in
+        }
+        let origin = world_from_model.transform_point3(Vec3::ZERO);
+        let Some((mut slope_x, mut slope_z)) = ground_slope(&points, origin) else {
+            continue;
+        };
+        let (_, anchor_turn, _) = anchor.to_scale_rotation_translation();
+        // level from side to side: only the slope along its facing (its front -Z) is kept
+        if foot.level_sideways {
+            let along = (anchor_turn * Vec3::NEG_Z).with_y(0.0).normalize_or_zero();
+            let rise = slope_x * along.x + slope_z * along.z;
+            (slope_x, slope_z) = (rise * along.x, rise * along.z);
+        }
+        let up = Vec3::new(-slope_x, 1.0, -slope_z).normalize();
+        let tilt = Quat::from_rotation_arc(Vec3::Y, up);
+        // the tilted plane as high as it goes with no point of it above the ground under it
+        let plane_at = |p: Vec3| slope_x * (p.x - origin.x) + slope_z * (p.z - origin.z);
+        let base = points.iter().map(|p| p.y - plane_at(*p)).fold(f32::MAX, f32::min);
+        // the model's foot on that plane under its origin, its own lift kept
+        let scale = foot.upright.scale.y;
+        let at = Vec3::new(origin.x, base, origin.z)
+            + tilt * Vec3::new(0.0, foot.upright.translation.y - min.y * scale, 0.0);
+        local.translation = anchor.affine().inverse().transform_point3(at);
+        local.rotation = anchor_turn.inverse() * tilt * anchor_turn;
+        // leaned further back about its middle foot (its front is -Z, its left -X), which stays put:
+        // its front rises as much as its back sinks
+        if foot.lean_back_degrees != 0.0 {
+            let back = Quat::from_rotation_x(foot.lean_back_degrees.to_radians());
+            let front_foot = Vec3::new(0.0, min.y, (min.z + max.z) / 2.0) * scale;
+            let turn = local.rotation;
+            local.translation += turn * front_foot - turn * back * front_foot;
+            local.rotation = turn * back;
+        }
+        // its resting points on the ground: as high as none of them is above it
+        if !foot.rest_on.is_empty() {
+            let world_from_local = anchor.affine() * local.compute_affine();
+            let above = foot.rest_on.iter().filter_map(|&p| {
+                let at = world_from_local.transform_point3(benilla_assets::coords::wow_to_bevy(p));
+                let ground = benilla_world::terrain_stream::terrain_height_under(&streamer, &tiles, at)?;
+                Some(at.y - ground)
+            });
+            if let Some(highest) = above.reduce(f32::max) {
+                local.translation.y -= highest;
+            }
+        }
+        commands.entity(entity).insert(Leaned);
+    }
+}
+
+/// The least-squares plane through `points` round `origin`: its rise per yard along x and z.
+fn ground_slope(points: &[Vec3], origin: Vec3) -> Option<(f32, f32)> {
+    let n = points.len() as f32;
+    let mean = points.iter().fold(Vec3::ZERO, |s, p| s + (*p - origin)) / n;
+    let (mut xx, mut xz, mut zz, mut xy, mut zy) = (0.0, 0.0, 0.0, 0.0, 0.0);
+    for p in points {
+        let d = *p - origin - mean;
+        xx += d.x * d.x;
+        xz += d.x * d.z;
+        zz += d.z * d.z;
+        xy += d.x * d.y;
+        zy += d.z * d.y;
+    }
+    let det = xx * zz - xz * xz;
+    (det.abs() > f32::EPSILON).then(|| ((xy * zz - zy * xz) / det, (zy * xx - xy * xz) / det))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -425,6 +610,19 @@ mod tests {
 
     /// The `0x5d55c0` decode, `bits(f32(param0 + 512.0)) >> 14 & 0xff`; the real rows carry 0.0
     /// (Blizzard) and 1.0 (Rain of Fire).
+    #[test]
+    fn the_ground_slope_is_the_plane_through_the_points() {
+        let origin = Vec3::new(10.0, 0.0, -4.0);
+        let points: Vec<Vec3> = (0..9)
+            .map(|k| {
+                let (x, z) = ((k % 3) as f32 - 1.0, (k / 3) as f32 - 1.0);
+                origin + Vec3::new(x, 0.5 * x - 0.25 * z + 3.0, z)
+            })
+            .collect();
+        let (sx, sz) = ground_slope(&points, origin).unwrap();
+        assert!((sx - 0.5).abs() < 1e-5 && (sz + 0.25).abs() < 1e-5);
+    }
+
     #[test]
     fn shard_model_index_decodes_and_clamps() {
         assert_eq!(shard_model_index(0.0), 0);

@@ -163,7 +163,28 @@ fn tip_of(s: &Setting) -> Option<&'static [&'static str]> {
             "Other enemies never glow.",
             "Unticked, every glow hides at once.",
         ]),
+        crate::camp_chatter_option::CVAR => Some(&[
+            "Camp chatter",
+            "What the heroes resting in the camp say to each other and to you.",
+            "Bubbles and chat: it shows over their heads and in the chat.",
+            "Bubbles only: over their heads, kept out of the chat.",
+            "Off: they say nothing, though they still gesture as they talk. Wren and the keepers always speak.",
+        ]),
         _ => None,
+    }
+}
+
+/// Camp chatter ([`crate::camp_chatter_option`]): Bubbles and chat, the default, Bubbles only, or
+/// Off.
+const CAMP_CHATTER: &[(&str, &str)] = &[("2", "Bubbles and chat"), ("1", "Bubbles only"), ("0", "Off")];
+
+/// How the game reads the Camp chatter CVar ([`crate::camp_chatter_option::level`]): `"0"` Off,
+/// `"1"` Bubbles only, anything else Bubbles and chat.
+fn camp_chatter_read(v: &str) -> &'static str {
+    match crate::camp_chatter_option::level(Some(v)) {
+        0 => "0",
+        1 => "1",
+        _ => "2",
     }
 }
 
@@ -598,6 +619,14 @@ const GAME_NUMBERS: &[Setting] = &[
         needs: None,
         takes: Takes::Now,
     },
+    // what the camp's heroes say: bubbles and chat, bubbles only, or off ([`crate::camp_chatter_option`])
+    Choice {
+        cvar: crate::camp_chatter_option::CVAR,
+        label: "Camp chatter",
+        choices: CAMP_CHATTER,
+        reads: camp_chatter_read,
+        takes: Takes::Now,
+    },
 ];
 
 /// The boss timers (`crate::boss_alerts`, `crate::boss_bar_places`): the warnings and their sound,
@@ -800,6 +829,7 @@ pub(super) fn read(script: &UiScript, tab: OptionsTab) -> OptionsDraft {
     crate::boss_alerts::register_cvars(script);
     crate::smart_numbers::register_cvar(script);
     crate::glow_option::register_cvar(script);
+    crate::camp_chatter_option::register_cvar(script);
     crate::update::register_cvar(script);
     let text = |chunk: &str| script.eval::<Option<String>>(chunk).ok().flatten();
     let list = |call: &str| -> Vec<String> {
@@ -1152,10 +1182,12 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, look: &MenuLook, draft
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                // every window's title at one height near the top, growing down
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::top(look.px(super::look::WINDOW_TOP)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.6)),
+            BackgroundColor(palette::DIM),
             solid(),
             GlobalZIndex(super::MENU_LAYER + 10),
         ))
@@ -1562,6 +1594,7 @@ mod tests {
                 crate::smart_numbers::CVAR,
                 crate::update::CVAR,
                 crate::glow_option::CVAR,
+                crate::camp_chatter_option::CVAR,
                 crate::boss_alerts::WARNINGS_CVAR,
                 crate::boss_alerts::SOUND_CVAR,
                 crate::boss_alerts::BARS_CVAR,

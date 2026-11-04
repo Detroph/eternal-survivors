@@ -11,13 +11,11 @@
 //!   ([`crate::update`]);
 //! * the top-left panel: the picked hero's name, class and total wins, its starting spell, and
 //!   under it its class's weapon loadout (a row of three icons as the starting spell's, each
-//!   telling its weapons, strength and drawback in its tooltip; roadmap
-//!   R3);
-//! * the top middle, centred over the camp: Collection and Talents (each opening the hero sheet
-//!   there, glowing while it has news) and two places kept for later, over the armour the hero
-//!   wears;
-//! * the top right, beside the zone column: the codex, how much of each list is found, and the
-//!   way into it ([`super::codex`]);
+//!   telling its weapons, strength and drawback in its tooltip);
+//! * the top middle, centred over the camp, left of the zone column: Equipment and Talents (each opening
+//!   the hero sheet there, glowing while it has news), Codex ([`super::codex`]), Achievements (its
+//!   window, glowing while something was earned since it was last opened), Shop (the shop alone)
+//!   and the Guide;
 //! * the right column: the zone selector (the chosen zone as a card, every other zone as a row,
 //!   a locked one saying what opens it), Difficulty modifiers and Start run.
 
@@ -25,23 +23,21 @@ use benilla_protocol::Character;
 use bevy::prelude::*;
 use esurv_content::{Content, Faction, Zone};
 use esurv_sim::game::challenge::{slider_text, CHALLENGE_ZONE, SLIDER_MAX_PCT, SLIDER_MIN_PCT, SLIDER_STEP_PCT};
-use esurv_sim::game::gear::ARMOR_SLOTS;
 
-use super::look::{palette, solid, ButtonStyle, Face, MenuLook, PAD};
+use super::look::{palette, solid, ButtonStyle, Face, MenuLook};
 use super::scroll::{scrolling, ScrollingList};
 use super::art::{cell_rect, class_cell};
 use super::{class_of, Ctx, MenuAction, SheetTab};
-use crate::hero_sheet::gear::{minute_text, origin_line, ClassGear};
+use crate::hero_sheet::gear::minute_text;
 use crate::picker::faction_of;
 use crate::stock::{MenuLookTip, Tip, TipLine};
-use crate::ui::{class_colour, rarity_colour};
+use crate::ui::class_colour;
 use crate::zone_discovery::{is_discovered, LOCK_ICON, UNDISCOVERED};
 
 /// Sizes, in units.
-const MARGIN: f32 = 16.0;
-const INFO_WIDTH: f32 = 290.0;
-const ZONE_WIDTH: f32 = 350.0;
-const SLOT_ICON: f32 = 34.0;
+pub(super) const MARGIN: f32 = 16.0;
+const INFO_WIDTH: f32 = 236.0;
+pub(super) const ZONE_WIDTH: f32 = 350.0;
 /// A starting option's icon on the info panel.
 const START_ICON: f32 = 40.0;
 const CAMP_SWITCH: f32 = 46.0;
@@ -49,8 +45,6 @@ const CAMP_BUTTON: f32 = 150.0;
 const CORNER_BUTTON: f32 = 110.0;
 /// The update notice over the corner's buttons.
 const UPDATE_WIDTH: f32 = 200.0;
-/// The codex panel beside the zone column.
-pub(super) const CODEX_WIDTH: f32 = 210.0;
 
 /// The picked hero's nameplate (its class icon, then its name), kept over its figure's head as
 /// the camera sees it.
@@ -66,9 +60,9 @@ pub(super) struct KeepNameClear;
 
 /// The nameplate's class icon, in units.
 const PLATE_ICON: f32 = 22.0;
-/// How far over the figure's head (its helm's seat) the plate's foot sits, yards: clear of the heads
-/// around the fire.
-const PLATE_LIFT: f32 = 0.5;
+/// How far over the figure's head (its helm's seat) the plate's foot sits, yards: just over it
+/// (2026-10-27: the title sat too high).
+const PLATE_LIFT: f32 = 0.1;
 /// Room kept between the plate and a panel or the screen's edge, logical pixels.
 const PLATE_ROOM: f32 = 6.0;
 
@@ -186,11 +180,62 @@ pub(super) fn draw(commands: &mut Commands, root: Entity, look: &MenuLook, ctx: 
         top_left(r, look, ctx, hero);
         centre_column(r, look, ctx, hero);
         zone_column(r, look, ctx, hero);
-        codex_panel(r, look, ctx);
         camp_parts(r, look, ctx, hero);
         if let Some(h) = hero {
             name_over_head(r, look, ctx, h);
         }
+    });
+}
+
+/// The warband screen's menu over the camp (F1, [`super::over_the_camp`]), about `hero`, the hero
+/// walking it: the info panel, the row of buttons and the zone column, with a Close at the foot. No
+/// camp switch, Decorate camp, nameplate or New, Modify and Delete character: those are the camp of
+/// heroes', and the camp's own people and things stand in for them.
+pub(super) fn draw_over_the_camp(commands: &mut Commands, root: Entity, look: &MenuLook, ctx: &Ctx, hero: Option<&Character>) {
+    commands.entity(root).with_children(|r| {
+        // the camp dimmed to the night behind the menu (the ui rework)
+        r.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                ..default()
+            },
+            BackgroundColor(palette::DIM),
+            Pickable::IGNORE,
+        ));
+        r.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: look.px(MARGIN),
+                top: look.px(MARGIN),
+                width: look.px(INFO_WIDTH),
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|col| info_panel(col, look, ctx, hero));
+        centre_column(r, look, ctx, hero);
+        zone_column(r, look, ctx, hero);
+        // the way back to the camp, at the foot, centred left of the zone column
+        r.spawn((
+            Node {
+                position_type: PositionType::Absolute,
+                left: Val::ZERO,
+                right: look.px(MARGIN * 2.0 + ZONE_WIDTH),
+                bottom: look.px(MARGIN),
+                justify_content: JustifyContent::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|band| {
+            let mut node = look.panel_node();
+            node.padding = UiRect::all(look.px(8.0));
+            band.spawn(look.panel(node)).with_children(|p| {
+                look.button(p, "Close", ButtonStyle::Text, true, Some(CAMP_BUTTON)).insert(MenuAction::CloseCampWindow);
+            });
+        });
     });
 }
 
@@ -212,7 +257,34 @@ fn top_left(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Opti
     ))
     .with_children(|col| {
         info_panel(col, look, ctx, hero);
-        camp_switch(col, look, ctx);
+        // the camp switch, and beside it Decorate camp (step 3 of the achievements)
+        col.spawn((
+            Node {
+                column_gap: look.px(12.0),
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            Pickable::IGNORE,
+        ))
+        .with_children(|row| {
+            camp_switch(row, look, ctx);
+            // parked for the hub while camp decorations are off
+            if !crate::achievements::cosmetics::CAMP_DECORATIONS {
+                return;
+            }
+            look.button(row, "Decorate camp", ButtonStyle::Text, true, Some(120.0))
+                .insert((
+                    MenuAction::OpenDecorate,
+                    Tip(vec![
+                        TipLine::new("Decorate camp", palette::HEADING),
+                        TipLine::new(
+                            "Set out trophies, banners and the pieces bought in the Shop round this camp's fire.",
+                            palette::VALUE,
+                        ),
+                    ]),
+                    MenuLookTip,
+                ));
+        });
     });
 }
 
@@ -314,7 +386,7 @@ pub(crate) fn loadout_tip(l: &esurv_content::Loadout) -> Vec<TipLine> {
 /// The info panel's Weapon loadout spot, under the Starting spell and built as it: the class's
 /// three loadouts as icons, the one the class fights with lit and named under the row, each
 /// telling the rest in its tooltip; a click picks another, which the save keeps for the class's
-/// next runs (roadmap R3).
+/// next runs.
 fn weapon_loadout(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: &Character) {
     let Some(class) = class_of(ctx.content, hero.class) else {
         return;
@@ -477,9 +549,8 @@ fn strike_spells(a: &esurv_content::Ability) -> Vec<String> {
     }
 }
 
-/// The top middle: a row of buttons over the armour the hero's class
-/// wears, centred over the camp, on the axis of the camp's own buttons (the band between the hero
-/// panel and as much room again on the right, which keeps clear of the codex).
+/// The top middle: the row of buttons, centred over the camp: the screen left of the zone column
+///.
 fn centre_column(
     r: &mut ChildSpawnerCommands,
     look: &MenuLook,
@@ -496,8 +567,8 @@ fn centre_column(
         Node {
             position_type: PositionType::Absolute,
             top: look.px(MARGIN),
-            left: look.px(MARGIN * 2.0 + INFO_WIDTH),
-            right: look.px(MARGIN * 3.0 + ZONE_WIDTH + INFO_WIDTH),
+            left: Val::ZERO,
+            right: look.px(MARGIN * 2.0 + ZONE_WIDTH),
             justify_content: JustifyContent::Center,
             ..default()
         },
@@ -508,8 +579,7 @@ fn centre_column(
             Node {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
-                row_gap: look.px(6.0),
-                min_width: look.px(SHEET_BUTTON * 4.0 + 18.0),
+                min_width: look.px(SHEET_BUTTON * 6.0 + 30.0),
                 ..default()
             },
             KeepNameClear,
@@ -517,7 +587,6 @@ fn centre_column(
         ))
         .with_children(|col| {
             sheet_buttons(col, look, ctx, &class.id);
-            armour(col, look, ctx, &class.id);
         });
     });
 }
@@ -534,10 +603,12 @@ pub(super) fn sheet_news(ctx: &Ctx, class: &str) -> (bool, bool) {
         .map_or((false, false), |p| (p.new_gear, p.new_points))
 }
 
-/// The row over the armour, left to right: Collection and Talents (each opening the hero sheet
-/// there, glowing with news, `gear` and `points`), a place kept for what comes later (no action:
-/// dimmed), and the Guide ([`super::guide`]).
-fn sheet_row(gear: bool, points: bool) -> [(&'static str, ButtonStyle, Option<MenuAction>); 4] {
+/// The row at the top, left to right: Equipment and Talents (each opening the
+/// hero sheet there, glowing with news, `gear` and `points`), Codex ([`super::codex`]),
+/// Achievements (its window, [`super::achievements`], glowing while something was earned since it
+/// was last opened, `earned`), Shop (the shop alone, never glowing) and the Guide
+/// ([`super::guide`]).
+fn sheet_row(gear: bool, points: bool, earned: bool) -> [(&'static str, ButtonStyle, Option<MenuAction>); 6] {
     let glow = |news: bool| {
         if news {
             ButtonStyle::TextGlow
@@ -546,14 +617,16 @@ fn sheet_row(gear: bool, points: bool) -> [(&'static str, ButtonStyle, Option<Me
         }
     };
     [
-        ("Collection", glow(gear), Some(MenuAction::OpenHeroTab(SheetTab::Collection))),
+        ("Equipment", glow(gear), Some(MenuAction::OpenHeroTab(SheetTab::Collection))),
         ("Talents", glow(points), Some(MenuAction::OpenHeroTab(SheetTab::Talents))),
-        ("TBD", ButtonStyle::Text, None),
+        ("Codex", ButtonStyle::Text, Some(MenuAction::OpenCodex)),
+        ("Achievements", glow(earned), Some(MenuAction::OpenAchievements)),
+        ("Shop", ButtonStyle::Text, Some(MenuAction::OpenShop)),
         ("Guide", ButtonStyle::Text, Some(MenuAction::OpenGuide)),
     ]
 }
 
-/// The row over the armour ([`sheet_row`]).
+/// The row at the top ([`sheet_row`]).
 fn sheet_buttons(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, class: &str) {
     let (gear, points) = sheet_news(ctx, class);
     col.spawn((
@@ -564,7 +637,7 @@ fn sheet_buttons(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, cla
         Pickable::IGNORE,
     ))
     .with_children(|row| {
-        for (label, style, action) in sheet_row(gear, points) {
+        for (label, style, action) in sheet_row(gear, points, ctx.facts.achievements_news()) {
             let mut b = look.button(row, label, style, action.is_some(), None);
             b.insert(Node {
                 flex_grow: 1.0,
@@ -583,63 +656,8 @@ fn sheet_buttons(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, cla
     });
 }
 
-/// The armour the hero's class wears.
-fn armour(col: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, class: &str) {
-    let Some(gear) = ClassGear::of(ctx.content, class) else {
-        return;
-    };
-    let worn = ctx
-        .facts
-        .progress(class)
-        .map(|p| gear.worn(p))
-        .unwrap_or_default();
-    {
-        let mut node = look.panel_node();
-        node.align_items = AlignItems::Center;
-        node.padding = UiRect::axes(look.px(PAD), look.px(8.0));
-        col.spawn(look.panel(node)).with_children(|p| {
-            p.spawn(look.label("Equipped armour"));
-            p.spawn(Node {
-                column_gap: look.px(5.0),
-                ..default()
-            })
-            .with_children(|row| {
-                for slot in 0..gear.slots() {
-                    let zone = worn.get(slot as usize).copied().flatten();
-                    let (path, tip) = match zone {
-                        Some(z) => (
-                            ctx.icons.piece_icon(&gear, slot, gear.own_look(z)),
-                            vec![
-                                TipLine::new(gear.name(slot, z), rarity_colour(gear.quality(z))),
-                                TipLine::new(gear.slot_name(slot), palette::VALUE),
-                                TipLine::new(origin_line(&gear, ctx.facts.progress(class), z), palette::VALUE),
-                            ],
-                        ),
-                        None => (
-                            gear.empty_slot_art(slot).to_owned(),
-                            vec![
-                                TipLine::new(gear.slot_name(slot), palette::VALUE),
-                                TipLine::new("Nothing worn", palette::LABEL),
-                            ],
-                        ),
-                    };
-                    let picked = false;
-                    look.icon(row, look.art(&path), None, SLOT_ICON, picked, false, false)
-                        .insert((Tip(tip), MenuLookTip));
-                    if slot + 1 == ARMOR_SLOTS {
-                        row.spawn(Node {
-                            width: look.px(6.0),
-                            ..default()
-                        });
-                    }
-                }
-            });
-        });
-    }
-}
-
 /// The right column: the zones, Difficulty modifiers and Start run.
-fn zone_column(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Option<&Character>) {
+pub(super) fn zone_column(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Option<&Character>) {
     let mut node = look.panel_node();
     node.position_type = PositionType::Absolute;
     node.right = look.px(MARGIN);
@@ -648,6 +666,8 @@ fn zone_column(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: O
     node.width = look.px(ZONE_WIDTH);
     node.row_gap = look.px(6.0);
     r.spawn((look.panel(node), KeepNameClear)).with_children(|p| {
+        // the key art's portal behind the zones: where the run goes
+        p.spawn(crate::splash_art::cut(crate::splash_art::Cut::Portal, 0.5));
         look.heading(p, "Zone", 22.0);
         // once the class has cleared Ahn'Qiraj: Normal Mode and Challenge Mode over the zones
         if let Some(h) = hero.filter(|h| challenge_open(ctx, h)) {
@@ -744,11 +764,11 @@ fn mode_tabs(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: &Ch
         Tip(vec![
             TipLine::new("Challenge", palette::HEADING),
             TipLine::new(
-                format!(
-                    "Every zone at Ahn'Qiraj's strength, then every enemy's health and damage \
-                     ×{f} × this. Pays only gear drops, and Ahn'Qiraj's talent experience ×{f}.",
+                ctx.content.shown(&format!(
+                    "Every zone at {{Area(3428)}}'s strength, then every enemy's health and damage \
+                     ×{f} × this. Pays only gear drops, and {{Area(3428)}}'s talent experience ×{f}.",
                     f = ctx.content.balance.challenge_factor
-                ),
+                )),
                 palette::VALUE,
             ),
         ]),
@@ -994,11 +1014,11 @@ fn camp_switch(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx) {
 
 /// The camp's own parts: its buttons along its foot, and the corner's Options and Quit game.
 fn camp_parts(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Option<&Character>) {
-    // the buttons along the camp's foot
+    // the buttons along the foot, centred over the camp: the screen left of the zone column
     r.spawn((
         Node {
             position_type: PositionType::Absolute,
-            left: look.px(MARGIN),
+            left: Val::ZERO,
             right: look.px(MARGIN * 2.0 + ZONE_WIDTH),
             bottom: look.px(MARGIN),
             justify_content: JustifyContent::Center,
@@ -1122,10 +1142,12 @@ pub(super) fn draw_delete_confirm(
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                // every window's title at one height near the top, growing down
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::top(look.px(super::look::WINDOW_TOP)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            BackgroundColor(palette::DIM),
             solid(),
             GlobalZIndex(super::MENU_LAYER + 10),
         ))
@@ -1160,7 +1182,7 @@ pub(super) fn draw_delete_confirm(
 /// The lines of the box telling that Challenge Mode is open, its numbers read from the
 /// content and the slider's constants.
 pub(super) fn challenge_news_lines(content: &Content) -> Vec<String> {
-    let aq = content.zone(CHALLENGE_ZONE).map_or("Ahn'Qiraj", |z| z.name.as_str());
+    let aq = content.zone(CHALLENGE_ZONE).map_or_else(|| content.shown("{Area(3428)}"), |z| z.name.clone());
     let factor = content.balance.challenge_factor;
     let times = |pct: u16| format!("{}x", f32::from(pct) / 100.0);
     vec![
@@ -1186,10 +1208,12 @@ pub(super) fn draw_challenge_news(commands: &mut Commands, root: Entity, look: &
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                // every window's title at one height near the top, growing down
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::top(look.px(super::look::WINDOW_TOP)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            BackgroundColor(palette::DIM),
             solid(),
             GlobalZIndex(super::MENU_LAYER + 10),
         ))
@@ -1243,7 +1267,7 @@ fn name_over_head(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero
             ));
         }
         plate.spawn((
-            look.text(Face::Display, 22.0, palette::HEADING, hero.name.clone()),
+            look.text(Face::Display, 22.0, palette::HEADING, titled_name(ctx, hero)),
             Pickable::IGNORE,
         ));
     });
@@ -1377,10 +1401,12 @@ pub(super) fn draw_run_options(commands: &mut Commands, root: Entity, look: &Men
                 width: Val::Percent(100.0),
                 height: Val::Percent(100.0),
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
+                // every window's title at one height near the top, growing down
+                align_items: AlignItems::FlexStart,
+                padding: UiRect::top(look.px(super::look::WINDOW_TOP)),
                 ..default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.5)),
+            BackgroundColor(palette::DIM),
             solid(),
             GlobalZIndex(super::MENU_LAYER + 10),
         ))
@@ -1489,16 +1515,20 @@ mod tests {
     }
 
     #[test]
-    fn the_row_over_the_armour_ends_with_the_guide_and_keeps_one_place() {
-        for (gear, points) in [(false, false), (true, true)] {
-            let row = sheet_row(gear, points);
+    fn the_row_over_the_armour_ends_with_the_guide_and_achievements_glow_with_news() {
+        for (gear, points, earned) in [(false, false, false), (true, true, true), (false, false, true)] {
+            let row = sheet_row(gear, points, earned);
             let labels: Vec<&str> = row.iter().map(|b| b.0).collect();
-            assert_eq!(labels, ["Collection", "Talents", "TBD", "Guide"]);
-            // a button is enabled when it has something to do
-            let enabled: Vec<bool> = row.iter().map(|b| b.2.is_some()).collect();
-            assert_eq!(enabled, [true, true, false, true], "the third stays a dimmed TBD");
-            assert_eq!(row[3].2, Some(MenuAction::OpenGuide));
-            assert_eq!(row[3].1, ButtonStyle::Text, "the Guide never glows");
+            assert_eq!(labels, ["Equipment", "Talents", "Codex", "Achievements", "Shop", "Guide"]);
+            // every button has something to do
+            assert!(row.iter().all(|b| b.2.is_some()));
+            assert_eq!(row[2].2, Some(MenuAction::OpenCodex));
+            assert_eq!(row[3].2, Some(MenuAction::OpenAchievements));
+            assert_eq!(row[3].1 == ButtonStyle::TextGlow, earned);
+            assert_eq!(row[4].2, Some(MenuAction::OpenShop));
+            assert_eq!(row[4].1, ButtonStyle::Text, "the Shop never glows");
+            assert_eq!(row[5].2, Some(MenuAction::OpenGuide));
+            assert_eq!(row[5].1, ButtonStyle::Text, "the Guide never glows");
             assert_eq!(row[0].1 == ButtonStyle::TextGlow, gear);
         }
     }
@@ -1595,7 +1625,7 @@ mod tests {
     }
 
     /// Every class shows three weapon loadouts under its starting spell, each naming its weapons,
-    /// its strength and its drawback (roadmap R3).
+    /// its strength and its drawback.
     #[test]
     fn every_class_offers_three_loadouts_with_weapons_strength_and_drawback() {
         let c = content();
@@ -1771,18 +1801,10 @@ mod tests {
     }
 }
 
-/// The codex beside the zone column: how much of each list the save has found, and the way in.
-fn codex_panel(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx) {
-    let mut node = look.panel_node();
-    node.position_type = PositionType::Absolute;
-    node.right = look.px(MARGIN * 2.0 + ZONE_WIDTH);
-    node.top = look.px(MARGIN);
-    node.width = look.px(CODEX_WIDTH);
-    node.row_gap = look.px(5.0);
-    r.spawn((look.panel(node), KeepNameClear)).with_children(|p| {
-        look.heading(p, "Codex", 18.0);
-        super::codex::counts(p, look, ctx);
-        look.button(p, "Open the codex", ButtonStyle::Text, true, None)
-            .insert(MenuAction::OpenCodex);
-    });
+
+/// A hero's name with the title it wears (its hero sheet's pick; shown with the
+/// name at the camp).
+pub(super) fn titled_name(ctx: &Ctx, hero: &Character) -> String {
+    let title = ctx.facts.hero(hero.guid).map(|h| h.title.as_str()).filter(|t| !t.is_empty());
+    ctx.content.titled_name(&hero.name, title)
 }

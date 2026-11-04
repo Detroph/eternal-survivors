@@ -28,6 +28,11 @@ fn game_with(race: &str) -> (Game, TcpStream) {
         records: Default::default(),
         zone: None,
         start: None,
+        companion: None,
+        wears: Default::default(),
+        plot: None,
+        temperament: None,
+        time_period: Default::default(),
     };
     let (_host, inputs) = std::sync::mpsc::channel();
     let mut game = Game::new(content, None, 0, &saved, Arc::new(Saves::in_memory()), inputs).unwrap();

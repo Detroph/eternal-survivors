@@ -1,0 +1,161 @@
+// Weapon glows: the 1.12 weapon enchants' glows, sold in the shop (Shop, Enchants tab) for points
+// to spend. A glow bought is the whole warband's; each hero wears one (or none), picked on its
+// hero sheet (Equipment), on all its weapons at once: the main hand, an off-hand weapon and the
+// ranged weapon, never a shield or a held off-hand item. It shows at
+// the camp fire and in runs and changes nothing else. docs/game/achievements.md has the rules,
+// docs/game/AUTHORING.md "A weapon glow" how to add one. An id is kept in the save once shipped:
+// never change one.
+//
+// enchant: a SpellItemEnchantment.dbc id of the 1.12.1 client whose ItemVisual (field 22) is the
+//          glow; each checked (2026-10-27), its ItemVisual and model in the comment.
+// needs:   another glow the warband must own first (the damage glows' ladder).
+// Prices: 30, Crusader, Unholy and Fiery 50 (the plan's drafts); the damage glows 15, 30, 50 and
+// Feedback 30 (in steps of 15, 30 and 50 from 25, 50 and 75).
+([
+    (
+        id: "crusader",
+        name: "Crusader",
+        icon: "Spell_Holy_GreaterHeal",
+        enchant: 1900, // ItemVisual 103, WhiteGlow_Low
+        price: 50, // draft
+        text: "The white light of the Crusader enchant.",
+    ),
+    (
+        id: "unholy",
+        name: "Unholy",
+        icon: "Spell_Shadow_CurseOfMannoroth",
+        enchant: 1899, // ItemVisual 1, SkullBalls
+        price: 50, // draft
+        text: "Little green skulls drifting off the blade.",
+    ),
+    (
+        id: "fiery",
+        name: "Fiery",
+        icon: "Spell_Fire_Immolation",
+        enchant: 803, // ItemVisual 25, RedFlame_Low
+        price: 50, // draft
+        text: "Red flame licking along the weapon.",
+    ),
+    (
+        id: "icy",
+        name: "Icy Chill",
+        icon: "Spell_Frost_ChillingBlast",
+        enchant: 1894, // ItemVisual 126, WhiteFlame_Low
+        price: 30, // draft
+        text: "A pale, cold flame.",
+    ),
+    (
+        id: "frost_oil",
+        name: "Frost Oil",
+        icon: "INV_Potion_20",
+        enchant: 26, // ItemVisual 27, BlueFlame_Low
+        price: 30, // draft
+        text: "Blue fire from a rogue's frost oil.",
+    ),
+    (
+        id: "poison",
+        name: "Poison",
+        icon: "Ability_Rogue_DualWeild",
+        enchant: 7, // ItemVisual 26, PoisonDrip (Deadly Poison)
+        price: 30, // draft
+        text: "Green drops falling from the edge.",
+    ),
+    (
+        id: "agility",
+        name: "Agility",
+        icon: "Spell_Nature_Strength",
+        enchant: 2564, // ItemVisual 125, GreenGlow_Low
+        price: 30, // draft
+        text: "The green shimmer of an Agility or Strength enchant.",
+    ),
+    (
+        id: "spirit",
+        name: "Spirit",
+        icon: "Spell_Holy_DivineSpirit",
+        enchant: 1890, // ItemVisual 29, YellowGlow_Low
+        price: 30, // draft
+        text: "The yellow shimmer of a Spirit or Intellect enchant.",
+    ),
+    (
+        id: "damage_low",
+        name: "Lesser Impact",
+        icon: "INV_Enchant_ShardGlimmeringLarge",
+        enchant: 943, // ItemVisual 42, BlueGlow_Low
+        price: 15,
+        text: "A faint blue glow, the first of the damage enchants.",
+    ),
+    (
+        id: "damage_medium",
+        name: "Impact",
+        icon: "INV_Enchant_ShardBrilliantSmall",
+        enchant: 1895, // ItemVisual 2, BlueGlow_Med
+        price: 30,
+        needs: "damage_low",
+        text: "A brighter blue glow.",
+    ),
+    (
+        id: "damage_high",
+        name: "Superior Impact",
+        icon: "INV_Enchant_ShardBrilliantLarge",
+        enchant: 1896, // ItemVisual 24, BlueGlow_High
+        price: 50,
+        needs: "damage_medium",
+        text: "The strongest blue glow there is.",
+    ),
+    (
+        id: "sharpened",
+        name: "Sharpened",
+        icon: "INV_Stone_SharpeningStone_01",
+        enchant: 13, // ItemVisual 28, Sparkle_A
+        price: 30, // draft
+        text: "A sparkle along a freshly honed edge.",
+    ),
+    (
+        id: "beastslaying",
+        name: "Beastslaying",
+        icon: "Ability_Hunter_Pet_Bear",
+        enchant: 853, // ItemVisual 31, RedGlow_Low
+        price: 30, // draft
+        text: "The red glow of a {Spell(7784)} enchant.",
+    ),
+    (
+        id: "feedback",
+        name: "Feedback",
+        icon: "Spell_Shadow_RitualOfSacrifice",
+        enchant: 1023, // ItemVisual 107, PurpleGlow_Low
+        price: 30,
+        text: "A purple glow, the only one there is.",
+    ),
+    (
+        id: "flametongue",
+        name: "Flametongue",
+        icon: "Spell_Fire_FlameTounge",
+        enchant: 5, // ItemVisual 32, Shaman_Fire
+        price: 30, // draft
+        text: "A shaman's {Spell(8024)}.",
+    ),
+    (
+        id: "frostbrand",
+        name: "Frostbrand",
+        icon: "Spell_Frost_FrostBrand",
+        enchant: 2, // ItemVisual 33, Shaman_Frost
+        price: 30, // draft
+        text: "A shaman's {Spell(8033)}.",
+    ),
+    (
+        id: "rockbiter",
+        name: "Rockbiter",
+        icon: "Spell_Nature_RockBiter",
+        enchant: 29, // ItemVisual 61, Shaman_Rock
+        price: 30, // draft
+        text: "A shaman's {Spell(8017)}.",
+    ),
+    (
+        id: "windfury",
+        name: "Windfury",
+        icon: "Spell_Nature_Cyclone",
+        enchant: 283, // ItemVisual 81, Shaman_Wind
+        price: 30, // draft
+        text: "A shaman's {Spell(8232)}.",
+    ),
+])

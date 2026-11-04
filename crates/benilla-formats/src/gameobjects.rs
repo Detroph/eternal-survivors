@@ -29,6 +29,11 @@ impl GameObjectCatalog {
         self.models.is_empty()
     }
 
+    /// Add a display of a game's own, or replace one, as `displayId → model path`.
+    pub fn add(&mut self, display_id: u32, path: String) {
+        self.models.insert(display_id, path);
+    }
+
     /// Every `(displayId, model path)` pair, in no order.
     pub fn iter(&self) -> impl Iterator<Item = (u32, &str)> {
         self.models.iter().map(|(&id, p)| (id, p.as_str()))

@@ -27,11 +27,12 @@ mod escape_presses;
 mod lines;
 mod menu_presses;
 pub mod state;
+pub(crate) mod top_box;
 mod view;
 
 pub(crate) use escape_presses::escape_key;
 pub use lines::{strength, LineLook, TimedLine, TimedLines};
-pub use escape_menu::MenuHere;
+pub use escape_menu::{CampMenuOpen, MenuHere};
 pub use state::RunHud;
 
 use view::{HudParts, HudRoot};
@@ -59,6 +60,7 @@ impl Plugin for HudPlugin {
             .init_resource::<HudLines>()
             .init_resource::<MenuState>()
             .init_resource::<MenuHere>()
+            .init_resource::<CampMenuOpen>()
             .init_resource::<GameMenuUp>()
             .add_systems(
                 Update,
@@ -135,6 +137,7 @@ fn build_for_the_window(
     parts: Option<Res<HudParts>>,
     mut run: ResMut<RunHud>,
     look: crate::menus::look::MenuLook,
+    mut images: ResMut<Assets<Image>>,
 ) {
     if let Some(parts) = &parts {
         if parts.scale == stock.scale() {
@@ -144,7 +147,7 @@ fn build_for_the_window(
             commands.entity(root).despawn();
         }
     }
-    let parts = view::build(&mut commands, &stock, &fonts, &look);
+    let parts = view::build(&mut commands, &stock, &fonts, &look, &mut images);
     commands.insert_resource(parts);
     // the new parts are filled at once
     run.set_changed();
@@ -218,32 +221,53 @@ fn follow_the_world(
     *was_in = now_in;
 }
 
-/// The Escape menu is the game menu whenever a run is up, but over a choice screen.
+/// The Escape menu is the game menu whenever a run is up, but over a choice screen, and in the
+/// camp (where a window open over it takes Escape first: it closes), never the stock game menu.
+/// Out of the camp, the camp's menu is closed.
 fn stand_in_for_the_game_menu(
     objects: Objects,
     run: Res<RunHud>,
+    visit: Option<Res<crate::camp::CampVisit>>,
     mut stand_in: ResMut<GameMenuStandIn>,
+    mut camp_menu: ResMut<CampMenuOpen>,
 ) {
-    let on = in_world(&objects) && escape_menu::stands_in_for_the_game_menu(run.phase());
+    let in_camp = in_world(&objects) && visit.as_deref().is_some_and(|v| v.in_camp);
+    if !in_camp {
+        camp_menu.set_if_neq(CampMenuOpen(false));
+    }
+    let on = in_world(&objects) && (escape_menu::stands_in_for_the_game_menu(run.phase()) || in_camp);
     stand_in.set_if_neq(GameMenuStandIn(on));
 }
 
-/// The game menu was asked for (Escape, the menu button): pause or resume a run under way; before
-/// the first step and on the end panel, open or close the menu here; with the Options panel open
-/// over the menu, it closes the panel instead (its Cancel), back to the menu, as the stock options
-/// windows go back to the game menu ([`escape_menu::answer_escape`]).
+/// The game menu was asked for (Escape, the menu button): with the Options panel open over the
+/// menu, it closes the panel (its Cancel), back to the menu, as the stock options windows go back
+/// to the game menu; then a window open over the camp closes; else pause or resume a run under
+/// way, and before the first step, on the end panel and in the camp open or close the menu here
+/// ([`escape_menu::answer_escape`], [`escape_menu::answer_escape_in_camp`]).
 fn answer_the_menu(
     mut asked: MessageReader<GameMenuAsked>,
     run: Res<RunHud>,
     mut menu: ResMut<MenuState>,
-    mut here: ResMut<MenuHere>,
+    (mut here, mut camp_menu): (ResMut<MenuHere>, ResMut<CampMenuOpen>),
     mut requests: MessageWriter<Request>,
     (menus, mut presses): (Option<Res<Menus>>, MessageWriter<MenuPress>),
+    visit: Option<Res<crate::camp::CampVisit>>,
 ) {
     for _ in asked.read() {
         let options = menus.as_deref().is_some_and(Menus::options_over_the_run);
+        // a window open over the camp closes, after the Options panel it may have opened
+        if !options && menus.as_deref().is_some_and(|m| m.over_the_camp.is_some()) {
+            info!("hud: the game menu was asked for over a camp window; it closes");
+            presses.write(MenuPress(MenuAction::CloseCampWindow));
+            continue;
+        }
         let phase = run.phase();
-        match escape_menu::answer_escape(phase, *here, options) {
+        let answer = if visit.as_deref().is_some_and(|v| v.in_camp) {
+            escape_menu::answer_escape_in_camp(*camp_menu, options)
+        } else {
+            escape_menu::answer_escape(phase, *here, options)
+        };
+        match answer {
             escape_menu::EscapeAnswer::CloseOptions => {
                 info!("hud: the game menu was asked for over the Options panel; it closes");
                 presses.write(MenuPress(MenuAction::OptionsCancel));
@@ -265,6 +289,14 @@ fn answer_the_menu(
                 info!("hud: the game menu closes");
                 here.0 = None;
             }
+            escape_menu::EscapeAnswer::OpenInCamp => {
+                info!("hud: the game menu opens in the camp");
+                camp_menu.0 = true;
+            }
+            escape_menu::EscapeAnswer::CloseInCamp => {
+                info!("hud: the game menu closes, back to the camp");
+                camp_menu.0 = false;
+            }
             escape_menu::EscapeAnswer::Nothing => {}
         }
     }
@@ -276,14 +308,14 @@ fn press_menu_buttons(
     buttons: Query<&escape_menu::MenuButton>,
     run: Res<RunHud>,
     mut menu: ResMut<MenuState>,
-    mut here: ResMut<MenuHere>,
+    (mut here, camp_menu): (ResMut<MenuHere>, Res<CampMenuOpen>),
     mut requests: MessageWriter<Request>,
 ) {
     for StockClick(clicked) in clicks.read() {
         let Ok(&button) = buttons.get(*clicked) else {
             continue;
         };
-        let Some(kind) = escape_menu::menu_kind(run.phase(), *here) else {
+        let Some(kind) = escape_menu::menu_showing(run.phase(), *here, *camp_menu) else {
             continue;
         };
         // Options asks nothing of the server: the menus open their panel (its `MenuAction`)
@@ -398,7 +430,7 @@ fn refresh_lines(
 fn show_parts(
     objects: Objects,
     run: Res<RunHud>,
-    here: Res<MenuHere>,
+    (here, camp_menu): (Res<MenuHere>, Res<CampMenuOpen>),
     parts: Option<Res<HudParts>>,
     menus: Option<Res<Menus>>,
     mut roots: Query<&mut Visibility, With<HudRoot>>,
@@ -411,7 +443,9 @@ fn show_parts(
     let live = in_world(&objects) && run.ready.is_some();
     let numbers = live && run.numbers.is_some();
     let options = menus.as_deref().is_some_and(Menus::options_over_the_run);
-    let kind = escape_menu::menu_kind(run.phase(), *here).filter(|_| live);
+    // the camp's menu shows with no run up (the rest of the HUD does not)
+    let camp = in_world(&objects) && camp_menu.0;
+    let kind = escape_menu::menu_showing(run.phase(), *here, *camp_menu).filter(|_| live || camp);
     up.set_if_neq(GameMenuUp(kind.is_some() || (live && options)));
     if let Some(kind) = kind {
         let mut display = |entity: Entity, on: bool| {

@@ -10,6 +10,8 @@
 #     repository's address): its owner's name may hold the user name;
 #   * an absolute path into a user folder (C:\Users\<name>\, /home/<name>/, /Users/<name>/);
 #   * an e-mail address not on the allow-list (noreply addresses, and -AllowEmails);
+#   * a private word from -TermsFile (default `%USERPROFILE%\.esurv\leak-terms.txt`, outside the
+#     repository), when that file exists;
 #   * a Blizzard file: by type (MPQ, BLP, M2, WMO, ADT, WDT, DBC, WAV, MP3, OGG, TTF, and .xml or
 #     .lua from a client's Interface, FrameXML or GlueXML) or by its first bytes (MPQ, BLP, M2,
 #     WMO/ADT, DBC, RIFF WAVE, MP3, Ogg), whatever its name.
@@ -21,6 +23,7 @@ param(
     [string[]]$Path,
     [string[]]$UserNames = @(),
     [string[]]$AllowEmails = @(),
+    [string]$TermsFile = (Join-Path $env:USERPROFILE '.esurv\leak-terms.txt'),
     [int]$Show = 12
 )
 
@@ -36,6 +39,10 @@ $checks = @(
     @{ Kind = 'user folder path'; Regex = [regex]::new('(?<![a-z0-9_.])/(home|Users)/(?!runner/)[A-Za-z0-9._-]{2,}/') },
     @{ Kind = 'e-mail address'; Regex = [regex]::new('(?i)(?<![a-z0-9._%+-])[a-z0-9][a-z0-9._%+-]{1,63}@[a-z0-9-]{2,63}(\.[a-z0-9-]{1,63})*\.[a-z]{2,10}(?![a-z0-9])') }
 )
+# The owner's private words (references that must never be named): one regex a line in
+# -TermsFile, kept outside the repository so the list itself names nothing; # lines are notes.
+$terms = @(if (Test-Path $TermsFile) { Get-Content $TermsFile | Where-Object { $_ -and -not $_.StartsWith('#') } })
+if ($terms) { $checks += @{ Kind = 'private word'; Regex = [regex]::new("(?i)($($terms -join '|'))") } }
 # Third-party copyright lines compiled in, which must ship with the code they credit: bevy's SMAA
 # shader's license header (bevy_anti_alias, smaa.wgsl), and the CRYPTOGAMS credit in ring's
 # assembly ("CRYPTOGAMS by <appro@openssl.org>", the updater's TLS).

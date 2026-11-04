@@ -34,11 +34,11 @@ pub fn zone_file_text(zone: ExtraZone) -> String {
     difficulty: {difficulty:?},
     enemies: [
         (name: "Test Wolf", display_id: 165, scale: 0.7, creature_type: Beast,
-         kind: FastFodder, toughness: 0.25, appears_at_minute: 0.0),
+         kind: FastFodder, role: Swarm, appears_at_minute: 0.0),
         (name: "Test Kobold", display_id: 26, scale: 0.9, creature_type: Humanoid,
-         kind: Fodder, toughness: 0.5, appears_at_minute: 0.0),
+         kind: Fodder, role: Light, appears_at_minute: 0.0),
         (name: "Test Caster", display_id: 163, scale: 1.0, creature_type: Humanoid,
-         kind: Ranged, toughness: 0.5, appears_at_minute: 0.5, look_spell: Some(133)),
+         kind: Ranged, role: Light, appears_at_minute: 0.5, look_spell: Some(133)),
     ],
     bosses: [
         (name: "Test Brute", display_id: 384, scale: 3.0, creature_type: Humanoid,
@@ -79,7 +79,7 @@ pub fn faction_zone_file_text(zone: ExtraZone) -> String {
         format!(
             r#"(
             enemies: [(name: "{enemy}", display_id: 26, scale: 1.0, creature_type: Humanoid,
-                       kind: Fodder, toughness: 0.5, appears_at_minute: 0.0,
+                       kind: Fodder, role: Light, appears_at_minute: 0.0,
                        looks_like: Some((class: "warrior")), rank: Some(3))],
             bosses: [(name: "{boss}", display_id: 2029, scale: 2.0, creature_type: Humanoid,
                       spawn_minute: 6.0, yell: "For the test!", abilities: [Charge(look_spell: 100)],

@@ -4,7 +4,7 @@
 
 use benilla_m2::M2ScalarTrack;
 
-use crate::models::{bake_track, ScalarAnim, SeqSlot};
+use crate::models::{bake_track, reslot, ScalarAnim, SeqSlot};
 
 /// The spawn rate and enabled gate per file sequence slot. The reference's animate kernel
 /// (`0x714260`) samples both through the playing sequence's key window every frame, and the rate
@@ -128,6 +128,15 @@ impl EmitTiming {
             .collect()
     }
 
+    /// The same tracks keyed on another model's sequence slots ([`reslot`]).
+    pub fn reslot(&self, from: &[usize]) -> Self {
+        Self {
+            rate: reslot(&self.rate, from),
+            enabled: reslot(&self.enabled, from),
+            looping: reslot(&self.looping, from),
+        }
+    }
+
     /// Test/tool constructor: a single always-on slot at a constant `rate`, looping.
     pub fn constant(rate: f32) -> Self {
         Self {
@@ -247,6 +256,13 @@ impl EmitParams {
             return ParamsNow::default().lifespan;
         }
         keys.fold(0.0, f32::max)
+    }
+
+    /// The same channels keyed on another model's sequence slots ([`reslot`]).
+    pub fn reslot(&self, from: &[usize]) -> Self {
+        Self {
+            channels: self.channels.each_ref().map(|c| reslot(c, from)),
+        }
     }
 
     /// Constant channels from one [`ParamsNow`], for tests and tools.

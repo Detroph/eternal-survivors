@@ -2865,7 +2865,7 @@ mod tests {
         assert_eq!(by(Unit::Hero(r.heroes[0].id)), 0, "the hero casts none of them");
         assert!(r.cast_by_summon.is_none());
     }
-    // ---- weapon loadouts (roadmap R3) --------------------------------
+    // ---- weapon loadouts --------------------------------
 
     /// The weapon swings' hits in `events`.
     fn swing_hits(events: &[Event]) -> Vec<f32> {
