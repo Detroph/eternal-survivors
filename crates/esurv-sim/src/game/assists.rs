@@ -24,7 +24,7 @@ use super::assist_rotation::{Rotation, GLOBAL_COOLDOWN};
 use super::boss_abilities::CHARGE_SPEED;
 use super::casting::{HitSource, Totem, AREA_LOOK_AFTER, AREA_SPOTS, HOLD_BOSS_SHARE, TOTEM_OFFSET};
 use super::director::FIRST_ELITE;
-use super::enemy_ai::{chase, reach, Segment, Vec2};
+use super::enemy_ai::{chase, dist, reach, Segment, Vec2};
 use super::loot::{Pickup, CACHE_RING};
 use super::pets::{PET_APPEAR_DISTANCE, PET_CHASE_STOP_SHORT};
 use super::rares::FALLBACK_RUN_MINUTES;
@@ -204,10 +204,6 @@ pub fn standard_schedule(per_run: (u32, u32), final_minute: Option<f32>, rng: &m
     let mut times: Vec<f32> = (0..count).map(|_| rng.range(FIRST_ELITE, end)).collect();
     times.sort_by(f32::total_cmp);
     times
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 /// The facing from `from` to `to`; `otherwise` when they are one spot.

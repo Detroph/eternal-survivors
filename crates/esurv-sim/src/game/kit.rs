@@ -7,13 +7,13 @@
 //! and summons).
 
 use esurv_content::{
-    Ability, AutoAttack, Content, Counter, Fill, Mechanic, PassiveKind, Release, Resource, ResourceKind, School, SpellEffect, StackKind,
+    Ability, AutoAttack, Content, Counter, Fill, Mechanic, PassiveKind, Release, Resource, ResourceKind, School, StackKind,
     StartingOption, Stat, SummonKind, SummonSpec, TargetOrder, Upgrade,
 };
 
-use super::abilities::{burn_ticks, duration, hit_damage, radius, target_count, ticks, Instance};
+use super::abilities::{duration, hit_damage, radius, target_count, ticks, Instance};
 use super::casting::{Dot, HitSource, PendingHit};
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::run::{Aim, Buff, BuffKind, Event, Hero, Run, Unit};
 use super::stats::Modifier;
 
@@ -61,8 +61,6 @@ pub const PLANT_BURST_AFTER: f32 = 2.0;
 pub const TENTACLE_APPEAR_RING: (f32, f32) = (4.0, 8.0);
 /// Summons run at this many yards per second.
 pub const SUMMON_SPEED: f32 = 12.0;
-/// A Water Elemental stays this long (its nova, then its two bolts).
-pub const WATER_ELEMENTAL_STAY: f32 = 3.0;
 /// The Water Elemental's look: its two little bolts.
 pub const WATER_ELEMENTAL_BOLT: u32 = 116;
 /// A tentacle or a summon that casts looks for a new target this far from where it stands.
@@ -86,6 +84,10 @@ pub struct KitState {
     pub counter: f32,
     /// When each swing speed stack runs out (Zeal).
     pub swing_stacks: Vec<f32>,
+    /// Revenge's passive: the next strike back comes no sooner than this.
+    pub strike_back_ready: f32,
+    /// Rampage's strikes still to come: when, which spell, at whom.
+    pub strikes: Vec<(f32, String, u32)>,
     /// When each damage reduction stack runs out (Thick Hide).
     pub reduction_stacks: Vec<f32>,
     /// Quick Shots: the swing is faster until then.
@@ -189,10 +191,6 @@ fn is_finisher(a: &Ability) -> bool {
 /// A strike that builds combo points; two known take turns.
 fn is_builder(a: &Ability) -> bool {
     a.kit.combo_points > 0 && a.kit.finisher_at == 0
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 /// The starting option hero `h` plays.
@@ -429,6 +427,11 @@ impl Run {
         }
         if main {
             self.fill(i, |f| if let Fill::Cast(n) = f { n } else { 0.0 });
+            // a cast main spell gives a swing speed stack (Whirlwind); a swing proc's stacks come
+            // with its procs instead (Seal of Command)
+            if matches!(o.passive.kind, PassiveKind::SwingSpeedStacks { .. }) && !matches!(a.kit.mechanic, Some(Mechanic::SwingProc { .. })) {
+                self.add_swing_stack(i);
+            }
             if let PassiveKind::Empower { max, look, burst, .. } = &o.passive.kind {
                 let max = *max;
                 // full stacks that burst start over with the next cast (cards cast before it still take them)
@@ -760,7 +763,10 @@ impl Run {
         let value = self.heroes[i].kit.counter;
         match &o.passive.kind {
             PassiveKind::Counter(c) => {
-                self.show_resource(i, c.meter, value, c.max);
+                // an option with rage or energy keeps its bar for that (Slam)
+                if o.resource.is_none() {
+                    self.show_resource(i, c.meter, value, c.max);
+                }
                 if let Some(s) = stack_twin(c.meter) {
                     self.show_stacks(i, s, value.floor() as u32, c.max as u32, None);
                 }
@@ -819,6 +825,34 @@ impl Run {
                     self.push(Event::AreaGone { id });
                 }
             }
+            Release::Strikes { spells, gap } => {
+                let at = self.heroes[i].pos;
+                let Some(first) = spells.first().and_then(|s| content.ability(s)) else { return };
+                let Some(&target) = self.enemies_in_target_order(at, first.range).first() else { return };
+                for (k, s) in spells.iter().enumerate() {
+                    self.heroes[i].kit.strikes.push((self.now + gap * k as f32, s.clone(), target));
+                }
+                self.rampage_strikes(i);
+            }
+        }
+    }
+
+    /// Hero `i`'s Rampage strikes that are due land, each on its target or, if that fell, on
+    /// the next enemy in its spell's order within its range.
+    fn rampage_strikes(&mut self, i: usize) {
+        let content = self.content.clone();
+        let now = self.now;
+        let (due, later): (Vec<_>, Vec<_>) = std::mem::take(&mut self.heroes[i].kit.strikes).into_iter().partition(|s| s.0 <= now);
+        self.heroes[i].kit.strikes = later;
+        for (_, spell, target) in due {
+            let Some(a) = content.ability(&spell) else { continue };
+            let at = self.heroes[i].pos;
+            let target = if self.enemy(target).is_some_and(|e| e.health > 0.0) { Some(target) } else { self.enemies_in_target_order(at, a.range).first().copied() };
+            let Some(t) = target else { continue };
+            let inst = self.release_instance(i);
+            let (h, crit) = self.roll_crit(i, hit_damage(a, &inst, self.heroes[i].stats.damage));
+            self.show_cast(i, a, &[t], Aim::Unit(Unit::Enemy(t)), 0.0);
+            self.hit_enemy(Some(i), t, h, crit, HitSource::Spell(a.id.clone()));
         }
     }
 
@@ -845,6 +879,9 @@ impl Run {
         let main_only = matches!(&o.passive.kind, PassiveKind::Counter(c) if c.fill.iter().any(|f| matches!(f, Fill::Damage { main_only: true, .. })));
         if !own && !from_release && (!main_only || level_one) {
             self.fill_damage(h, dealt, 0.0);
+        }
+        if crit && matches!(source, HitSource::WeaponSwing) {
+            self.fill(h, |f| if let Fill::SwingCrit(n) = f { n } else { 0.0 });
         }
         let main = spell == o.main_spell();
         if !main || tick {
@@ -975,6 +1012,26 @@ impl Run {
             let max = self.heroes[i].stats.max_health.max(1.0);
             let gain = self.gain(i) * (1.0 + self.heroes[i].stats.rage_when_hurt);
             self.gain_resource(i, amount / max * per_health_lost * gain);
+        }
+    }
+
+    /// An enemy's melee blow landed on hero `i` (by `by`): Revenge's passive gives rage and
+    /// strikes the attacker back if it still stands.
+    pub(crate) fn kit_struck(&mut self, i: usize, by: u32) {
+        let content = self.content.clone();
+        let Some(o) = option_of(&content, &self.heroes[i]) else { return };
+        let PassiveKind::StruckBack { rage, spell, wait } = &o.passive.kind else { return };
+        let hero = self.heroes[i].id;
+        let gain = self.gain(i);
+        self.gain_resource(i, rage * gain);
+        let ready = self.now >= self.heroes[i].kit.strike_back_ready;
+        if let (Some(a), true) = (content.ability(spell), ready && self.enemy(by).is_some_and(|e| e.health > 0.0)) {
+            self.heroes[i].kit.strike_back_ready = self.now + wait;
+            self.push(Event::PassiveTriggered { hero, passive: o.passive.id.clone() });
+            let inst = self.release_instance(i);
+            let (h, crit) = self.roll_crit(i, hit_damage(a, &inst, self.heroes[i].stats.damage));
+            self.show_cast(i, a, &[by], Aim::Unit(Unit::Enemy(by)), 0.0);
+            self.hit_enemy(Some(i), by, h, crit, HitSource::Spell(a.id.clone()));
         }
     }
 
@@ -1140,7 +1197,21 @@ impl Run {
             k.swing_stacks.push(now + seconds);
         }
         let n = k.swing_stacks.len() as u32;
-        self.show_stacks(i, StackKind::Zeal, n, max, Some(now + seconds));
+        if let Some(o) = option_of(&content, &self.heroes[i]).filter(|o| o.resource.is_some()) {
+            // not shown in the buff bar: the event alone tells of the stack
+            let hero = self.heroes[i].id;
+            self.push(Event::PassiveTriggered { hero, passive: o.passive.id.clone() });
+        }
+        self.show_zeal(i, n, max, Some(now + seconds));
+    }
+
+    /// Zeal's stacks in the buff bar and the mana bar; an option with rage (Whirlwind) shows
+    /// neither, its bar being its rage and its stacks having no look of their own yet.
+    fn show_zeal(&mut self, i: usize, n: u32, max: u32, until: Option<f32>) {
+        if option_of(&self.content, &self.heroes[i]).is_some_and(|o| o.resource.is_some()) {
+            return;
+        }
+        self.show_stacks(i, StackKind::Zeal, n, max, until);
         self.show_resource(i, ResourceKind::Zeal, n as f32, max as f32);
     }
 
@@ -1169,6 +1240,9 @@ impl Run {
             if !self.heroes[i].alive {
                 continue;
             }
+            if !self.heroes[i].kit.strikes.is_empty() {
+                self.rampage_strikes(i);
+            }
             let Some(o) = option_of(&content, &self.heroes[i]) else { continue };
             if let Some(Resource::Energy { per_tick, tick_every, .. }) = o.resource {
                 // 1.12's ticks: Energy % cards make each bigger, faster cooldowns bring them sooner
@@ -1194,8 +1268,7 @@ impl Run {
             let (zeal_now, hide_now) = (k.swing_stacks.len(), k.reduction_stacks.len());
             if zeal != zeal_now {
                 if let PassiveKind::SwingSpeedStacks { max, .. } = o.passive.kind {
-                    self.show_stacks(i, StackKind::Zeal, zeal_now as u32, max, None);
-                    self.show_resource(i, ResourceKind::Zeal, zeal_now as f32, max as f32);
+                    self.show_zeal(i, zeal_now as u32, max, None);
                 }
             }
             if hide != hide_now {
@@ -1743,16 +1816,6 @@ impl Run {
             vec![Modifier::new(Stat::FlatMaxHealth, f.bonus_health), Modifier::new(Stat::DamageReduction, f.bonus_damage_reduction)]
         })
     }
-}
-
-/// Whether a spell's effect is a Vulnerable debuff (for tests and cards).
-pub fn is_vulnerable(effect: &SpellEffect) -> bool {
-    matches!(effect, SpellEffect::Vulnerable { .. })
-}
-
-/// The burn ticks a spell would leave (kept here for the passives' spells that burn).
-pub fn burn_of(a: &Ability, inst: &Instance, hero_damage: f32) -> Option<super::abilities::BurnTicks> {
-    burn_ticks(a, inst, hero_damage)
 }
 
 #[cfg(test)]
@@ -2345,6 +2408,82 @@ mod tests {
         let PassiveKind::Counter(c) = passive_of(&r, "fireball") else { panic!("a counter") };
         assert_eq!(hot.len(), (4.0 / c.max) as usize, "four crits in the first four fireballs, one Hot Streak each {}", c.max);
         assert!(hot[0] >= base_damage(&r, "hot_streak") * r.heroes[0].stats.damage - 0.01);
+    }
+
+    #[test]
+    fn swing_crits_fill_colossal_smash_and_a_full_meter_brings_it_down() {
+        let mut r = run_with("warrior", "slam", false);
+        let e = foe(&mut r, (2.0, 0.0), 1e9);
+        let PassiveKind::Counter(c) = passive_of(&r, "slam") else { panic!("a counter") };
+        // a swing that does not crit fills nothing
+        r.kit_on_hit(0, e, &HitSource::WeaponSwing, 10.0, false);
+        assert_eq!(r.heroes[0].kit.counter, 0.0);
+        for _ in 0..c.max as usize {
+            r.kit_on_hit(0, e, &HitSource::WeaponSwing, 10.0, true);
+        }
+        let ev = r.drain_events();
+        let smash = dealt_by(&ev, "colossal_smash");
+        assert_eq!(smash.len(), 1, "one release for a full meter");
+        assert!(smash[0] >= base_damage(&r, "colossal_smash") * r.heroes[0].stats.damage - 0.01);
+        assert_eq!(r.heroes[0].kit.counter, 0.0, "the meter starts over");
+        let esurv_content::SpellEffect::Vulnerable { amount, .. } = r.content.ability("colossal_smash").unwrap().effect else { panic!("a vulnerability") };
+        assert_eq!(r.enemy(e).unwrap().vulnerable.map(|v| v.0), Some(amount), "the enemy struck takes more damage");
+        // the bar stays the rage
+        assert!(!ev.iter().any(|x| matches!(x, Event::ResourceChanged { kind: ResourceKind::ColossalSmash, .. })));
+    }
+
+    #[test]
+    fn every_4th_whirlwind_sets_off_four_quick_strikes_ending_in_the_slam() {
+        let mut r = run_with("warrior", "whirlwind", false);
+        let e = foe(&mut r, (2.0, 0.0), 1e9);
+        let PassiveKind::Counter(c) = passive_of(&r, "whirlwind") else { panic!("a counter") };
+        let Release::Strikes { spells, gap } = c.release.clone() else { panic!("strikes") };
+        let ww = r.content.ability("whirlwind").unwrap().clone();
+        for _ in 0..c.max as usize - 1 {
+            r.kit_after_cast(0, &ww);
+        }
+        assert!(r.heroes[0].kit.strikes.is_empty(), "not before the meter is full");
+        r.kit_after_cast(0, &ww);
+        let mut ev = r.drain_events();
+        assert_eq!(dealt_by(&ev, "rampage_strike").len(), 1, "the first strike at once");
+        r.heroes[0].kit.resource = 0.0;
+        ev.extend(play(&mut r, gap * spells.len() as f32 + 0.1));
+        let order: Vec<&str> = ev
+            .iter()
+            .filter_map(|x| match x {
+                Event::EnemyHit { id, source: HitSource::Spell(s), .. } if *id == e && s.starts_with("rampage") => Some(s.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(order, spells.iter().map(String::as_str).collect::<Vec<_>>(), "the strikes in turn, the slam last");
+        assert!(!ev.iter().any(|x| matches!(x, Event::ResourceChanged { kind: ResourceKind::Rampage, .. })), "the bar stays the rage");
+    }
+
+    #[test]
+    fn a_blow_on_revenge_gives_rage_and_strikes_the_attacker_back() {
+        let mut r = run_with("warrior", "revenge", false);
+        let e = foe(&mut r, (2.0, 0.0), 1e9);
+        let PassiveKind::StruckBack { rage, wait, .. } = passive_of(&r, "revenge") else { panic!("struck back") };
+        r.heroes[0].kit.resource = 0.0;
+        // a blow too light to give rage for health lost
+        r.damage_hero(0, 1e-3, Some(e), true);
+        let ev = r.drain_events();
+        assert!((r.heroes[0].kit.resource - rage).abs() < 0.01, "rage per blow: {}", r.heroes[0].kit.resource);
+        let back = dealt_by(&ev, "revenge_strike_back");
+        assert_eq!(back.len(), 1);
+        assert!(back[0] >= base_damage(&r, "revenge_strike_back") * r.heroes[0].stats.damage - 0.01);
+        // a spell or missile is no blow
+        r.damage_hero(0, 1e-3, Some(e), false);
+        assert!(dealt_by(&r.drain_events(), "revenge_strike_back").is_empty());
+        // a blow within the wait gives rage but strikes nothing back; one after it does
+        assert!(wait > 0.0);
+        r.heroes[0].kit.resource = 0.0;
+        r.damage_hero(0, 1e-3, Some(e), true);
+        assert!((r.heroes[0].kit.resource - rage).abs() < 0.01);
+        assert!(dealt_by(&r.drain_events(), "revenge_strike_back").is_empty(), "not within the wait");
+        r.now += wait;
+        r.damage_hero(0, 1e-3, Some(e), true);
+        assert_eq!(dealt_by(&r.drain_events(), "revenge_strike_back").len(), 1, "again after the wait");
     }
 
     #[test]

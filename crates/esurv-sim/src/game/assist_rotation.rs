@@ -38,7 +38,7 @@ use esurv_content::{AssistSpell, AssistStep, CastOn, MoveStyle, SpellEffect, Tar
 
 use super::assists::{AllyMove, ALLY_BESIDE_ENEMY, ALLY_BESIDE_HERO, ALLY_RUN_SPEED};
 use super::casting::{HitSource, AREA_LOOK_AFTER};
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::run::{Aim, Event, Run, Unit};
 
 /// The global cooldown between two of the ally's casts (a player's, seconds).
@@ -188,10 +188,6 @@ impl Rotation {
             1.0 / (1 + self.plan.len()) as f32
         }
     }
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 fn toward(from: Vec2, to: Vec2) -> f32 {

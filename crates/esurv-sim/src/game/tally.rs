@@ -63,11 +63,6 @@ impl Run {
             experience_parts: parts,
         }
     }
-
-    /// Every hero's summary.
-    pub fn summaries(&self) -> Vec<RunSummary> {
-        (0..self.heroes.len()).map(|i| self.summary(i)).collect()
-    }
 }
 
 #[cfg(test)]

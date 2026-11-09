@@ -1,10 +1,9 @@
 # Achievements
 
-WoW-style achievements for the whole warband (v0.6.0, step 1A: the data, the tracking, the save
-and what the screens are told; step 1B: the Achievements window, the in-run banner and the
-tracker, [screens.md](screens.md) "The Achievements window" and "Achievements in a run"; step 2:
-the shop and the companions, sections 10 and 11; step 3: titles, tabards, weapon glows and camp
-decorations, sections 12 to 15). How to add one with data alone:
+WoW-style achievements for the whole warband: the data, the tracking and the save; the
+Achievements window, the in-run banner and the tracker ([screens.md](screens.md) "The Achievements window" and "Achievements in a run"); the shop and the
+companions (sections 10 and 11); titles, tabards, weapon glows and camp decorations (sections 12
+to 15). How to add one with data alone:
 [AUTHORING.md](AUTHORING.md), section 13b, and [templates/achievement.ron](templates/achievement.ron);
 a companion: section 13c and [templates/companion.ron](templates/companion.ron); a tabard, a weapon glow and
 a camp decoration: section 13d.
@@ -20,12 +19,12 @@ a camp decoration: section 13d.
 * **Rewards** besides points: `Title("{name} the Eternal")` (the text, `{name}` where the hero's
   name goes; section 12), `Companion("tiny_hogger")`, `Trophy("onyxia_head")` (a trophy of
   `decorations.ron`, section 15), `Unlock("death_knight")`. An achievement may give several; what
-  it gives is the warband's the moment it is earned. Unlocks are read by a later step.
+  it gives is the warband's the moment it is earned. Nothing in the game reads an unlock yet.
 * **Series.** Achievements with the same `series` are the steps of one series, in the file's
   order (Slayer I, II, III). The window shows the next step with the earlier ones under it.
 * **Metas** (`AllOf`) are earned the moment their last part is.
 * **Hidden** achievements show as "???" until earned (the Death Knight's Feat of Strength, which
-  is `Never` for now).
+is `Never`).
 * **Challenge Mode counts** for every achievement, and Endless counts its minutes.
 * **Multiplayer:** heroes are a list. The tracker keeps every hero apart; whatever one hero does
   earns the achievement for the warband, and the chat names that hero.
@@ -181,8 +180,8 @@ when picked.
 
 ## 7. What counts from a save from before achievements
 
-A save written before v0.6.0 has no `achievements` section. The first time the game reads it (at
-start), it is given one from what it can prove, every grant dated that moment:
+A save with no `achievements` section (written before achievements came) is given one the first
+time the game reads it (at start), from what it can prove, every grant dated that moment:
 
 * **Zones cleared:** every zone any class has won (the save keeps Normal Mode wins only).
 * **Classes won:** every class that has won a zone, and every class whose hero has a win in its
@@ -415,14 +414,12 @@ A small pet that follows its hero and fetches gold. **2026-10-27):**
 
 ## 15. Camp decorations
 
-**Parked for a later 3D hub**: the warband screen shows no camp
-decorations, only the plain camp fire as before them; the Decorate camp button, the Shop's
-Decorations tab and the trophy lines among achievement rewards are hidden too. The content
-(`decorations.ron`), the save's `camps`, the asks and the code all stay, switched off by one
-switch (`CAMP_DECORATIONS` in `esurv-app` `achievements/cosmetics.rs`), so the hub can take them
-up. What follows is how they work when switched on (the clean-up's layout of 2026-10-27; the
-warband screen's camera stays as it was). The walkable hub, on unless `ESURV_HUB=0`, has taken
-them up: its spots are free, each hero's tent its own, and the Shop's Decorations tab shows with it.
+**Decorations stand in the walkable hub** (on unless `ESURV_HUB=0`): its spots are free, each
+hero's tent its own, and the Shop's Decorations tab shows with it. **The warband screen shows none**
+: only the plain camp fire and no Decorate camp button, and the trophy
+lines among achievement rewards are hidden everywhere, by one switch (`CAMP_DECORATIONS` in `esurv-app`
+`achievements/cosmetics.rs`, off). What follows is how decorations work on the warband screen with
+that switch on (the clean-up's layout of 2026-10-27).
 
 * **The Horde and the Alliance camp are decorated apart**, each with its own layout (the save's
   `camps`); what the warband owns may stand in both. A piece stands on one spot of a camp at a

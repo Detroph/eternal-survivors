@@ -7,7 +7,7 @@
 
 use esurv_content::{BossAbilityKind, Brings, GroundObject, LastingZone, MarkAt, Shape, Sweep};
 
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::run::{Aim, Event, Run, Unit};
 
 /// A rush's line runs this far past the hero's spot (the charge carries
@@ -87,10 +87,6 @@ pub struct ChargeRun {
     pub reached: f32,
     /// The heroes it already hit.
     pub hit: Vec<u32>,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 /// The facing from `from` to `to` (along +x when they meet).

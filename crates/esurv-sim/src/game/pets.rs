@@ -3,7 +3,7 @@
 use esurv_content::{Milestone, Pet, Stat};
 
 use super::casting::{HitSource, PendingHit};
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::run::{Event, Run};
 
 /// A pet appears this far from the hero.
@@ -83,10 +83,6 @@ pub struct PetUnit {
     /// that assist's). Each of its attacks then deals the assist's damage for its attack interval,
     /// no hero bonus, no crit, nothing of the hero's set off.
     pub assist: Option<String>,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 fn toward(from: Vec2, to: Vec2, speed: f32, now: f32) -> Segment {

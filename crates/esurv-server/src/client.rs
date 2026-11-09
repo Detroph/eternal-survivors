@@ -98,13 +98,6 @@ pub fn movement(mut r: &[u8]) -> io::Result<Moved> {
     })
 }
 
-/// `MSG_MOVE_TELEPORT_ACK` from the client: the guid and the teleport's counter.
-pub fn teleport_ack(mut r: &[u8]) -> io::Result<(u64, u32)> {
-    let guid = benilla_protocol::wire::read_packed_guid(&mut r)?;
-    let counter = read_u32_le(&mut r)?;
-    Ok((guid, counter))
-}
-
 /// A chat line the client sends (`CMSG_MESSAGECHAT`).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ChatLine {

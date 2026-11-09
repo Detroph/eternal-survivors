@@ -6,8 +6,6 @@
 //! zone may have several rows of looks: Blackrock two, which its piece unlocks both); its quality
 //! follows the zone's tier, and a piece says which zone it came from.
 
-use std::collections::BTreeMap;
-
 use esurv_content::{Class, Content, GearSet, Stat, ZoneScaling};
 use esurv_protocol::Progress;
 use esurv_sim::game::gear::{
@@ -22,11 +20,6 @@ use crate::run_end::tally::slot_name;
 use crate::stock::TipLine;
 use crate::zone_discovery::{discovered_in, shown_name};
 use crate::ui::{rarity_colour, GRAY_TEXT, GREEN_TEXT, WHITE_TEXT};
-
-/// The paper doll's slots, as the stock character pane lays them out: the left column (head,
-/// shoulders, chest, wrists), the right (hands, waist, legs, feet); the weapons go below.
-pub const LEFT_SLOTS: [u32; 4] = [0, 1, 2, 6];
-pub const RIGHT_SLOTS: [u32; 4] = [7, 3, 4, 5];
 
 /// A class's gear: its class and set in the content.
 #[derive(Clone, Copy)]
@@ -480,15 +473,6 @@ pub fn minute_text(minute: f32) -> String {
     format!("{}:{:02}", s / 60, s % 60)
 }
 
-/// Pieces by slot, then zone, as a map the window walks.
-pub fn by_slot(pieces: &[(u32, u32)]) -> BTreeMap<u32, Vec<u32>> {
-    let mut out: BTreeMap<u32, Vec<u32>> = BTreeMap::new();
-    for &(s, t) in pieces {
-        out.entry(s).or_default().push(t);
-    }
-    out
-}
-
 #[cfg(test)]
 pub(crate) mod tests {
     use std::sync::OnceLock;
@@ -522,6 +506,8 @@ pub(crate) mod tests {
             new_points: false,
             challenge_open: false,
             challenge_news: false,
+            builds: Vec::new(),
+            active_build: 0,
         }
     }
 
@@ -700,6 +686,5 @@ pub(crate) mod tests {
         assert_eq!(stat_line(Stat::Luck, 0.1), "+10% luck");
         assert_eq!(minute_text(3.0), "3:00");
         assert_eq!(minute_text(15.5), "15:30");
-        assert_eq!(by_slot(&[(1, 2), (0, 1), (1, 3)])[&1], [2, 3]);
     }
 }

@@ -9,7 +9,7 @@ use super::abilities::{
     SELF_EFFECT_MIN_SECONDS, TOTEM_ENEMY_RANGE,
 };
 use super::damage::lifesteal_heal;
-use super::enemy_ai::Vec2;
+use super::enemy_ai::{dist, Vec2};
 use super::loot::{boss_drops, kill_experience, kill_gold, Pickup, ELITE_GOLD};
 use super::rewards::{boss_drop_slots, gear_drop_chance, gear_item_entry, zone_tier};
 use super::run::{Aim, Buff, BuffKind, EnemyKind, Event, Run, Unit, AMMO_SPELLS};
@@ -244,10 +244,6 @@ pub struct Totem {
     pub interval: f32,
     pub inst: Instance,
     pub from_proc: bool,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 fn stat_sum(mods: &[Modifier], stat: Stat) -> f32 {

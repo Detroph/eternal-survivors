@@ -71,8 +71,11 @@ impl StartingOption {
             PassiveKind::Counter(c) => match &c.release {
                 Release::Spell(s) => vec![s.as_str()],
                 Release::Summon(list) => list.iter().flat_map(|s| s.spells.iter().map(String::as_str)).collect(),
+                Release::Strikes { spells, .. } => spells.iter().map(String::as_str).collect(),
             },
-            PassiveKind::Orbs { spell, .. } | PassiveKind::Marks { spell, .. } | PassiveKind::BlockStrikes { spell } => vec![spell.as_str()],
+            PassiveKind::Orbs { spell, .. } | PassiveKind::Marks { spell, .. } | PassiveKind::BlockStrikes { spell } | PassiveKind::StruckBack { spell, .. } => {
+                vec![spell.as_str()]
+            }
             PassiveKind::Empower { burst: Some(s), .. } | PassiveKind::SwingSpeedStacks { spell: Some(s), .. } => vec![s.as_str()],
             _ => Vec::new(),
         }
@@ -123,6 +126,15 @@ pub enum PassiveKind {
     },
     /// Every blocked blow strikes the attacker with `spell` (Holy Shield's Block).
     BlockStrikes { spell: String },
+    /// Every enemy melee blow that lands on the hero gives `rage` rage (more with the main spell's
+    /// Rage cards) and strikes the attacker with `spell` if it still stands, at most once each
+    /// `wait` seconds.
+    StruckBack {
+        rage: f32,
+        spell: String,
+        #[serde(default)]
+        wait: f32,
+    },
     /// The pets' critical hits give them `amount` more attack speed for `seconds` (Frenzy).
     PetFrenzy { amount: f32, seconds: f32 },
     /// Each tick of the main spell has `chance` to make its next `charges` casts free and instant
@@ -182,6 +194,8 @@ pub enum Fill {
     Cast(f32),
     /// Per critical hit of the main spell.
     Crit(f32),
+    /// Per critical hit of the hero's own weapon swing.
+    SwingCrit(f32),
     /// One point per `per` damage the hero deals (its summons from this counter not counted);
     /// healing counts `heal_factor` times, overhealing not at all. With `main_only`, only the
     /// option's level-1 spells and what they summon count, not the other spells.
@@ -211,6 +225,9 @@ pub enum Release {
     Spell(String),
     /// Summons these.
     Summon(Vec<SummonSpec>),
+    /// Strikes one enemy with each of `spells` in turn, `gap` seconds apart: the first picks the
+    /// target as its spell does, the rest follow it (the next in that order if it fell).
+    Strikes { spells: Vec<String>, gap: f32 },
 }
 
 /// Units a spell or passive summons.
@@ -317,6 +334,10 @@ pub enum ResourceKind {
     BurningEmbers,
     LunarPower,
     EmeraldSlumber,
+    /// The Slam option's counter. Not shown in the bar: the Warrior's bar is its rage.
+    ColossalSmash,
+    /// The Whirlwind option's counter, not shown in the bar either.
+    Rampage,
 }
 
 /// Stacks a buff on the hero (or its pet) shows, for the buff bar.

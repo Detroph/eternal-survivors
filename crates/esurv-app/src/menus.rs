@@ -50,7 +50,7 @@ use benilla_app::{
 };
 use benilla_protocol::CharAction;
 use esurv_content::{Content, Faction};
-use esurv_protocol::{PreRunAsk, TimePeriod, ToServer};
+use esurv_protocol::{BuildAction, PreRunAsk, TimePeriod, ToServer};
 
 use crate::achievements::AchievementsPage;
 use crate::hero_sheet::codex::CodexList;
@@ -80,6 +80,22 @@ pub enum SheetTab {
     Character,
     Collection,
     Talents,
+}
+
+/// The Talents window's pages: the talent trees, or the prestige stats (open once every talent
+/// point is earned).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum TalentsPage {
+    #[default]
+    Talents,
+    Prestige,
+}
+
+/// The build bar's drop-downs on the Talents window.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum BuildDrop {
+    Start,
+    Loadout,
 }
 
 /// What the hero sheet is for.
@@ -130,6 +146,13 @@ pub struct Sheet {
     pub wear_pick: Option<String>,
     /// Which of the temperaments' sample lines shows (a click on it shows the next).
     pub sample: usize,
+    /// The Talents window's page: the talent trees or the prestige stats.
+    pub talents_page: TalentsPage,
+    /// The build bar's drop-down open: the starting spells or the weapon loadouts.
+    pub build_drop: Option<BuildDrop>,
+    /// The lit build's name as it is typed (Name starts it; Enter or Name again keeps it, Escape
+    /// drops it).
+    pub build_name: Option<String>,
 }
 
 /// Which screen of the menus shows.
@@ -318,6 +341,18 @@ pub enum MenuAction {
     Learn,
     Unlearn,
     ResetTalents,
+    /// The Talents window: a page shown; a build bar drop-down opened (or closed, `None`); a saved
+    /// build put back, the build lit saved from what the class holds now, a saved build emptied
+    /// (a right click on it).
+    TalentsPage(TalentsPage),
+    BuildDrop(Option<BuildDrop>),
+    UseBuild(u8),
+    SaveBuild,
+    ClearBuild(u8),
+    /// The lit build's Name: starts typing its name, or keeps the name typed; a dev script's
+    /// press types a name (the keyboard types it otherwise).
+    NameBuild,
+    TypeBuildName(String),
 }
 
 /// What a left click on a talent or prestige stat does: the first
@@ -338,11 +373,12 @@ pub fn left_click(picked: Option<&str>, clicked: &str) -> ClickDoes {
 }
 
 /// What a right click on a piece of the menus asks: a talent or prestige stat gives a rank back;
-/// anything else, nothing.
+/// a saved build is emptied; anything else, nothing.
 pub fn right_click(on: &MenuAction) -> Option<MenuAction> {
     match on {
         MenuAction::Talent(id) => Some(MenuAction::TalentBack(id.clone())),
         MenuAction::Prestige(id) => Some(MenuAction::PrestigeBack(id.clone())),
+        MenuAction::UseBuild(slot) => Some(MenuAction::ClearBuild(*slot)),
         _ => None,
     }
 }
@@ -441,6 +477,7 @@ impl Plugin for MenusPlugin {
             return;
         }
         info!("menus: the menus before a run replace the stock select screen");
+        app.add_systems(Startup, sheet::talents::draw_the_arrow);
         let assets = app.world().resource::<AssetServer>().clone();
         app.insert_resource(MenuArt {
             class_icons: crate::stock::load_stock_art(&assets, art::CLASS_ICONS),
@@ -460,7 +497,7 @@ impl Plugin for MenusPlugin {
                 enter_the_camp,
                 over_the_camp::f1_opens_the_menu,
                 over_the_camp::open_camp_windows,
-                (escape_goes_back, sheet::type_the_name),
+                (escape_goes_back, sheet::type_the_name, sheet::talents::type_the_build_name),
                 act,
                 over_the_run::follow_the_run,
                 take_answers,
@@ -652,8 +689,29 @@ fn refusal(verb: &str) -> &'static str {
         "reshape" => "That race cannot be this class, or its camp is full.",
         "temper" => "Those temperaments cannot be kept.",
         "period" => "That time period cannot be kept.",
+        "build" => "That build slot holds no build.",
         _ => "That cannot be done now.",
     })
+}
+
+/// The hero sheet's hero (its guid; 0 for one not yet made) and class, when the sheet shows.
+fn sheet_hero(screen: &Screen) -> Option<(u64, String)> {
+    let Screen::Sheet(s) = screen else {
+        return None;
+    };
+    let guid = match s.mode {
+        SheetMode::Modify(g) => g,
+        SheetMode::Create => 0,
+    };
+    Some((guid, s.draft.class.clone()))
+}
+
+/// Closes the build bar's drop-down, if the sheet shows one, and drops a build name being typed.
+fn close_build_drop(screen: &mut Screen) {
+    if let Screen::Sheet(s) = screen {
+        s.build_drop = None;
+        s.build_name = None;
+    }
 }
 
 /// The hero sheet on hero `c`, at `tab`.
@@ -680,6 +738,9 @@ fn hero_sheet(content: &Content, facts: &PreRunFacts, c: &benilla_protocol::Char
         wear: None,
         wear_pick: None,
         sample: 0,
+        talents_page: TalentsPage::Talents,
+        build_drop: None,
+        build_name: None,
     })
 }
 
@@ -793,16 +854,22 @@ fn act(
                 }
             }
             MenuAction::PickStart(option) => {
-                if let Some(c) = &picked {
+                // the sheet's hero (the Talents window's build bar), else the hero picked
+                let hero = sheet_hero(&menus.screen).map(|(g, _)| g).or(picked.as_ref().map(|c| c.guid));
+                close_build_drop(&mut menus.screen);
+                if let Some(hero) = hero.filter(|&g| g != 0) {
                     menus.notice = asks.ask(&PreRunAsk::Start {
-                        hero: c.guid,
+                        hero,
                         option: option.clone(),
                     });
                 }
             }
             MenuAction::PickLoadout(id) => {
-                let class = picked.as_ref().and_then(|c| class_of(content, c.class));
-                if let Some(ask) = class.and_then(|k| PreRunAsk::armory(&k.id, &ToServer::ChooseLoadout(id.clone()))) {
+                let class = sheet_hero(&menus.screen)
+                    .map(|(_, class)| class)
+                    .or(picked.as_ref().and_then(|c| class_of(content, c.class)).map(|k| k.id.clone()));
+                close_build_drop(&mut menus.screen);
+                if let Some(ask) = class.and_then(|k| PreRunAsk::armory(&k, &ToServer::ChooseLoadout(id.clone()))) {
                     menus.notice = asks.ask(&ask);
                     if menus.notice.is_none() {
                         // the camp's figure takes up the new weapons: the character list (its
@@ -1168,6 +1235,70 @@ fn act(
                     menus.notice = armory(&mut asks, content, &s, action);
                 }
             }
+            MenuAction::TalentsPage(page) => {
+                if let Screen::Sheet(s) = &mut menus.screen {
+                    s.talents_page = *page;
+                    s.build_drop = None;
+                    s.build_name = None;
+                }
+            }
+            MenuAction::BuildDrop(drop) => {
+                if let Screen::Sheet(s) = &mut menus.screen {
+                    // a second click on the open one closes it
+                    s.build_drop = if s.build_drop == *drop { None } else { *drop };
+                }
+            }
+            MenuAction::UseBuild(_) | MenuAction::SaveBuild | MenuAction::ClearBuild(_) => {
+                if let Some((hero, class)) = sheet_hero(&menus.screen) {
+                    close_build_drop(&mut menus.screen);
+                    let active = asks.facts.progress(&class).map_or(0, |p| p.active_build);
+                    let (slot, build) = match action {
+                        MenuAction::UseBuild(n) => (*n, BuildAction::Use),
+                        MenuAction::ClearBuild(n) => (*n, BuildAction::Clear),
+                        _ => (active, BuildAction::Save),
+                    };
+                    let uses = build == BuildAction::Use;
+                    menus.notice = asks.ask(&PreRunAsk::Build { hero, class, slot, action: build });
+                    if uses && menus.notice.is_none() {
+                        // the talents picked may be gone; the camp's figure takes up the
+                        // build's weapons
+                        if let Screen::Sheet(s) = &mut menus.screen {
+                            s.talent = None;
+                            s.prestige = None;
+                        }
+                        asks.refresh.write(SelectRefresh);
+                    }
+                }
+            }
+            MenuAction::NameBuild => {
+                let Some((hero, class)) = sheet_hero(&menus.screen) else {
+                    continue;
+                };
+                let progress = asks.facts.progress(&class);
+                let slot = progress.map_or(0, |p| p.active_build);
+                let held = progress.and_then(|p| p.builds.iter().find(|b| b.slot == slot)).map(|b| b.name.clone());
+                let Screen::Sheet(s) = &mut menus.screen else {
+                    continue;
+                };
+                s.build_drop = None;
+                match s.build_name.take() {
+                    Some(name) => {
+                        menus.notice = asks.ask(&PreRunAsk::Build {
+                            hero,
+                            class,
+                            slot,
+                            action: BuildAction::Name(name),
+                        });
+                    }
+                    // an empty build has no name to type
+                    None => s.build_name = held,
+                }
+            }
+            MenuAction::TypeBuildName(name) => {
+                if let Screen::Sheet(s) = &mut menus.screen {
+                    s.build_name = Some(sheet::talents::build_name_typed("", name));
+                }
+            }
             MenuAction::Turn(right) => {
                 yaw.0 += if *right {
                     preview::TURN_STEP
@@ -1279,6 +1410,9 @@ fn act(
                         wear: None,
                         wear_pick: None,
                         sample: 0,
+                        talents_page: TalentsPage::Talents,
+                        build_drop: None,
+                        build_name: None,
                     }));
                 }
             }
@@ -1479,7 +1613,16 @@ fn escape_goes_back(
     mut presses: MessageWriter<MenuPress>,
 ) {
     // walking the camp, Escape over a window is the game menu's ask (`hud`), which closes it
-    if !keys.just_pressed(KeyCode::Escape) || !screen.open {
+    if !keys.just_pressed(KeyCode::Escape) {
+        return;
+    }
+    // a build name being typed is dropped first, in the camp too
+    if let Screen::Sheet(s) = &mut menus.screen {
+        if s.build_name.take().is_some() {
+            return;
+        }
+    }
+    if !screen.open {
         return;
     }
     if menus.confirm_delete.take().is_some() {
@@ -1913,6 +2056,14 @@ pub(crate) fn script_action(words: &str) -> Option<MenuAction> {
         ("zone", Some(z)) => MenuAction::PickZone(z.into()),
         ("start", Some(o)) => MenuAction::PickStart(o.into()),
         ("loadout", Some(l)) => MenuAction::PickLoadout(l.into()),
+        ("build", Some(n)) => MenuAction::UseBuild(n.parse().ok()?),
+        ("save-build", None) => MenuAction::SaveBuild,
+        ("name-build", None) => MenuAction::NameBuild,
+        ("build-name", Some(n)) => MenuAction::TypeBuildName(n.into()),
+        ("drop", Some("start")) => MenuAction::BuildDrop(Some(BuildDrop::Start)),
+        ("drop", Some("loadout")) => MenuAction::BuildDrop(Some(BuildDrop::Loadout)),
+        ("talents-page", Some("talents")) => MenuAction::TalentsPage(TalentsPage::Talents),
+        ("talents-page", Some("prestige")) => MenuAction::TalentsPage(TalentsPage::Prestige),
         ("run-options", None) => MenuAction::OpenRunOptions,
         ("done", None) => MenuAction::CloseRunOptions,
         ("mode", Some("normal")) => MenuAction::PickMode { challenge: false },
@@ -2079,6 +2230,9 @@ mod tests {
             wear: None,
             wear_pick: None,
             sample: 0,
+            talents_page: TalentsPage::Talents,
+            build_drop: None,
+            build_name: None,
         }
     }
 
@@ -2126,6 +2280,14 @@ mod tests {
         assert_eq!(script_action("choose"), Some(MenuAction::ChooseClass));
         assert_eq!(script_action("loadout:shield"), Some(MenuAction::PickLoadout("shield".into())));
         assert_eq!(script_action("loadout"), None);
+        assert_eq!(script_action("build:3"), Some(MenuAction::UseBuild(3)));
+        assert_eq!(script_action("build:x"), None);
+        assert_eq!(script_action("save-build"), Some(MenuAction::SaveBuild));
+        assert_eq!(script_action("name-build"), Some(MenuAction::NameBuild));
+        assert_eq!(script_action("build-name:Frost"), Some(MenuAction::TypeBuildName("Frost".into())));
+        assert_eq!(script_action("drop:loadout"), Some(MenuAction::BuildDrop(Some(BuildDrop::Loadout))));
+        assert_eq!(script_action("talents-page:prestige"), Some(MenuAction::TalentsPage(TalentsPage::Prestige)));
+        assert_eq!(right_click(&MenuAction::UseBuild(2)), Some(MenuAction::ClearBuild(2)), "a right click empties a build");
         assert_eq!(script_action("guide"), Some(MenuAction::OpenGuide));
         assert_eq!(
             script_action("guide-tab:loot"),

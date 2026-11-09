@@ -1542,7 +1542,7 @@ const SHORT_LINE: f32 = 40.0;
 /// A line this long or longer is followed by the longest pause, characters.
 const LONG_LINE: f32 = 160.0;
 /// The shortest and longest pause after a line of dialogue, seconds.
-const LINE_GAPS: (f32, f32) = (3.0, 5.0);
+const LINE_GAPS: (f32, f32) = (4.0, 7.0);
 
 /// The pause after line `words` before the next line: longer for a longer line, from the shortest
 /// at [`SHORT_LINE`] characters to the longest at [`LONG_LINE`].

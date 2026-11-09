@@ -854,7 +854,7 @@ mod tests {
             let (at, _) = stop.stand_at(place).unwrap();
             walk_to(&mut game, at);
             let mut heard = game.tour_tick(now);
-            now += Duration::from_secs(20);
+            now += Duration::from_secs(28);
             heard.extend(game.tour_tick(now));
             assert!(heard.contains(&packets::raid_warning(stop.try_it)), "stop {i} says what to try");
             for (who, words) in stop.lines {
@@ -942,7 +942,7 @@ mod tests {
             let mut now = game.camp.as_ref().unwrap().ticked;
             game.chromie_welcome(me, None, now);
             let mut heard = Vec::new();
-            // her lines 3 to 5 seconds apart, by their length, till the guide is called
+            // her lines 4 to 7 seconds apart, by their length, till the guide is called
             let called = game.camp.as_ref().unwrap().lesson.unwrap().1;
             while now <= called {
                 now += Duration::from_secs(3);
@@ -1025,7 +1025,7 @@ mod tests {
                 game.make_camp(place, me.guid, &[], Default::default());
                 let mut now = game.camp.as_ref().unwrap().ticked;
                 let mut heard = Vec::new();
-                for _ in 0..15 {
+                for _ in 0..21 {
                     now += Duration::from_secs(3);
                     heard.extend(game.tour_tick(now));
                 }

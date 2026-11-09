@@ -5,7 +5,7 @@
 use esurv_content::BossAbility;
 
 use super::boss_abilities::{cast, next_cooldown, AbilityEffect, GroundHit, BOSS_FIRST_CAST, RARE_FIRST_CAST};
-use super::enemy_ai::{attack_damage, Vec2};
+use super::enemy_ai::{attack_damage, dist};
 use super::run::{Aim, BuffKind, EnemyUnit, Event, Run, Unit};
 use super::casting::{HitSource, ProcOrigin};
 
@@ -45,10 +45,6 @@ impl AbilitySlot {
     pub fn rare(ability: &BossAbility) -> Self {
         Self { ability: ability.clone(), timer: ability.cooldown * RARE_FIRST_CAST }
     }
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {
@@ -234,6 +230,7 @@ mod tests {
     use super::*;
     use crate::game::casting::HitSource;
     use crate::game::enemy::RunOptions;
+    use crate::game::enemy_ai::Vec2;
     use crate::game::run::{Flat, HeroSetup, World};
     use crate::game::stats::Modifier;
 

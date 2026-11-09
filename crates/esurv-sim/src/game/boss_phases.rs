@@ -7,7 +7,7 @@
 
 use esurv_content::{ClassCall, ScriptAction, WaveAt, WaveStep};
 
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::enemy_attacks::AbilitySlot;
 use super::ground_zones::HeroAffliction;
 use super::run::{Aim, EnemyKind, Event, Run, Unit};
@@ -85,10 +85,6 @@ impl PhaseState {
     pub fn aloof(&self) -> bool {
         self.waves.as_ref().is_some_and(|w| w.aloof)
     }
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {

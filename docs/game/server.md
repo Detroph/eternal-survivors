@@ -70,11 +70,11 @@ A RON file of our own:
 
 An older save without these parts still opens; they start empty.
 
-Each class also keeps `run_seconds` (seconds its heroes have spent in runs since v0.5.3, added
+Each class also keeps `run_seconds` (seconds its heroes have spent in runs since the lock below came in, added
 at every payment) and `experience_before_tracking` (the talent experience it held when they
 began to be kept).
 
-**The lock** (v0.5.3, `save::lock`). On disk the save is its RON text sealed with
+**The lock** (`save::lock`). On disk the save is its RON text sealed with
 XChaCha20-Poly1305: `ESURVSAVE1` and a line break, a fresh 24-byte nonce, then the sealed text,
 so it reads as noise and any change breaks the seal. The release build's key comes from
 `ESURV_SAVE_KEY` (64 hex digits), which `scripts\release-build.ps1` reads from
@@ -89,7 +89,7 @@ save it replaces to `heroes.ron.bak`. Opening:
 | a broken seal, or plain text beside a sealed `.bak` | changed outside the game: set aside as `heroes.ron.edited-<moment>`, and the `.bak` read instead (a bad `.bak` is set aside too, and the save starts empty); never deleted |
 | nothing, a `.bak` there | a write cut off between its two renames: the `.bak` |
 
-**The sanity checks** (v0.5.3, `save::rein_in`), on every save opened and every save imported:
+**The sanity checks** (`save::rein_in`), on every save opened and every save imported:
 what no play can reach is reined in to the most a player could have, never wiped, each change
 logged. A class's talent experience is at most `experience_before_tracking` plus
 `xp_ceiling::talent_experience_ceiling(run_seconds)`: the best base experience a second a god-mode
@@ -103,13 +103,12 @@ opened leaves the collection, a worn piece it does not own comes off, a look of 
 it lacks goes back; what it has seen is held to what it holds; a hero's wins to its runs; the run
 options to their sliders.
 
-**Export and import** (design step 6;
-`save::files`). The folder is `exports` beside the save (`saves/exports` by default). An
+**Export and import** (`save::files`). The folder is `exports` beside the save (`saves/exports` by default). An
 export writes the whole save as it stands to a new file there, `<save's name>-<YYYY-MM-DD-HHMMSS,
 UTC>.ron`, a number added when the name is taken, sealed like the save. The list is the folder's
 `.ron` files, newest first (the 50 newest), each read and checked. An import reads the named file
 (a plain file name in the folder, nothing with a path), takes only a sealed one whose seal holds
-(a plain file, from before v0.5.3 or written by hand, is refused), checks it, reins it in (the
+(a plain file, from before the lock or written by hand, is refused), checks it, reins it in (the
 sanity checks above), writes the save it replaces to the folder as
 `<save's name>-before-import-<moment>.ron` (importable in its turn), and only then replaces the
 save and writes it. A save is taken when it reads as our RON layout (older layouts too: missing
@@ -270,8 +269,8 @@ possible while the run is running (not before the first step, not on a choice sc
 
 A class enters only the zones it has opened: the first zone always, the next one after a win
 in the last one open. Entering a locked zone is refused at the character screen with the stock
-"Login for that race, class, or character is currently disabled." (the hero picker of design
-step 6 says why). The refusal byte the client reads is a reason from 1 to 6 (1 world down,
+"Login for that race, class, or character is currently disabled."
+The refusal byte the client reads is a reason from 1 to 6 (1 world down,
 4 disabled, 5 character not found), not a status code.
 
 A new run brings the class's talent ranks and the gear it wears into the hero's numbers.
@@ -298,7 +297,7 @@ A new run brings the class's talent ranks and the gear it wears into the hero's 
 | It acts | its steps' looks as `SMSG_SPELL_GO` from it (`caster: Unit::Ally`): missiles from it, impacts on what it struck, heals and buffs on the hero, taunts on each taunted enemy; areas, totems and pets it leaves show as the hero's (an ally's pets' hits are logged as any pet's; an ally's totem takes the ally's race's totem look). A melee `Hit` (`AllySwing`) shows its damage as its own `SMSG_ATTACKERSTATEUPDATE` swing; its other hits as `SMSG_SPELLNONMELEEDAMAGELOG` from it under the look it last cast at enemies (from the hero once it has gone: an area or bleed it left). What it puts on units (`AuraShown`: Polymorph 118, Blind 2094, a bleed's look on enemies; a buff's look on the hero) shows as their auras until the time given. An enemy it taunted striking it (`AllyStruck`): a swing absorbed whole (`HITINFO_ABSORB`, "Absorb") |
 | It leaves (`AllyLeft`) | in the tick the run lets it go (it stays 15 s there, `battle_standard.assist_seconds`, or until its last planned rotation cast lands). Its `death_yell` first, then: `Fade` it wears Stealth's aura (it fades over 1 s) and goes; `Vanish` Vanish's look (1856), gone 0.2 s later; `Hearth` `SMSG_SPELL_START` of the Hearthstone (8690) for 1.5 s, its `SMSG_SPELL_GO`, then gone; `RunAway` it runs to the spot given at a hero's run speed (7 yd/s) and goes there; `Dies` health 0 (the death) and its body lies 1.5 s. Gone: `SMSG_DESTROY_OBJECT` |
 | The hero's health, level or experience changes | a values update |
-| The hero's run speed changes (a speed rune taken, its 10 s over, a fresh run) | its own client: `SMSG_FORCE_RUN_SPEED_CHANGE` with 7 yd/s × its move speed (the client runs that fast from then on and acks with `CMSG_FORCE_RUN_SPEED_CHANGE_ACK`, which the server takes as read); the other clients: `MSG_MOVE_SET_RUN_SPEED` with the hero where it stands. Until this was sent, a rune's +0.6 move speed reached the stat sheet but not the client, which kept the speed the hero entered with |
+| The hero's run speed changes (a speed rune taken, its 10 s over, a fresh run) | its own client: `SMSG_FORCE_RUN_SPEED_CHANGE` with 7 yd/s × its move speed (the client runs that fast from then on and acks with `CMSG_FORCE_RUN_SPEED_CHANGE_ACK`, which the server takes as read); the other clients: `MSG_MOVE_SET_RUN_SPEED` with the hero where it stands. |
 | The hero strays past the arena | `MSG_MOVE_TELEPORT_ACK` back inside |
 | The hero takes, upgrades or empowers a ring, trinket or amulet | for its own client: the piece's new item and the slot field pointing at it, the old item destroyed (see "What the hero wears in a run") |
 | The client asks | answers to the creature query (name, type, rank, look: elites rank 1, the gold dragon; rares, under an entry of their own (`entries::rare`, 300 000 + the elite's entry past 100 000), rank 4 "rare", the silver dragon; bosses rank 3; a pet: its name, "Companion" beneath it, a beast), the item query (see "What the hero wears in a run"), the name query, ping and time queries; logout goes back to the character screen |
@@ -522,8 +521,8 @@ message.
 answers its own choice screens), `end` (it shows the end of its run and answers it), `hud` (it
 shows HUD messages itself). From then on it is told the lines below. For each screen it lacks the
 server stands in: the first offer is taken for it at once, a victory waits as it is, HUD
-messages go to the chat. A client that never says `hello` sees the run as before.
-`esurv-app` says `hello` with each screen it has built: `cards` and `end` so far.
+messages go to the chat. A client that never says `hello` gets none of the lines below.
+`esurv-app` says `hello` with each screen it has built: `cards` and `end`.
 
 ### What the server tells a client
 
@@ -583,9 +582,9 @@ amulet: `rank`, `factor`), `gold` (`gold`).
 
 Armory changes count from the next run. No screen of a run asks them (the
 armory and the codex are not reachable in a run); the server keeps answering them,
-and `Progress` and `Codex`, for the hero sheet the menu rework builds before a run
+and `Progress` and `Codex`, for the hero sheet before a run
 ([screens.md](screens.md), "The class's progress and the codex"). The damage meter is counted by
-the server from the run's hits for now (what each hit took off the enemy, and what each hit took
+the server from the run's hits (what each hit took off the enemy, and what each hit took
 off the hero's health; `screens.md`, "The damage meter").
 
 A rare cache is a choice of its own (`ScreenKind::RareCache` in the run, owed apart from
@@ -625,7 +624,7 @@ show only what the content says, and a locked zone is still refused at login.
 | `export` | `SaveExported`, `SaveFiles` | asked of a remote host; a save kept in memory only; the file could not be written |
 | `import <file>` | `SaveImported`, `SaveFiles` | asked of a remote host; a hero is in a run (the save is never replaced under one); no such file in the folder (or a name with a path in it); the file is no save of ours or breaks the save's rules ("The save file", above); the file system said no. Nothing is replaced then |
 
-The save's export and import (design step 6, the Options panel's Saves
+The save's export and import (the Options panel's Saves
 tab) read and write files on the save's own machine, so only the game the save is kept on may ask
 them: the local game's carrier calls `prerun::answer_local`, which answers them
 (`save::files`), and `prerun::answer`, the answer for any other client, refuses them. They go
@@ -640,16 +639,16 @@ The game checks for a newer version of itself and offers it in place (`esurv-app
    CVar `esurvCheckForUpdates`, `1` by default, on the options' Interface tab;
    [screens.md](screens.md)). A thread makes one anonymous GET of
    `https://api.github.com/repos/Detroph/eternal-survivors/releases/latest` (GitHub's latest
-   release, drafts and pre-releases left out) and compares its tag (`esurv-v0.5.0`) with
+   release, drafts and pre-releases left out) and compares its tag (`esurv-v<version>`) with
    `VERSION.txt`, part by part as numbers. The game never waits on it. Offline, rate-limited, a
    release without both of its files (`eternal-survivors-<version>.zip` and
    `eternal-survivors-<version>.zip.sha256`), or any other failure: nothing is shown and the game
    starts as always (the log keeps why). The request carries a User-Agent of the game's name and
-   version (`Eternal Survivors/v0.4.0`) and nothing about the player. The client is ureq over
+   version (`Eternal Survivors/v<version>`) and nothing about the player. The client is ureq over
    rustls (no OpenSSL), the server's certificate checked against the system's own store, HTTPS
    only, redirects included. Dev builds never check, unless `ESURV_UPDATE_FEED` names a test feed.
-2. **The offer.** A newer release shows on the warband screen, over Options, glowing and pulsing: "v0.5.0 is available"
-   and **Update** ([menus.md](menus.md), [screens.md](screens.md)).
+2. **The offer.** A newer release shows on the title screen: its corner box says "v<version> is available"
+   with **Update**, and a pop-up asks to update, with Update and Later ([screens.md](screens.md), "The title screen"; with `ESURV_HUB=0` the warband screen shows it too).
 3. **The download.** Update downloads the zip (its progress shown) and its `.sha256`, checks the
    zip's SHA-256 against it, reads `Eternal Survivors Setup.exe` out of the zip, checks the setup
    carries the release's version (its payload's `VERSION.txt`), and writes it to
@@ -661,11 +660,8 @@ The game checks for a newer version of itself and offers it in place (`esurv-app
    `--wow <the WoW folder> --no-pause --relaunch`, and quits. The setup waits up to 60 seconds for
    the game to close, updates it in place as any update does (saves, logs, settings and the
    player's own files kept), and starts `Eternal Survivors.exe` again
-   ([design.md](design.md), step 9, item 10). The next start removes `update-download\` (trying
+   ([design.md](design.md), "Release builds"). The next start removes `update-download\` (trying
    again for half a minute while the setup that started it closes).
-
-Players on v0.4.0 or older update by hand once (their game has no updater); every later version
-offers its updates in the game.
 
 ## Not decided yet
 
@@ -695,7 +691,7 @@ offers its updates in the game.
 | `ESURV_ASSISTS` | `<id>[,<id>...]`: the characters (`player_characters.ron` ids) the run's battle standards summon, in this order, before the random picks (`Run::assists.forced`). |
 | `ESURV_MOVE_LOG` | `<file>`: the server logs every hero's moves there, a line per move: real seconds since the hero entered, hero, x, y, and the run speed the server holds for it (yd/s), tab apart: how fast the hero really runs, measured. |
 | `WOW_DATA` | The 1.12.1 `Data` folder, if the client does not find it by itself (beside the game, or `..\Data` when the game folder sits inside the WoW folder, as the setup makes it). Data named here is checked for its archives only, and a wrong one is logged, not refused. |
-| `ESURV_HUB` | `0`: no walkable camp: the warband screen comes up as before ([menus.md](menus.md)), a hero entering goes into a run, and the Caverns of Time are left as in the runs. Unset or anything else, the hub is on. |
+| `ESURV_HUB` | `0`: no walkable camp: the warband screen comes up ([menus.md](menus.md)), a hero entering goes into a run, and the Caverns of Time are left as in the runs. Unset or anything else, the hub is on. |
 | `ESURV_ZONE` | `<zone id or name>`: every hero enters this zone, whatever was chosen for it (a dev switch; a zone its class has not opened is still refused). |
 | `ESURV_UPDATE_FEED` | `<url>`: the updater asks this feed instead of GitHub's, in any build, plain HTTP allowed: a URL answering as GitHub's latest release does, its assets' download addresses where the zip and its `.sha256` are served (a test of the whole update; [Updates](#updates)). The installed version is `VERSION.txt`'s, else the crate version. |
 | `WOW_CHAR` | benilla's: pick this hero without the screens. The launcher sets benilla's `WOW_REALM` to the one realm itself. |

@@ -7,7 +7,7 @@
 use crate::{ResourceKind, StackKind};
 
 /// Every kind a hero's mana bar (or its combo point pips) can show.
-pub const RESOURCE_KINDS: [ResourceKind; 18] = [
+pub const RESOURCE_KINDS: [ResourceKind; 20] = [
     ResourceKind::Rage,
     ResourceKind::Energy,
     ResourceKind::ComboPoints,
@@ -26,6 +26,8 @@ pub const RESOURCE_KINDS: [ResourceKind; 18] = [
     ResourceKind::BurningEmbers,
     ResourceKind::LunarPower,
     ResourceKind::EmeraldSlumber,
+    ResourceKind::ColossalSmash,
+    ResourceKind::Rampage,
 ];
 
 /// Every stacking buff.
@@ -67,7 +69,8 @@ pub enum BarColour {
 pub fn bar_colour(kind: ResourceKind) -> BarColour {
     use ResourceKind::*;
     BarColour::Painted(match kind {
-        Rage | Energy | ComboPoints => return BarColour::Stock,
+        // the Slam option's counter never takes the bar: the Warrior's bar stays its rage
+        Rage | Energy | ComboPoints | ColossalSmash | Rampage => return BarColour::Stock,
         // gold
         HolyPower | HolyShieldStacks | Zeal => [0.95, 0.78, 0.20],
         // fiery orange
@@ -96,6 +99,16 @@ pub fn bar_colour(kind: ResourceKind) -> BarColour {
         EmeraldSlumber => [0.08, 0.72, 0.36],
     })
 }
+
+/// Whether `kind` shows as the thin tracker under the player frame's bar, not as the bar: a
+/// counter of an option whose bar stays its rage (Colossal Smash, Rampage).
+pub fn shown_under_the_bar(kind: ResourceKind) -> bool {
+    matches!(kind, ResourceKind::ColossalSmash | ResourceKind::Rampage)
+}
+
+/// The word on the wire of a struck-back passive's ready light at the bar's end (Vengeance): its
+/// value 1 when the next blow taken strikes back, 0 while it waits.
+pub const STRIKE_BACK_READY: &str = "StrikeBackReady";
 
 /// The name a bar shows when it is not its passive's: Moonkin Form's
 /// passive is Starshards while its bar is Lunar Power. `None`: the passive's name (or, for rage

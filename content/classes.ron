@@ -27,14 +27,20 @@
             "shield_slam",
         ],
         starting_options: [
-            // rage is every Warrior option's passive
+            // every Warrior option builds rage, and each has a passive of its own besides
             (
                 id: "slam",
                 name: Spell(1464),
                 icon: "Ability_Warrior_DecisiveStrike",
                 description: "Builds rage with every swing and every blow taken, and spends it on heavy slams in front of you.",
                 spells: ["slam"],
-                passive: (id: "rage", name: "Rage", icon: "Ability_Racial_BloodRage", description: "Each swing that hits gives 10 rage, and each 4% of your health lost gives 1. The spell casts by itself once you have its cost.", kind: None),
+                passive: (
+                    id: "colossal_smash",
+                    name: Spell(26167),
+                    icon: "Ability_Warrior_SavageBlow",
+                    description: "Each swing that hits gives 10 rage, and each 4% of your health lost gives 1. The spell casts by itself once you have its cost. Every 4th critical hit of {Spell(1464)} or of your swings brings down {Spell(26167)}: 250 damage to the nearest enemy within 15 yd, bosses and elites first, and it takes 20% more damage from everything for 10 sec. It grows with {Spell(1464)}'s Power cards.",
+                    kind: Counter((meter: ColossalSmash, fill: [Crit(1.0), SwingCrit(1.0)], max: 4.0, release: Spell("colossal_smash"))),
+                ),
                 // half the rage of the first starts (20 a swing, 50 for all health lost)
                 resource: Some(Rage(per_swing: 10.0, per_health_lost: 25.0, cap: 100.0)),
             ),
@@ -44,7 +50,13 @@
                 icon: "Ability_Whirlwind",
                 description: "Builds rage with every swing and every blow taken, and spends it spinning through everything close.",
                 spells: ["whirlwind"],
-                passive: (id: "rage", name: "Rage", icon: "Ability_Racial_BloodRage", description: "Each swing that hits gives 10 rage, and each 4% of your health lost gives 1. The spell casts by itself once you have its cost.", kind: None),
+                passive: (
+                    id: "rampage",
+                    name: Spell(8285),
+                    icon: "Ability_Warrior_DecisiveStrike",
+                    description: "Each swing that hits gives 10 rage, and each 4% of your health lost gives 1. The spell casts by itself once you have its cost. Every 4th spin of {Spell(1680)} sets off {Spell(8285)}: 4 quick strikes on the nearest enemy within 15 yd, bosses and elites first, for 100, 100 and 100 damage and a last overhead slam for 200. It grows with {Spell(1680)}'s Power cards.",
+                    kind: Counter((meter: Rampage, fill: [Cast(1.0)], max: 4.0, release: Strikes(spells: ["rampage_strike", "rampage_strike", "rampage_strike", "rampage_slam"], gap: 0.2))),
+                ),
                 // half the rage of the first starts (20 a swing, 50 for all health lost)
                 resource: Some(Rage(per_swing: 10.0, per_health_lost: 25.0, cap: 100.0)),
             ),
@@ -54,7 +66,13 @@
                 icon: "Ability_Warrior_Revenge",
                 description: "Builds rage with every swing and every blow taken, and spends it striking the enemies around you.",
                 spells: ["revenge"],
-                passive: (id: "rage", name: "Rage", icon: "Ability_Racial_BloodRage", description: "Each swing that hits gives 10 rage, and each 4% of your health lost gives 1. The spell casts by itself once you have its cost.", kind: None),
+                passive: (
+                    id: "vengeance",
+                    name: Spell(16909),
+                    icon: "Ability_Racial_BloodRage",
+                    description: "Each swing that hits gives 10 rage, and each 4% of your health lost gives 1. The spell casts by itself once you have its cost. Each enemy blow that lands on you strikes the attacker back for 150 damage, at most once every 3 sec.",
+                    kind: StruckBack(rage: 0.0, spell: "revenge_strike_back", wait: 3.0),
+                ),
                 // half the rage of the first starts (20 a swing, 50 for all health lost)
                 resource: Some(Rage(per_swing: 10.0, per_health_lost: 25.0, cap: 100.0)),
             ),

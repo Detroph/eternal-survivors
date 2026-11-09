@@ -10,7 +10,7 @@
 
 use esurv_content::CompanionRank;
 
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::loot::Pickup;
 use super::pickups::MAGNET_SOUND;
 use super::run::{Event, Run};
@@ -68,10 +68,6 @@ pub struct CompanionUnit {
 pub struct CompanionSetup {
     pub id: String,
     pub rank: usize,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 /// Its place beside a hero at `at` facing `facing`.

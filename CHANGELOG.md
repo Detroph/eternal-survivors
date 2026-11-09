@@ -3,6 +3,39 @@
 Every release of Eternal Survivors, newest first. Each lists its patch notes (gameplay, balance,
 quality of life) and its changelog (fixes and details).
 
+## v0.6.1
+
+A reworked Warrior, saved builds and one Talents window for your whole build.
+
+### Patch notes
+
+**Gameplay**
+- **Warrior starting spells reworked**, each with a passive of its own:
+  - **Slam: Colossal Smash.** Every 4th critical hit, from Slam or a swing, smashes the enemy for heavy damage, and it takes more damage for a short while. A smashed enemy glows red.
+  - **Whirlwind: Rampage.** Every 4th spin, you unleash 4 quick strikes on one enemy, ending in an overhead slam.
+  - **Revenge: Vengeance.** When you're hit, you strike back, with a short wait between strike-backs. A light at the end of your rage bar shows when it's ready.
+
+**Balance**
+- Slam hits harder; Whirlwind hits harder and costs less rage.
+
+**Quality of life**
+- **Warrior counters:** a thin gold bar under your rage bar counts toward your next Colossal Smash or Rampage.
+- **One window for your build:** the Talents window now holds your starting spell and weapon loadout in a bar along its top, with tabs for Talents and Prestige.
+- **Five saved builds per class:** each keeps your talents, prestige points, starting spell and weapon loadout. Save, name and switch between them in one click; a right click empties one. Every hero of the class shares them.
+- **Camp conversations** have longer pauses between lines, so they're easier to follow.
+
+### Changelog
+
+**Fixes**
+- Experience orbs no longer show a name over them, whatever the name options are set to.
+
+**Clean-up**
+- Unused and duplicated code removed behind the scenes.
+- The game's documentation now describes the game as it is today, with a few numbers in it corrected to match the game.
+
+**Credits**
+- The clock tick on loading screens and the slow click in the world are now credited to their makers, the YouTube channels @razendegijs6416 and @HushAngel.
+
 ## v0.6.0
 
 The Caverns of Time update: a walkable camp, achievements and a whole new look.
@@ -30,7 +63,6 @@ The Caverns of Time update: a walkable camp, achievements and a whole new look.
 - Many smaller fixes to the camp, its people and its menus.
 
 **Install and technical**
-- WoW's own names (spells, classes, races, places) are read from your WoW files when the game starts, as before, now including all the new text.
 - Older saves are carried over: achievements you had already earned are granted when you first start 0.6.0.
 
 ## v0.5.5

@@ -7,6 +7,8 @@
 --     (ManaBarColor[0] and SetStatusBarColor), with its count written on it and its name on a
 --     small tab under the bar;
 --   * combo points are pips on the player frame, under its mana bar;
+--   * a counter of an option that keeps its rage (Colossal Smash, Rampage) is a thin gold bar
+--     under the bar's name tab, with its name and count;
 --   * a stacking buff whose aura's own icon is not its own shows its own in the buff frame.
 --
 -- Returns true once installed, false while the stock frames it changes are not loaded yet.
@@ -24,10 +26,23 @@ ESURV_CLASS_BAR = M
 -- the stock mana colour, put back when no counter paints the bar
 local stock = { r = ManaBarColor[0].r, g = ManaBarColor[0].g, b = ManaBarColor[0].b }
 
--- the count on the bar, as the health bar writes its own ("3 / 5")
+-- the count on the bar, as the health bar writes its own ("3 / 5"): ours always, and the bar's
+-- own number faded out meanwhile so the two never overlap (faded, as the stock files show it anew)
 local text = PlayerFrameManaBar:CreateFontString("EsurvClassBarText", "OVERLAY", "TextStatusBarText")
 text:SetPoint("CENTER", PlayerFrameManaBar, "CENTER", 0, 0)
 text:Hide()
+local counted = false
+local function show_count()
+    if counted then
+        text:Show()
+    else
+        text:Hide()
+    end
+    local stock = PlayerFrameManaBarText
+    if stock and stock.SetAlpha then
+        stock:SetAlpha(counted and 0 or 1)
+    end
+end
 
 -- the name on a small tab under the bar: a tooltip's dark ground and
 -- thin edge, the name in the small gold font
@@ -86,7 +101,8 @@ function M.set_bar(kind, name, painted, r, g, b, value, max)
         end
     end
     text:SetText(math.floor(value + 0.001) .. " / " .. math.floor(max + 0.001))
-    text:Show()
+    counted = true
+    show_count()
     label:SetText(name)
     local width = label.GetStringWidth and label:GetStringWidth() or 0
     tab:SetWidth(math.max(width, 30) + 14)
@@ -127,6 +143,7 @@ function M.place(x, y)
     M.offset = { x = x, y = y }
     place_tab(pips_on)
     place_pips()
+    show_count()
 end
 -- the run's player frame installed first and already on: its offset now
 if ESURV_UNIT_FRAMES and ESURV_UNIT_FRAMES.on() then
@@ -150,12 +167,75 @@ function M.set_pips(count, max)
     end
 end
 
+-- ── The tracker ──────────────────────────────────────────────────────────────────────────────
+-- A counter the mana bar does not show (it keeps the rage): a thin gold bar under the name tab,
+-- its name and count written under it ("Colossal Smash 2 / 4").
+local tracker = CreateFrame("StatusBar", "EsurvClassTracker", PlayerFrame)
+tracker:SetHeight(7)
+tracker:SetStatusBarTexture("Interface\\TargetingFrame\\UI-StatusBar")
+tracker:SetStatusBarColor(0.91, 0.69, 0.23)
+local tracker_back = tracker:CreateTexture("EsurvClassTrackerBack", "BACKGROUND")
+tracker_back:SetAllPoints(tracker)
+tracker_back:SetTexture(0.16, 0.13, 0.09, 0.9)
+local tracker_text = tracker:CreateFontString("EsurvClassTrackerText", "OVERLAY", "GameFontNormalSmall")
+tracker_text:SetPoint("TOP", tracker, "BOTTOM", 0, -1)
+tracker:SetPoint("TOP", tab, "BOTTOM", 0, -2)
+tracker:SetWidth(PlayerFrameManaBar:GetWidth())
+tracker:Hide()
+
+-- `max` 0: no tracker.
+function M.set_tracker(name, value, max)
+    if max <= 0 then
+        tracker:Hide()
+        return
+    end
+    tracker:SetMinMaxValues(0, max)
+    tracker:SetValue(value)
+    tracker_text:SetText(name .. " " .. math.floor(value + 0.001) .. " / " .. math.floor(max + 0.001))
+    tracker:Show()
+end
+
+-- ── The ready light ──────────────────────────────────────────────────────────────────────────
+-- A struck-back passive's (Vengeance) light just past the bar's right end: lit gold while the
+-- next blow taken strikes back, dark while it waits.
+local ready_back = PlayerFrame:CreateTexture("EsurvClassReady", "OVERLAY")
+ready_back:SetTexture("Interface\\ComboFrame\\ComboPoint")
+ready_back:SetTexCoord(0, 0.375, 0, 1)
+ready_back:SetWidth(12)
+ready_back:SetHeight(16)
+ready_back:SetPoint("LEFT", PlayerFrameManaBar, "RIGHT", 2, 0)
+ready_back:Hide()
+local ready_lit = PlayerFrame:CreateTexture("EsurvClassReadyLit", "OVERLAY")
+ready_lit:SetTexture("Interface\\ComboFrame\\ComboPoint")
+ready_lit:SetTexCoord(0.375, 0.5625, 0, 1)
+ready_lit:SetWidth(8)
+ready_lit:SetHeight(16)
+ready_lit:SetPoint("CENTER", ready_back, "CENTER", 0, 0)
+ready_lit:Hide()
+
+-- 1 lit, 0 dark, nil: no light.
+function M.set_ready(state)
+    if state == nil then
+        ready_back:Hide()
+    else
+        ready_back:Show()
+    end
+    if state == 1 then
+        ready_lit:Show()
+    else
+        ready_lit:Hide()
+    end
+end
+
 -- Out of a run: the stock bar again.
 function M.clear()
     paint(stock.r, stock.g, stock.b)
-    text:Hide()
+    counted = false
+    show_count()
     tab:Hide()
     M.set_pips(0, 0)
+    M.set_tracker("", 0, 0)
+    M.set_ready(nil)
 end
 
 -- ── Buff icons ───────────────────────────────────────────────────────────────────────────────

@@ -79,7 +79,7 @@ pub struct SavedHero {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub temperament: Option<Vec<String>>,
     /// The time period it was pulled into the camp from, picked on its hero sheet: which of the
-    /// camp's lines it says, and nothing else (flavour only). An older save: Present.
+    /// camp's lines it says, and nothing else (flavour only; owner). An older save: Present.
     #[serde(default)]
     pub time_period: TimePeriod,
 }
@@ -212,6 +212,12 @@ pub struct ClassProgress {
     /// the class's first.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub loadout: Option<String>,
+    /// The builds saved, by slot (0 to [`esurv_protocol::BUILD_SLOTS`] - 1); a slot not here is empty.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub builds: BTreeMap<u8, SavedBuild>,
+    /// The build slot lit: the one Save writes to.
+    #[serde(skip_serializing_if = "is_zero_u8")]
+    pub active_build: u8,
     /// What the player had seen of the class when it last opened its Collection and its Talents
     /// before a run (the warband screen's buttons glow on what is new).
     /// A class from a save from before it was kept is taken as having seen everything
@@ -230,6 +236,47 @@ pub struct ClassProgress {
     /// The looks chosen, by slot number ([`Saves::class_progress`]).
     #[serde(skip)]
     pub appearance: BTreeMap<u32, u32>,
+}
+
+/// A saved build of a class: its talents, prestige ranks, weapon loadout and the starting option of
+/// the hero it was saved from. Using it puts them back as far as the rules let.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SavedBuild {
+    /// The name the player gave it; empty: "Build <n>".
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub name: String,
+    pub talents: BTreeMap<String, u32>,
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    pub prestige: BTreeMap<String, u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub loadout: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start: Option<String>,
+}
+
+fn is_zero_u8(n: &u8) -> bool {
+    *n == 0
+}
+
+/// `wanted`'s ranks learned again from none, one rank at a time by `learn` (which keeps the
+/// rules), in passes until a pass learns nothing more: a rank the rules refuse is left out.
+fn learned_again(
+    wanted: &BTreeMap<String, u32>,
+    mut learn: impl FnMut(&mut BTreeMap<String, u32>, &str) -> bool,
+) -> BTreeMap<String, u32> {
+    let mut ranks = BTreeMap::new();
+    loop {
+        let mut learned = false;
+        for (id, &rank) in wanted {
+            if ranks.get(id).copied().unwrap_or(0) < rank && learn(&mut ranks, id) {
+                learned = true;
+            }
+        }
+        if !learned {
+            return ranks;
+        }
+    }
 }
 
 /// A look as a save keeps it: the zone it is of, by id, and its row among the zone's looks (0
@@ -1423,6 +1470,95 @@ impl Saves {
             changed
         });
         true
+    }
+
+    /// Saves `class`'s talents, prestige ranks and weapon loadout (the one it fights with), with
+    /// `start` (the starting option of the hero it is saved from), as build `slot`, and lights the
+    /// slot. `false` for a slot out of range.
+    pub fn save_build(&self, content: &Content, class: &str, slot: u8, start: Option<&str>) -> bool {
+        if slot >= esurv_protocol::BUILD_SLOTS {
+            return false;
+        }
+        self.change_class(class, |p| {
+            let name = p.builds.get(&slot).map(|b| b.name.clone()).unwrap_or_default();
+            let build = SavedBuild {
+                name,
+                talents: p.talents.clone(),
+                prestige: p.prestige.clone(),
+                loadout: content.loadout(class, p.loadout.as_deref()).map(|l| l.id.clone()),
+                start: start.map(Into::into),
+            };
+            let changed = p.builds.get(&slot) != Some(&build) || p.active_build != slot;
+            p.builds.insert(slot, build);
+            p.active_build = slot;
+            changed
+        });
+        true
+    }
+
+    /// Lights build `slot` of `class` and, when it holds a build, puts it back: the talents and
+    /// prestige ranks learned again by the rules with the points the class has, the weapon loadout
+    /// if the class still has it. A part that no longer fits (the content changed) is left out and
+    /// the rest is put back. The build's starting option, `Some` when it is one of the class's;
+    /// `None` for an empty slot, a build without one, or a slot out of range (then `false`).
+    pub fn use_build(&self, content: &Content, class: &str, slot: u8) -> (bool, Option<String>) {
+        if slot >= esurv_protocol::BUILD_SLOTS {
+            return (false, None);
+        }
+        let mut start = None;
+        self.change_class(class, |p| {
+            let lit = p.active_build != slot;
+            p.active_build = slot;
+            let Some(build) = p.builds.get(&slot).cloned() else {
+                return lit;
+            };
+            let before = (p.talents.clone(), p.prestige.clone(), p.loadout.clone());
+            p.talents = learned_again(&build.talents, |ranks, id| {
+                talents::learn(content, class, ranks, id, talents::points_earned(p.talent_experience))
+            });
+            p.prestige = learned_again(&build.prestige, |ranks, id| {
+                prestige::learn(content, class, ranks, id, prestige::points_earned(p.talent_experience))
+            });
+            if let Some(id) = build.loadout.filter(|id| content.loadouts_of(class).iter().any(|l| l.id == *id)) {
+                p.loadout = Some(id);
+            }
+            start = build.start.filter(|id| {
+                content.class(class).is_some_and(|c| c.starting_options.iter().any(|o| o.id == *id))
+            });
+            lit || before != (p.talents.clone(), p.prestige.clone(), p.loadout.clone())
+        });
+        (true, start)
+    }
+
+    /// Changes saved build `slot` of `class` by hand, as a save written by other content could hold it.
+    #[cfg(test)]
+    pub(crate) fn edit_build_for_a_test(&self, class: &str, slot: u8, edit: impl FnOnce(&mut SavedBuild)) {
+        self.change_class(class, |p| {
+            edit(p.builds.get_mut(&slot).unwrap());
+            true
+        });
+    }
+
+    /// Empties build `slot` of `class`; `false` when it held none.
+    pub fn clear_build(&self, class: &str, slot: u8) -> bool {
+        self.change_class(class, |p| p.builds.remove(&slot).is_some())
+    }
+
+    /// Names build `slot` of `class` (trimmed, at most [`esurv_protocol::BUILD_NAME_LIMIT`]
+    /// characters; empty gives back "Build <n>"); `false` when the slot holds no build.
+    pub fn name_build(&self, class: &str, slot: u8, name: &str) -> bool {
+        let name: String = name.trim().chars().take(esurv_protocol::BUILD_NAME_LIMIT).collect();
+        let mut held = false;
+        self.change_class(class, |p| {
+            let Some(b) = p.builds.get_mut(&slot) else {
+                return false;
+            };
+            held = true;
+            let changed = b.name != name;
+            b.name = name;
+            changed
+        });
+        held
     }
 
     /// Every class-gear piece won, by item entry numbered for `content` (a piece of a zone the

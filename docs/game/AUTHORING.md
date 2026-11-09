@@ -265,8 +265,8 @@ hero's actual power, and the code reads it from there:
 
 | Number | What it does | Today |
 |---|---|---|
-| `health_power` | the zone curve: every enemy's health × D^this, the same for every kind (elites, rares and bosses are plain multiples of it, `normal` ... `final_boss`) | 1.0 (fitted 2026-10-30 to the hand table it replaced, D 1–10: 1, 1.4, 2.25, 4, 5.75, 6.75, 7.25, 8.75, 9, 11; plansenemy-formula.md) |
-| `damage_share` | every enemy's damage × the zone curve to this power | 0.53 (fitted to the hand damage table it replaced: 1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75) |
+| `health_power` | the zone curve: every enemy's health × D^this, the same for every kind (elites, rares and bosses are plain multiples of it, `normal` ... `final_boss`) | 1.0 (zones.md, section 4) |
+| `damage_share` | every enemy's damage × the zone curve to this power | 0.53 |
 | `gear_exponent`, `gear_steeper_from`, `gear_growth_after` | gear stats × D^exponent up to `gear_steeper_from`, then × `gear_growth_after` a step of D | 0.55, 9, 1.3 |
 | `gear_drop_chance` | each boss gear piece's drop chance, in `(D, chance)` steps: each holds from its D until the next, no blending | 100 %, 80 % from 2, 70 % from 4, 60 % from 6, 40 % from 8 |
 | `talent_exponent` | a run's talent experience × D^this (with the point cost it meets the talent schedule) | 0.7 |
@@ -367,8 +367,7 @@ file names none.
 `esurv-sim` `game::rares`), the talent experience numbers per minute,
 kill, boss and win and the talent point costs (`esurv-sim` `game::rewards`: the `TALENT_XP_`
 numbers, `FIRST_TALENT_POINT_COST`), and the most zones a gear item number can
-hold (100, `game::gear::MAX_GEAR_ZONES`). The release installer's list of world files to copy is
-not built yet (design step 9).
+hold (100, `game::gear::MAX_GEAR_ZONES`).
 
 ## 5. An enemy kind
 
@@ -435,7 +434,7 @@ Raise Dead, shields, objects, phase kits, weapons, kneel, enrage, the scripted p
 later, acting as another boss, calling and reviving bosses, heals with beams, casting a block at
 once, bolstering adds, Blood Siphon, runs of waves the boss waits behind with their counter, the
 horde pulled into a clump, spell immunity, rage, healing adds, class calls, the fallen rising, a
-figure rising for a moment), and `warn` for a raid warning and a timer bar. A reworked boss keeps
+figure rising for a moment), and `warn` for a raid warning and a timer bar. A boss with mechanics keeps
 the damage a hero cannot avoid (`swing_mult`). Roster enemies only a boss brings carry
 `only_summoned: true`; a boss only a script brings, `called: true`. A roster enemy the hero must
 focus (adds that heal or guard a boss) carries `focus_as_elite: true`: heroes and assists pick it
@@ -641,16 +640,20 @@ option's spell is never a card** (the checks refuse a level-1 spell that is in a
 * **`spells`:** the main spell first: its upgrade cards are the option's cards, and its casts,
   hits and crits feed the passive. A second spell is the strike's finisher (Envenom, Rip).
 * **`passive.kind`** (`PassiveKind`): `None` (the resource, the spell itself or the form is the
-  passive); `Counter` (a mana-bar counter, below); `SwingSpeedStacks` (Zeal); `SwingSpeedOnHit`
-  (Quick Shots); `PetFrenzy`; `FreeCasts` (Lock and Load); `Orbs` (Holy Orbs); `Marks` (Lightning
-  Rod); `Empower` (Arcane Knowledge).
+  passive); `Counter` (a mana-bar counter, below); `SwingSpeedStacks` (Zeal, a stack per proc); `SwingSpeedOnHit` (Quick Shots); `BlockStrikes` (Holy Shield's
+  Block); `StruckBack(rage, spell, wait)` (each enemy melee blow on the hero gives `rage` rage and strikes
+  the attacker with `spell`, at most once each `wait` seconds; Revenge); `PetFrenzy`; `FreeCasts` (Lock and Load); `Orbs` (Holy
+  Orbs); `Marks` (Lightning Rod); `Empower` (Arcane Knowledge). An option with rage or energy keeps
+  the mana bar for that: its counter and swing stacks are not shown there.
 * **A counter** fills by every `fill` source: `Cast(n)` per main-spell cast, `Crit(n)` per crit,
+  `SwingCrit(n)` per weapon swing crit,
   `Damage(per, heal_factor)` one point per `per` damage dealt (healing counts `heal_factor` times,
   overhealing not), `Time(n)` per second, `FrozenHit(n)` per main-spell hit on a frozen enemy,
   `KillUnderSpell(n)` per enemy dying under the main spell (once per cast), `SummonExpired(n)` per
   summon running out, `MeleeHit(fast, slow)` a chance of +1 per melee hit. At `max` it releases:
-  `Spell(id)` casts an ability no card offers (it grows with the main spell's Power cards), or
-  `Summon([...])` brings summons; then it starts over. `shatter` (optional) multiplies the first
+  `Spell(id)` casts an ability no card offers (it grows with the main spell's Power cards),
+  `Summon([...])` brings summons, or `Strikes(spells, gap)` strikes one enemy with each spell in
+  turn, `gap` seconds apart (Rampage); then it starts over. `shatter` (optional) multiplies the first
   frost hit on each enemy the release froze.
 * **Summons** (`SummonSpec`): `kind` (Clone, EyeTentacle, ClawTentacle, Infernal, Imp, Critter,
   Plant, WaterElemental, HunterPet), the `pets` whose models it shows (`pets.ron`, in turn; none for the
@@ -662,7 +665,7 @@ option's spell is never a card** (the checks refuse a level-1 spell that is in a
   round the hero; the hero's clone is the one seen casting its spells.
 * **`resource`:** `Rage(per_swing, per_health_lost, cap)` (+`per_swing` per weapon swing that hits,
   +`per_health_lost` per whole max health lost, so 25 is 1 per 4 %; the Warrior's options give 10 a
-  swing and 25, half the first starts' 20 and 50; Bear Form keeps 20 and
+  swing and 25; Bear Form 20 and
   50), or `Energy(per_tick, tick_every, cap, combo_points)` (+`per_tick` every `tick_every` sec,
   ticks of 20 every sec: 1.12's ticks at twice their pace, so the
   average stays the run's 20 a second; Energy % cards make each tick bigger,
@@ -1349,30 +1352,28 @@ deaths. The zone table can be measured over every pair too:
 every normal boss should live about **60 s** and every final boss about **120 s**, in every zone,
 measured from appearing to dying (the zone table's "lived s", with `--kite --boss-circle`)
 **halfway between plain play and the damage build** below: the mean of the two builds' lived
-seconds (the damage build alone was the first fit). `balance_check` keeps the goals (`BOSS_TIME_GOALS`) and prints each
-boss's goal beside its lived seconds. (Before: 35-55 s and 90-150 s by zone, with plain play.)
-How it is met: the `boss` (×33.5) and `final_boss` (×45) health (×1.2 since, see below), the gentle boss clock
-(`boss_clock_power` 0.45: halfway, the spread between a zone's early and late bosses is smallest
-there, about ×1.17 left against ×1.64 on the full clock; the damage build alone would ask 0.55,
-plain play 0.36) and then each boss's own `health_share`, fitted on both builds (a boss's new
-share = its share × goal ÷ the mean of its two lived seconds; a final boss plain play rarely
-kills takes its plain seconds from the damage build × its zone's plain-to-damage ratio).
+seconds. `balance_check` keeps the goals
+(`BOSS_TIME_GOALS`) and prints each boss's goal beside its lived seconds.
+How it is met: the `boss` and `final_boss` health (×40.2 and ×54, with the 20 % below), the gentle
+boss clock (`boss_clock_power` 0.45: halfway, the spread between a zone's early and late bosses is
+smallest there, about ×1.17 left against ×1.64 on the full clock; the damage build alone would
+ask 0.55, plain play 0.36) and then each boss's own `health_share`, fitted on both builds (a
+boss's share = its share × goal ÷ the mean of its two lived seconds; a final boss plain play
+rarely kills takes its plain seconds from the damage build × its zone's plain-to-damage ratio).
 Ramstein and the Baron are fitted each on his own.
 Bosses whose fight follows a mechanic (Rend, Rajaxx, the Avatar of Hakkar, Majordomo, Ossirian,
-and Cho'Rush, who joins King Gordok) keep the health they had before.
+and Cho'Rush, who joins King Gordok) keep a health of their own, not fitted to the goal.
 
 **The rule for elites and rares**: the hero's full damage takes
 about **15 s** on an elite and **25 s** on a rare with the damage build (the zone table's elite
-and rare "kill" seconds, the mean over the zones): `elite` ×18.5 and `rare` ×16.5 health. These
-stay on the damage build when the bosses moved to halfway; halfway would put
-an elite at about 18 s and a rare at about 30 s (plain play alone: about 22 s and 38 s).
+and rare "kill" seconds, the mean over the zones), fitted on the damage build alone (2026-10-31): `elite` ×22.2 and `rare` ×19.8 health, with the 20 % below.
 
-**Then 20 % longer**: all four kinds' health ×1.2, so `elite` ×22.2, `rare` ×19.8, `boss` ×40.2 and
-`final_boss` ×54 (the ×33.5 and ×45 above are the halfway fit before it). The goals read about
-72 s for a boss and 144 s for a final boss halfway, and about 18 s and 30 s for an elite and a
-rare with the damage build. The mechanic bosses grow with it too.
+**20 % longer** (2026-10-31: "boost fight times by another 20% across the
+board"): the four kinds' health above holds ×1.2 over the fit, the mechanic bosses' too. The
+fights read about 72 s for a boss and 144 s for a final boss halfway, and about 18 s and 30 s
+for an elite and a rare with the damage build.
 
-**The enemy formula's measure** (2026-10-30, plans\enemy-formula.md): every kind is a plain
+**The enemy formula's measure**: every kind is a plain
 multiple of a normal enemy on one zone curve, with bosses on the gentler
 boss clock. Measure every zone, plain play and the damage build (the boss goals take the
 mean of the two; the elite and rare goals the damage build), with
@@ -1384,9 +1385,8 @@ mean of the two; the elite and rare goals the damage build), with
 normal enemies' kill seconds (as they come and at role ×1), its elites' and rares' kill and lived
 seconds, the hero's damage taken and cheat deaths a run; `--summary` writes them with every boss's
 lived seconds to a file; `--death-causes` adds what the cheat deaths came from, by minute, and
-how often the kiting hero was held back by a wall or a shut door (it keeps off them since
-2026-10-31; before, it ran into Stratholme's gates and Warsong Gulch's and the Scarlet
-Monastery's walls and stood there, which made most of those zones' cheat deaths). A boss's `health_share` for its goal is the share it was measured at ×
+how often the kiting hero was held back by a wall or a shut door (it keeps off them).
+A boss's `health_share` for its goal is the share it was measured at ×
 goal ÷ lived seconds; repeat until it lands within about ±10 %. A final boss that often lives
 to the end of the run shows only its quicker kills, so its lived seconds read low; do not push
 it further.
@@ -1415,5 +1415,5 @@ options ±10 % of their class's mean (`--ratio-band`); boss lived seconds ±20 %
 (`--boss-band`; a boss that hardly ever dies before the run ends, as Whitemane without
 `--overtime`, has nothing to measure and does not hold its zone back); milestones and gear ±25 % of the budget; legendaries ±20 %. No group stops before
 20 seeds (100 for milestones and gear; `--min-seeds`), and each table prints how many seeds each
-line took. `--fixed-seeds` turns the early stop off and plays the full count, as before;
+line took. `--fixed-seeds` turns the early stop off and plays the full count;
 `--batch-seeds` sets the batch.

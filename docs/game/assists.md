@@ -113,7 +113,7 @@ rotation is its `behaviour` beside the script, a move style and spell ids (each 
   saps follow the hero's own rules: held for a quarter of the time, a chain of holds capped and
   followed by immunity, and fear and polymorph never work on a boss. On any other enemy an
   assist's stun or root holds its full written time, outside the hero's chain of holds (the hero's
-  own holds are unchanged). A taunt on a boss lasts a quarter. The assist Blizzard's slow goes
+  own holds keep their rules). A taunt on a boss lasts a quarter. The assist Blizzard's slow goes
   through the hero's own slow, so a boss or a rare takes it as it takes a hero's. ("No boss crowd
   control" is about bosses never stunning, fearing, rooting or slowing the player; it does not
   stop an assist's crowd control on enemies.)
@@ -159,7 +159,7 @@ The simulation's side (`crates/esurv-sim/src/game/assists.rs`):
 - **Crowd control** on a boss or a rare is put on exactly as a hero's spell puts it on. The mark an enemy wears (`wears`) shows for as long as the
   effect really holds, and not at all when it does not take (a fear on a boss).
 - **A taunt:** the taunted enemies walk to the ally and swing at it at their own pace (it takes
-  nothing; a ranged enemy drops its cast and comes too); their abilities go on as before. A taunt
+  nothing; a ranged enemy drops its cast and comes too); their abilities go on. A taunt
   on an enemy that dies ends, but the ally stays its written time.
 - **Ground areas** strike at once, then every `every` seconds while they last. **Bleeds** tick
   every `every` seconds, the first after `every`, the last at their end. An area with `most` strikes
@@ -171,9 +171,9 @@ The simulation's side (`crates/esurv-sim/src/game/assists.rs`):
   screen); Snutz's rain of fire (his script's and each rotation cast's) strikes at most 5 enemies
   a pulse, the nearest its middle, so each cast's Corruption, Curse of Agony, Shadow Bolt or Death
   Coil shows on at most 5. With 60 enemies about, a stay sends about ten times fewer hits and
-  impact looks (Wayze 660 hits before, now 55; Snutz 3519, now 320). Moffel's Thunderfury
+  impact looks. Moffel's Thunderfury
   lightning and its debuff show on her first swing only, her eight swings
-  still striking the 5 nearest her: 5 lightning looks a stay instead of 40.
+  still striking the 5 nearest her.
 - **A two-hander** in a character's main hand leaves its off hand empty (no class shield under
   it): Noami holds Sulfuras, Hand of Ragnaros (item 17182, display 29698) in both hands.
 - **Buffs** add their stats while they last (a raised max health raises health with it); their

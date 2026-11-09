@@ -303,8 +303,12 @@ pub struct Game {
     out_of_form: HashMap<u32, f32>,
     /// The enemies Starshards' stars fall on, by simulation id, and until when.
     starshards_until: HashMap<u32, f32>,
+    /// The enemies Colossal Smash left taking more damage, by simulation id, and until when.
+    smashed_until: HashMap<u32, f32>,
     /// The dual-wielding enemies whose next swing is their off hand's, by simulation id.
     left_swing_next: HashSet<u32>,
+    /// Each hero's passive swing strikes shown so far in its current run of strikes (Rampage).
+    strike_swings: HashMap<u32, usize>,
     /// The channel beams the clients see, by caster guid: the spell and what it is aimed at.
     channels_shown: HashMap<u64, (u32, u64)>,
     /// The pickups on the field as the clients were last told.
@@ -494,7 +498,9 @@ impl Game {
             gold_due: Vec::new(),
             out_of_form: HashMap::new(),
             starshards_until: HashMap::new(),
+            smashed_until: HashMap::new(),
             left_swing_next: HashSet::new(),
+            strike_swings: HashMap::new(),
             channels_shown: HashMap::new(),
             pickups_shown: HashMap::new(),
             totems_shown: HashMap::new(),
@@ -1718,7 +1724,7 @@ mod tests {
     fn spell_go_hits(p: &Packet) -> Vec<u64> {
         let b = &p.body;
         let mut at = 0usize;
-        let mut packed = |at: &mut usize| {
+        let packed = |at: &mut usize| {
             let mask = b[*at];
             *at += 1 + mask.count_ones() as usize;
         };
@@ -2428,6 +2434,88 @@ mod tests {
         assert!(told.is_empty(), "nothing for a look not shown");
     }
 
+    /// The Colossal Smash counter, which leaves the bar to the rage, goes to the hero's client as
+    /// the tracker under the bar each time its whole count changes, and on joining.
+    #[test]
+    fn the_colossal_smash_count_is_told_as_it_changes() {
+        use esurv_protocol::ToClient;
+        let (mut game, _client) = game_with_a_hero_of("warrior", "orc");
+        game.run.heroes[0].start = "slam".into();
+        let hero = game.run.heroes[0].id;
+        let bars = |told: Vec<(u32, ToClient)>| -> Vec<(String, f32, f32)> {
+            told.into_iter()
+                .filter_map(|(_, m)| match m {
+                    ToClient::Bar { kind, value, max, .. } => Some((kind, value, max)),
+                    _ => None,
+                })
+                .collect()
+        };
+        game.run.heroes[0].kit.counter = 2.0;
+        assert_eq!(bars(game.tracker_messages()), [("ColossalSmash".to_string(), 2.0, 4.0)]);
+        assert!(game.tracker_messages().is_empty(), "told once");
+        let hello: Vec<_> = game.option_hello(hero).into_iter().map(|m| (hero, m)).collect();
+        assert_eq!(bars(hello), [("ColossalSmash".to_string(), 2.0, 4.0)]);
+        game.run.heroes[0].start = "whirlwind".into();
+        assert_eq!(bars(game.tracker_messages()), [(format!("{:?}", esurv_content::ResourceKind::Rampage), 2.0, 4.0)]);
+        // the struck-back passive's light: lit while ready, dark while it waits, told on joining
+        use esurv_content::option_looks::STRIKE_BACK_READY;
+        game.run.heroes[0].start = "revenge".into();
+        let ready = |v: f32| vec![(STRIKE_BACK_READY.to_string(), v, 1.0)];
+        assert_eq!(bars(game.tracker_messages()), ready(1.0));
+        game.run.heroes[0].kit.strike_back_ready = game.run.now + 3.0;
+        assert_eq!(bars(game.tracker_messages()), ready(0.0));
+        assert!(game.tracker_messages().is_empty(), "told once");
+        let hello: Vec<_> = game.option_hello(hero).into_iter().map(|m| (hero, m)).collect();
+        assert_eq!(bars(hello), ready(0.0));
+        game.run.now += 3.0;
+        assert_eq!(bars(game.tracker_messages()), ready(1.0));
+    }
+
+    /// Rampage's strikes play as weapon swings, main hand, off hand, main hand with a weapon in
+    /// each hand (main hand only with a two-hander or a shield), and the last as its slam.
+    #[test]
+    fn rampage_strikes_swing_main_off_main_then_slam() {
+        use benilla_protocol::messages::opcode::SMSG_SPELL_GO;
+        use esurv_sim::game::casting::HitSource;
+        let (mut game, _client) = game_with_a_hero_of("warrior", "orc");
+        game.run.heroes[0].start = "whirlwind".into();
+        let p = game.run.heroes[0].pos;
+        assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 3.0, p.1))));
+        let enemy = game.run.enemies[0].id;
+        game.show(&[]);
+        let hero = game.run.heroes[0].id;
+        let foe = Unit::Enemy(enemy);
+        let look = |game: &Game, id: &str| game.run.content.ability(id).unwrap().look_spell;
+        let hands = |game: &mut Game, loadout: &str, spells: &[&str]| {
+            game.run.heroes[0].loadout = loadout.into();
+            let mut seen = Vec::new();
+            for (k, &spell) in spells.iter().enumerate() {
+                // the strikes still to come, as the simulation holds them
+                game.run.heroes[0].kit.strikes = spells[k + 1..].iter().map(|s| (f32::MAX, s.to_string(), enemy)).collect();
+                let events = [
+                    Event::SpellGo { caster: Unit::Hero(hero), spell: look(game, spell), hits: vec![foe], aim: Aim::Unit(foe), ammo: false, reach: 0.0, triggered: false },
+                    Event::EnemyHit { id: enemy, amount: 100.0, crit: false, by: Some(hero), source: HitSource::Spell(spell.into()) },
+                ];
+                for p in game.present(&events).0 {
+                    match parse_server(p.opcode, &p.body) {
+                        Ok(ServerPacket::AttackerState(a)) => seen.push(if a.hit_info & 0x04 != 0 { "off" } else { "main" }),
+                        _ if p.opcode == SMSG_SPELL_GO => seen.push("slam"),
+                        _ => {}
+                    }
+                }
+            }
+            seen
+        };
+        let all = ["rampage_strike", "rampage_strike", "rampage_strike", "rampage_slam"];
+        assert_eq!(hands(&mut game, "dual_wield", &all), ["main", "off", "main", "slam"]);
+        assert_eq!(hands(&mut game, "two_hander", &all), ["main", "main", "main", "slam"]);
+        assert_eq!(hands(&mut game, "shield", &all), ["main", "main", "main", "slam"]);
+        // a run whose slam found no one: the next starts on the main hand again
+        let cut = ["rampage_strike", "rampage_strike", "rampage_strike"];
+        assert_eq!(hands(&mut game, "dual_wield", &cut), ["main", "off", "main"]);
+        assert_eq!(hands(&mut game, "dual_wield", &all), ["main", "off", "main", "slam"]);
+    }
+
     /// An enemy turned on the others swings at its target as an enemy swings at the hero, and a
     /// mark on an enemy shows as its aura.
     #[test]
@@ -2451,6 +2539,36 @@ mod tests {
         assert!(objects.iter().any(|o| matches!(o, crate::update::ObjectUpdate::Values { guid, .. } if *guid == ga)));
         assert!(game.shown[&a].debuffs.iter().any(|d| d.spell == 6572), "the mark shows on the marked enemy");
         assert!(game.shown[&b].debuffs.is_empty());
+    }
+
+    /// An enemy Colossal Smash left taking more damage glows red while it does; one exposed by
+    /// anything else does not.
+    #[test]
+    fn a_smashed_enemy_glows_red_while_it_takes_more_damage() {
+        use super::starting_looks::extras::SMASHED;
+        use esurv_sim::game::casting::HitSource;
+        let (mut game, _client) = game_with_a_player();
+        let p = game.run.heroes[0].pos;
+        assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 3.0, p.1))));
+        assert!(game.run.spawn_roster_enemy(0, Some((p.0 + 4.0, p.1))));
+        let (a, b) = (game.run.enemies[0].id, game.run.enemies[1].id);
+        game.show(&[]);
+        let now = game.run.now;
+        for e in &mut game.run.enemies {
+            e.vulnerable = Some((0.2, now + 10.0));
+        }
+        let hero = Some(game.run.heroes[0].id);
+        let smash = Event::EnemyHit { id: a, amount: 9.0, crit: false, by: hero, source: HitSource::Spell("colossal_smash".into()) };
+        game.option_extras(&[smash]);
+        let glows = |game: &mut Game, e: u32| {
+            let (mut objects, mut own) = (Vec::new(), Vec::new());
+            game.auras(&mut objects, &mut own, false);
+            game.shown[&e].debuffs.iter().any(|d| d.spell == SMASHED)
+        };
+        assert!(glows(&mut game, a), "the smashed enemy glows");
+        assert!(!glows(&mut game, b), "an enemy exposed by something else does not");
+        game.run.enemies[0].vulnerable = None;
+        assert!(!glows(&mut game, a), "gone with the vulnerability");
     }
 
     /// A voiced boss's pull voice line goes to every client as `SMSG_PLAY_SOUND` when it arrives,

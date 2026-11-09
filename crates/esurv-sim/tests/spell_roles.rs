@@ -47,7 +47,7 @@ use Role::*;
 
 const ROLES: &[(&str, Role)] = &[
     // `warrior`
-    // a card spell now: 30 to each of 3 every 2 s
+    // a card spell now: 45 to each of 3 every 3 s
     ("cleave", FewTargets),
     ("whirlwind", Unchanged),
     ("thunder_clap", Unchanged),

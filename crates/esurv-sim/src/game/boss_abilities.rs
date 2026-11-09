@@ -6,7 +6,7 @@
 
 use esurv_content::{BossAbility, BossAbilityKind};
 
-use super::enemy_ai::{Segment, Vec2, ENRAGE_COOLDOWN};
+use super::enemy_ai::{dist, Segment, Vec2, ENRAGE_COOLDOWN};
 use crate::rng::Rng;
 
 /// A boss's abilities start at this share of their cooldown when it spawns.
@@ -85,10 +85,6 @@ pub fn next_cooldown(ability: &BossAbility, enraged: bool) -> f32 {
     } else {
         ability.cooldown
     }
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 /// Casts `kind`. `missile_speed` gives a WoW spell's `Spell.dbc` Speed (0 when it has none).

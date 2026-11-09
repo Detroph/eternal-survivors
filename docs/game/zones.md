@@ -42,11 +42,7 @@ One file per zone, named after its `id` (`content\zones\elwynn.ron` holds the zo
 * `map_id`, `area_id` and `spawn` must describe a real spot of the 1.12.1 world with ground the
   hero can stand on and room for the arena circle. Get coordinates by standing there in a dev
   build (`.gps`-style readout from the client, or the debug panel) and copying x, y, z, facing.
-* Map ids the first zones used: 0 Eastern Kingdoms, 1 Kalimdor, 30 Alterac Valley (since replaced
-  by Stratholme, 329),
-  489 Warsong Gulch, 529 Arathi Basin (since replaced by the Sunken Temple, 109).
-  Any map in `Map.dbc` works, as long as the installer
-  copies its terrain (step 9 builds the asset list from what the game loads).
+* Any map in `Map.dbc` works.
 * A WMO-only map works too: a dungeon with no terrain at all, only one building (20 of the 43
   shipped maps, Dire Maul 429 and the Stockade 34 among them). The server stands the run on the
   building's own floors and walls (`esurv-server`'s `wmo_floor`). Floors can stack, so every
@@ -97,7 +93,7 @@ One file per zone, named after its `id` (`content\zones\elwynn.ron` holds the zo
   a time, round walls and pillars and up ramps.
   On terrain where no walking is needed, a spot must be in the hero's sight instead: a clear
   line between points 1.5 yd over the hero's floor and the spot's (`SIGHT_HEIGHT`). Open terrain
-  never blocks sight, so outdoor zones are unchanged. A blocked or unreachable spot is re-rolled
+  never blocks sight, so it never turns a spot away in an outdoor zone. A blocked or unreachable spot is re-rolled
   the same way as a height miss.
   Enemies keep no height of their own: one is shown on the floor at its spot that the nearest
   hero walks to soonest (the floor its spawn was accepted on and that it follows), else the floor
@@ -115,7 +111,7 @@ after Warsong Gulch, its gear tier 2):
   stand on its tiles rather than in its WDT, the buildings placed on its tiles are its floors and
   walls (`ground::tile_ground`), walked as a WMO-only map's one is, together with the tiles'
   terrain where it has any (Stratholme's streets and squares lie on terrain between its
-  buildings; the Scarlet Monastery walks as before, its terrain lying far below its floors). A
+  buildings; the Scarlet Monastery's terrain lies far below its floors). A
   tilted building is left out (Stratholme's cave tunnels, far from its square), the floors being
   read upright. The Scarlet Monastery's courtyard and cathedral (`monestary_cathedral.wmo`) hold
   the run; `arena_centre` puts the stray-catching circle between its two ends (`arena_radius`
@@ -181,7 +177,7 @@ party's (`esurv-server` `game::player_enemies`):
   a human hunter, an orc mage, a dwarf shaman, an undead paladin, a gnome priest, a troll warlock;
   the create screen's data, `GameData::allows`), its gender either, its skin, face, hair and facial hair within the
   client's own ranges for that race and gender (`CharSections.dbc`);
-* **its gear** is its class's in `contentpvp_looks.ron`: a piece per armor slot picked from the
+* **its gear** is its class's in `content/pvp_looks.ron`: a piece per armor slot picked from the
   slot's list (the class's dungeon set 1 piece and up to ten level 50-60 greens and blues of its
   armor type it can wear, never an epic and never PvP rank gear) and one of its sixteen weapon
   sets (kinds its class carries: two-handers or two one-handers, a one-hander and a shield, a
@@ -453,7 +449,7 @@ Each zone has **5** bosses; exactly one has `is_final: true`, and it comes last.
 * **Rares** use a fixed set (not in the zone files): Charge every 9 s, a Thunder Clap stomp
   (8 yd, ×1.4) every 7 s, Summon 4 every 16 s (without the shout),
   each starting at half its cooldown.
-* **Pending:** the boss health bar.
+* **The boss health bar:** [screens.md](screens.md), the HUD table, "Boss bars".
 * **Boss loot (confirmed):** gear (see gear.md), gold `40 + 20 × bosses slain` (this boss
   included), and a magnet if one is due. Experience, `2400 + 800 ×
   bosses already slain` (`balance.ron` `experience.boss_kill`).
@@ -516,8 +512,7 @@ slowly with D than the swarm and bosses read the health clock to the power 0.3; 
 were first fitted to reproduce what they had, then refitted to the
 boss-time targets with the damage build: an elite takes about 15 s of the hero's full damage, a rare
 about 25 s; a boss lives about 60 s and a final boss about 120 s halfway between plain play and the
-damage build (the mean of the two;
-AUTHORING.md section 16). The one exception to "one pair of clocks": bosses and final bosses read
+damage build (the mean of the two, AUTHORING.md section 16). The one exception to "one pair of clocks": bosses and final bosses read
 the health clock to `boss_clock_power` (**0.45**), a gentler boss clock so a
 zone's late bosses do not outlast its early ones.
 
@@ -541,9 +536,7 @@ zone's late bosses do not outlast its early ones.
   talent points and the previous zone's gear), never on a hero's actual power (AUTHORING.md,
   "Power budgets"):
   * every enemy: health × D^`health_power` (**1.0**: a zone has D times the first zone's
-    health), the zone curve, fitted to the hand table it replaced (D 1–10: ×1, 1.4, 2.25, 4, 5.75,
-    6.75, 7.25, 8.75, 9, 11); damage × that curve to `damage_share` (**0.53**), fitted to the
-    hand damage table it replaced (×1, 1.15, 1.4, 2.05, 2.45, 2.7, 2.7, 3.25, 3.25, 3.75);
+    health), the zone curve; damage × that curve to `damage_share` (**0.53**);
   * gear, drops, gear tiers and talent experience (below, gear.md and classes.md).
 * **Clocks** (`health_clock`, `damage_clock`): through these points, in straight lines between
   them, and past each clock's last point at its last step's pace (health past minute 20 at the
@@ -557,9 +550,8 @@ zone's late bosses do not outlast its early ones.
   | Damage | ×1 | ×1.5 | ×2.5 | ×4.5 | ×7 | ×9.5 |
 * **Role** (`role` in the zone file, `balance.ron` `roles`): per normal enemy, on health only.
   It says how sturdy the enemy is next to its zone's curve: **Swarm** ×0.25, **Light** ×0.5,
-  **Standard** ×0.75, **Sturdy** ×1 (also when left out), **Tough** ×2, **Brute** ×3. The six
-  steps group the old per-enemy `toughness` (0.25 to 4) by their geometric means; a zone file that
-  still names a toughness is refused. Elites, rares and bosses have none.
+  **Standard** ×0.75, **Sturdy** ×1 (also when left out), **Tough** ×2, **Brute** ×3. A zone file
+  that names a `toughness` (an older key) is refused. Elites, rares and bosses have none.
 * **R:** a run-wide factor every run starts at **1** and nothing changes; health × R and
   damage × √R. It is kept as a knob for future modes.
 * **Endless** (**confirmed**): after the final boss you may continue; then health ×1.22 and
@@ -683,7 +675,7 @@ does not exist, a caster without `look_spell`, or a `look_spell` on a kind that 
    name a kind and its looks (bosses.md).
 5. Pick `difficulty`: the next whole number after the last zone, or a step between two zones (for
    example 11 and 12 after Ahn'Qiraj, where room is kept), against the table in section 4. It sets
-   the zone's place too (step 7); no two zones may share one.
+   the zone's place too; no two zones may share one.
 6. Run `cargo test -p esurv-content`: the loader checks ids, final-boss rules and
    references. It fails with a message naming the file on a zone file whose `id` is not its
    name, an id used twice, two zones of equal difficulty, or a difficulty that is not above 0.
@@ -698,7 +690,6 @@ does not exist, a caster without `look_spell`, or a `look_spell` on a kind that 
    class of the save has opened yet is listed only as "???" with a lock; once any class opens
    it, the save keeps it discovered (`zones_discovered`, server.md) and every hero sees it in
    full, though each class still opens it itself to play it.
-8. **Pending (step 9):** the installer's asset list.
 
 ## 6. Changing an existing zone
 

@@ -50,6 +50,10 @@ pub(super) struct OptionShown {
     power_sent: Option<(u8, u32, u32)>,
     /// The stacking buffs: kind, stacks, most, and when they end (`None`: until used).
     pub stacks: Vec<(StackKind, u32, u32, Option<f32>)>,
+    /// The tracker under the bar last sent: the counter's kind, whole value and most.
+    tracker_sent: Option<(ResourceKind, u32, u32)>,
+    /// The struck-back ready light last sent: lit or not.
+    ready_sent: Option<bool>,
 }
 
 /// A ghostly copy of a hero on the field.
@@ -366,6 +370,66 @@ impl Game {
         })
     }
 
+    /// Hero `hero`'s counter shown under its bar (`shown_under_the_bar`: the bar stays the rage):
+    /// its kind, whole value and most, from the run's own count.
+    fn tracker_now(&self, hero: u32) -> Option<(ResourceKind, u32, u32)> {
+        let h = self.run.heroes.iter().find(|h| h.id == hero)?;
+        match &option_of(&self.run.content, h)?.passive.kind {
+            esurv_content::PassiveKind::Counter(c) if esurv_content::option_looks::shown_under_the_bar(c.meter) => {
+                Some((c.meter, h.kit.counter.floor().max(0.0) as u32, c.max.round() as u32))
+            }
+            _ => None,
+        }
+    }
+
+    /// Whether hero `hero`'s struck-back passive strikes back at the next blow taken (`None`: its
+    /// option strikes nothing back).
+    fn ready_now(&self, hero: u32) -> Option<bool> {
+        let h = self.run.heroes.iter().find(|h| h.id == hero)?;
+        match &option_of(&self.run.content, h)?.passive.kind {
+            esurv_content::PassiveKind::StruckBack { .. } => Some(self.run.now >= h.kit.strike_back_ready),
+            _ => None,
+        }
+    }
+
+    /// The ready light's message: lit or dark at the end of the hero's bar.
+    fn ready_message(&self, hero: u32, lit: bool) -> Option<ToClient> {
+        Some(ToClient::Bar {
+            hero: self.guid_of(Unit::Hero(hero))?,
+            kind: esurv_content::option_looks::STRIKE_BACK_READY.to_owned(),
+            name: String::new(),
+            value: if lit { 1.0 } else { 0.0 },
+            max: 1.0,
+        })
+    }
+
+    /// The tracker and ready light messages for the heroes whose count under the bar or light
+    /// changed. A joining client gets its own in [`Self::option_hello`].
+    pub(super) fn tracker_messages(&mut self) -> Vec<(u32, ToClient)> {
+        let heroes: Vec<u32> = self.run.heroes.iter().map(|h| h.id).collect();
+        let mut told = Vec::new();
+        for &hero in &heroes {
+            let Some(lit) = self.ready_now(hero) else { continue };
+            let shown = self.options_shown.entry(hero).or_default();
+            if shown.ready_sent == Some(lit) {
+                continue;
+            }
+            shown.ready_sent = Some(lit);
+            told.extend(self.ready_message(hero, lit).map(|m| (hero, m)));
+        }
+        for hero in heroes {
+            let Some(now) = self.tracker_now(hero) else { continue };
+            let shown = self.options_shown.entry(hero).or_default();
+            if shown.tracker_sent == Some(now) {
+                continue;
+            }
+            shown.tracker_sent = Some(now);
+            let (kind, value, max) = now;
+            told.extend(self.bar_message(hero, kind, value as f32, max as f32).map(|m| (hero, m)));
+        }
+        told
+    }
+
     /// What a joining client is told of its hero's option: the looks' styles and its bar now.
     pub(super) fn option_hello(&self, hero: u32) -> Vec<ToClient> {
         let mut told = vec![ToClient::LookStyles(look_styles(&self.run.content))];
@@ -379,6 +443,12 @@ impl Game {
         told.push(ToClient::SheathHolds(holds));
         if let Some((kind, value, max)) = self.options_shown.get(&hero).and_then(|s| s.bar) {
             told.extend(self.bar_message(hero, kind, value, max));
+        }
+        if let Some((kind, value, max)) = self.tracker_now(hero) {
+            told.extend(self.bar_message(hero, kind, value as f32, max as f32));
+        }
+        if let Some(lit) = self.ready_now(hero) {
+            told.extend(self.ready_message(hero, lit));
         }
         told
     }
@@ -609,6 +679,9 @@ pub mod extras {
     /// while they go on striking it: a debuff that lasts this long after each strike.
     pub const STARSHARDS: u32 = 10_797;
     pub const STARSHARDS_MARK_SECONDS: f32 = 1.25;
+    /// A beast's frenzy (its red glow), worn by an enemy Colossal Smash left taking more damage,
+    /// while it does.
+    pub const SMASHED: u32 = 26_041;
 }
 
 /// Where Slam's bursts of earth lie to cover its cone: rows every
@@ -694,6 +767,11 @@ impl Game {
                 Event::EnemyHit { id, source: HitSource::Spell(s), .. } if s == "starshards" => {
                     self.starshards_until.insert(*id, now + STARSHARDS_MARK_SECONDS);
                 }
+                Event::EnemyHit { id, source: HitSource::Spell(s), .. } if s == "colossal_smash" => {
+                    if let Some(esurv_content::SpellEffect::Vulnerable { seconds, .. }) = self.run.content.ability(s).map(|a| &a.effect) {
+                        self.smashed_until.insert(*id, now + seconds);
+                    }
+                }
                 Event::SpellGo { spell, hits, caster, .. } if *spell == MASSIVE_GEYSER => {
                     // the geyser bursts up from the ground under each enemy
                     let Some(from) = self.guid_of(*caster) else {
@@ -771,6 +849,7 @@ impl Game {
             }
         }
         self.starshards_until.retain(|_, until| *until > now);
+        self.smashed_until.retain(|_, until| *until > now);
         let (due, later): (Vec<_>, Vec<_>) = std::mem::take(&mut self.later).into_iter().partition(|(at, _)| *at <= now);
         self.later = later;
         out.extend(due.into_iter().map(|(_, p)| p));

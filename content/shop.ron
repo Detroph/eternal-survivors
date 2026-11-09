@@ -35,7 +35,7 @@
             id: "time_floes",
             name: "Time Floes",
             icon: "INV_Misc_Head_Dragon_Bronze",
-            text: "Time flows quicker around you in the {Area(1941)}. Run 60% faster while in the hub in Tanaris.",
+            text: "Time flows quicker around you in the {Area(1941)}. Run 60% faster while in the hub in {Area(440)}.",
             price: 75,
             run_faster: 0.6,
         ),

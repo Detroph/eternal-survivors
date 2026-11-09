@@ -81,9 +81,7 @@ pub(crate) fn percent(share: f32) -> String {
 }
 
 /// A number to a tenth at most, with no trailing zero.
-pub(crate) fn number(value: f32) -> String {
-    esurv_content::text::tenths(value)
-}
+pub(crate) use esurv_content::text::number;
 
 /// `{v}` of a ring's, trinket's or stat's line as it reads: a share where a `%` follows it, else
 /// the number as it is.

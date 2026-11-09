@@ -193,7 +193,7 @@
     // Owls
     (id: "great_horned_owl",  name: "Great Horned Owl",  icon: "Ability_EyeOfTheOwl", look: Pet(npc: 7553), scale: 1.0, price: 15, text: "Raised in the treetop city, where owls count as family."),
     (id: "hawk_owl",          name: "Hawk Owl",          icon: "Ability_EyeOfTheOwl", look: Pet(npc: 7555), scale: 1.0, price: 15, text: "Hunts like a hawk, judges you like an owl."),
-    (id: "eagle_owl",         name: "Eagle Owl",         icon: "Ability_EyeOfTheOwl", look: Creature(display: 6300), scale: 1.0, price: 15, text: "Has watched the sands of Tanaris for longer than anyone can count, and keeps quiet about what it saw."),
+    (id: "eagle_owl",         name: "Eagle Owl",         icon: "Ability_EyeOfTheOwl", look: Creature(display: 6300), scale: 1.0, price: 15, text: "Has watched the sands of {Area(440)} for longer than anyone can count, and keeps quiet about what it saw."),
     (id: "snowy_owl",         name: "Snowy Owl",         icon: "Ability_EyeOfTheOwl", look: Creature(display: 6298), scale: 1.0, price: 15, text: "Flew south from a winter that has not happened yet."),
     // Small critters
     (id: "snowshoe_rabbit",   name: "Snowshoe Rabbit",   icon: "INV_Crate_02", look: Pet(npc: 7560), scale: 1.0, price: 15, text: "From a ram ranch in the snowy hills, and quicker than any ram."),

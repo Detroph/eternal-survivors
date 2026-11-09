@@ -1,7 +1,7 @@
 //! What lies on the field and how heroes take it: experience orbs, gold, caches, runes and
 //! magnets; when caches, runes and magnets appear; and how a run opens.
 
-use super::enemy_ai::Vec2;
+use super::enemy_ai::{dist, Vec2};
 use super::level::LEVEL_UP_HEAL;
 use super::loot::{
     magnet_schedule, next_cache_price, random_rune, Pickup, BERSERKER_RUNE, CACHES_AT_START, CACHE_EVERY, CACHE_LIMIT,
@@ -82,10 +82,6 @@ impl Default for FieldTimers {
             magnets: Vec::new(),
         }
     }
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {

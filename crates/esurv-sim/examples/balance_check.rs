@@ -2851,6 +2851,7 @@ fn passive_fires_label(o: &StartingOption) -> &'static str {
         PassiveKind::Counter(c) => match c.release {
             Release::Spell(_) => "releases",
             Release::Summon(_) => "summons",
+            Release::Strikes { .. } => "rampages",
         },
         PassiveKind::Orbs { .. } => "orbs taken",
         PassiveKind::Marks { .. } => "discharges",
@@ -2861,6 +2862,7 @@ fn passive_fires_label(o: &StartingOption) -> &'static str {
         PassiveKind::None if o.spells.len() > 1 => "finishers",
         PassiveKind::None if o.main_spell() == "holy_shield" => "blocks",
         PassiveKind::BlockStrikes { .. } => "blocks",
+        PassiveKind::StruckBack { .. } => "strikes back",
         PassiveKind::None => "",
     }
 }

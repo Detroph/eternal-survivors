@@ -369,20 +369,6 @@ fn hogger_rushes(r: &mut Run) -> (Shape, (f32, f32), f32) {
         .expect("its line is marked")
 }
 
-/// Ticks until the boss's run has ended; the hits the hero took from no one (an area), and when.
-fn run_out_the_rush(r: &mut Run) -> Vec<(f32, f32)> {
-    let mut hits = Vec::new();
-    for _ in 0..60 {
-        r.tick(0.05);
-        for e in r.drain_events() {
-            if let Event::HeroHit { amount, by: None, .. } = e {
-                hits.push((r.now, amount));
-            }
-        }
-    }
-    hits
-}
-
 /// Hogger's charge: the line runs from him through the hero's spot to
 /// 8 yd past it; once marked, he runs all of it at a charge's speed and the hero on it is hit
 /// once, as he passes, not when the mark lands. He ends at the far end; no knock, no stun.

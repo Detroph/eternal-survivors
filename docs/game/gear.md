@@ -81,11 +81,10 @@ come from an amulet offer's legendary roll.
   luck, heal per kill and lifesteal; 5× for the rest; double-strike stops at 54 %, DoT stacks at
   3, and the Soulstone (extra life) while you already have 2.
 * If fewer than 3 offers exist, a gold card fills the screen.
-* **Cooldown jewelry counts half**: Quick Strike Ring
-  (5 %) and Talisman of Ephemeral Power (2.5 %) give `SpellCooldownRecovery`: spell
-  cooldowns recover that much faster, weapon swings speed up as from twice it, so attack speed
-  is what it was (`spells.md` 5a).
-* **Hand of Justice** keeps its double cast (5 % base, same new,
+* **Cooldown jewelry**: Quick Strike Ring (5 %) and Talisman of Ephemeral Power (2.5 %) give
+  `SpellCooldownRecovery`: spell cooldowns recover that much faster and weapon swings twice as
+  much (`spells.md` 5a).
+* **Hand of Justice** has a double cast (5 % base, same new,
   upgrade and 60 % cap) and adds a chance for each weapon attack (melee or ranged swing) to hit
   twice: 2 % + (its double cast − 7.5 %) ÷ 5, 7.5 % being a new Common piece's double cast.
   New Common 2 %, Rare 3.05 %, Epic 4.25 %, Legendary 5.3 %; each upgrade adds 1/5 of its
@@ -371,19 +370,19 @@ Duskwood"), and the hero sheet's Collection Log lists the pieces in a row per zo
 
 The looks:
 
-| Zone (D) | Armor look | Armaments (the three loadouts' weapons) | Source draft |
-|---|---|---|---|
-| Elwynn Forest (1) | the Recruit's starting look (unchanged) | level 10–15 green world drops and quest rewards | `looks-elwynn.md` |
-| Duskwood (2) | Deadmines, Shadowfang Keep, Blackfathom Deeps, Gnomeregan | the same dungeons | `looks-duskwood.md` |
-| Warsong Gulch (3) | Warsong reputation and level 25–35 pieces | Warsong reputation and others | `looks-warsong-gulch.md` |
-| Scarlet Monastery (4) | "Adventurer's <slot>", level 30–45 dungeon pieces | Scarlet Monastery | `armaments-tier1.md` |
-| Sunken Temple (5) | Sunken Temple, Zul'Farrak, Maraudon, Uldaman | the same dungeons | `looks-sunken-temple.md` |
-| Dire Maul (6) | Dungeon Set 1 (Valor, Lightforge ...) | pre-raid: Dire Maul, Sunken Temple, Blackrock Depths and Spire | `armaments-tier2.md` |
-| Gurubashi Arena (7) | the Zul'Gurub (Zandalar) sets, gaps from Zul'Gurub drops and crafted sets | Zul'Gurub | `looks-gurubashi-arena.md`, `armaments-tier3.md` |
-| Stratholme (8) | **two rows**: Dungeon Set 2 (Heroism, Soulforge ...); the Scholomance sets (below) | Stratholme and Scholomance drops (below) | this section |
-| Blackrock Mountain (9) | **two rows**: Tier 1 (Molten Core), Tier 2 (Blackwing Lair) | Molten Core; Blackwing Lair | `looks-blackrock.md` |
-| Gates of Ahn'Qiraj (10) | Tier 2.5, gaps from Temple drops | Temple of Ahn'Qiraj | `looks-ahn-qiraj.md` |
-| (Naxxramas, D 11: no zone yet) | Tier 3 | Naxxramas | `looks-naxxramas.md` |
+| Zone (D) | Armor look | Armaments (the three loadouts' weapons) |
+|---|---|---|
+| Elwynn Forest (1) | the Recruit's starting look | level 10–15 green world drops and quest rewards |
+| Duskwood (2) | Deadmines, Shadowfang Keep, Blackfathom Deeps, Gnomeregan | the same dungeons |
+| Warsong Gulch (3) | Warsong reputation and level 25–35 pieces | Warsong reputation and others |
+| Scarlet Monastery (4) | "Adventurer's <slot>", level 30–45 dungeon pieces | Scarlet Monastery |
+| Sunken Temple (5) | Sunken Temple, Zul'Farrak, Maraudon, Uldaman | the same dungeons |
+| Dire Maul (6) | Dungeon Set 1 (Valor, Lightforge ...) | pre-raid: Dire Maul, Sunken Temple, Blackrock Depths and Spire |
+| Gurubashi Arena (7) | the Zul'Gurub (Zandalar) sets, gaps from Zul'Gurub drops and crafted sets | Zul'Gurub |
+| Stratholme (8) | **two rows**: Dungeon Set 2 (Heroism, Soulforge ...); the Scholomance sets (below) | Stratholme and Scholomance drops (below) |
+| Blackrock Mountain (9) | **two rows**: Tier 1 (Molten Core), Tier 2 (Blackwing Lair) | Molten Core; Blackwing Lair |
+| Gates of Ahn'Qiraj (10) | Tier 2.5, gaps from Temple drops | Temple of Ahn'Qiraj |
+| (Naxxramas, D 11: no zone yet) | Tier 3 | Naxxramas |
 
 The Naxxramas looks are in the content already (zone id `naxxramas`) and wait for its zone;
 Mount Hyjal (D 12) has no 1.12 models and stays in the docs.
@@ -395,7 +394,7 @@ and the player picks row 1 with the appearance choice (Show This Look), like any
 zone may have more rows the same way (`row: 1`, `row: 2` ...).
 
 **Stratholme's two rows.** Stratholme has two looks with the same
-stats, as Blackrock: row 0 Dungeon Set 2 (Heroism, Soulforge ..., unchanged), row 1 the
+stats, as Blackrock: row 0 Dungeon Set 2 (Heroism, Soulforge ...), row 1 the
 **Scholomance sets**, the row's name (`row_name` in `gear.ron`): the Collection Log heads the
 row "Scholomance sets" where other second rows read "Second look", and a look's tooltip reads
 "Scholomance sets: the second look of pieces from Stratholme" (no name while the zone is

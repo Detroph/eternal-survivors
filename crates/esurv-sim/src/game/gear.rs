@@ -189,7 +189,7 @@ pub fn zone_piece_name(content: &Content, set: &GearSet, slot: u32, zone: u32) -
     }
 }
 
-//// The look slot `slot` shows over the piece of zone `zone`: the look `chosen` for it (one the set
+/// The look slot `slot` shows over the piece of zone `zone`: the look `chosen` for it (one the set
 /// has), else the piece's own.
 pub fn shown_look(content: &Content, set: &GearSet, chosen: Option<u32>, zone: u32) -> u32 {
     chosen.filter(|&l| (l as usize) < set.looks.len()).unwrap_or_else(|| zone_look(content, set, zone))

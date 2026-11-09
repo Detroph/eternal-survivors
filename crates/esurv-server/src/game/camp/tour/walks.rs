@@ -163,8 +163,8 @@ pub(super) const WREN_AT_THE_CAVERNS: Walk = Walk {
             at: None,
             faces: Toward::Person(Keeper::Trainer),
             lines: &[
-                (Keeper::Wren, "Thurgen Ironbrow hauled that forge wagon all the way from {Area(1537)}. As if Tanaris weren't hot enough."),
-                (Keeper::Wren, "He trains every calling. Speak to him when you want to choose your talents."),
+                (Keeper::Wren, "Thurgen Ironbrow hauled that forge wagon all the way from {Area(1537)}. As if {Area(440)} weren't hot enough."),
+                (Keeper::Wren, "He trains every martial or spellweaving class. Speak to him to choose your talents, your first spell and the weapons you carry out."),
                 (Keeper::Wren, "Your own gear hangs on the Weapon Rack and the armour stand by his forge. Whatever you learn or find out there, you bring home with you."),
             ],
             chromie: &[],
@@ -272,7 +272,7 @@ pub(super) const REZZA_AT_THE_CAVERNS: Walk = Walk {
             faces: Toward::Person(Keeper::Trainer),
             lines: &[
                 (Keeper::Wren, "Dargash Stonefist. He drilled grunts in the {Area(363)}, and he hasn't stopped shouting since."),
-                (Keeper::Wren, "He trains every calling, casters too. Speak to him when you want your talents."),
+                (Keeper::Wren, "He trains every martial or spellweaving class. Speak to him for your talents, your first spell and your weapons."),
                 (Keeper::Wren, "Your gear hangs on the tauren rack by the forge. Anything you learn or find out there, you bring back with you."),
             ],
             chromie: &[],

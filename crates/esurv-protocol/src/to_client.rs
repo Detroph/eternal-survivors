@@ -879,6 +879,25 @@ pub struct Progress {
     /// The save has never shown the box telling that Challenge Mode is open, and a class has it open:
     /// the warband screen shows it once (`seen <class> challenge`). The same in every class's progress.
     pub challenge_news: bool,
+    /// The builds the class keeps saved, by slot; a slot not here is empty. An older server keeps
+    /// none.
+    pub builds: Vec<SavedBuild>,
+    /// The build slot lit (the one Save writes to).
+    pub active_build: u8,
+}
+
+/// One saved build of a class: what it puts back when used.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct SavedBuild {
+    pub slot: u8,
+    /// Its name; empty for none (it shows its number).
+    pub name: String,
+    /// The starting option it gives the hero, and its weapon loadout; empty for none.
+    pub start: String,
+    pub loadout: String,
+    /// Talent ranks and prestige ranks, by id.
+    pub talents: Vec<(String, u32)>,
+    pub prestige: Vec<(String, u32)>,
 }
 
 /// A class's prestige: the points its talent experience bought once every talent point was
@@ -1386,6 +1405,16 @@ impl Wire for ToClient {
                     o.text(id);
                 });
                 o.text(&p.loadout).flag(p.new_gear).flag(p.new_points).flag(p.challenge_open).flag(p.challenge_news);
+                o.list(&p.builds, |o, b| {
+                    o.num(b.slot).text(&b.name).text(&b.start).text(&b.loadout);
+                    o.list(&b.talents, |o, (id, rank)| {
+                        o.text(id).num(rank);
+                    });
+                    o.list(&b.prestige, |o, (id, rank)| {
+                        o.text(id).num(rank);
+                    });
+                });
+                o.num(p.active_build);
             }
             ToClient::RunOptions { options, bonus } => {
                 options.write(&mut o);
@@ -1749,6 +1778,20 @@ impl Wire for ToClient {
                 // an older server opens no Challenge Mode
                 challenge_open: r.flag().unwrap_or(false),
                 challenge_news: r.flag().unwrap_or(false),
+                // an older server keeps no builds
+                builds: r
+                    .list(|r| {
+                        Some(SavedBuild {
+                            slot: r.num()?,
+                            name: r.text()?,
+                            start: r.text()?,
+                            loadout: r.text()?,
+                            talents: r.list(|r| Some((r.text()?, r.num()?)))?,
+                            prestige: r.list(|r| Some((r.text()?, r.num()?)))?,
+                        })
+                    })
+                    .unwrap_or_default(),
+                active_build: r.num().unwrap_or(0),
             }),
             RUN_OPTIONS => {
                 let mut options = RunOptions::read(r)?;
@@ -2267,6 +2310,18 @@ mod tests {
             new_points: false,
             challenge_open: true,
             challenge_news: true,
+            builds: vec![
+                SavedBuild {
+                    slot: 0,
+                    name: "Fire and frost".into(),
+                    start: "fireball".into(),
+                    loadout: "dagger_off_hand".into(),
+                    talents: vec![("improved_fireball".into(), 5)],
+                    prestige: vec![("prestige_stat_1".into(), 2)],
+                },
+                SavedBuild { slot: 4, ..SavedBuild::default() },
+            ],
+            active_build: 4,
         }));
         round_trip(ToClient::RunOptions {
             options: RunOptions {

@@ -15,9 +15,8 @@ race in each time period it can come from (Past, Present, Future: the hero sheet
 when and where she fetched it from; the rest of her welcome is the same for all. At the walk's
 end, handed back to her, her last words before the first run ask for a hero of every class for
 each side, the camp livelier with a crowd. Her lines and the guides' are in the server's
-`game/camp/tour/walks.rs` (`CHROMIE_FIRST`, `CHROMIE_WELCOME`, `CHROMIE_MORE_HEROES`). It is the only camp; the faction camps that stood in Dun Morogh
-and on the Merchant Coast are gone, their hubs carried over to the Caverns. `ESURV_HUB=0` turns it
-off: the warband screen below is shown as before, and the Caverns are as in the runs.
+`game/camp/tour/walks.rs` (`CHROMIE_FIRST`, `CHROMIE_WELCOME`, `CHROMIE_MORE_HEROES`). It is the only camp. `ESURV_HUB=0` turns it
+off: the warband screen below is shown, and the Caverns are as in the runs.
 
 ## The look
 
@@ -83,15 +82,35 @@ the lower left.
      hero's Companions in the details: its companion turning, Choose or None, and every companion
      of the warband ([screens.md](screens.md), "The Collection tab: Companion"). A double click on a piece of the log
      wears it, as picking it and pressing its Wear does (on a second row of looks, its Show This
-     Look, the piece worn first when the slot wears nothing); a single click picks it as before.
-   * **Talents**: the class's three trees side by side, each with its name, icon and points
+     Look, the piece worn first when the slot wears nothing); a single click picks it.
+   * **Talents**: on top the **build bar**: the hero's **Starting spell** and the class's
+     **Weapon loadout**, each its icon and name with a gold arrow (pointing down; up while its drop-down is open). A click opens a drop-down of the choices
+     (the class's starting options, three, the Druid's four; its three loadouts), each with the
+     tooltip of what it does (an option's level-1 spells and passive; a loadout's weapons,
+     strength in green and drawback in red); a click takes one and closes it. The starting spell
+     is the hero's, kept for its next runs (the first until one is picked); the loadout is the
+     class's (every hero of it), and the camp's figure takes up its weapons at once. A hero not
+     yet made shows only the loadout.
+     Under the bar the tabs **Talents** and **Prestige** (shut, with a tooltip, until the class
+     has all 51 talent points; classes.md, "Prestige points"), and on their right **Builds**
+     1 to 5 and **Save**: each class keeps five saved builds, each holding its talents, prestige
+     ranks, weapon loadout and the starting spell of the hero it was saved from. The build lit is
+     filled; Save keeps what the class holds now in it. A click on another build lights it and
+     puts it back (an empty one is only lit, for Save): its talents and prestige ranks learned
+     again by the rules with the points the class has, its loadout, and the starting spell given
+     to the hero whose sheet is open; what no longer fits is left out. A right click empties a
+     build. **Name** after Save types a name for the build lit (up to 16 letters, digits, spaces,
+     dashes and apostrophes; Enter or a click keeps it, Escape drops it, an empty name gives back
+     the number); it is shut while the build lit is empty. A build's tooltip gives its name and its
+     talent and prestige points.
+     The Talents page: the class's three trees side by side, each with its name, icon and points
      spent, on its background art; talents as icons with "rank / max" and lines between
-     prerequisites; under each tree its milestone talents (10, 20 and 30 points). The right
-     column "Talent Points": points to spend in big green text, earned and spent, the talent
-     experience bar to the next point with a line on how runs earn it, a Reset button, and the
-     picked talent (icon, name, rank, what it does) with Learn and Unlearn. Once the class has
-     all 51 talent points a **Prestige** section shows under the trees
-     (classes.md, "Prestige points"). A click picks a talent or prestige stat, a click on the one
+     prerequisites; under each tree its milestone talents (10, 20 and 30 points). The Prestige
+     page: its points to spend, earned and spent, the bar to the next point, and every stat. The
+     right column "Talent Points": points to spend in big green text, earned and spent, the
+     talent experience bar to the next point with a line on how runs earn it, a Reset button
+     (talents and prestige), and the picked talent or prestige stat (icon, name, rank, what it
+     does) with Learn and Unlearn. A click picks a talent or prestige stat, a click on the one
      picked learns a rank, a right click takes one back.
 4. **Character select, the warband screen** (the camps already built):
    * the camp fills the lower left: the campfire scene, the selected hero with a thin golden
@@ -111,20 +130,10 @@ the lower left.
      achievements.md section 15),
      with a small badge giving how many heroes the other camp holds (it follows the panel's
      height, so it never covers the panel);
-   * the top-left panel: the selected hero's name, class and total wins; under it the
-     **starting spell selection**: the class's starting options as
-     icons, three for each class and four for the Druid, each with a tooltip of what it does and
-     its passive; a click picks one for the hero's next runs, kept in the save (the first until
-     one is picked); and directly under it the **weapon loadout selection**: built as the starting spell's: the class's three loadouts as
-     a row of icons of the same size and frame (each its `icon` in `loadouts.ron`, a 1.12 weapon or
-     shield icon), the chosen one framed gold and named under the row; each icon's tooltip, styled
-     as the starting options', gives its name, weapons, strength (green) and drawback (red); a
-     click picks one for the class's next runs, kept in the save (the first until one is picked),
-     and the camp's figure takes up its weapons at once;
-   * the top middle, centred over the camp (the screen left of the zone column;
-     so are the buttons under the fire): a row of six buttons, **Equipment** (the hero sheet's Collection view, as
-     the Collection button was), **Talents**, **Codex** (the codex, as the old Codex panel's "Open
-     the codex" did; that panel and the Equipped armour under the row are gone), **Achievements**,
+   * the top-left panel: the selected hero's name, class, total wins and runs (its starting
+     spell and weapon loadout are picked on the Talents window's build bar);
+   * the top middle, centred over the camp (the screen left of the zone column; so are the buttons under the fire): a row of six buttons, **Equipment** (the hero sheet's Collection view),
+     **Talents**, **Codex** (the codex), **Achievements**,
      **Shop** (the shop alone: the Achievements window on its Shop, titled Shop; the
      Achievements window lists no Shop page, so the Shop button is the one way in) and **Guide**.
      The Shop never glows. Achievements opens the warband's Achievements window
@@ -177,7 +186,7 @@ the lower left.
    * the bottom-left corner of the window: **Options** over **Quit
      game**. Quit game closes the game as the Escape menu's Quit does, with no run to pay out.
      When a newer version of the game is out, a small panel over them, glowing and pulsing as
-     Collection and Talents do with news, says so ("v0.5.0 is
+     Collection and Talents do with news, says so ("v<version> is
      available") with an **Update** button: it downloads the new version (its progress shown
      under the line), checks it, and restarts the game into it; a failure says why in the same
      panel and changes nothing ([server.md](server.md), "Updates"). The Interface tab's **Check
@@ -193,7 +202,7 @@ the lower left.
      elites glow purple, rares and the Rare Caches they drop silver, bosses orange; then the boss warnings,
      their sound, the boss timer bars, their handles and putting them back) and **Misc** (chat
      bubbles, deselecting on clicking the ground, clearing away, loading-screen tips, pet damage
-     numbers). Its fourth tab, **Saves** (design step 6), exports and imports the save: the
+     numbers). Its fourth tab, **Saves**, exports and imports the save: the
      game has no file dialog, so the save goes to and comes from one fixed folder beside it
      (`saves/exports`), shown on the tab; **Export save** writes a dated copy there, the folder's
      saves are listed newest first with how many heroes each holds (or that it is no save the game
@@ -262,7 +271,7 @@ and the talent experience revealed part by part (the hero sheet's purple bar fil
 point called out) under small all-caps grey labels; the zone opened and the gear won; the framed
 buttons Run Again (the gold-framed call to act), Go Endless (after a victory) and Return to main menu
 (after a fall as after a victory; it goes back to the warband screen).
-What it shows and does is unchanged ([screens.md](screens.md), "The end of a run").
+What it shows and does: [screens.md](screens.md), "The end of a run".
 
 ## In a run: the choice screens
 

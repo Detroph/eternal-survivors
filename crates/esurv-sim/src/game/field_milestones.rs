@@ -6,7 +6,7 @@
 use esurv_content::{Ability, LineRunners, Milestone, School, SpellEffect};
 
 use super::casting::{Area, HitSource, ProcOrigin, AREA_LOOK_AFTER};
-use super::enemy_ai::{attack_damage, chase, flee, reach, Segment, Vec2};
+use super::enemy_ai::{attack_damage, chase, dist, flee, reach, Segment, Vec2};
 use super::run::{Aim, EnemyUnit, Event, Run, Unit, AMMO_SPELLS};
 
 /// A pulled enemy lands this far from the hero, on its own side.
@@ -29,10 +29,6 @@ pub struct Line {
     pub width: f32,
     pub behind: bool,
     pub hits_target: bool,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {

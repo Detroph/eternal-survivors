@@ -62,10 +62,6 @@ pub const TAB_HEIGHT: f32 = 32.0;
 const TAB_END: f32 = 20.0;
 /// The tab's glow stays this far in from each end (`UI-Character-Tab-Highlight`'s anchors).
 const TAB_GLOW_INSET: f32 = 10.0;
-/// What a big window lays under its dialog background, so the world does not show through.
-pub const WINDOW_FILL: Color = Color::srgba(0.0, 0.0, 0.0, 0.75);
-/// The close button and the page arrows are 32 units a side in the stock frames.
-pub const ART_BUTTON_SIZE: f32 = 32.0;
 
 /// How the stock interface's units become pixels: the stock root is [`ROOT_HEIGHT`] units tall,
 /// scaled by [`UI_SCALE`].
@@ -585,18 +581,6 @@ impl Stock<'_> {
         load_stock_art(&self.assets, path)
     }
 
-    /// The square glow (`ButtonHilight-Square`, added) over the node it goes in, shown while the
-    /// closest button around it is under the pointer.
-    pub fn hover_glow(&self) -> impl Bundle {
-        (
-            HoverGlow,
-            full_size(),
-            MaterialNode(self.art.square_glow.clone()),
-            Visibility::Hidden,
-            Pickable::IGNORE,
-        )
-    }
-
     /// A backdrop's background and edge, as children of the node it goes on; the node's content
     /// goes in after them (`.with_children`), so it draws over the edge.
     pub fn backdrop(&self, kind: Backdrop) -> impl Bundle {
@@ -608,20 +592,6 @@ impl Stock<'_> {
         (
             colours,
             children![
-                self.backdrop_background(kind, colours),
-                self.backdrop_edge(kind, colours)
-            ],
-        )
-    }
-
-    /// A backdrop over a solid `fill` inside its edge: for a big window that should hide the
-    /// world behind it, where the stock background alone lets it show through.
-    pub fn filled_backdrop(&self, kind: Backdrop, fill: Color) -> impl Bundle {
-        let colours = kind.colours();
-        (
-            colours,
-            children![
-                (self.backdrop_inside(kind), BackgroundColor(fill)),
                 self.backdrop_background(kind, colours),
                 self.backdrop_edge(kind, colours)
             ],
@@ -777,13 +747,6 @@ impl Stock<'_> {
     /// closest button around it is hovered.
     pub fn icon(&self, icon: &str, size: f32) -> impl Bundle {
         self.icon_art(load_icon(&self.assets, icon), size, Color::WHITE)
-    }
-
-    /// [`Stock::icon`] for a texture named by its whole interface path
-    /// (`Interface\Icons\INV_Helmet_01`, `Interface\PaperDoll\UI-PaperDoll-Slot-Head`), drawn
-    /// times `tint` (white keeps it as it is; the stock interface greys what cannot be had yet).
-    pub fn icon_at(&self, path: &str, size: f32, tint: Color) -> impl Bundle {
-        self.icon_art(load_stock_art(&self.assets, path), size, tint)
     }
 
     fn icon_art(&self, image: Handle<Image>, size: f32, tint: Color) -> impl Bundle {

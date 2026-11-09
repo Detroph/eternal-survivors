@@ -129,9 +129,6 @@ pub mod layer {
     pub const GAME_MENU: i32 = 310;
     /// A tooltip shows over every window.
     pub const TOOLTIP: i32 = 800;
-    /// The hero picker's parts, over the stock select screen (1100); they go before the loading
-    /// cover rises.
-    pub const PICKER: i32 = 1200;
 }
 
 /// The game's content (`content\*.ron`): what a screen shows for an id the server names.

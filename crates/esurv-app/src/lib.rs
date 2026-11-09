@@ -89,6 +89,9 @@ const MUTED_CHANNEL_HUMS: [u32; 16] = [
     689, 699, 709, 7651, 11699, 11700, // Drain Life
 ];
 
+/// The experience orb's creature entry (the server's `entries::ORB`).
+const EXPERIENCE_ORB_ENTRY: u32 = esurv_content::entries::CREATURES_END;
+
 /// Adds the game's systems to the client app; `content` is the game's content, for the names,
 /// icons and texts the screens show (`None` leaves them to ids), which they follow as it is loaded
 /// again ([`content_reload`]); `link` is the way to the server before a run, for the character
@@ -101,6 +104,8 @@ pub fn extend(app: &mut App, content: Option<Arc<LiveContent>>, link: Option<pre
     // an idle hero is never marked AFK, sat down or logged out
     app.insert_resource(benilla_app::NoIdleTimeouts);
     app.insert_resource(benilla_app::MutedLoopSounds(MUTED_CHANNEL_HUMS.into_iter().collect()));
+    // the experience orb never shows a name, whatever the name options are
+    app.insert_resource(benilla_app::UnnamedEntries([EXPERIENCE_ORB_ENTRY].into_iter().collect()));
     app.insert_resource(benilla_app::ZoneMusicOverrides(ZONE_MUSIC.to_vec()));
     app.insert_resource(loading_sound());
     // a slow click under the zone's ambience, very quiet, every 10 to 20 minutes, three click-clacks of it: it clicks once a second

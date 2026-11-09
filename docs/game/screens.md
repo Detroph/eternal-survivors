@@ -36,8 +36,6 @@ in the player's own data (`interface.MPQ`), read at runtime. A screen spawns the
 | `dialog_header(title, width)` | `GameMenuFrame`'s header | `UI-DialogBox-Header`, 256 by 64 units in the stock dialogs, rising 12 units over its dialog's top, the title (GameFontNormal) 14 under its top |
 | `panel_button(label, width)` | `UIPanelButtonTemplate2` | The red button, 22 units tall: `UI-Panel-Button-Up` (`-Down` while pressed, `-Disabled` when off), its 12-unit ends kept and its middle stretched; `UI-Panel-Button-Highlight` added under the pointer; the label GameFontNormal (gold), GameFontHighlight (white) under the pointer, GameFontDisable (grey) when off |
 | `icon(name, size)` | `ActionButtonTemplate` | An icon (`Interface\Icons\<name>`), 36 units on the action bars, under `UI-Quickslot2` (66 units for a 36 icon, one unit low), with `ButtonHilight-Square` added while the closest button around it is under the pointer |
-| `icon_at(path, size, tint)` | | The same for a texture named by its whole path (an item's icon from `ItemDisplayInfo.dbc`, a paper doll slot's picture), drawn times a tint (dark for what is not had yet) |
-| `hover_glow()` | `ItemButtonTemplate`'s highlight | `ButtonHilight-Square` added over its parent while the closest button around it is under the pointer |
 | `art(path)` | | A stock texture by its interface path, for an `ImageNode` |
 | `tab(label, width, selected)` | `CharacterFrameTabButtonTemplate` | A window's tab, 32 units tall: `UI-Character-InActiveTab`, or `UI-Character-ActiveTab` raised 5 units for the chosen one, its 20-unit ends kept and its middle stretched; `UI-Character-Tab-Highlight` added under the pointer, 10 in from each end; the label GameFontNormalSmall (gold), white under the pointer and on the chosen tab, which takes no click (`PanelTemplates_SelectTab`). Its `StockTab` says which is chosen |
 | `art_button(kind, size)` | `UIPanelCloseButton`, the spellbook's page arrows | A button drawn in its own art, 32 units: `ArtButton::Close` (`UI-Panel-MinimizeButton-Up`, `-Down`, `-Disabled`, `-Highlight` added), `PreviousPage` and `NextPage` (`UI-SpellbookIcon-PrevPage-*`, `-NextPage-*`, `UI-Common-MouseHilight` added) |
@@ -157,11 +155,11 @@ The camps (below) fill the window; over them:
 
 | Part | What it shows and does |
 |---|---|
-| Top-left panel | the picked hero's name, its race and class (class colour), **Total wins** and **Runs** (the save's records), the **Starting spell** spot, and under it the **Weapon loadout** spot. The Starting spell spot shows the class's starting options as icons, three (the Druid's four forms), the hero's pick lit and its name under them; an icon's tooltip gives the option's name, each of its level-1 spells with its numbers at level 1, how it plays, and its passive ("Passive: …", in green); a click picks it (`start`), the save keeps it for the hero's next runs (the class's first until one is picked), and the run starts with it. The Weapon loadout spot lists the class's three loadouts as rows, each with its name, its weapons ("One-handed sword, Shield"), its strength in green and its drawback in red, the one the class fights with lit (gold name, the picked row's frame); a click picks one (`loadout`), the save keeps it for the class (every hero of the class; its first until one is picked), and the next run fights with it. With no hero in the camp: "No hero waits by the Horde's campfire yet." |
+| Top-left panel | the picked hero's name, its race and class (class colour), **Total wins** and **Runs** (the save's records). The starting spell and weapon loadout are picked on the Talents window's build bar ("The Talents window: build bar and builds"). With no hero in the camp: "No hero waits by the Horde's campfire yet." |
 | Top middle | centred over the camp, the screen left of the zone column, as are the buttons under the fire: a row of six framed buttons, **Equipment** and **Talents** (each opening the hero sheet straight on its Collection or Talents view for the picked hero, Back returning here), **Codex** (the codex over the screen, below), **Achievements** (the Achievements window, below), **Shop** (the shop alone, below; it never glows) and **Guide** (the guide, below). The Equipped armour panel and the top-right Codex panel are gone. **Equipment** glows (gold border and the soft glow of what is picked, `ButtonStyle::TextGlow`, the glow pulsing: its strength dips to 40 % and back every 1.6 s, `look::news_pulse`) while gear was unlocked for the class since its Collection was last opened, **Talents** while talent or prestige points were earned since its Talents were (`Progress` `new_gear`, `new_points`); opening the view asks `seen <class> <collection|talents>`, so the glow is gone on coming back. The save keeps what was seen per class (`seen: Some((pieces: n, points: n))`, [server.md](server.md)); a class of a save from before it shows nothing new, a class new to the save has seen nothing. **Achievements** glows the same way while anything was earned since the window was last opened (`Achievements` `news`); opening it asks `achseen`, and the save keeps how many were earned then (`achievements.seen`, the whole warband's) |
 | Right column | the **Zone** heading; once the hero's class has won Ahn'Qiraj (zones.md "Challenge Mode"), under it the tabs **Normal Mode** and **Challenge Mode** (`mode:normal`, `mode:challenge`; the picked one filled dark red), and under Challenge Mode the **Challenge** slider, its value as "1.25x" between two arrows a 0.25 step each way, 1x to 5x (`challenge-down`, `challenge-up`; each change to the save at once with the run options, `options`), with a tooltip on what the mode does; in Challenge Mode every zone is open; the zone of the hero's next run opened as a card (number and name, its title, its lines, its enemies, its bosses with their arrival times, the final one in gold); every other zone as a row: an open one picks it for the hero (`zone`), a locked one says which final boss in which zone opens it; a zone no class of the save has opened yet (not discovered: menus.md) shows only "???" and a lock. At its foot **Difficulty modifiers** (with the reward bonus when it is not 1) and **Start run** (enters the world as the hero, in its zone; off while the zone is locked) |
 | The camp | the picked hero's name with its title over the campfire ("Lumi the Eternal", [achievements.md](achievements.md) section 12; Morpheus, gold, kept over the flames as the camera sees them); the picked hero outlined in gold (below); a round button at the camp's top left with the other camp's emblem (`UI-PVP-Alliance`, `UI-PVP-Horde`) and a badge with how many heroes that camp holds, which switches camps (its first hero picked) (beside it a **Decorate camp** button while camp decorations are on; parked for a later hub, achievements.md section 15); under the fire, in this order, **New character** (the class picker; while the camp has fewer than nine heroes and the save fewer than 18), **Modify character** (the hero sheet on the hero) and **Delete character**. Each hero's companion (its hero sheet's pick) stands beside it, 0.85 yd to its left and 0.45 yd ahead, facing as it does (`picker::stand_companions`, a creature figure of the select scene) |
-| Bottom-left corner | **Options** (the game's settings, below) over **Quit game**, and under them the version played (`v0.6.0`, the build's `CARGO_PKG_VERSION`, small, in the label colour); Quit game closes the game through the app's own exit (`AppExit`, benilla's shutdown savers), as the Escape menu's Quit Game does once the hero is out; before a run there is nothing to pay out. Over them, while the updater has something to say ([server.md](server.md), "Updates"; `crate::update::notice_view`), a panel 200 units wide: "v0.5.0 is available" (gold) and **Update** (`update`), the panel wearing the news look of Collection and Talents (above: the gold border and a glow, pulsing; `look::NewsPulse`), the button plain; while it downloads, "Downloading v0.5.0", a progress line kept up to date in place ("42%  (17.0 of 40.4 MB)", the screen not drawn anew for it) and Update dimmed; a failure in red ("The update failed: the download failed, no connection. Nothing was changed.") with Update to try again; then "Updating to v0.5.0: the game restarts", no button. With **Check for updates** off, an offer and a failure are hidden, an update under way is not |
+| Bottom-left corner | **Options** (the game's settings, below) over **Quit game**, and under them the version played (`v<version>`, the build's `CARGO_PKG_VERSION`, small, in the label colour); Quit game closes the game through the app's own exit (`AppExit`, benilla's shutdown savers), as the Escape menu's Quit Game does once the hero is out; before a run there is nothing to pay out. Over them, while the updater has something to say ([server.md](server.md), "Updates"; `crate::update::notice_view`), a panel 200 units wide: "v<version> is available" (gold) and **Update** (`update`), the panel wearing the news look of Collection and Talents (above: the gold border and a glow, pulsing; `look::NewsPulse`), the button plain; while it downloads, "Downloading v<version>", a progress line kept up to date in place ("42%  (17.0 of 40.4 MB)", the screen not drawn anew for it) and Update dimmed; a failure in red ("The update failed: the download failed, no connection. Nothing was changed.") with Update to try again; then "Updating to v<version>: the game restarts", no button. With **Check for updates** off, an offer and a failure are hidden, an update under way is not |
 | Delete | asks first: "Are you sure you want to delete this character?" with the hero's name, **No** (the default, filled) and **Yes**; only Yes deletes, and the camp then picks the hero now in the deleted one's place (or the last) |
 | Difficulty modifiers | a panel with each run option of `run_options.ron` (its name, its value in %, arrows a step each way, kept on its slider; its tooltip), the **Rewards** bonus the options give, a line on what harder runs pay, and **Done**; each step goes to the save at once (`options`) |
 
@@ -288,7 +286,7 @@ character select, so a change shows in the game and in the stock frames later.
 | Video | the stock Video Options frame one for one: resolution (the display's list) and multisampling (the device's formats); its eighteen boxes (windowed, windowed and maximized, vertical sync, triple buffering, hardware cursor, smoother input, interface scale on, desktop brightness, film subtitles, smooth texture blending, far-off land in less detail, all shaders, shining terrain, screen glow, death effect, animated model shaders, smooth model shading, weather shaders), each greyed while the box it hangs on is off (and triple buffering where the device has none); its nine sliders with the stock ranges and steps (interface scale 0.64 to 1, view distance 177 to 777 yards, ground detail, terrain textures, texture detail, brightness −0.5 to 0.5, texture sharpness 1x to the device's top, spell effects, weather), the interface scale only with its box on, brightness only with neither desktop brightness nor windowed on. Its refresh-rate list is left out: benilla owns no exclusive display mode and offers none | on Okay, as the stock frame: each changed box and value written (All Shaders copied into `ffx`), the display rebuilt (`RestartGx`) when a display setting moved |
 | Sound | the stock Sound frame one for one: sound, ambient sound and spoken errors (both on sound), music, music without pauses, hearing from the hero, emote sounds; master, effects, music and ambience volume, 0 to 100% in tens | as moved, as the stock frame; Cancel puts them back |
 | Interface | the Interface Options settings that are plain CVars the game itself reads, with the game's own settings, in four headed sections in this order (each a heading between two gold rules over two columns; more than the panel shows scroll with the wheel and keep their place): **Mouse & Camera**: invert the mouse, click to move, the four camera boxes; mouse sensitivity, mouse look speed, the camera following style (`cameraSmoothStyle`: only when moving 1, always 2, never 0, the three the stock 1.12 dropdown writes and the camera does; 3 shows as never, as the camera reads it), camera follow speed, camera distance. **Names**: the five name boxes. **Eternal Survivors**: show damage numbers, **Damage numbers** (Smart or All: [Damage numbers](#damage-numbers-smart-or-all); a tooltip on its label), **Check for updates** (the game's own CVar `esurvCheckForUpdates`, `1` by default; ticked, the game checks for a newer version as soon as the setting reads on; unticked, it never asks and hides an offer: [server.md](server.md), "Updates"; a tooltip on its line), **Glow around elites, rares and bosses** (the CVar `esurvEnemyGlow`, `1` by default, `esurv_app::glow_option`: ticked, elites wear a purple outline glow, rares and the Rare Caches they drop a silver one, bosses an orange one; unticked, all of them hide at once; normal enemies never glow; a tooltip on its line); then the boss timers ([bosses.md](bosses.md)): boss warnings, warning sound (on boss warnings), boss timer bars, show bar handles and reset bar positions (both on the bars). **Misc**: chat bubbles, deselect on clicking the ground, clearing away, loading-screen tips, pet damage numbers. Not shown, their saved values kept as they are: party chat bubbles, every roll in the chat, guild arrivals, the language filter, refusing trades, tips in the game (the tutorial alerts), attack on assist, self-cast. Left out: what only the Lua interface reads (tooltips, bar text, the per-character interface settings such as combat text, party frames and action bars), Show Helm and Show Cloak (the hero's own, sent from the world), the spam filter, and the key bindings | on Okay |
-| Saves | the save's export and import (design step 6): the folder the save goes to and comes from, **Export save**, **Import save**, and the saves in the folder (below) | at once; Okay and Cancel are for the other tabs |
+| Saves | the save's export and import: the folder the save goes to and comes from, **Export save**, **Import save**, and the saves in the folder (below) | at once; Okay and Cancel are for the other tabs |
 
 **Export and import.** The game has no file dialog, so the save goes to and comes from one fixed
 folder, named on the tab: `exports` beside the save (by default `saves/exports` beside the
@@ -405,7 +403,29 @@ A double click on a piece of the log (a second click on it within
 This Look** on a second row of looks (the piece worn first when the slot wears nothing); nothing
 on a piece not found or already worn and shown.
 
-**The Talents tab.** The class's three trees side by side where the left column was, each in a
+**The Talents window: build bar and builds.** Over the page, where the left column was, the
+**build bar**: two spots, **Starting spell** (a hero already made) and **Weapon loadout**, each
+its label over its icon and name with a gold arrow (down; up while open), and the taken choice's tooltip. A click opens its
+drop-down under it (a second click closes it): every choice of the class as a row with its icon
+and name, the taken one gold, each with its tooltip: an option's name, each of its level-1
+spells with its numbers at level 1, how it plays and its passive in green; a loadout's name,
+weapons ("One-handed sword, Shield"), strength in green and drawback in red. A click takes it
+(`start`: the hero's, kept for its next runs, the class's first until one is picked; `loadout`:
+the class's, every hero of it, and the camp's figure takes up its weapons) and closes the
+drop-down. Under the bar the page tabs **Talents** and **Prestige** (shut until the class has
+all 51 talent points, its tooltip saying so), and on the right **Builds** `1`…`5` and **Save**.
+Each class keeps five saved builds; one is lit (filled red). **Save** keeps the class's talents,
+prestige ranks and weapon loadout and the open hero's starting spell in the build lit. A click on
+a build lights it and puts it back: its talents and prestige ranks learned again from none by the
+rules with the points the class has, its loadout, and its starting spell given to the open hero;
+what no longer fits is left out; an empty build is only lit. A right click empties a build. A
+build's tooltip: its name (else "Build n"), its talent and prestige points, and the click lines;
+an empty one says how to fill it. Name, after Save, types a name for the build lit (up to 16
+letters, digits, spaces, dashes and apostrophes): Enter or a click on it keeps the name, Escape
+drops it, and while it is typed the keys run no key binding (in the camp, W does not walk the
+hero); an empty name gives back "Build n". Name is shut while the build lit is empty.
+
+**The Talents page.** The class's three trees side by side, each in a
 panel with its icon, its name and the points spent in it, on its stock art
 (`Interface\TalentFrame\<tree>-TopLeft`, `-TopRight`, `-BottomLeft`, `-BottomRight`, in the stock
 frame's shape, 320 by 384, its top 332 rows shown), dimmed a little; each talent at its place on
@@ -428,8 +448,8 @@ the right do the same. Picking a talent lets go of the prestige stat picked, and
 round.
 
 **Prestige (classes.md, "Prestige points").** Once the class has all 51
-talent points, a **Prestige** panel shows under the trees (the trees and it scroll with the wheel
-when they are taller than the room): "Prestige", the points to spend (green while any),
+talent points, the **Prestige** page opens (it scrolls with the wheel when it is taller than the
+room): "Prestige", the points to spend (green while any),
 `Earned n · Spent n`, the experience bar to the next prestige point, a line on how they come, and
 every prestige stat the class can buy (`prestige.ron`, in its order, as many to a row as fit):
 its icon (picked glowing; one at 0 that can take no rank dimmed), its name, and `rank · bonus`
@@ -530,7 +550,7 @@ is never raised nor pinned), `quit`, or a press: `class:<id>`, `choose`, `back`,
 `double-piece:<slot>:<zone>[:<look>]` (two clicks on a piece in one frame, a double click),
 `race:<1.12 id>`, `sex:<0|1>`, `feature:<n>:<+|->`, `randomize`, `temperament:<id>`, `quiet`,
 `random-temperament`, `sample` (the next sample line), `time-period:<past|present|future>`, `turn:<left|right>`,
-`name:<text>`, `confirm`, `slot:<n>`, `piece:<slot>:<zone>` (`piece:<slot>:<zone>:<look>` in another row of looks), `look:<slot>:<look>` (shows a look from the collection; `look:<slot>` the worn piece's own), `talent:<id>`, `learn`, `unlearn`, `reset`. On the warband screen `start:<option id>` picks a starting option, `loadout:<loadout id>` picks the class's weapon loadout (its id in `loadouts.ron`), `tip-start:<option id>` and `tip-loadout:<loadout id>` show that icon's tooltip as the pointer would and `tip-off` takes it away. `ESURV_MENUS_DEMO=1` shows a sample of the look's pieces in
+`name:<text>`, `confirm`, `slot:<n>`, `piece:<slot>:<zone>` (`piece:<slot>:<zone>:<look>` in another row of looks), `look:<slot>:<look>` (shows a look from the collection; `look:<slot>` the worn piece's own), `talent:<id>`, `learn`, `unlearn`, `reset`, `talents-page:<talents|prestige>`, `drop:<start|loadout>` (opens that drop-down of the build bar), `build:<n>` (puts back saved build n, 0 to 4), `save-build`, `name-build` (starts or keeps the lit build's name), `build-name:<text>` (types it). `start:<option id>` picks a starting option, `loadout:<loadout id>` picks the class's weapon loadout (its id in `loadouts.ron`), `tip-start:<option id>` and `tip-loadout:<loadout id>` (with that drop-down open) show that row's tooltip as the pointer would and `tip-off` takes it away. `ESURV_MENUS_DEMO=1` shows a sample of the look's pieces in
 place of the first screen.
 
 ### benilla's hooks: a select screen over the world
@@ -568,7 +588,7 @@ up>` (yards from the campfire) move the camp shown.
 `benilla_app::SelectScreenReplaced(true)` puts a crate's own select screen in place of the stock
 one: the stock tree is not built, its keys (Enter, Escape, the arrows) do nothing and its delete
 dialog never opens, while the session stays parked at character select and the scene, its
-figures and `SelectScreen` work as before. The crate's screen asks through messages:
+figures and `SelectScreen` keep working. The crate's screen asks through messages:
 `SelectCharacter(guid)` picks a row, `SelectEnterWorld(guid)` enters the world as Enter World
 does, `SelectCreate(CharCreateReq)` creates a character (`CMSG_CHAR_CREATE`; on success the fresh
 roster comes first with the new row selected), `SelectDelete(guid)` deletes one
@@ -620,7 +640,7 @@ never had is written out in full, a spell it knows says only its improvement, a 
 says its stat lines. Every number a card brings reads **green and comes first** ("+34% damage",
 "+12% movement speed"), its words white; a number inside a spell's description stays white, the
 description being one plain paragraph. Every sentence is our own; the texts are content, not
-code (design step 9, [design.md](design.md)):
+code ([design.md](design.md), "Clear names"):
 
 * a spell's **description** is a template in `abilities.ron` (`description`), its `{name}`
   placeholders filled with the spell's numbers at the rank offered, for the hero taking it (the
@@ -789,7 +809,7 @@ back (Lightning Shield) on its spell's row; the ticks of an effect over time a m
 an enemy count under that milestone's origin; rows of one name are one row, and a proc of no known
 origin counts as "Other". The sim's proc hits carry that origin (`HitSource::Proc`'s `origin`,
 `ProcOrigin`, presentation only: the golden run's event log leaves it out); the meter line
-sends it after both lists (`proc <spell>` as before, then the procs' origins in order), so an
+sends it after both lists (`proc <spell>`, then the procs' origins in order), so an
 older client still reads the line and an older server's procs read with no origin. Gear bonus
 pairs give only stats, so no proc comes from them. Damage taken shows one row per enemy and
 "Area" for what no enemy dealt. A new run starts the meter from nothing; `R` keeps the totals of that
@@ -1104,7 +1124,7 @@ run, the hero out of the world, or `ESURVN` refusing it) does nothing.
 The menu shows while the server says the run is paused (or while it is open on the client, above),
 centred on the screen, over the HUD and the end panel. Its look is
 apart from its rules (`esurv_app::hud::escape_menu` holds the buttons and what they ask,
-`escape_menu_look` how they are drawn), so the menu rework's art style replaces only the look.
+`escape_menu_look` how they are drawn), so an art style replaces only the look.
 It wears the menus' own look ([The menus' look](#the-menus-look)): a
 near-black panel 230 units wide with the thin gold border, the heading "Run Paused" in Morpheus
 small capitals between its gold rules, the hint "Press Escape to fight on.", and five of the
@@ -1207,8 +1227,8 @@ good. Before a run the hero sheet
 reads and changes them through the app's `prerun::PreRunLink` (the same `Progress`, `Codex` and
 armory requests, as asks of their own: [server.md](server.md), "Before a run").
 
-What the in-run windows showed, kept as the spec of what the hero sheet shows (its layout is the
-menu rework's), the class's progress by tab:
+What the hero sheet shows,
+the class's progress by tab:
 
 | Tab | Shows | Does |
 |---|---|---|
@@ -1233,7 +1253,7 @@ The codex, by list:
 
 ## The stock frames in a run
 
-This is design step 6's patch of the stock interface. While the hero is in
+This is the game's patch of the stock interface. While the hero is in
 the world, which in this game is always a run (waiting, running, paused, or over on the end
 panel), the stock interface keeps three of its windows and nothing else; character select is
 untouched.
@@ -1269,7 +1289,7 @@ The main menu's micro button stays: a click on it opens the Escape menu, as Esca
 minimap's zoom buttons and its tracking icon stay: they open no window ([The
 minimap](#the-minimap) leaves out its day and night dial and its close button).
 
-**The run's numbers on the character pane** (design step 6). Once the server's numbers line has
+**The run's numbers on the character pane**. Once the server's numbers line has
 come (`ESURV`, [server.md](server.md), "The character pane"), read through the addon message
 event, the pane's twelve stat rows show the hero's run numbers in place of the stock attributes,
 in our words, and the resistance icons give way. A value worn gear adds to shows green (as the
@@ -1521,7 +1541,7 @@ frames install, to see the target's frame with no one else about; `ESURV_FRAMES_
 
 The player frame's power bar shows what the hero's starting option
 spends or counts, with only its count written on the bar ("3 / 5", as the health bar writes its
-own) and its name on a small tab under the bar ("Holy Power"; rage and energy take the client's
+own; once only: ours always shows, and the bar's own number fades out while it does) and its name on a small tab under the bar ("Holy Power"; rage and energy take the client's
 own word): a tooltip's dark ground and thin edge, the name in the small gold font, under the bar's
 middle, or under its right end when combo pips take its left. The server tells it as it changes
 (`ESURVY`, [server.md](server.md)):
@@ -1530,6 +1550,7 @@ middle, or under its right end when combo pips take its left. The server tells i
 |---|---|
 | Rage (Warrior, Bear Form), Energy (Rogue, Cat Form) | the client's own rage and energy bars, in their own colours: the server sends the hero's power type and its values; energy comes in ticks of 20 every sec (1.12's ticks at twice their pace), so the bar fills in steps |
 | Every counter | the mana bar, painted the counter's colour by our interface (`ManaBarColor[0]` and `SetStatusBarColor`, `run_frames::class_bar`): gold for Holy Power, Holy Shield's stacks and Zeal; fiery orange for Inner Fire; deep purple for Insanity; teal for Maelstrom Weapon; pale spirit blue-green for Call of the Ancestors; pink-violet for Arcane Knowledge; flame orange-red for Hot Streak; icy light blue for Water Elemental; violet for Soul Shards; fel green for Demonic Souls; dark coal red for Burning Embers; silvery moonlight blue for Lunar Power (Moonkin Form's bar, its passive being Starshards); emerald green for Emerald Slumber. The colours sit in `esurv-content` `option_looks` |
+| A Warrior option's own passive | the bar stays the rage; the Colossal Smash and Rampage counters show as a thin gold tracker under the name tab, with the passive's name and count written under it ("Colossal Smash 2 / 4"), sent by the server as it changes. Vengeance shows a gem just past the bar's right end, lit gold while the next blow taken strikes back and dark while it waits. An enemy Colossal Smash left taking more damage wears a beast's frenzy, its red glow, for as long as it does. Rampage's first 3 strikes play as quick weapon swings, main hand, off hand, main hand with a weapon in each hand (main hand only with a two-hander or a shield), each its own swing number; the 4th plays the overhead slam |
 | Combo points (Rogue, Cat Form) | five pips under the player frame's mana bar, lit as the points build (the stock combo frame's art), never on a target |
 
 **Burning Embers** also float over the hero's head: four embers (the client's ember art), each
@@ -1587,7 +1608,7 @@ What the options look and sound like, all from the player's client:
   of its size over its five stacks; Denounce's holy bolts, chain and bursts at half; Wellspring's
   geyser at two thirds; Fan of Knives' thrown knives and Divine Star's holy bolt at twice their
   size), and no camera shake. An area's size per cast (Hand of
-  Gul'dan's meteor) goes with each cast as before (`ESURVS`) and grows the models only.
+  Gul'dan's meteor) goes with each cast (`ESURVS`) and grows the models only.
 * **Assists** (a battle standard's ally, [assists.md](assists.md)): the standard lies as its
   faction's battle standard (the Alliance or the Horde Battle Standard) over a short aura glow in the
   faction's colour (blue, red), planted with its Battle Standard look, and
@@ -1738,7 +1759,7 @@ What the options look and sound like, all from the player's client:
   * **Blink Strike's reflection** (`StrikeOne` `reflection`; `game::reflections`): the hero no
     longer blinks. A see-through copy of the hero (a clone's look, Ghost Visual 9617) appears 1.5
     yd from the further enemy on the hero's side, facing it, plays Ghostly Strike (14278) on it and
-    goes 1 s later; the damage is the milestone's as before;
+    goes 1 s later; the damage is the milestone's;
   * **Sprint of the Wild's wild spirits** (`LeaveArea` `spirits`; `game::spirits`): two
     see-through cats in the druid's cat form of the hero's faction (892 Alliance, 8571 Horde), at
     0.6 of their size, run 2 yd left and right of the hero (`SMSG_MONSTER_MOVE` at the hero's
@@ -1782,7 +1803,7 @@ six pairs `races.ron` adds ([classes.md](classes.md), "Race and class pairs"): D
 Hunter, Gnome Priest, Orc Mage, Troll Warlock and Undead Paladin. Each shows like a stock pair: the
 class button among the race's (ascending class id, as the stock list orders them), its stock
 class tooltip and description, and the preview body in a borrowed stock starting outfit (the
-outfit rule in classes.md). The dead Dwarf Mage row stays unoffered. Human and Troll now offer seven
+outfit rule in classes.md). The dead Dwarf Mage row stays unoffered. Human and Troll offer seven
 classes, one more than any stock race: past six, the class buttons go four to a row across the
 dial rows' width (x 4 to 202) instead of the authored three, so a third row never runs into the
 dials (stock races keep the authored three).

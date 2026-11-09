@@ -638,7 +638,7 @@ fn every_cosmetic_icon_is_in_the_players_data() {
 fn bounties_are_earned_again_and_give_points_to_spend_only() {
     let content = content();
     let mut s = SavedAchievements::default();
-    let mut earn = |s: &mut SavedAchievements, facts: AchievementFacts| {
+    let earn = |s: &mut SavedAchievements, facts: AchievementFacts| {
         s.add(&content, &BTreeSet::new(), &facts, 7);
         s.earn_bounties(&content, &facts, 7)
     };

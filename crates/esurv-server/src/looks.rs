@@ -241,7 +241,7 @@ fn quality_of(rank: u32) -> u32 {
     rank.min(4) + 1
 }
 
-//// What the item query answers for class gear entry `entry` (a piece's own, or one of its looks,
+/// What the item query answers for class gear entry `entry` (a piece's own, or one of its looks,
 /// [`shown_item_entry`]): the piece's name (the look's own where the look is of the piece's zone,
 /// as Blackrock's second row) and quality (its zone's tier), the look's display, the item class,
 /// subclass, inventory type and sheath the client draws and holds it by (a weapon its

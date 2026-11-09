@@ -10,9 +10,9 @@ written in Rust and Bevy, with its own server embedded in the same executable.
 
 Inspired by *Azeroth Survivors*. This project is not affiliated with it or its author.
 
-> **Status:** alpha (v0.4.0). Zones from Elwynn Forest to Ahn'Qiraj, nine classes, every boss with
-> its own mechanics, and a setup that installs and updates the game. See
-> [docs/game/design.md](docs/game/design.md) for the steps.
+> **Status:** alpha (v0.6.1). Zones from Elwynn Forest to Ahn'Qiraj, nine classes, every boss with
+> its own mechanics, a camp to walk around in, achievements and a shop, and a setup that installs
+> and updates the game. See [docs/game/design.md](docs/game/design.md) for how it is built.
 
 Downloads are on the [Releases](https://github.com/Detroph/eternal-survivors/releases) page.
 Feedback, ideas and bug reports go to the [Eternal Survivors Discord](https://discord.gg/X5USKT65Jq).
@@ -27,7 +27,7 @@ This is my own version and takes no pull requests, but you're welcome to fork it
    there. It checks the client and installs the game into `Eternal Survivors\` inside that folder.
 3. Start `Eternal Survivors\Eternal Survivors.exe`.
 
-The game checks for a newer version when it starts and offers it on the character screen: Update
+The game checks for a newer version when it starts and offers it on the title screen: Update
 downloads it, checks it against the release's `.sha256` and restarts the game into it, keeping
 your heroes and settings (Options > Interface > Check for updates turns this off). Players on
 v0.4.0 or older update by hand once, running the new setup in the WoW folder as above; later

@@ -88,6 +88,25 @@ pub enum PreRunAsk {
     /// the warband owns, fitting the spot) on spot `spot` (an open one), moving it from another
     /// spot of that camp; empty for none. Answered with `Achievements`.
     Decorate { camp: String, spot: String, piece: String },
+    /// `build <guid> <class> <slot> <save|use|clear|name <name>>`: saved build `slot` (below
+    /// [`crate::BUILD_SLOTS`]) of `class`, saved from what the class holds now with hero `guid`'s
+    /// starting option, put back (the hero takes up the build's starting option), emptied or
+    /// named. Guid 0 is no hero (no starting option saved or set). Answered with `Progress`, then
+    /// `Hero` for a hero.
+    Build { hero: u64, class: String, slot: u8, action: BuildAction },
+}
+
+/// What is done with a saved build.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BuildAction {
+    /// Saved from what the class holds now, and lit.
+    Save,
+    /// Put back and lit.
+    Use,
+    /// Emptied.
+    Clear,
+    /// Named; empty gives back its number.
+    Name(String),
 }
 
 /// What a hero wears besides its gear and companion (step 3 of the achievements).
@@ -226,6 +245,7 @@ impl PreRunAsk {
             PreRunAsk::TimePeriod { .. } => "period",
             PreRunAsk::Dress { .. } => "dress",
             PreRunAsk::Decorate { .. } => "decorate",
+            PreRunAsk::Build { .. } => "build",
         }
     }
 
@@ -322,6 +342,15 @@ impl Wire for PreRunAsk {
             PreRunAsk::Decorate { camp, spot, piece } => {
                 o.text(camp).text(spot).text(piece);
             }
+            PreRunAsk::Build { hero, class, slot, action } => {
+                o.guid(*hero).text(class).num(slot);
+                match action {
+                    BuildAction::Save => o.word("save"),
+                    BuildAction::Use => o.word("use"),
+                    BuildAction::Clear => o.word("clear"),
+                    BuildAction::Name(name) => o.word("name").text(name),
+                };
+            }
         }
         o.finish()
     }
@@ -398,6 +427,18 @@ impl Wire for PreRunAsk {
                 camp: r.text()?,
                 spot: r.text()?,
                 piece: r.text()?,
+            },
+            "build" => PreRunAsk::Build {
+                hero: r.guid()?,
+                class: r.text()?,
+                slot: r.num()?,
+                action: match r.word()? {
+                    "save" => BuildAction::Save,
+                    "use" => BuildAction::Use,
+                    "clear" => BuildAction::Clear,
+                    "name" => BuildAction::Name(r.text()?),
+                    _ => return None,
+                },
             },
             _ => return None,
         })
@@ -489,6 +530,15 @@ mod tests {
         }
         for piece in ["throne", ""] {
             round_trip(PreRunAsk::Decorate { camp: "horde".into(), spot: "trophy_1".into(), piece: piece.into() });
+        }
+        for action in [
+            BuildAction::Save,
+            BuildAction::Use,
+            BuildAction::Clear,
+            BuildAction::Name("Fire and frost".into()),
+            BuildAction::Name(String::new()),
+        ] {
+            round_trip(PreRunAsk::Build { hero: 9, class: "mage".into(), slot: 4, action });
         }
         for on in [true, false] {
             round_trip(PreRunAsk::Track {

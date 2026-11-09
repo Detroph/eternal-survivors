@@ -912,6 +912,9 @@ impl Game {
         if codex_grew {
             told.extend(self.for_everyone(&self.codex()));
         }
+        // the count under the bar (Colossal Smash, Rampage), for the heroes' own clients
+        let trackers = self.tracker_messages();
+        told.extend(trackers.into_iter().filter(|(h, _)| self.told.contains_key(h)));
         told
     }
 

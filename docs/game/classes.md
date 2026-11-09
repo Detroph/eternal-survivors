@@ -229,7 +229,7 @@ Paladin.** A race lists the classes it adds in `races.ron`:
   models: the stock totem's body stands from 0.53 to 2.01 over the ground (z 1.93 to 3.41 at
   rest, lowered 1.40 as it stands) and its elemental glow sits at 1.61 to 1.83; the mace lies
   along +X from its grip, 0.30 to the pommel and 0.72 to the head's top, the head from 0.30. At
-  scale 1.6 (tried at 2.8, 1.4 and 2.1 before), the head's top stands at
+  scale 1.6, the head's top stands at
   1.15, the head from 0.48; sunk 0.48 the grip meets the ground. The glow is lowered 0.41 to just
   over the head's top (1.20), as the orb crowns
   the stock totem; the glow cards stay low around the shaft. The
@@ -479,13 +479,10 @@ placeholders copied from the Spirit Wolf, Imp, Felguard, Felguard, Wolf and Imp,
 
 **The mage Frost capstone, Winter's Chill (`water_elemental`, row 6).** The Water Elemental is already the Frostbolt starter's passive, so the capstone gives
 no second one. Like every 31-point milestone it starts each run with an extra spell, Frost Nova,
-casting itself every 9 s; in place of the pet it gives Shatter: +8 % damage to slowed, held or
+casting itself every 9 s; it gives Shatter: +6 % damage to slowed, held or
 fleeing enemies (`DamageVsCrowdControlled`) and every Frostbolt hit splashing 5 % of itself onto
-the enemies within 5 yd of its target; Frost spells +9 %, Frostbolt +20 %. The numbers keep each
-mage starter's gain from the capstone where the pet version had it (`balance_check --milestones
---kite --whole-talent --talents water_elemental --start <option>`, 4,000 runs a side). Base
-(v0.3.0): a Water Elemental pet (50 damage, 2.2 s swing, Frostbolt shots), Frost Nova every 9 s,
-Frost spells +9 %, Frostbolt +90 %. The talent keeps its id, so saved points stay.
+the enemies within 5 yd of its target; Frost spells +7 %, Frostbolt +15 %. Measured per mage starter with
+`balance_check --milestones --kite --whole-talent --talents water_elemental --start <option>`, 4,000 runs a side.
 
 **Talent experience**, earned by each run for the hero's class:
 `minutes survived × 10 + kills ÷ density × 0.05 + 40 per boss + 250 for a win`, then × the zone bonus D^0.7
@@ -533,9 +530,9 @@ Never targets, nor what stands in for them on cards (stacks, strikes, imps, pets
 loader refuses one. The spell cards' damage, cooldown and area are already covered by the hero's
 damage, cooldown recovery and area of effect above.
 
-**Talent values, first pass.** Every talent without a milestone
+**Talent values.** Every talent without a milestone
 effect uses one standard value per rank for its stat or spell change, so its strength follows
-only from what it changes and how many ranks it has (milestone talents keep theirs for now):
+only from what it changes and how many ranks it has (milestone talents have their own):
 
 | Change | Per rank |
 |---|---|
@@ -543,7 +540,7 @@ only from what it changes and how many ranks it has (milestone talents keep thei
 | Damage reduction | 1 % |
 | Crit chance | 1 % |
 | Max health | 3 % |
-| Cooldown recovery | 1 % for spells, weapon swings as from 2 % (`SpellCooldownRecovery`: half for spells, attack speed in full) |
+| Cooldown recovery | 0.5 % for spells, 2 % for weapon swings (`SpellCooldownRecovery` 0.5 %, which speeds swings twice as much, and `SwingCooldownRecovery` 1 %) |
 | Health per second | 0.5 |
 | Crit damage | 8 % |
 | Move speed | 3 % |
@@ -553,8 +550,8 @@ only from what it changes and how many ranks it has (milestone talents keep thei
 | Luck | 6 % |
 | Damage vs elites | 4 % |
 | Double cast | 2 % |
-| One spell: power / cooldown / area / duration | 10 % / 3 % (halved) / 10 % / 10 % |
-| A group of spells (a list, a school, a delivery kind): power / cooldown / area / duration | 5 % / 1.5 % (halved) / 10 % / 10 % |
+| One spell: power / cooldown / area / duration | 10 % / 2 % / 10 % / 10 % |
+| A group of spells (a list, a school, a delivery kind): power / cooldown / area / duration | 5 % / 1 % / 10 % / 10 % |
 
 Damage below 30 % health, thorns, heal per kill, lifesteal and extra targets keep their values.
 

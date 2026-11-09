@@ -6,7 +6,7 @@
 #
 #   .\scripts\local-check.ps1 [-GoldenHash <hash>] [-Version v0.2.0] [-SkipRelease] [-Junction C:\esurv-build]
 #
-# -GoldenHash compares the golden run's hash with a recorded one (design.md step 9, item 2);
+# -GoldenHash compares the golden run's hash with a recorded one (design.md, "The golden run");
 # without it the hash is printed. -Version defaults to the workspace version (release-archive.ps1);
 # -Junction is the release build's neutral path (release-build.ps1). benilla-app's own tests do
 # not build on Windows, so only the game's crates are tested. Uses CARGO_BUILD_JOBS (14 when unset).

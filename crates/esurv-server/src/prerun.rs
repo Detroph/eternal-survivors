@@ -8,7 +8,7 @@
 //! asks as lines (`ESURVQ`).
 
 use esurv_content::Content;
-use esurv_protocol::{self as protocol, HeroFacts, PreRunAsk, ToClient, ToServer};
+use esurv_protocol::{self as protocol, BuildAction, HeroFacts, PreRunAsk, ToClient, ToServer};
 use esurv_sim::game::gear::decode_item_entry;
 use esurv_sim::game::rewards::{
     option_bonus, prestige_point_cost, prestige_points, talent_point_cost, talent_points,
@@ -64,6 +64,19 @@ pub fn progress(content: &Content, saves: &Saves, class: &str) -> ToClient {
         new_points,
         challenge_open: saves.challenge_open(content, class),
         challenge_news: saves.challenge_news(content),
+        builds: p
+            .builds
+            .into_iter()
+            .map(|(slot, b)| protocol::SavedBuild {
+                slot,
+                name: b.name,
+                start: b.start.unwrap_or_default(),
+                loadout: b.loadout.unwrap_or_default(),
+                talents: b.talents.into_iter().collect(),
+                prestige: b.prestige.into_iter().collect(),
+            })
+            .collect(),
+        active_build: p.active_build,
     })
 }
 
@@ -426,6 +439,42 @@ pub fn answer(
             }
             vec![achievements(content, saves)]
         }
+        PreRunAsk::Build { hero: guid, class, slot, action } => {
+            // no hero (guid 0), or one of the build's own class
+            let h = match *guid {
+                0 => None,
+                g => match hero(g) {
+                    Some(h) if h.class == *class => Some(h),
+                    _ => return refused(),
+                },
+            };
+            if content.class(class).is_none() || *slot >= protocol::BUILD_SLOTS {
+                return refused();
+            }
+            let done = match action {
+                BuildAction::Save => {
+                    let start = h.as_ref().and_then(|h| {
+                        content.class(class).and_then(|c| c.starting_option(h.start.as_deref())).map(|o| o.id.clone())
+                    });
+                    saves.save_build(content, class, *slot, start.as_deref())
+                }
+                BuildAction::Use => {
+                    let (lit, start) = saves.use_build(content, class, *slot);
+                    if let (Some(h), Some(start)) = (&h, start) {
+                        saves.choose_start(h.guid, &start);
+                    }
+                    lit
+                }
+                BuildAction::Clear => saves.clear_build(class, *slot),
+                BuildAction::Name(name) => saves.name_build(class, *slot, name),
+            };
+            if !done {
+                return refused();
+            }
+            let mut told = vec![progress(content, saves, class)];
+            told.extend(h.and_then(|h| saves.hero(h.guid)).map(|h| hero_facts(content, saves, &h)));
+            told
+        }
         PreRunAsk::SaveFiles | PreRunAsk::ExportSave | PreRunAsk::ImportSave { .. } => refused(),
     }
 }
@@ -434,6 +483,7 @@ pub fn answer(
 mod tests {
     use super::*;
     use crate::save::FinishedRun;
+    use esurv_sim::game::talents;
 
     fn content() -> Content {
         Content::load(concat!(env!("CARGO_MANIFEST_DIR"), "/../../content")).unwrap()
@@ -592,6 +642,93 @@ mod tests {
         assert_eq!(loadout_of(&answer(&content, &saves, None, &choose("two_hander"))), "two_hander");
         assert_eq!(refused(&answer(&content, &saves, None, &choose("daggers"))), Some("loadout"));
         assert_eq!(loadout_of(&answer(&content, &saves, None, &facts)), "two_hander", "kept");
+    }
+
+    /// A saved build puts back the talents, prestige, weapon loadout and starting option it was
+    /// saved with, from whatever the class and hero hold since; an empty slot is only lit; a slot
+    /// out of range or a hero of another class is refused.
+    #[test]
+    fn a_saved_build_comes_back_exactly() {
+        let content = content();
+        let saves = Saves::in_memory();
+        let ana = saves.create("Ana", "paladin", "human", 1, [0; 5]).unwrap();
+        let guid = u64::from(ana.guid);
+        let run = FinishedRun { experience: 100_000, ..Default::default() };
+        saves.finish_run(&content, ana.guid, &run).unwrap();
+        let row_0: Vec<String> = content
+            .trees_of("paladin")
+            .flat_map(|t| t.talents.iter().filter(|t| t.row == 0).map(|t| t.id.clone()))
+            .collect();
+        assert!(row_0.len() >= 2);
+        let ask = |action| PreRunAsk::Build { hero: guid, class: "paladin".into(), slot: 2, action };
+        let progress_of = |told: &[ToClient]| match &told[0] {
+            ToClient::Progress(p) => p.clone(),
+            other => panic!("{other:?}"),
+        };
+        assert!(saves.learn_talent(&content, "paladin", &row_0[0]));
+        assert!(saves.learn_talent(&content, "paladin", &row_0[0]));
+        assert!(saves.choose_loadout(&content, "paladin", "two_hander"));
+        let options = &content.class("paladin").unwrap().starting_options;
+        let last = options.last().unwrap().id.clone();
+        assert!(saves.choose_start(ana.guid, &last));
+        let saved = progress_of(&answer(&content, &saves, None, &ask(BuildAction::Save)));
+        assert_eq!(saved.active_build, 2);
+        let build = saved.builds.iter().find(|b| b.slot == 2).unwrap().clone();
+        assert_eq!(build.talents, vec![(row_0[0].clone(), 2)]);
+        assert_eq!((build.loadout.as_str(), build.start.as_str()), ("two_hander", last.as_str()));
+
+        // something else since: other talents, loadout and starting option, another slot lit
+        assert!(saves.unlearn_talent(&content, "paladin", &row_0[0]));
+        assert!(saves.unlearn_talent(&content, "paladin", &row_0[0]));
+        assert!(saves.learn_talent(&content, "paladin", &row_0[1]));
+        assert!(saves.choose_loadout(&content, "paladin", "off_hand"));
+        assert!(saves.choose_start(ana.guid, &options[0].id));
+        let lit = PreRunAsk::Build { hero: guid, class: "paladin".into(), slot: 0, action: BuildAction::Use };
+        let told = answer(&content, &saves, None, &lit);
+        assert_eq!(progress_of(&told).active_build, 0);
+        assert_eq!(progress_of(&told).talents, vec![(row_0[1].clone(), 1)], "an empty slot changes nothing");
+
+        let told = answer(&content, &saves, None, &ask(BuildAction::Use));
+        let used = progress_of(&told);
+        assert_eq!((used.active_build, used.talents.clone()), (2, build.talents.clone()));
+        assert_eq!(used.loadout, "two_hander");
+        assert_eq!(told_hero(&told).map(|h| h.start.as_str()), Some(last.as_str()));
+
+        let named = progress_of(&answer(&content, &saves, None, &ask(BuildAction::Name("  Holy light  ".into()))));
+        assert_eq!(named.builds.iter().find(|b| b.slot == 2).map(|b| b.name.as_str()), Some("Holy light"));
+        let cleared = progress_of(&answer(&content, &saves, None, &ask(BuildAction::Clear)));
+        assert!(cleared.builds.is_empty());
+        assert_eq!(refused(&answer(&content, &saves, None, &ask(BuildAction::Clear))), Some("build"), "already empty");
+
+        let far = PreRunAsk::Build { hero: guid, class: "paladin".into(), slot: protocol::BUILD_SLOTS, action: BuildAction::Save };
+        assert_eq!(refused(&answer(&content, &saves, None, &far)), Some("build"));
+        let other = PreRunAsk::Build { hero: guid, class: "mage".into(), slot: 0, action: BuildAction::Save };
+        assert_eq!(refused(&answer(&content, &saves, None, &other)), Some("build"));
+    }
+
+    /// A build puts back only what the rules and the points earned allow: a talent the content no
+    /// longer has is left out, the rest learned again.
+    #[test]
+    fn a_build_keeps_the_rules() {
+        let content = content();
+        let saves = Saves::in_memory();
+        let bo = saves.create("Bo", "warrior", "orc", 0, [0; 5]).unwrap();
+        let run = FinishedRun { experience: 145, ..Default::default() };
+        saves.finish_run(&content, bo.guid, &run).unwrap();
+        let first = content.trees_of("warrior").flat_map(|t| &t.talents).find(|t| t.row == 0).unwrap().id.clone();
+        assert!(saves.learn_talent(&content, "warrior", &first));
+        assert!(saves.save_build(&content, "warrior", 1, None));
+        saves.edit_build_for_a_test("warrior", 1, |b| {
+            b.talents.insert("no_such_talent".into(), 3);
+            *b.talents.get_mut(&first).unwrap() = 5;
+        });
+        assert!(saves.unlearn_talent(&content, "warrior", &first));
+        let (lit, start) = saves.use_build(&content, "warrior", 1);
+        assert!(lit);
+        assert_eq!(start, None);
+        let p = saves.class_progress(&content, "warrior");
+        assert_eq!(p.talents.values().sum::<u32>(), talents::points_earned(p.talent_experience).min(5));
+        assert!(!p.talents.contains_key("no_such_talent"));
     }
 
     /// A hero starts with its class's first option until it picks another of its class's; the pick

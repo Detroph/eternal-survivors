@@ -69,13 +69,6 @@ pub enum BountyGoal {
     EndlessMinutes(u32),
 }
 
-impl BountyGoal {
-    /// Whether it is earned once a run (the others by the warband's counters' steps).
-    pub fn once_a_run(self) -> bool {
-        matches!(self, BountyGoal::BossFalls | BountyGoal::ZoneWon | BountyGoal::EndlessMinutes(_))
-    }
-}
-
 impl Content {
     pub fn bounty(&self, id: &str) -> Option<&Bounty> {
         self.bounties.iter().find(|b| b.id == id)

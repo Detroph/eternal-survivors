@@ -595,7 +595,7 @@
         (temperament: "devout", when: Idle, race: Some("dwarf"), time_period: Some(Past), text: "Pray the Titans keep Thaurissan in his mountain. He's been calling on things no dwarf should."),
         (temperament: "stalwart", when: ToPlayer, race: Some("dwarf"), time_period: Some(Past), text: "I fought the Amani in the Hinterlands under Turalyon. Aye, point me at something."),
         (temperament: "mischievous", when: Idle, race: Some("dwarf"), time_period: Some(Present), text: "Magni's daughter ran off with the Dark Iron emperor. Kidnapped, the king says. We all say kidnapped."),
-        (temperament: "curious", when: Idle, race: Some("dwarf"), time_period: Some(Present), text: "The League brought some talking discs out of Uldaman. Say we were made of stone once. I knocked on my arm to check."),
+        (temperament: "curious", when: Idle, race: Some("dwarf"), time_period: Some(Present), text: "The League brought some talking discs out of {Area(1337)}. Say we were made of stone once. I knocked on my arm to check."),
         (temperament: "boisterous", when: ToPlayer, race: Some("dwarf"), time_period: Some(Present), text: "You've been to {Area(131)}? Thunderbrew's finest! I'd walk through the snow for another mug."),
         (temperament: "grim", when: Night, race: Some("dwarf"), time_period: Some(Present), text: "The Dark Irons are digging under Blackrock again. I hear hammers when it's quiet."),
         (temperament: "stalwart", when: ToPlayer, race: Some("dwarf"), time_period: Some(Present), text: "The Horde sat outside {Area(1537)}'s gates once and never got in. Right, where are we off to?"),

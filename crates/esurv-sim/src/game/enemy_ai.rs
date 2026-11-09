@@ -36,7 +36,8 @@ pub const ENRAGE_COOLDOWN: f32 = 0.7;
 
 pub type Vec2 = (f32, f32);
 
-fn dist(a: Vec2, b: Vec2) -> f32 {
+/// The flat distance between two points, yards.
+pub(crate) fn dist(a: Vec2, b: Vec2) -> f32 {
     ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 

@@ -8,7 +8,7 @@
 use esurv_content::{BossAbility, HealOn, ScriptAction, ScriptTrigger, School};
 
 use super::casting::HitSource;
-use super::enemy_ai::{attack_damage, Vec2};
+use super::enemy_ai::{attack_damage, dist, Vec2};
 use super::run::{Aim, EnemyKind, EnemyUnit, Event, Run, Unit};
 
 /// Script actions waiting to run.
@@ -56,10 +56,6 @@ pub const LANE_WARNING: f32 = 2.0;
 pub const LANE: (f32, f32) = (14.0, 4.0);
 /// Packs come from sides at least this far apart (radians) round the hero, when the ground allows.
 const SIDES_APART: f32 = 1.0;
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
-}
 
 impl Run {
     /// The living boss unit named `name` (its index in the enemies).

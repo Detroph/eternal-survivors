@@ -241,6 +241,8 @@ mod tests {
             new_points: false,
             challenge_open: false,
             challenge_news: false,
+            builds: Vec::new(),
+            active_build: 0,
         }
     }
 

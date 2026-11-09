@@ -9,7 +9,7 @@ use esurv_content::{Content, Milestone, Stat, TalentEffect};
 
 use super::director::{roster_weights, Director, DirectorInput};
 use super::enemy::{boss_stats, live_cap, spawn_stats, RunOptions, RUN_FACTOR};
-use super::enemy_ai::{attack_damage, chase, flee, move_speed, reach, Segment, Vec2, ENRAGE_HEALTH};
+use super::enemy_ai::{attack_damage, chase, dist, flee, move_speed, reach, Segment, Vec2, ENRAGE_HEALTH};
 use super::level::Progress;
 use super::casting::{HitSource, ProcOrigin};
 use super::spells::{SpellModifier, Spellbook};
@@ -763,10 +763,6 @@ pub struct Run {
     pub(crate) offer_exclude: Vec<String>,
     next_id: u32,
     pub(crate) events: Vec<Event>,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {
@@ -1673,6 +1669,7 @@ impl Run {
         // being hurt); spells, missiles and ground effects do neither
         if let (true, Some(src)) = (melee, source) {
             self.strike_back(i, src, amount);
+            self.kit_struck(i, src);
             self.milestone_event(i, super::milestones::CombatEvent::StruckInMelee { by: src, taken: struck });
             self.milestone_event(i, super::milestones::CombatEvent::HeroDamaged { amount });
         }

@@ -10,13 +10,9 @@ use super::assists::{AllyMove, ALLY_BESIDE_ENEMY, ALLY_RUN_SPEED};
 use super::casting::{HitSource, HOLD_CHAIN};
 use super::director::FIRST_ELITE;
 use super::enemy::RunOptions;
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::loot::{Pickup, CACHE_RING};
 use super::run::{Buff, BuffKind, EnemyKind, Event, Flat, HeroSetup, Run, Unit};
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
-}
 
 fn content() -> Content {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../content");

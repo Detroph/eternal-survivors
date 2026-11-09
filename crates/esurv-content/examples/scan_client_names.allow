@@ -84,6 +84,7 @@ crates/esurv-app/src/menus/guide/entries.rs | Restoration | the Restoration Rune
 crates/esurv-content/src/camp_looks.rs | Human | a client file path (World\...\Human\...) the camp reads a model from, not a race's name
 crates/esurv-content/src/camp_looks.rs | Dwarf | a client file path (...\Dwarf\...) the camp reads a model from, not a race's name
 crates/esurv-content/src/camp_looks.rs | Troll | a client file path (...\Troll\...) the camp reads a model from, not a race's name
+crates/esurv-content/src/camp_looks.rs | Uldaman | a client file path (...Uldaman...) the camp reads a model from, not a zone name
 crates/esurv-content/src/camp_looks.rs | Orc | a client file path (...\Orc\...) the camp reads a model from, not a race's name
 crates/esurv-content/src/camp_looks.rs | Gnome | a client file path (...\Gnome\...) the camp reads a model from, not a race's name
 

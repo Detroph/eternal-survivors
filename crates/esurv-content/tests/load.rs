@@ -18,7 +18,7 @@ fn shipped_content_counts() {
     assert_eq!(c.zones.iter().map(|z| z.enemies.len()).sum::<usize>(), 168);
     assert_eq!(c.zones.iter().map(|z| z.bosses.len()).sum::<usize>(), 54);
     assert_eq!(c.classes.len(), 9);
-    assert_eq!(c.abilities.len(), 168);
+    assert_eq!(c.abilities.len(), 172);
     assert_eq!(c.talent_trees.len(), 27);
     assert_eq!(c.talent_trees.iter().map(|t| t.talents.len()).sum::<usize>(), 351);
     assert_eq!(c.jewelry.len(), 22);

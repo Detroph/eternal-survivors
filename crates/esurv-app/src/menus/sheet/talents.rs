@@ -1,14 +1,21 @@
-//! The hero sheet's Talents tab (menus.md, "The flow", step 3): the
-//! class's three trees side by side, each with its name, icon and points spent, on its stock
+//! The hero sheet's Talents window (menus.md, "The flow", step 3). On top the build bar: the
+//! hero's Starting spell and the class's Weapon loadout, each opening a drop-down of the choices.
+//! Under it the pages Talents and Prestige (open once every talent point is earned), and on their
+//! right the five saved builds of the class with Save: a click on one puts it back, a right click
+//! empties it, Save keeps the talents, prestige, loadout and starting spell in the one lit, Name
+//! types a name for the one lit (Enter keeps it, Escape drops it). The
+//! Talents page: the class's three trees side by side, each with its name, icon and points spent, on its stock
 //! background art, its talents as icons with `rank / max` and lines between a talent and the one it
 //! needs, and under it its milestone talents; on the right "Talent Points": the points to spend in
 //! big green, earned and spent, the talent experience bar to the next point with how runs earn it,
 //! Reset (talents and prestige), and the talent or prestige stat picked (its icon, name, rank and
-//! what it does) with Learn and Unlearn. Once every talent point is earned, the prestige section
-//! shows under the trees. A click picks a talent or prestige stat, a
+//! what it does) with Learn and Unlearn. The Prestige page: its points, the bar to the next and
+//! every stat. A click picks a talent or prestige stat, a
 //! click on the one picked learns a rank, a right click takes one back.
 //! The rules are the server's own (`hero_sheet::talents`); changes are the class's.
 
+use benilla_app::OverlayKeys;
+use bevy::input::keyboard::{Key, KeyboardInput};
 use bevy::prelude::*;
 use esurv_content::{Talent, TalentTree};
 use esurv_protocol::Progress;
@@ -16,7 +23,7 @@ use esurv_sim::game::rewards::MAX_TALENT_POINTS;
 use esurv_sim::game::talents::{Ranks, POINTS_PER_ROW};
 
 use super::super::look::{palette, ButtonStyle, Face, MenuLook};
-use super::super::{Ctx, MenuAction, Sheet};
+use super::super::{warband, BuildDrop, Ctx, MenuAction, MenuPress, Menus, Screen, Sheet, SheetMode, TalentsPage};
 use super::collection::class_wide_hint;
 use super::{MARGIN, SIDE, TOP};
 use super::super::scroll::{scrolling, ScrollingList};
@@ -70,42 +77,534 @@ pub(in crate::menus) fn draw(
     };
     let ranks = talents::ranks(progress);
     let trees = talents::trees(ctx.content, class);
-    // from the left margin to the points column: the trees side by side, and under them the
-    // prestige section once every talent point is earned; more than shows scrolls
-    r.spawn((
-        Node {
-            position_type: PositionType::Absolute,
-            left: look.px(MARGIN),
-            right: look.px(MARGIN * 2.0 + SIDE),
-            top: look.px(TOP),
-            bottom: look.px(MARGIN),
-            flex_direction: FlexDirection::Column,
-            row_gap: look.px(10.0),
-            min_height: Val::ZERO,
-            overflow: Overflow::scroll_y(),
-            ..default()
-        },
-        scrolling(ScrollingList::Talents),
-    ))
+    // the prestige page opens once every talent point is earned
+    let page = match sheet.talents_page {
+        TalentsPage::Prestige if prestige::shown(progress) => TalentsPage::Prestige,
+        _ => TalentsPage::Talents,
+    };
+    // from the left margin to the points column: the build bar, the page tabs with the saved
+    // builds, then the page (the trees side by side, or the prestige stats); more than shows
+    // scrolls
+    r.spawn(Node {
+        position_type: PositionType::Absolute,
+        left: look.px(MARGIN),
+        right: look.px(MARGIN * 2.0 + SIDE),
+        top: look.px(TOP),
+        bottom: look.px(MARGIN),
+        flex_direction: FlexDirection::Column,
+        row_gap: look.px(8.0),
+        min_height: Val::ZERO,
+        ..default()
+    })
     .with_children(|left| {
-        left.spawn(Node {
-            width: Val::Percent(100.0),
-            justify_content: JustifyContent::SpaceEvenly,
-            align_items: AlignItems::FlexStart,
-            column_gap: look.px(10.0),
-            flex_shrink: 0.0,
-            ..default()
-        })
-        .with_children(|row| {
-            for (i, tree) in trees.iter().enumerate() {
-                tree_column(row, look, ctx, sheet, progress, &ranks, i, tree);
+        build_bar(left, look, ctx, sheet, progress);
+        page_tabs(left, look, progress, page, sheet.build_name.as_deref());
+        left.spawn((
+            Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                flex_grow: 1.0,
+                min_height: Val::ZERO,
+                overflow: Overflow::scroll_y(),
+                ..default()
+            },
+            scrolling(ScrollingList::Talents),
+        ))
+        .with_children(|scroll| match page {
+            TalentsPage::Talents => {
+                scroll
+                    .spawn(Node {
+                        width: Val::Percent(100.0),
+                        justify_content: JustifyContent::SpaceEvenly,
+                        align_items: AlignItems::FlexStart,
+                        column_gap: look.px(10.0),
+                        flex_shrink: 0.0,
+                        ..default()
+                    })
+                    .with_children(|row| {
+                        for (i, tree) in trees.iter().enumerate() {
+                            tree_column(row, look, ctx, sheet, progress, &ranks, i, tree);
+                        }
+                    });
             }
+            TalentsPage::Prestige => prestige_section(scroll, look, ctx, sheet, progress),
         });
-        if prestige::shown(progress) {
-            prestige_section(left, look, ctx, sheet, progress);
+        // the drop-down open over the page, under its spot on the bar
+        if let Some(drop) = sheet.build_drop {
+            build_drop(left, look, ctx, sheet, progress, drop);
         }
     });
     points_column(r, look, ctx, sheet, progress, &ranks);
+}
+
+/// The build bar's height, its spots' icons and a drop-down's rows, in units.
+const BAR_HEIGHT: f32 = 48.0;
+const BAR_ICON: f32 = 36.0;
+const DROP_ICON: f32 = 30.0;
+/// A drop-down row's icon and name, as wide in every row, in units.
+const DROP_ROW_WIDTH: f32 = 160.0;
+/// A build bar spot's width, in units.
+const SPOT_WIDTH: f32 = 230.0;
+/// The arrow on a build bar spot, in units.
+const ARROW_WIDTH: f32 = 11.0;
+const ARROW_HEIGHT: f32 = 7.0;
+
+/// The arrow's picture: a white triangle pointing down, tinted gold where it shows.
+const ARROW: Handle<Image> = bevy::asset::uuid_handle!("6f1d2b8e-4c3a-4e57-9a1f-2d8c7b5e3a90");
+/// The arrow's picture size, in pixels.
+const ARROW_PIXELS: (u32, u32) = (22, 14);
+
+/// Draws the arrow's picture once ([`ARROW`]): a triangle with its edges smoothed, four by four
+/// samples a pixel.
+pub(in crate::menus) fn draw_the_arrow(mut images: ResMut<Assets<Image>>) {
+    use bevy::asset::RenderAssetUsages;
+    use bevy::render::render_resource::{Extent3d, TextureDimension, TextureFormat};
+    let (w, h) = ARROW_PIXELS;
+    let mut rgba = Vec::with_capacity((w * h * 4) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let mut inside = 0u32;
+            for sy in 0..4 {
+                for sx in 0..4 {
+                    let px = x as f32 + (sx as f32 + 0.5) / 4.0;
+                    let py = y as f32 + (sy as f32 + 0.5) / 4.0;
+                    // the top edge full width, narrowing to the point at the bottom
+                    let half = w as f32 / 2.0 * (1.0 - py / h as f32);
+                    if (px - w as f32 / 2.0).abs() <= half {
+                        inside += 1;
+                    }
+                }
+            }
+            rgba.extend_from_slice(&[255, 255, 255, (inside * 255 / 16) as u8]);
+        }
+    }
+    let image = Image::new(
+        Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+        TextureDimension::D2,
+        rgba,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::default(),
+    );
+    let _ = images.insert(&ARROW, image);
+}
+
+/// The starting option the sheet's hero starts with (the class's first for a hero not yet made).
+fn hero_start<'c>(ctx: &Ctx<'c>, sheet: &Sheet) -> Option<&'c esurv_content::StartingOption> {
+    let class = ctx.content.class(&sheet.draft.class)?;
+    let told = match sheet.mode {
+        SheetMode::Modify(g) => ctx.facts.hero(g).map(|f| f.start.as_str()).filter(|s| !s.is_empty()),
+        SheetMode::Create => None,
+    };
+    class.starting_option(told)
+}
+
+/// A starting option's icon: its own, else its main spell's.
+fn option_icon<'c>(ctx: &Ctx<'c>, o: &'c esurv_content::StartingOption) -> &'c str {
+    match o.icon.as_str() {
+        "" => ctx.content.ability(o.main_spell()).map_or("", |a| a.icon.as_str()),
+        own => own,
+    }
+}
+
+/// The build bar over the page: the Starting spell (of a hero already made) and the Weapon
+/// loadout, each its icon and name with a gold arrow; a click opens its drop-down of the class's choices.
+fn build_bar(left: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, sheet: &Sheet, progress: &Progress) {
+    let class = sheet.draft.class.as_str();
+    let mut node = look.panel_node();
+    node.flex_direction = FlexDirection::Row;
+    node.align_items = AlignItems::Center;
+    node.column_gap = look.px(14.0);
+    node.padding = UiRect::axes(look.px(10.0), look.px(6.0));
+    node.height = look.px(BAR_HEIGHT);
+    node.flex_shrink = 0.0;
+    left.spawn(look.panel(node)).with_children(|bar| {
+        if matches!(sheet.mode, SheetMode::Modify(_)) {
+            if let (Some(c), Some(o)) = (ctx.content.class(class), hero_start(ctx, sheet)) {
+                let tip = warband::option_tip(ctx.content, c, o);
+                bar_spot(bar, look, "Starting spell", option_icon(ctx, o), &o.name, tip, BuildDrop::Start, sheet);
+            }
+        }
+        let icons = warband::loadout_icons(ctx.content, class, Some(progress.loadout.as_str()));
+        if let Some(i) = icons.iter().find(|i| i.chosen) {
+            let l = i.loadout;
+            bar_spot(bar, look, "Weapon loadout", &l.icon, &l.name, warband::loadout_tip(l), BuildDrop::Loadout, sheet);
+        }
+    });
+}
+
+/// One spot of the build bar: its label over its icon and name, and a gold arrow pointing down
+/// (up, and the spot lit, while its drop-down is open); the choice's tooltip on it.
+#[allow(clippy::too_many_arguments)]
+fn bar_spot(
+    bar: &mut ChildSpawnerCommands,
+    look: &MenuLook,
+    label: &str,
+    icon: &str,
+    name: &str,
+    tip: Vec<TipLine>,
+    drop: BuildDrop,
+    sheet: &Sheet,
+) {
+    let open = sheet.build_drop == Some(drop);
+    let style = if open { ButtonStyle::RowPicked } else { ButtonStyle::Row };
+    look.frame_button(bar, style, true, Some(SPOT_WIDTH))
+        .insert((MenuAction::BuildDrop(Some(drop)), Tip(tip), MenuLookTip))
+        .with_children(|b| {
+            b.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    align_items: AlignItems::Center,
+                    column_gap: look.px(8.0),
+                    ..default()
+                },
+                Pickable::IGNORE,
+            ))
+            .with_children(|row| {
+                row.spawn((
+                    ImageNode::new(look.icon_art(icon)),
+                    Node {
+                        width: look.px(BAR_ICON - 8.0),
+                        height: look.px(BAR_ICON - 8.0),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ));
+                row.spawn((
+                    Node {
+                        flex_direction: FlexDirection::Column,
+                        flex_grow: 1.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ))
+                .with_children(|words| {
+                    words.spawn((look.label(label), Pickable::IGNORE));
+                    words.spawn((look.value(name.to_string()), Pickable::IGNORE));
+                });
+                // down while shut, up while its drop-down is open
+                row.spawn((
+                    ImageNode {
+                        image: ARROW,
+                        color: palette::GOLD,
+                        flip_y: open,
+                        ..default()
+                    },
+                    Node {
+                        width: look.px(ARROW_WIDTH),
+                        height: look.px(ARROW_HEIGHT),
+                        flex_shrink: 0.0,
+                        ..default()
+                    },
+                    Pickable::IGNORE,
+                ));
+            });
+        });
+}
+
+/// The drop-down open under its spot: every choice of the class as a row (its icon and name, the
+/// one taken lit, its tooltip on it); a click takes it and closes the drop-down.
+fn build_drop(
+    left: &mut ChildSpawnerCommands,
+    look: &MenuLook,
+    ctx: &Ctx,
+    sheet: &Sheet,
+    progress: &Progress,
+    drop: BuildDrop,
+) {
+    let class = sheet.draft.class.as_str();
+    // (icon, name, taken, tooltip, action) of each choice
+    let rows: Vec<(&str, String, bool, Vec<TipLine>, MenuAction)> = match drop {
+        BuildDrop::Start => {
+            let (Some(c), Some(taken)) = (ctx.content.class(class), hero_start(ctx, sheet)) else {
+                return;
+            };
+            c.starting_options
+                .iter()
+                .map(|o| {
+                    let tip = warband::option_tip(ctx.content, c, o);
+                    (option_icon(ctx, o), o.name.clone(), o.id == taken.id, tip, MenuAction::PickStart(o.id.clone()))
+                })
+                .collect()
+        }
+        BuildDrop::Loadout => warband::loadout_icons(ctx.content, class, Some(progress.loadout.as_str()))
+            .into_iter()
+            .map(|i| {
+                let l = i.loadout;
+                (l.icon.as_str(), l.name.clone(), i.chosen, warband::loadout_tip(l), MenuAction::PickLoadout(l.id.clone()))
+            })
+            .collect(),
+    };
+    // under its spot: the loadout's is the second when the starting spell shows
+    let second = drop == BuildDrop::Loadout && matches!(sheet.mode, SheetMode::Modify(_));
+    let mut node = look.panel_node();
+    node.position_type = PositionType::Absolute;
+    node.top = look.px(BAR_HEIGHT + 2.0);
+    node.left = look.px(10.0 + if second { SPOT_WIDTH + 14.0 } else { 0.0 });
+    node.width = look.px(SPOT_WIDTH);
+    node.row_gap = look.px(4.0);
+    node.padding = UiRect::all(look.px(6.0));
+    // over the menus' own layer (the window's panels would take its clicks), under their
+    // windows and the tooltips
+    left.spawn((look.panel(node), GlobalZIndex(super::super::MENU_LAYER + 5))).with_children(|list| {
+        for (icon, name, taken, tip, action) in rows {
+            let style = if taken { ButtonStyle::RowPicked } else { ButtonStyle::Row };
+            look.frame_button(list, style, true, Some(SPOT_WIDTH - 12.0))
+                .insert((action, Tip(tip), MenuLookTip))
+                .with_children(|b| {
+                    // one width for every row, centred in it: the icons and names line up on
+                    // the left of a column in the middle
+                    b.spawn((
+                        Node {
+                            width: look.px(DROP_ROW_WIDTH),
+                            align_items: AlignItems::Center,
+                            column_gap: look.px(8.0),
+                            ..default()
+                        },
+                        Pickable::IGNORE,
+                    ))
+                    .with_children(|row| {
+                        row.spawn((
+                            ImageNode::new(look.icon_art(icon)),
+                            Node {
+                                width: look.px(DROP_ICON - 6.0),
+                                height: look.px(DROP_ICON - 6.0),
+                                flex_shrink: 0.0,
+                                ..default()
+                            },
+                            Pickable::IGNORE,
+                        ));
+                        let colour = if taken { palette::GOLD } else { palette::VALUE };
+                        row.spawn((look.text(Face::Plain, 11.0, colour, name), Pickable::IGNORE));
+                    });
+                });
+        }
+    });
+}
+
+/// The page tabs, Talents and Prestige (shut until every talent point is earned), and on the
+/// right the saved builds: Builds 1 to 5 (the one lit filled; its tooltip what it holds) and
+/// Save, which keeps what the class holds now in the build lit.
+fn page_tabs(
+    left: &mut ChildSpawnerCommands,
+    look: &MenuLook,
+    progress: &Progress,
+    page: TalentsPage,
+    naming: Option<&str>,
+) {
+    left.spawn(Node {
+        width: Val::Percent(100.0),
+        align_items: AlignItems::Center,
+        column_gap: look.px(6.0),
+        flex_shrink: 0.0,
+        ..default()
+    })
+    .with_children(|row| {
+        let open = prestige::shown(progress);
+        for (label, p, enabled) in [("Talents", TalentsPage::Talents, true), ("Prestige", TalentsPage::Prestige, open)] {
+            let style = if p == page { ButtonStyle::Active } else { ButtonStyle::Text };
+            let mut tab = look.button(row, label, style, enabled, Some(96.0));
+            tab.insert(MenuAction::TalentsPage(p));
+            if !enabled {
+                tab.insert((
+                    Tip(vec![
+                        TipLine::new("Prestige", palette::VALUE),
+                        TipLine::new(format!("Opens once all {MAX_TALENT_POINTS} talent points are earned."), palette::LABEL),
+                    ]),
+                    MenuLookTip,
+                ));
+            }
+        }
+        row.spawn(Node {
+            flex_grow: 1.0,
+            ..default()
+        });
+        row.spawn(look.label("Builds"));
+        for slot in 0..esurv_protocol::BUILD_SLOTS {
+            let build = progress.builds.iter().find(|b| b.slot == slot);
+            let lit = progress.active_build == slot;
+            let style = if lit { ButtonStyle::Active } else { ButtonStyle::Text };
+            look.button(row, &(slot + 1).to_string(), style, true, Some(30.0))
+                .insert((MenuAction::UseBuild(slot), Tip(build_tip(slot, build, lit)), MenuLookTip));
+        }
+        look.button(row, "Save", ButtonStyle::Text, true, Some(56.0)).insert((
+            MenuAction::SaveBuild,
+            Tip(vec![
+                TipLine::new("Save build", palette::VALUE),
+                TipLine::new(
+                    format!(
+                        "Keeps the talents, prestige, weapon loadout and starting spell in build {}.",
+                        progress.active_build + 1
+                    ),
+                    palette::LABEL,
+                ),
+            ]),
+            MenuLookTip,
+        ));
+        name_button(row, look, progress, naming);
+    });
+}
+
+/// Name, after Save: a click starts typing the lit build's name (shut while it is empty); while
+/// typing it shows the name typed, and a click or Enter keeps it.
+fn name_button(row: &mut ChildSpawnerCommands, look: &MenuLook, progress: &Progress, naming: Option<&str>) {
+    let lit = progress.active_build + 1;
+    let (label, style, enabled, width, how) = match naming {
+        Some(typed) => (
+            format!("{typed}_"),
+            ButtonStyle::Active,
+            true,
+            150.0,
+            "Type the name: Enter or a click keeps it, Escape drops it. Empty gives back the number.".to_owned(),
+        ),
+        None => {
+            let held = progress.builds.iter().any(|b| b.slot == progress.active_build);
+            let how = if held {
+                format!("Click to type a name for build {lit}.")
+            } else {
+                format!("Save build {lit} first to name it.")
+            };
+            ("Name".to_owned(), ButtonStyle::Text, held, 56.0, how)
+        }
+    };
+    look.button(row, &label, style, enabled, Some(width)).insert((
+        MenuAction::NameBuild,
+        Tip(vec![TipLine::new("Name build", palette::VALUE), TipLine::new(how, palette::LABEL)]),
+        MenuLookTip,
+    ));
+}
+
+/// The holder of the typing keys while a build's name is typed ([`OverlayKeys`]): in the camp a
+/// letter typed runs no key binding (W does not walk the hero).
+const NAME_KEYS_OWNER: &str = "build name";
+
+/// The keys a build name being typed takes from the key bindings.
+const NAME_KEYS: &[KeyCode] = &[
+    KeyCode::KeyA,
+    KeyCode::KeyB,
+    KeyCode::KeyC,
+    KeyCode::KeyD,
+    KeyCode::KeyE,
+    KeyCode::KeyF,
+    KeyCode::KeyG,
+    KeyCode::KeyH,
+    KeyCode::KeyI,
+    KeyCode::KeyJ,
+    KeyCode::KeyK,
+    KeyCode::KeyL,
+    KeyCode::KeyM,
+    KeyCode::KeyN,
+    KeyCode::KeyO,
+    KeyCode::KeyP,
+    KeyCode::KeyQ,
+    KeyCode::KeyR,
+    KeyCode::KeyS,
+    KeyCode::KeyT,
+    KeyCode::KeyU,
+    KeyCode::KeyV,
+    KeyCode::KeyW,
+    KeyCode::KeyX,
+    KeyCode::KeyY,
+    KeyCode::KeyZ,
+    KeyCode::Digit0,
+    KeyCode::Digit1,
+    KeyCode::Digit2,
+    KeyCode::Digit3,
+    KeyCode::Digit4,
+    KeyCode::Digit5,
+    KeyCode::Digit6,
+    KeyCode::Digit7,
+    KeyCode::Digit8,
+    KeyCode::Digit9,
+    KeyCode::Space,
+    KeyCode::Minus,
+    KeyCode::Quote,
+    KeyCode::Backspace,
+    KeyCode::Enter,
+    KeyCode::NumpadEnter,
+    KeyCode::Escape,
+];
+
+/// `name` with `typed` added: letters, digits, spaces, dashes and apostrophes, up to
+/// [`esurv_protocol::BUILD_NAME_LIMIT`] characters.
+pub(in crate::menus) fn build_name_typed(name: &str, typed: &str) -> String {
+    let mut name = name.to_owned();
+    for c in typed.chars().filter(|c| c.is_alphanumeric() || matches!(c, ' ' | '-' | '\'')) {
+        if name.chars().count() < esurv_protocol::BUILD_NAME_LIMIT {
+            name.push(c);
+        }
+    }
+    name
+}
+
+/// The lit build's name typed while Name is on: Backspace takes a character back, Enter keeps
+/// the name (Escape, which drops it, is `escape_goes_back`'s).
+pub(in crate::menus) fn type_the_build_name(
+    mut keys: MessageReader<KeyboardInput>,
+    mut menus: ResMut<Menus>,
+    mut presses: MessageWriter<MenuPress>,
+    mut taken: ResMut<OverlayKeys>,
+) {
+    let typed = match &menus.screen {
+        Screen::Sheet(s) => s.build_name.clone(),
+        _ => None,
+    };
+    let wanted: &[KeyCode] = if typed.is_some() { NAME_KEYS } else { &[] };
+    if taken.of(NAME_KEYS_OWNER) != wanted {
+        taken.set(NAME_KEYS_OWNER, wanted);
+    }
+    let Some(typed) = typed else {
+        keys.clear();
+        return;
+    };
+    let mut name = typed.clone();
+    for k in keys.read() {
+        if !k.state.is_pressed() {
+            continue;
+        }
+        match &k.logical_key {
+            Key::Backspace => {
+                name.pop();
+            }
+            Key::Enter => {
+                presses.write(MenuPress(MenuAction::NameBuild));
+            }
+            Key::Space => name = build_name_typed(&name, " "),
+            Key::Character(s) => name = build_name_typed(&name, s),
+            _ => {}
+        }
+    }
+    if name != typed {
+        if let Screen::Sheet(s) = &mut menus.screen {
+            s.build_name = Some(name);
+        }
+    }
+}
+
+/// A saved build's tooltip: its name or number, the talent and prestige points it puts back, and
+/// what a click and a right click do; an empty one says how to fill it.
+fn build_tip(slot: u8, build: Option<&esurv_protocol::SavedBuild>, lit: bool) -> Vec<TipLine> {
+    let Some(b) = build else {
+        let how = if lit {
+            "Save keeps what the class holds now here."
+        } else {
+            "Click to light it, then Save to keep what the class holds now."
+        };
+        return vec![
+            TipLine::new(format!("Build {}", slot + 1), palette::VALUE),
+            TipLine::new("Empty.", palette::LABEL),
+            TipLine::new(how, palette::GREEN),
+        ];
+    };
+    let name = if b.name.is_empty() { format!("Build {}", slot + 1) } else { b.name.clone() };
+    let talents: u32 = b.talents.iter().map(|(_, r)| r).sum();
+    let prestige: u32 = b.prestige.iter().map(|(_, r)| r).sum();
+    vec![
+        TipLine::new(name, palette::VALUE),
+        TipLine::new(format!("{talents} talent points \u{b7} {prestige} prestige points"), palette::HEADING),
+        TipLine::new("Click to switch to it.", palette::GREEN),
+        TipLine::new("Right-click to empty it.", palette::GREEN),
+    ]
 }
 
 /// The prestige section: its points to spend, earned and spent, the
@@ -864,5 +1363,15 @@ mod tests {
         let order = reset_order(&content, "warrior", &ranks);
         assert_eq!(order.len(), first.max_rank as usize);
         assert!(order.iter().all(|id| id == &first.id));
+    }
+
+    /// A build name keeps letters, digits, spaces, dashes and apostrophes, up to the limit.
+    #[test]
+    fn a_build_name_keeps_what_can_be_typed() {
+        assert_eq!(build_name_typed("Fire", " & frost!"), "Fire  frost");
+        assert_eq!(build_name_typed("", "Kel'Thas-2"), "Kel'Thas-2");
+        let long = build_name_typed("", &"a".repeat(40));
+        assert_eq!(long.chars().count(), esurv_protocol::BUILD_NAME_LIMIT);
+        assert_eq!(build_name_typed(&long, "b"), long, "nothing past the limit");
     }
 }

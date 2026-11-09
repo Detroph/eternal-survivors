@@ -72,6 +72,19 @@ impl Default for NameConfig {
     }
 }
 
+/// Creature entries that never float a name, whatever the `UnitName*` CVars, the selection or a
+/// cached template name say; the game fills it.
+#[derive(Resource, Default, Clone)]
+pub struct UnnamedEntries(pub std::collections::HashSet<u32>);
+
+impl UnnamedEntries {
+    /// Whether a unit of `kind` with guid `guid` is one of these.
+    fn holds(&self, kind: EntityKind, guid: u64) -> bool {
+        kind == EntityKind::Unit
+            && benilla_protocol::guid::entry(guid).is_some_and(|e| self.0.contains(&e))
+    }
+}
+
 /// The a1-a3 prefix slots of the line stack (`0x608f50`), CGPlayer vtable `+0x7c/+0x80/+0x84`
 /// (`0x5ec9e0`, `0x5eca40`, `0x5eca80`): each set `PLAYER_FLAGS` bit (vmangos `Player.h:316-318`)
 /// stacks in slot order with no space before the name; the base CGUnit slots are stubs, so NPCs
@@ -383,7 +396,8 @@ pub(crate) fn drive_nameplates(
         // The rank strings, read off the current VM ([`PvpNameStrings`]).
         Res<PvpNameStrings>,
     ),
-    names: Res<NameCache>,
+    // The names, and the entries that never show one.
+    (names, unnamed): (Res<NameCache>, Res<UnnamedEntries>),
     // The guild cache, the a5 line's text; `ResMut` because a miss sends `CMSG_GUILD_QUERY`.
     mut guilds: ResMut<crate::ui_guild::GuildState>,
     net_commands: Res<NetCommands>,
@@ -448,7 +462,7 @@ pub(crate) fn drive_nameplates(
     let facing = cam_tf.rotation;
     let mut seen = bevy::ecs::entity::EntityHashSet::default();
     for (entity, net, guid, tf, store, is_self, drawn, figure) in &units {
-        if figure {
+        if figure || unnamed.holds(net.kind, guid.0) {
             continue;
         }
         // A name needs a drawn body; this precedes the ShouldShowName ladder.
@@ -720,6 +734,7 @@ impl Plugin for NameplatesPlugin {
         ))
         .init_resource::<Nameplates>()
         .init_resource::<NameConfig>()
+        .init_resource::<UnnamedEntries>()
         .init_resource::<PvpNameStrings>()
         // After targeting, V-key plates and chat bubbles: the gate reads their verdicts.
         .add_systems(
@@ -781,6 +796,18 @@ mod tests {
     use crate::target::{ring_variant, PlayerPath, SelectorInput};
 
     /// `>` not `>=` at the knee and `0.075*d` beyond: the jump at the knee is the reference's.
+    #[test]
+    fn an_unnamed_entry_holds_only_its_own_units() {
+        let unnamed = UnnamedEntries([110_000].into_iter().collect());
+        let orb = 0xF130_0000_0000_0001 | (110_000u64 << 24);
+        let other = 0xF130_0000_0000_0001 | (110_001u64 << 24);
+        assert_eq!(benilla_protocol::guid::entry(orb), Some(110_000));
+        assert!(unnamed.holds(EntityKind::Unit, orb));
+        assert!(!unnamed.holds(EntityKind::Unit, other));
+        assert!(!unnamed.holds(EntityKind::Player, orb));
+        assert!(!UnnamedEntries::default().holds(EntityKind::Unit, orb));
+    }
+
     #[test]
     fn height_scale_matches_the_byte_law() {
         assert_eq!(height_scale(1.8), 0.2, "human: the floor");

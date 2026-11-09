@@ -24,12 +24,12 @@ mod prerun;
 mod to_client;
 mod to_server;
 
-pub use prerun::{PreRunAsk, SeenView, TimePeriod, WearKind, MAX_TRACKED, PRE_RUN_PREFIX};
+pub use prerun::{BuildAction, PreRunAsk, SeenView, TimePeriod, WearKind, MAX_TRACKED, PRE_RUN_PREFIX};
 pub use to_client::{
     AchievementProgress, Achievements, BountyTold, CampLayout,
     Banner, BossBar, BossCast, BossPhase, BossTimer, BossWarning, BuffKind, BuffTip, Choices, Ending, Experience, GearDrop, GroundIndicator, HeroFacts, Hud, IndicatorShape, Kit, LookStyle, SheathHold,
     KnownSpell, Meter, MeterEntry, Offer, OfferKind, OfferValue, Phase, PrestigeProgress, Progress, Ready, RunEnd,
-    ProcOrigin, SaveFileFacts, ScreenKind, Source, SpellTip, TipKind, ToClient, Worn,
+    ProcOrigin, SaveFileFacts, SavedBuild, ScreenKind, Source, SpellTip, TipKind, ToClient, Worn,
 };
 pub use to_server::{RunOptions, Screens, ToServer};
 
@@ -56,6 +56,11 @@ pub const MAX_MESSAGE: usize = 64 * 1024;
 /// below them.
 pub const MAX_HEROES: usize = 18;
 pub const MAX_HEROES_PER_FACTION: usize = 9;
+/// How many builds each class can keep saved (talents, prestige, weapon loadout and starting
+/// option), switched to with one click on the Talents window.
+pub const BUILD_SLOTS: u8 = 5;
+/// The longest name a saved build takes, in characters.
+pub const BUILD_NAME_LIMIT: usize = 16;
 /// Added to a prefix on every piece of a message but the last.
 const MORE: char = '+';
 

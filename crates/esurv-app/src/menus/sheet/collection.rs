@@ -371,7 +371,7 @@ fn still_to_find(
     }
 }
 
-//// The right column: the piece picked, or a slot's looks.
+/// The right column: the piece picked, or a slot's looks.
 fn details(
     r: &mut ChildSpawnerCommands,
     look: &MenuLook,
@@ -663,6 +663,8 @@ mod tests {
             new_points: false,
             challenge_open: false,
             challenge_news: false,
+            builds: Vec::new(),
+            active_build: 0,
         };
         let look = |zone, row| gear.set.look_of(zone, row).unwrap() as u32;
         assert_eq!(row_head_line(&gear, &progress, look("elwynn", 0), 2, 8), "Common  2/8");
@@ -702,6 +704,8 @@ mod tests {
             new_points: false,
             challenge_open: false,
             challenge_news: false,
+            builds: Vec::new(),
+            active_build: 0,
         };
         let head = gear.entry(0, zone);
         let found = progress(vec![], vec![head]);

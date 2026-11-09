@@ -103,7 +103,7 @@ change with them: the client picks it by class and subclass.
 The server sends each weapon as the creature's virtual item: `UNIT_VIRTUAL_ITEM_SLOT_DISPLAY + slot`
 the look, `UNIT_VIRTUAL_ITEM_INFO + 2·slot` class | subclass << 8 | material << 16 | inventory
 type << 24, and `+ 1` the sheath; with weapons drawn (`UNIT_BYTES_2` sheath state 1, as vmangos's
-creatures). A creature holding nothing is sent none of these, as before.
+creatures). A creature holding nothing is sent none of these.
 
 The client (`creature_anim::select`) picks the swing by the main hand's class and subclass:
 one-handed axe, mace and sword Attack1H (17), two-handed axe, mace and sword Attack2H (18),
@@ -111,4 +111,4 @@ polearm and staff Attack2HL (19), dagger Attack1HPierce (85), nothing AttackUnar
 logged with `HITINFO_LEFTSWING` (0x04) plays the off hand's: AttackOff (87) for a weapon. A
 creature with a weapon in each hand (Scarlet Myrmidon, Houndmaster Loksey) has its logged swings
 alternate main hand, off hand (`Game::enemy_swings_left`); a shield never swings. Only the look:
-the swings' timing and damage are the simulation's, unchanged. Rares hold their elite's.
+the swings' timing and damage are the simulation's. Rares hold their elite's.

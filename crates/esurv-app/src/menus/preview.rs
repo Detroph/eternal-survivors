@@ -33,7 +33,7 @@ const TURN_PER_PIXEL: f32 = 0.6 * std::f32::consts::PI / 180.0;
 /// Radians an arrow turns the hero.
 pub(super) const TURN_STEP: f32 = 0.5;
 
-//// The 19 equipment slots the class wears in `progress`, each piece in its look: the look chosen
+/// The 19 equipment slots the class wears in `progress`, each piece in its look: the look chosen
 /// for its slot, else its own (as the character list dresses a hero); the weapons its weapon
 /// loadout's, in the armaments of the class gear weapon worn (as the server arms a hero).
 pub(super) fn worn_equipment(
@@ -244,6 +244,8 @@ mod tests {
             new_points: false,
             challenge_open: false,
             challenge_news: false,
+            builds: Vec::new(),
+            active_build: 0,
         };
         let e = worn_equipment(&content, "warrior", &progress);
         let head = content.gear.slots[0].equip_slot() as usize;

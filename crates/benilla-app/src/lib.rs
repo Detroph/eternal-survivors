@@ -208,6 +208,8 @@ pub use net::SendAddonMessage;
 pub use target::Interact;
 // And read a unit's rank (elite, rare, boss), as the portrait's dragon does.
 pub use names::{creature_rank, CreatureRanks};
+// And keep a creature's name off its head whatever the name options are.
+pub use nameplates::UnnamedEntries;
 // A crate on top of benilla marks its own `bevy_ui` windows with this, so they take the pointer.
 pub use ui_script::OverlayWindow;
 // And its modal screens take the keys they list from the key bindings.

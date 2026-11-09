@@ -2827,52 +2827,6 @@ impl Milestone {
         }
     }
 
-    pub fn filter_mut(&mut self) -> Option<&mut SpellFilter> {
-        match self {
-            Milestone::FreeCast { filter, .. }
-            | Milestone::EveryNth { filter, .. }
-            | Milestone::PetOnTrigger { filter, .. }
-            | Milestone::ShieldBurst { filter, .. }
-            | Milestone::Splash { filter, .. }
-            | Milestone::ExtraTargets { filter, .. }
-            | Milestone::StrikeAgain { filter, .. }
-            | Milestone::Afflict { filter, .. }
-            | Milestone::DotOnHit { filter, .. }
-            | Milestone::ResetOnKill { filter, .. }
-            | Milestone::ExplodeOnDeath { filter, .. }
-            | Milestone::SpreadOnDeath { filter, .. }
-            | Milestone::TimedBuff { filter, .. }
-            | Milestone::HealOnTrigger { filter, .. }
-            | Milestone::ResourceOnTrigger { filter, .. }
-            | Milestone::FasterSwings { filter, .. }
-            | Milestone::CooldownOnTrigger { filter, .. }
-            | Milestone::MoreSummonsEveryNth { filter, .. }
-            | Milestone::LineHit { filter, .. }
-            | Milestone::MarkAttackers { filter, .. }
-            | Milestone::GrowingArea { filter, .. }
-            | Milestone::AreaFollowsHero { filter }
-            | Milestone::PullEveryNth { filter, .. }
-            | Milestone::FireTrail { filter, .. }
-            | Milestone::Every { filter, .. }
-            | Milestone::ResetOnTrigger { filter, .. }
-            | Milestone::StrikeOne { filter, .. }
-            | Milestone::Reflections { filter, .. }
-            | Milestone::Burst { filter, .. }
-            | Milestone::DotBurst { filter, .. }
-            | Milestone::DotSpread { filter, .. }
-            | Milestone::LeaveArea { filter, .. }
-            | Milestone::Barrage { filter, .. }
-            | Milestone::CastAgain { filter, .. }
-            | Milestone::HealAfter { filter, .. }
-            | Milestone::DotFromHeal { filter, .. }
-            | Milestone::CastOnCooldown { filter }
-            | Milestone::ApplyPoison { filter, .. }
-            | Milestone::ComboPoints { filter, .. }
-            | Milestone::FearedTurn { filter, .. } => Some(filter),
-            _ => None,
-        }
-    }
-
     /// The pet it summons, if any.
     pub fn pet(&self) -> Option<&String> {
         match self {

@@ -49,11 +49,6 @@ fn parse_key(hex: &str) -> Option<[u8; 32]> {
     Some(key)
 }
 
-/// Whether this build reads release saves (it was built with `ESURV_SAVE_KEY`).
-pub fn release_key() -> bool {
-    option_env!("ESURV_SAVE_KEY").and_then(parse_key).is_some()
-}
-
 /// The save text locked, ready to write.
 pub fn lock(text: &str) -> Vec<u8> {
     lock_with(&key(), text)

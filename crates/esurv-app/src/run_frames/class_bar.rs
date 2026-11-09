@@ -8,7 +8,7 @@ use bevy::prelude::*;
 
 use benilla_app::Objects;
 use benilla_ui::script::UiScript;
-use esurv_content::option_looks::{bar_colour, icon_overrides, resource_of_word, BarColour};
+use esurv_content::option_looks::{bar_colour, icon_overrides, resource_of_word, shown_under_the_bar, BarColour, STRIKE_BACK_READY};
 use esurv_content::ResourceKind;
 use esurv_protocol::ToClient;
 
@@ -26,6 +26,10 @@ pub struct ClassBar {
     pub bar: Option<(ResourceKind, String, f32, f32)>,
     /// Combo points: how many, of how many.
     pub pips: Option<(f32, f32)>,
+    /// A counter shown under the bar, which keeps the rage: its name, value and most.
+    pub tracker: Option<(String, f32, f32)>,
+    /// A struck-back passive's light at the bar's end: lit when ready, `None` with no such passive.
+    pub ready: Option<bool>,
 }
 
 pub(super) fn add(app: &mut App) {
@@ -47,11 +51,17 @@ fn keep_the_bar(
     *was_in = now_in;
     for ServerEvent(m) in events.read() {
         if let ToClient::Bar { kind, name, value, max, .. } = m {
+            if kind == STRIKE_BACK_READY {
+                bar.ready = Some(*value > 0.0);
+                continue;
+            }
             let Some(kind) = resource_of_word(kind) else {
                 continue;
             };
             if kind == ResourceKind::ComboPoints {
                 bar.pips = Some((*value, *max));
+            } else if shown_under_the_bar(kind) {
+                bar.tracker = Some((name.clone(), *value, *max));
             } else {
                 bar.bar = Some((kind, name.clone(), *value, *max));
             }
@@ -77,7 +87,15 @@ pub fn bar_chunk(bar: &ClassBar) -> String {
         None => chunk.push_str("ESURV_CLASS_BAR.clear(); "),
     }
     let (count, max) = bar.pips.unwrap_or((0.0, 0.0));
-    chunk.push_str(&format!("ESURV_CLASS_BAR.set_pips({count}, {max})"));
+    chunk.push_str(&format!("ESURV_CLASS_BAR.set_pips({count}, {max}); "));
+    let (name, value, most) = bar.tracker.clone().unwrap_or_default();
+    chunk.push_str(&format!("ESURV_CLASS_BAR.set_tracker({}, {value}, {most})", lua_string(&name)));
+    let ready = match bar.ready {
+        Some(true) => "1",
+        Some(false) => "0",
+        None => "nil",
+    };
+    chunk.push_str(&format!("; ESURV_CLASS_BAR.set_ready({ready})"));
     chunk
 }
 
@@ -158,17 +176,21 @@ mod tests {
         let bar = ClassBar {
             bar: Some((ResourceKind::HolyPower, "Holy Power".into(), 3.0, 5.0)),
             pips: None,
+            tracker: None,
+            ready: None,
         };
         let chunk = bar_chunk(&bar);
         assert!(chunk.contains("set_bar(\"HolyPower\", \"Holy Power\", true, 0.950"), "{chunk}");
-        assert!(chunk.ends_with("set_pips(0, 0)"));
+        assert!(chunk.contains("set_pips(0, 0); "));
         let rage = ClassBar {
             bar: Some((ResourceKind::Energy, String::new(), 40.0, 100.0)),
             pips: Some((3.0, 5.0)),
+            tracker: None,
+            ready: None,
         };
         let chunk = bar_chunk(&rage);
         assert!(chunk.contains("set_bar(\"Energy\", \"\", false"), "{chunk}");
-        assert!(chunk.ends_with("set_pips(3, 5)"));
+        assert!(chunk.contains("set_pips(3, 5); "));
         assert!(bar_chunk(&ClassBar::default()).starts_with("ESURV_CLASS_BAR.clear()"));
     }
 
@@ -189,6 +211,8 @@ mod tests {
         let bar = ClassBar {
             bar: Some((ResourceKind::Insanity, "Insanity".into(), 21.0, 100.0)),
             pips: Some((2.0, 5.0)),
+            tracker: Some(("Smash count".into(), 2.0, 4.0)),
+            ready: Some(true),
         };
         lua.load(&bar_chunk(&bar)).exec().unwrap();
         lua.load(&icons_chunk(None)).exec().unwrap();
@@ -205,14 +229,38 @@ mod tests {
         assert!(painted.2 && !painted.3);
         assert_eq!(painted.4, "Insanity");
         assert!(painted.5);
+        let tracker: (bool, String, f32) =
+            lua.load("return EsurvClassTracker.shown, EsurvClassTrackerText.text, EsurvClassTracker.value").eval().unwrap();
+        assert_eq!(tracker, (true, "Smash count 2 / 4".into(), 2.0));
+        // the ready light: lit, then dark while it waits, then gone with no such passive
+        let light = |lua: &mlua::Lua| -> (bool, bool) { lua.load("return EsurvClassReady.shown, EsurvClassReadyLit.shown").eval().unwrap() };
+        assert_eq!(light(&lua), (true, true));
+        lua.load("ESURV_CLASS_BAR.set_ready(0)").exec().unwrap();
+        assert_eq!(light(&lua), (true, false));
+        lua.load("ESURV_CLASS_BAR.set_ready(nil)").exec().unwrap();
+        assert_eq!(light(&lua), (false, false));
+        // ours shows with the run's player frame on or off, and the bar's own number fades out
+        let counts: (bool, bool, f32) = lua
+            .load(
+                "ESURV_UNIT_FRAMES = { on = function() return true end }; ESURV_CLASS_BAR.place(4, -6); \
+                 local over = EsurvClassBarText.shown; \
+                 ESURV_UNIT_FRAMES = nil; ESURV_CLASS_BAR.place(0, 0); \
+                 return over, EsurvClassBarText.shown, PlayerFrameManaBarText.alpha",
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(counts, (true, true, 0.0));
         let icon: String = lua
             .load("ESURV_RUN_FRAMES_ON = 1; ESURV_RUN_FRAMES = { player_auras = { [0] = 1467 } }; return GetPlayerBuffTexture(0)")
             .eval()
             .unwrap();
         assert_eq!(icon, r"Interface\Icons\INV_Enchant_EssenceMysticalSmall");
         lua.load("ESURV_CLASS_BAR.clear()").exec().unwrap();
-        let back: (f32, bool) = lua.load("return ManaBarColor[0].b, EsurvClassBarName.shown").eval().unwrap();
-        assert_eq!(back, (1.0, false));
+        let back: (f32, bool, bool, f32) = lua
+            .load("return ManaBarColor[0].b, EsurvClassBarName.shown, EsurvClassTracker.shown, PlayerFrameManaBarText.alpha")
+            .eval()
+            .unwrap();
+        assert_eq!(back, (1.0, false, false, 1.0));
     }
 
     /// Just enough of the stock frames for the Lua.
@@ -229,6 +277,12 @@ mod tests {
             function f:SetTexCoord() end
             function f:SetText(t) self.text = t end
             function f:SetStatusBarColor(r, g, b) self.colour = { r, g, b } end
+            function f:SetStatusBarTexture() end
+            function f:SetAllPoints() end
+            function f:SetMinMaxValues(a, b) self.range = { a, b } end
+            function f:SetValue(v) self.value = v end
+            function f:GetWidth() return 120 end
+            function f:SetAlpha(a) self.alpha = a end
             function f:CreateFontString(n) local s = frame(n); if n then _G[n] = s end; return s end
             function f:CreateTexture(n) local s = frame(n); if n then _G[n] = s end; return s end
             return f
@@ -236,6 +290,7 @@ mod tests {
         function CreateFrame(_, n) local f = frame(n); if n then _G[n] = f end; return f end
         PlayerFrame = frame()
         PlayerFrameManaBar = frame()
+        PlayerFrameManaBarText = frame()
         ManaBarColor = { [0] = { r = 0, g = 0, b = 1 } }
         function UnitPowerType() return 0 end
         function GetPlayerBuffTexture(i) return "stock" end

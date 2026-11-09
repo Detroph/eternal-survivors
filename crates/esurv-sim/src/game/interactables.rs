@@ -6,7 +6,7 @@
 
 use esurv_content::{GroundObject, ObjectNear};
 
-use super::enemy_ai::Vec2;
+use super::enemy_ai::{dist, Vec2};
 use super::run::{Event, Run};
 
 /// The contact's progress is told in steps of this share (the glow under it filling).
@@ -44,10 +44,6 @@ pub struct ObjectDue {
     pub near: ObjectNear,
     pub source: Option<u32>,
     pub attack_damage: f32,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {

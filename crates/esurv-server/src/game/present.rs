@@ -2,7 +2,7 @@
 //! damage and heal numbers, melee swings, enemy casts, cooldowns on the action bar, shouted
 //! lines and centre-screen lines, and the run's numbers for the character pane.
 
-use esurv_content::School;
+use esurv_content::{Counter, PassiveKind, Release, School};
 use esurv_sim::game::casting::HitSource;
 use esurv_sim::game::run::{Aim, BuffKind, Event, Hero, Speaker, Unit};
 
@@ -450,6 +450,48 @@ impl Game {
         packets::action_buttons(&buttons)
     }
 
+    /// The spells of hero `hero`'s passive that strike in turn (`Release::Strikes`, Rampage): all
+    /// but the last play as quick weapon swings, the last keeps its own look (an overhead slam).
+    fn strike_spells(&self, hero: u32) -> Option<&[String]> {
+        let h = self.run.heroes.iter().find(|h| h.id == hero)?;
+        let o = esurv_sim::game::kit::option_of(&self.run.content, h)?;
+        match &o.passive.kind {
+            PassiveKind::Counter(Counter { release: Release::Strikes { spells, .. }, .. }) => Some(spells),
+            _ => None,
+        }
+    }
+
+    /// Whether hero `hero`'s `spell` (an ability's look) is one of its passive's swing strikes.
+    fn is_strike_swing_look(&self, hero: u32, spell: u32) -> bool {
+        let Some(spells) = self.strike_spells(hero) else { return false };
+        let Some((last, swings)) = spells.split_last() else { return false };
+        let look = |id: &String| self.run.content.ability(id).map(|a| a.look_spell);
+        look(last) != Some(spell) && swings.iter().any(|s| look(s) == Some(spell))
+    }
+
+    /// A hit of hero `hero`'s `ability`: `Some(off hand)` when it is one of its passive's swing
+    /// strikes, shown as a weapon swing; a hero with a weapon in each hand strikes main hand, off
+    /// hand, main hand (a shield or a two-hander: main hand only). The last strike starts over.
+    fn strike_swing_hand(&mut self, hero: u32, ability: &str) -> Option<bool> {
+        let spells = self.strike_spells(hero)?;
+        let (last, swings) = spells.split_last()?;
+        if last == ability {
+            self.strike_swings.remove(&hero);
+            return None;
+        }
+        if !swings.iter().any(|s| s == ability) {
+            return None;
+        }
+        let dual = self.run.heroes.iter().find(|h| h.id == hero).is_some_and(|h| {
+            let swings = esurv_sim::game::kit::swings_of(&self.run.content, h);
+            swings.len() >= 2 && swings[1].look_spell.is_none()
+        });
+        let count = self.strike_swings.entry(hero).or_default();
+        let left = dual && *count % 2 == 1;
+        *count += 1;
+        Some(left)
+    }
+
     /// The packets for this tick's events: those every client gets, and those for one hero's
     /// client only.
     pub(super) fn present(&mut self, events: &[Event]) -> (Vec<Packet>, Vec<(u32, Packet)>) {
@@ -478,6 +520,10 @@ impl Game {
                     let Some(from) = self.guid_of(*caster) else {
                         continue;
                     };
+                    // a passive's swing strike plays as the weapon swing its hit sends
+                    if matches!(caster, Unit::Hero(h) if self.is_strike_swing_look(*h, *spell)) {
+                        continue;
+                    }
                     // a legendary moment's look at a spot plays there, from a look of its own put
                     // down on it
                     if let (Unit::Hero(_), Aim::Ground(at), true) = (caster, aim, hits.is_empty()) {
@@ -531,7 +577,9 @@ impl Game {
                     let hero = by.and_then(|h| self.guid_of(Unit::Hero(h)));
                     match (source, hero) {
                         (HitSource::Spell(a), Some(h)) => {
-                            if let Some((spell, school)) = self.hit_look(a) {
+                            if let Some(left) = by.and_then(|b| self.strike_swing_hand(b, a)) {
+                                all.push(packets::attacker_state_hand(h, target, points(*amount), *crit, left));
+                            } else if let Some((spell, school)) = self.hit_look(a) {
                                 all.push(packets::spell_damage_log(
                                     target,
                                     h,
@@ -822,6 +870,9 @@ impl Game {
                 self.stats_sent.insert(h.id, line);
             }
         }
+        // a run of strikes is over once none is still to come (its slam may have found no one)
+        let heroes = &self.run.heroes;
+        self.strike_swings.retain(|id, _| heroes.iter().any(|h| h.id == *id && !h.kit.strikes.is_empty()));
         (all, own)
     }
 
@@ -937,6 +988,16 @@ impl Game {
             if self.starshards_until.get(&e.id).is_some_and(|t| *t > now) && debuffs.len() < DEBUFF_SLOTS {
                 debuffs.push(Aura {
                     spell: super::starting_looks::extras::STARSHARDS,
+                    stacks: 1,
+                    until: 0.0,
+                });
+            }
+            // Colossal Smash's red glow while the enemy takes more damage from it
+            let smashed = self.smashed_until.get(&e.id).is_some_and(|t| *t > now)
+                && esurv_sim::game::run::EnemyUnit::active(e.vulnerable, now).is_some();
+            if smashed && debuffs.len() < DEBUFF_SLOTS {
+                debuffs.push(Aura {
+                    spell: super::starting_looks::extras::SMASHED,
                     stacks: 1,
                     until: 0.0,
                 });

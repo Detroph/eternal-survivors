@@ -9,9 +9,8 @@
 //! * the bottom-left corner: Options (the game's settings, [`super::options`]) over Quit game, and
 //!   over them, when a newer version is out, the update notice with its Update button
 //!   ([`crate::update`]);
-//! * the top-left panel: the picked hero's name, class and total wins, its starting spell, and
-//!   under it its class's weapon loadout (a row of three icons as the starting spell's, each
-//!   telling its weapons, strength and drawback in its tooltip);
+//! * the top-left panel: the picked hero's name, class, total wins and runs (its starting spell
+//!   and weapon loadout are on the Talents window's build bar, [`super::sheet::talents`]);
 //! * the top middle, centred over the camp, left of the zone column: Equipment and Talents (each opening
 //!   the hero sheet there, glowing while it has news), Codex ([`super::codex`]), Achievements (its
 //!   window, glowing while something was earned since it was last opened), Shop (the shop alone)
@@ -38,8 +37,6 @@ use crate::zone_discovery::{is_discovered, LOCK_ICON, UNDISCOVERED};
 pub(super) const MARGIN: f32 = 16.0;
 const INFO_WIDTH: f32 = 236.0;
 pub(super) const ZONE_WIDTH: f32 = 350.0;
-/// A starting option's icon on the info panel.
-const START_ICON: f32 = 40.0;
 const CAMP_SWITCH: f32 = 46.0;
 const CAMP_BUTTON: f32 = 150.0;
 const CORNER_BUTTON: f32 = 110.0;
@@ -339,8 +336,6 @@ fn info_panel(r: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: Op
                 palette::VALUE,
             );
         });
-        starting_spell(p, look, ctx, h);
-        weapon_loadout(p, look, ctx, h);
     });
 }
 
@@ -381,97 +376,6 @@ pub(crate) fn loadout_tip(l: &esurv_content::Loadout) -> Vec<TipLine> {
         lines.push(TipLine::new(l.drawback.clone(), palette::RED));
     }
     lines
-}
-
-/// The info panel's Weapon loadout spot, under the Starting spell and built as it: the class's
-/// three loadouts as icons, the one the class fights with lit and named under the row, each
-/// telling the rest in its tooltip; a click picks another, which the save keeps for the class's
-/// next runs.
-fn weapon_loadout(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: &Character) {
-    let Some(class) = class_of(ctx.content, hero.class) else {
-        return;
-    };
-    let told = ctx.facts.progress(&class.id).map(|p| p.loadout.as_str());
-    let icons = loadout_icons(ctx.content, &class.id, told);
-    if icons.is_empty() {
-        return;
-    }
-    p.spawn((
-        Node {
-            flex_direction: FlexDirection::Column,
-            padding: UiRect::axes(look.px(8.0), look.px(5.0)),
-            border: UiRect::all(look.px(1.0)),
-            border_radius: BorderRadius::all(look.px(4.0)),
-            row_gap: look.px(4.0),
-            ..default()
-        },
-        BorderColor::all(palette::GOLD_DIM),
-    ))
-    .with_children(|b| {
-        b.spawn(look.label("Weapon loadout"));
-        b.spawn(Node {
-            column_gap: look.px(6.0),
-            ..default()
-        })
-        .with_children(|row| {
-            for i in &icons {
-                let l = i.loadout;
-                look.icon(row, look.icon_art(&l.icon), None, START_ICON, i.chosen, false, false)
-                    .insert((Tip(loadout_tip(l)), MenuLookTip, MenuAction::PickLoadout(l.id.clone())));
-            }
-        });
-        if let Some(i) = icons.iter().find(|i| i.chosen) {
-            b.spawn(look.value(i.loadout.name.clone()));
-        }
-    });
-}
-
-/// The info panel's Starting spell spot: the class's starting options as icons (three, the
-/// Druid's four), the hero's pick lit; a click picks another, which the save keeps for its next
-/// runs.
-fn starting_spell(p: &mut ChildSpawnerCommands, look: &MenuLook, ctx: &Ctx, hero: &Character) {
-    let Some(class) = class_of(ctx.content, hero.class) else {
-        return;
-    };
-    let picked = ctx.facts.hero(hero.guid).map(|f| f.start.as_str()).filter(|s| !s.is_empty());
-    let chosen = class.starting_option(picked);
-    p.spawn((
-        Node {
-            flex_direction: FlexDirection::Column,
-            padding: UiRect::axes(look.px(8.0), look.px(5.0)),
-            border: UiRect::all(look.px(1.0)),
-            border_radius: BorderRadius::all(look.px(4.0)),
-            row_gap: look.px(4.0),
-            ..default()
-        },
-        BorderColor::all(palette::GOLD_DIM),
-    ))
-    .with_children(|b| {
-        b.spawn(look.label("Starting spell"));
-        b.spawn(Node {
-            column_gap: look.px(6.0),
-            ..default()
-        })
-        .with_children(|row| {
-            for o in &class.starting_options {
-                let on = chosen.is_some_and(|c| c.id == o.id);
-                // the option's own icon, else its main spell's
-                let icon = match o.icon.as_str() {
-                    "" => ctx.content.ability(o.main_spell()).map_or("", |a| a.icon.as_str()),
-                    own => own,
-                };
-                look.icon(row, look.icon_art(icon), None, START_ICON, on, false, false)
-                    .insert((
-                        Tip(option_tip(ctx.content, class, o)),
-                        MenuLookTip,
-                        MenuAction::PickStart(o.id.clone()),
-                    ));
-            }
-        });
-        if let Some(o) = chosen {
-            b.spawn(look.value(o.name.clone()));
-        }
-    });
 }
 
 /// A spell's description with its numbers for a hero of `class` at level 1, rank 1.

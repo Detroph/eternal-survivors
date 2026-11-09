@@ -6,7 +6,7 @@
 
 use esurv_content::{Affliction, LastingZone};
 
-use super::enemy_ai::Vec2;
+use super::enemy_ai::{dist, Vec2};
 use super::run::{Event, Run};
 
 /// A drifting or following zone's look is put down again once it has moved this far.
@@ -41,10 +41,6 @@ pub struct HeroAffliction {
     pub until: f32,
     /// The share of its damage the hero deals less while it lasts (a class call; 0 for a stack).
     pub weakens: f32,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {

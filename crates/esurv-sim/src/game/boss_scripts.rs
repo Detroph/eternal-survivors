@@ -7,7 +7,7 @@
 
 use esurv_content::{CreatureType, CreatureWeapons, ScriptAction, ScriptTrigger, WaveAt, SOON_AHEAD};
 
-use super::enemy_ai::{Segment, Vec2};
+use super::enemy_ai::{dist, Segment, Vec2};
 use super::enemy_attacks::AbilitySlot;
 use super::run::{EnemyKind, Event, Run, Speaker, Unit};
 
@@ -78,10 +78,6 @@ pub struct SpawnRules {
     pub stopped: bool,
     /// Only roster enemies of this type spawn, for the rest of the run.
     pub only: Option<CreatureType>,
-}
-
-fn dist(a: Vec2, b: Vec2) -> f32 {
-    ((a.0 - b.0).powi(2) + (a.1 - b.1).powi(2)).sqrt()
 }
 
 impl Run {
