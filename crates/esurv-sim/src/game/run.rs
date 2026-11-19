@@ -761,7 +761,7 @@ pub struct Run {
     pub(crate) fallen_boss: Option<u32>,
     /// While a banished card's slot is filled: the keys of the cards still on its screen.
     pub(crate) offer_exclude: Vec<String>,
-    next_id: u32,
+    pub(crate) next_id: u32,
     pub(crate) events: Vec<Event>,
 }
 

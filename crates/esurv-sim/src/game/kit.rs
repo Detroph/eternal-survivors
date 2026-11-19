@@ -1436,9 +1436,11 @@ impl Run {
     }
 
     /// Blade Dance: `count` reflections of hero `i` step out beside it, run
-    /// [`REFLECTION_RUN_AHEAD`] the way it faces, then spin for what is left of `seconds`.
-    pub(crate) fn summon_reflections(&mut self, i: usize, count: u32, seconds: f32, blade: BladeSpin) {
+    /// [`REFLECTION_RUN_AHEAD`] the way it faces, then spin for what is left of `seconds`. The
+    /// id of the first; the others follow it.
+    pub(crate) fn summon_reflections(&mut self, i: usize, count: u32, seconds: f32, blade: BladeSpin) -> u32 {
         let now = self.now;
+        let first = self.next_id + 1;
         let (hero, at, facing) = (self.heroes[i].id, self.heroes[i].pos, self.heroes[i].facing);
         let (ahead, side) = ((facing.cos(), facing.sin()), (-facing.sin(), facing.cos()));
         for n in 0..count {
@@ -1475,6 +1477,7 @@ impl Run {
             });
             self.push(Event::SummonAppeared { id, hero, kind: SummonKind::Reflection, at: spot, until: Some(now + seconds) });
         }
+        first
     }
 
     /// A reflection's decision: running ahead, it runs on; then it chases the nearest enemy and

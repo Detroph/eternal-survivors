@@ -87,6 +87,10 @@ pub struct MilestoneState {
     pub swings_left: u32,
     /// `Every` counting casts: the last counted cast was the one whose hits go off.
     pub armed: bool,
+    /// `Reflections`: the cast (`Run::casts_made`) that last sent them, and the id of the first
+    /// it sent (the rest follow it), so its other hits make those spin harder.
+    pub cast: u64,
+    pub first_pet: u32,
 }
 
 impl Run {

@@ -279,8 +279,23 @@ impl Run {
             Milestone::Reflections { count, seconds, interval, radius, targets, share, look_spell, .. } => {
                 // their spins count as the spell's, and set nothing off again
                 let credit = self.repeat_source(h, source);
-                let blade = super::kit::BladeSpin { strike: share * dealt, credit, radius: *radius, targets: *targets, interval: *interval, look: *look_spell };
-                self.summon_reflections(h, *count, *seconds, blade);
+                let strike = share * dealt;
+                let cast = self.casts_made;
+                let state = *self.state(h, k);
+                if cast > 0 && state.cast == cast {
+                    // one cast sends them once: its other hits make the ones it sent spin harder
+                    let ids = state.first_pet..state.first_pet + count;
+                    for p in self.pets.iter_mut().filter(|p| ids.contains(&p.id)) {
+                        if let Some(b) = p.summon.as_mut().and_then(|s| s.blade.as_mut()) {
+                            b.strike += strike;
+                        }
+                    }
+                    return;
+                }
+                let blade = super::kit::BladeSpin { strike, credit, radius: *radius, targets: *targets, interval: *interval, look: *look_spell };
+                let first_pet = self.summon_reflections(h, *count, *seconds, blade);
+                let s = self.state(h, k);
+                (s.cast, s.first_pet) = (cast, first_pet);
             }
             Milestone::StrikeOne { pick, reach, share, effects, look_spell, reflection, .. } => {
                 let Some(target) = target else { return };
@@ -1132,5 +1147,28 @@ mod tests {
         let mut r = run(vec![on_cooldown]);
         enemy(&mut r, 50.0);
         assert!(!r.free_cast(0, "renew"));
+    }
+
+    /// Blade Dance sends its two reflections once a cast, however many the strike hits; its
+    /// other hits make those two spin harder, by their own share.
+    #[test]
+    fn blade_dance_sends_two_a_cast_and_its_other_hits_spin_them_harder() {
+        let m = Milestone::Reflections { count: 2, seconds: 5.0, interval: 1.0, radius: 8.0, targets: 3, share: 0.035, look_spell: Some(9632), trigger: Trigger::Hit, filter: SpellFilter::Spell("mortal_strike".into()) };
+        let mut r = run_as("warrior", vec![m]);
+        let ids: Vec<u32> = (0..5).map(|i| enemy(&mut r, 2.0 + i as f32 * 0.5)).collect();
+        let made = |r: &mut Run| r.drain_events().iter().filter(|e| matches!(e, Event::SummonAppeared { kind: SummonKind::Reflection, .. })).count();
+        r.casts_made += 1;
+        for &t in &ids {
+            r.hit_enemy(Some(0), t, 1000.0, false, spell("mortal_strike"));
+        }
+        assert_eq!(made(&mut r), 2, "five hits of one cast");
+        let strikes: Vec<f32> = r.pets.iter().filter_map(|p| p.summon.as_ref()?.blade.as_ref()).map(|b| b.strike).collect();
+        assert_eq!(strikes.len(), 2);
+        assert!(strikes.iter().all(|s| (s - 5.0 * 35.0).abs() < 0.01), "each spins for all five hits: {strikes:?}");
+        // the next cast sends two more
+        r.casts_made += 1;
+        r.hit_enemy(Some(0), ids[0], 1000.0, false, spell("mortal_strike"));
+        assert_eq!(made(&mut r), 2);
+        assert_eq!(r.pets.len(), 4);
     }
 }
